@@ -1,16 +1,26 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { ScrollView, StyleSheet, View, Pressable, Platform } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { ActivityIndicator, Button, Text, TextInput, Checkbox, Surface, Divider, useTheme, Portal, Modal } from 'react-native-paper';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  Pressable,
+  Platform,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
+import { Text } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+
 import { reportsApi } from '../../api/reports.api';
 import { getDepartments } from '../../api/departments.api';
 import { getScopedEmployees } from '../../api/employees.api';
 import { useSnackbar } from '../../hooks/useSnackbar';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
+import { CustomAlert } from '../../components/CustomAlert';
 
 const getFormattedDate = (date: Date) => {
   const yyyy = date.getFullYear();
@@ -20,36 +30,71 @@ const getFormattedDate = (date: Date) => {
 };
 
 const getDisplayDate = (date: Date) => {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
 };
 
+// Initial avatar with fallback
+function EmployeeInitialAvatar({ name, size = 40 }: { name: string; size?: number }) {
+  const initials = useMemo(() => {
+    if (!name) return 'ML';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'ML';
+    if (parts.length === 1) return (parts[0] || '').slice(0, 2).toUpperCase();
+    const first = parts[0]?.[0] || '';
+    const last = parts[parts.length - 1]?.[0] || '';
+    return (first + last).toUpperCase() || 'ML';
+  }, [name]);
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: '#E2E8F0',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <Text style={{ color: '#334155', fontSize: 13, fontWeight: '800' }}>{initials}</Text>
+    </View>
+  );
+}
+
 export function AttendanceReportScreen() {
+  const router = useRouter();
+  const { showSnackbar } = useSnackbar();
+
+  // Date range filter mode: 'thisMonth' | 'lastMonth' | 'custom'
+  const [dateMode, setDateMode] = useState<'thisMonth' | 'lastMonth' | 'custom'>('custom');
+
   const [startDate, setStartDate] = useState<Date>(() => {
     const d = new Date();
-    d.setDate(d.getDate() - 30);
+    d.setMonth(d.getMonth() - 1);
     return d;
   });
   const [endDate, setEndDate] = useState<Date>(() => new Date());
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
-  
+
+  const [showPickerFor, setShowPickerFor] = useState<'start' | 'end' | null>(null);
+
+  // Departments & Employees
   const [departments, setDepartments] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
-  
   const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
+  // Search employee & pagination limit
+  const [searchEmployee, setSearchEmployee] = useState('');
+  const [displayLimit, setDisplayLimit] = useState(3);
+
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-  
-  const { showSnackbar } = useSnackbar();
-  const theme = useTheme();
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, []);
 
   const loadData = async () => {
@@ -57,14 +102,69 @@ export function AttendanceReportScreen() {
     try {
       const [deptRes, userRes] = await Promise.all([
         getDepartments(),
-        getScopedEmployees({ limit: 100 })
+        getScopedEmployees({ limit: 150 }),
       ]);
-      setDepartments(deptRes.items || []);
-      setUsers(userRes.items || []);
-    } catch (e) {
+      const depts = deptRes.items || [];
+      const emps = userRes.items || [];
+      setDepartments(depts);
+      setUsers(emps);
+      // Select all employees by default
+      setSelectedUsers(emps.map(u => u.id));
+    } catch {
       showSnackbar('Lỗi tải dữ liệu phòng ban / nhân sự', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Quick Date Selectors
+  const handleSelectDateMode = (mode: 'thisMonth' | 'lastMonth' | 'custom') => {
+    setDateMode(mode);
+    const now = new Date();
+    if (mode === 'thisMonth') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setStartDate(start);
+      setEndDate(end);
+    } else if (mode === 'lastMonth') {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      setStartDate(start);
+      setEndDate(end);
+    }
+  };
+
+  // Filtered employees by department and search
+  const availableUsers = useMemo(() => {
+    if (selectedDepts.length > 0) {
+      return users.filter(u => u.department?.id && selectedDepts.includes(u.department.id));
+    }
+    return users;
+  }, [users, selectedDepts]);
+
+  const filteredUsers = useMemo(() => {
+    if (!searchEmployee.trim()) return availableUsers;
+    const q = searchEmployee.trim().toLowerCase();
+    return availableUsers.filter(u => {
+      const name = (u.fullName || '').toLowerCase();
+      const code = (u.userCode || '').toLowerCase();
+      return name.includes(q) || code.includes(q);
+    });
+  }, [availableUsers, searchEmployee]);
+
+  const toggleUser = (userId: string) => {
+    setSelectedUsers(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const toggleSelectAllUsers = () => {
+    const allFilteredIds = filteredUsers.map(u => u.id);
+    const allSelected = allFilteredIds.every(id => selectedUsers.includes(id));
+    if (allSelected) {
+      setSelectedUsers(prev => prev.filter(id => !allFilteredIds.includes(id)));
+    } else {
+      setSelectedUsers(prev => Array.from(new Set([...prev, ...allFilteredIds])));
     }
   };
 
@@ -73,36 +173,41 @@ export function AttendanceReportScreen() {
       showSnackbar('Vui lòng chọn ngày hợp lệ', 'warning');
       return;
     }
+    if (selectedUsers.length === 0) {
+      showSnackbar('Vui lòng chọn ít nhất 1 nhân viên để xuất báo cáo', 'warning');
+      return;
+    }
+
     try {
       setExporting(true);
       const startStr = getFormattedDate(startDate);
       const endStr = getFormattedDate(endDate);
-      const url = await reportsApi.getAttendanceDetailExcelUrl({ 
-        startDate: startStr, 
-        endDate: endStr, 
-        departmentId: selectedDepts, 
-        userId: selectedUsers 
+      const url = await reportsApi.getAttendanceDetailExcelUrl({
+        startDate: startStr,
+        endDate: endStr,
+        departmentId: selectedDepts.length > 0 ? selectedDepts : undefined,
+        userId: selectedUsers,
       });
-      
+
       if (Platform.OS === 'web') {
         window.open(url, '_blank');
       } else {
-        const fileUri = `${FileSystem.documentDirectory}bang-cham-cong-${getFormattedDate(startDate)}.xlsx`;
+        const fileUri = `${FileSystem.documentDirectory}bang-cham-cong-${startStr}-den-${endStr}.xlsx`;
         const { uri, status } = await FileSystem.downloadAsync(url, fileUri, {
           headers: {
-            'ngrok-skip-browser-warning': 'true'
-          }
+            'ngrok-skip-browser-warning': 'true',
+          },
         });
-        
+
         if (status === 200) {
           const canShare = await Sharing.isAvailableAsync();
           if (canShare) {
             await Sharing.shareAsync(uri, {
               mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              dialogTitle: 'Mở Bảng Chấm Công'
+              dialogTitle: 'Mở Bảng Chấm Công Excel',
             });
           } else {
-            showSnackbar('Thiết bị không hỗ trợ mở file', 'warning');
+            showSnackbar('Thiết bị không hỗ trợ chia sẻ/mở file', 'warning');
           }
         } else {
           showSnackbar(`Tải file thất bại (HTTP ${status})`, 'error');
@@ -115,372 +220,590 @@ export function AttendanceReportScreen() {
     }
   };
 
-  const toggleDept = (deptId: string) => {
-    setSelectedDepts(prev => {
-      const isSelected = prev.includes(deptId);
-      const newSelected = isSelected ? prev.filter(id => id !== deptId) : [...prev, deptId];
-      
-      // Auto-update users
-      if (!isSelected) {
-        // Automatically check users in this department
-        const usersInDept = users.filter(u => u.department?.id === deptId).map(u => u.id);
-        setSelectedUsers(curr => Array.from(new Set([...curr, ...usersInDept])));
-      } else {
-        // Automatically uncheck users in this department
-        const usersInDept = users.filter(u => u.department?.id === deptId).map(u => u.id);
-        setSelectedUsers(curr => curr.filter(id => !usersInDept.includes(id)));
-      }
-      
-      return newSelected;
-    });
-  };
-
-  const toggleUser = (userId: string) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
-    );
-  };
-
-  const selectAllDepts = () => {
-    const allDeptIds = departments.map(d => d.id);
-    setSelectedDepts(allDeptIds);
-    setSelectedUsers(users.map(u => u.id));
-  };
-
-  const deselectAllDepts = () => {
-    setSelectedDepts([]);
-    setSelectedUsers([]);
-  };
-
-  // Filter users to only show those in selected departments (or all if none selected)
-  const displayedUsers = useMemo(() => {
-    if (selectedDepts.length > 0) {
-      return users.filter(u => u.department?.id && selectedDepts.includes(u.department.id));
-    }
-    return users;
-  }, [users, selectedDepts]);
-
-  const inputTheme = { colors: { primary: '#000000', background: '#ffffff', onSurfaceVariant: '#666666' } };
+  const isAllSelected = filteredUsers.length > 0 && filteredUsers.every(u => selectedUsers.includes(u.id));
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text variant="headlineMedium" style={styles.title}>Báo cáo Chấm công</Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>Xuất bảng công chi tiết với bộ lọc nâng cao.</Text>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      {/* 1. Header (Back Button, Brand, Title, Subtitle) */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <Ionicons name="chevron-back" size={24} color="#0F172A" />
+          </Pressable>
+          <View style={styles.brandRow}>
+            <Text style={styles.brandTitle}>movielegend</Text>
+            <Text style={styles.brandSubtitle}>PEOPLE</Text>
+          </View>
+          <View style={{ width: 36 }} />
         </View>
 
-        <Surface style={styles.card} elevation={0}>
-          <View style={styles.sectionHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-              <View style={styles.iconWrapper}><MaterialCommunityIcons name="calendar-month-outline" size={20} color="#000000" /></View>
-              <Text variant="titleMedium" style={styles.sectionTitle}>1. Thời gian áp dụng</Text>
-            </View>
+        <Text style={styles.title}>Báo cáo chấm công</Text>
+        <Text style={styles.subtitle}>Tạo và xuất bảng công của đội ngũ</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* SECTION 1: Thời gian báo cáo */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="calendar-outline" size={18} color="#0F172A" />
+            <Text style={styles.cardTitle}>Thời gian báo cáo</Text>
           </View>
-          <View style={styles.dateRow}>
-            <Pressable style={styles.flex1} onPress={() => setShowStartPicker(true)}>
-              <View pointerEvents="none">
-                <TextInput 
-                  theme={inputTheme} 
-                  mode="outlined" 
-                  label="Từ ngày" 
-                  value={getDisplayDate(startDate)} 
-                  outlineColor="#e5e5e5" 
-                  activeOutlineColor="#000000" 
-                  right={<TextInput.Icon icon="calendar" color="#666666" />}
-                  editable={false}
-                />
+
+          {/* Preset Buttons: [Tháng này] [Tháng trước] [Tùy chọn] */}
+          <View style={styles.dateModeRow}>
+            <Pressable
+              onPress={() => handleSelectDateMode('thisMonth')}
+              style={[styles.dateModeBtn, dateMode === 'thisMonth' && styles.dateModeBtnActive]}
+            >
+              <Text style={[styles.dateModeText, dateMode === 'thisMonth' && styles.dateModeTextActive]}>
+                Tháng này
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => handleSelectDateMode('lastMonth')}
+              style={[styles.dateModeBtn, dateMode === 'lastMonth' && styles.dateModeBtnActive]}
+            >
+              <Text style={[styles.dateModeText, dateMode === 'lastMonth' && styles.dateModeTextActive]}>
+                Tháng trước
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setDateMode('custom')}
+              style={[styles.dateModeBtn, dateMode === 'custom' && styles.dateModeBtnActive]}
+            >
+              <Text style={[styles.dateModeText, dateMode === 'custom' && styles.dateModeTextActive]}>
+                Tùy chọn
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* From Date & To Date Inputs */}
+          <View style={styles.dateInputsRow}>
+            {/* From Date Box */}
+            <Pressable onPress={() => setShowPickerFor('start')} style={styles.dateBox}>
+              <Text style={styles.dateBoxLabel}>Từ ngày</Text>
+              <View style={styles.dateBoxValueRow}>
+                <Text style={styles.dateBoxValue}>{getDisplayDate(startDate)}</Text>
+                <Ionicons name="calendar-outline" size={16} color="#64748B" />
               </View>
             </Pressable>
-            
-            <View style={{width: 12}} />
-            
-            <Pressable style={styles.flex1} onPress={() => setShowEndPicker(true)}>
-              <View pointerEvents="none">
-                <TextInput 
-                  theme={inputTheme} 
-                  mode="outlined" 
-                  label="Đến ngày" 
-                  value={getDisplayDate(endDate)} 
-                  outlineColor="#e5e5e5" 
-                  activeOutlineColor="#000000" 
-                  right={<TextInput.Icon icon="calendar" color="#666666" />}
-                  editable={false}
-                />
+
+            {/* To Date Box */}
+            <Pressable onPress={() => setShowPickerFor('end')} style={styles.dateBox}>
+              <Text style={styles.dateBoxLabel}>Đến ngày</Text>
+              <View style={styles.dateBoxValueRow}>
+                <Text style={styles.dateBoxValue}>{getDisplayDate(endDate)}</Text>
+                <Ionicons name="calendar-outline" size={16} color="#64748B" />
               </View>
             </Pressable>
           </View>
-          
-          {showStartPicker && Platform.OS !== 'android' ? (
-            <Portal>
-              <Modal visible={showStartPicker} onDismiss={() => setShowStartPicker(false)} contentContainerStyle={styles.modalContent}>
-                <Text variant="titleMedium" style={styles.modalTitle}>Chọn Từ ngày</Text>
-                <DateTimePicker
-                  value={startDate}
-                  mode="date"
-                  display="inline"
-                  onChange={(event: any, date?: Date) => {
-                    if (date) setStartDate(date);
-                  }}
-                  style={{ alignSelf: 'center' }}
-                />
-                <Button mode="contained" onPress={() => setShowStartPicker(false)} buttonColor="#000000" style={{marginTop: 16}}>Xong</Button>
-              </Modal>
-            </Portal>
-          ) : showStartPicker && Platform.OS === 'android' ? (
-            <DateTimePicker
-              value={startDate}
-              mode="date"
-              display="default"
-              onChange={(event: any, date?: Date) => {
-                setShowStartPicker(false);
-                if (date) setStartDate(date);
-              }}
+        </View>
+
+        {/* SECTION 2: Phạm vi báo cáo (Phòng ban & Nhân sự summary) */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="filter-outline" size={18} color="#0F172A" />
+            <Text style={styles.cardTitle}>Phạm vi báo cáo</Text>
+          </View>
+
+          {/* Department Row Navigation */}
+          <Pressable
+            onPress={() => {
+              // Quick action: Toggle all or cycle
+              if (selectedDepts.length === departments.length) {
+                setSelectedDepts([]);
+              } else {
+                setSelectedDepts(departments.map(d => d.id));
+              }
+            }}
+            style={styles.scopeRow}
+            android_ripple={{ color: 'rgba(0,0,0,0.03)' }}
+          >
+            <View style={styles.scopeIconWrap}>
+              <Ionicons name="business-outline" size={18} color="#0F172A" />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.scopeLabel}>Phòng ban</Text>
+              <Text style={styles.scopeValue}>
+                {selectedDepts.length === 0 || selectedDepts.length === departments.length
+                  ? 'Tất cả phòng ban'
+                  : `Đã chọn ${selectedDepts.length}/${departments.length} phòng ban`}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          </Pressable>
+
+          <View style={styles.cardDivider} />
+
+          {/* Personnel Summary Row */}
+          <View style={styles.scopeRow}>
+            <View style={styles.scopeIconWrap}>
+              <Ionicons name="people-outline" size={18} color="#0F172A" />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.scopeLabel}>Nhân sự</Text>
+              <Text style={styles.scopeValue}>Đã chọn {selectedUsers.length} nhân viên</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          </View>
+        </View>
+
+        {/* SECTION 3: Nhân sự được chọn */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderWithBadge}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="calendar-outline" size={18} color="#0F172A" />
+              <Text style={styles.cardTitle}>Nhân sự được chọn</Text>
+            </View>
+            <View style={styles.badgePill}>
+              <Text style={styles.badgePillText}>{selectedUsers.length}</Text>
+            </View>
+          </View>
+
+          {/* Search Bar: Tìm tên hoặc mã nhân viên */}
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+            <TextInput
+              placeholder="Tìm tên hoặc mã nhân viên"
+              placeholderTextColor="#94A3B8"
+              value={searchEmployee}
+              onChangeText={setSearchEmployee}
+              style={styles.searchInput}
+              clearButtonMode="while-editing"
             />
-          ) : null}
-          
-          {showEndPicker && Platform.OS !== 'android' ? (
-            <Portal>
-              <Modal visible={showEndPicker} onDismiss={() => setShowEndPicker(false)} contentContainerStyle={styles.modalContent}>
-                <Text variant="titleMedium" style={styles.modalTitle}>Chọn Đến ngày</Text>
-                <DateTimePicker
-                  value={endDate}
-                  mode="date"
-                  display="inline"
-                  onChange={(event: any, date?: Date) => {
-                    if (date) setEndDate(date);
-                  }}
-                  style={{ alignSelf: 'center' }}
-                />
-                <Button mode="contained" onPress={() => setShowEndPicker(false)} buttonColor="#000000" style={{marginTop: 16}}>Xong</Button>
-              </Modal>
-            </Portal>
-          ) : showEndPicker && Platform.OS === 'android' ? (
-            <DateTimePicker
-              value={endDate}
-              mode="date"
-              display="default"
-              onChange={(event: any, date?: Date) => {
-                setShowEndPicker(false);
-                if (date) setEndDate(date);
-              }}
-            />
-          ) : null}
-          <Text style={styles.hint}>Định dạng ngày: DD/MM/YYYY</Text>
-        </Surface>
+          </View>
 
-        <Surface style={styles.card} elevation={0}>
-          <View style={styles.sectionHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-              <View style={styles.iconWrapper}><MaterialCommunityIcons name="domain" size={20} color="#000000" /></View>
-              <Text variant="titleMedium" style={styles.sectionTitle}>2. Bộ lọc phòng ban</Text>
+          {/* Select All Row: Checkbox + "Chọn tất cả" + Count (e.g. 39/39) */}
+          <Pressable onPress={toggleSelectAllUsers} style={styles.selectAllRow}>
+            <View style={[styles.checkbox, isAllSelected && styles.checkboxActive]}>
+              {isAllSelected && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
             </View>
-            <View style={styles.actionsRow}>
-              <Pressable onPress={selectAllDepts}><Text style={[styles.actionText, {color: '#000000', fontWeight: 'bold'}]}>Chọn tất cả</Text></Pressable>
-              <Text style={styles.separator}>/</Text>
-              <Pressable onPress={deselectAllDepts}><Text style={styles.actionText}>Bỏ chọn</Text></Pressable>
-            </View>
-          </View>
-          <View style={styles.checkboxContainer}>
-            {loading ? <ActivityIndicator color="#000000" style={{margin: 10}}/> : null}
-            {departments.map(dept => (
-              <Pressable key={dept.id} style={styles.checkboxRow} onPress={() => toggleDept(dept.id)}>
-                <Checkbox.Android
-                  status={selectedDepts.includes(dept.id) ? 'checked' : 'unchecked'}
-                  onPress={() => toggleDept(dept.id)}
-                  color="#000000"
-                  uncheckedColor="#a3a3a3"
-                />
-                <Text style={[styles.itemName, selectedDepts.includes(dept.id) && {fontWeight: 'bold', color: '#000000'}]}>{dept.name}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </Surface>
+            <Text style={styles.selectAllLabel}>Chọn tất cả</Text>
+            <Text style={styles.selectAllCount}>
+              {selectedUsers.length}/{filteredUsers.length}
+            </Text>
+          </Pressable>
 
-        <Surface style={styles.card} elevation={0}>
-          <View style={styles.sectionHeader}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-              <View style={styles.iconWrapper}><MaterialCommunityIcons name="account-group-outline" size={20} color="#000000" /></View>
-              <Text variant="titleMedium" style={styles.sectionTitle}>3. Danh sách nhân sự ({selectedUsers.length}/{displayedUsers.length})</Text>
+          {/* Employee List Items */}
+          {loading ? (
+            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+              <ActivityIndicator color="#1B382B" size="small" />
             </View>
-          </View>
-          <View style={styles.userListContainer}>
-            {loading ? <ActivityIndicator color="#000000" style={{margin: 10}}/> : null}
-            {!loading && displayedUsers.length === 0 && <Text style={styles.emptyText}>Không có nhân sự nào được tìm thấy</Text>}
-            {displayedUsers.map(user => (
-              <Pressable key={user.id} style={[styles.userRow, selectedUsers.includes(user.id) && styles.userRowActive]} onPress={() => toggleUser(user.id)}>
-                <Checkbox.Android
-                  status={selectedUsers.includes(user.id) ? 'checked' : 'unchecked'}
-                  onPress={() => toggleUser(user.id)}
-                  color="#000000"
-                  uncheckedColor="#a3a3a3"
-                />
-                <View style={styles.userInfo}>
-                  <Text style={[styles.userName, selectedUsers.includes(user.id) && {fontWeight: 'bold', color: '#000000'}]}>{user.fullName || user.userCode}</Text>
-                  <Text style={styles.userEmail}>{user.department?.name || 'Không thuộc phòng ban'}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        </Surface>
+          ) : filteredUsers.length === 0 ? (
+            <Text style={styles.emptyText}>Không tìm thấy nhân viên phù hợp</Text>
+          ) : (
+            <View style={{ gap: 8 }}>
+              {filteredUsers.slice(0, displayLimit).map(user => {
+                const isSelected = selectedUsers.includes(user.id);
+                const deptName = user.department?.name || 'Văn phòng';
+                const branchName = user.branch?.name || 'Hà Nội';
 
-        <Button 
-          mode="contained" 
-          icon="file-excel-outline" 
-          onPress={handleExport} 
-          loading={exporting} 
-          disabled={exporting} 
-          style={styles.exportBtn}
-          contentStyle={styles.exportBtnContent}
-          buttonColor="#000000"
-          textColor="#ffffff"
-        >
-          Trích xuất dữ liệu Excel
-        </Button>
+                return (
+                  <Pressable
+                    key={user.id}
+                    onPress={() => toggleUser(user.id)}
+                    style={styles.employeeItemRow}
+                    android_ripple={{ color: 'rgba(0,0,0,0.03)' }}
+                  >
+                    {/* Checkbox */}
+                    <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
+                      {isSelected && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+                    </View>
+
+                    {/* Initials Avatar */}
+                    <EmployeeInitialAvatar name={user.fullName || user.userCode} size={36} />
+
+                    {/* Name & Department Subtitle */}
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={styles.employeeName} numberOfLines={1}>
+                        {user.fullName || user.userCode}
+                      </Text>
+                      <Text style={styles.employeeSubtitle}>
+                        {deptName} • {branchName}
+                      </Text>
+                    </View>
+
+                    {/* Overflow menu 3 dots */}
+                    <Ionicons name="ellipsis-vertical" size={16} color="#94A3B8" />
+                  </Pressable>
+                );
+              })}
+
+              {/* Show more / collapse toggle */}
+              {filteredUsers.length > displayLimit ? (
+                <Pressable
+                  onPress={() => setDisplayLimit(filteredUsers.length)}
+                  style={styles.seeMoreBtn}
+                  hitSlop={6}
+                >
+                  <Text style={styles.seeMoreText}>
+                    Xem thêm {filteredUsers.length - displayLimit} nhân viên
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color="#64748B" />
+                </Pressable>
+              ) : displayLimit > 3 && filteredUsers.length > 3 ? (
+                <Pressable onPress={() => setDisplayLimit(3)} style={styles.seeMoreBtn} hitSlop={6}>
+                  <Text style={styles.seeMoreText}>Thu gọn danh sách</Text>
+                  <Ionicons name="chevron-up" size={14} color="#64748B" />
+                </Pressable>
+              ) : null}
+            </View>
+          )}
+        </View>
       </ScrollView>
+
+      {/* BOTTOM STICKY BAR: Count info + Green button [ Xuất báo cáo Excel ] */}
+      <View style={styles.bottomBar}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.bottomBarMeta}>{selectedUsers.length} nhân viên • Tệp .xlsx</Text>
+        </View>
+        <Pressable
+          onPress={() => void handleExport()}
+          disabled={exporting}
+          style={[styles.exportBtn, exporting && { opacity: 0.7 }]}
+          android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+        >
+          {exporting ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="download-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.exportBtnText}>Xuất báo cáo Excel</Text>
+            </View>
+          )}
+        </Pressable>
+      </View>
+
+      {/* Date Picker Modals */}
+      {showPickerFor === 'start' && (
+        <CustomDatePickerModal
+          visible={true}
+          initialDate={startDate}
+          onClose={() => setShowPickerFor(null)}
+          onSelect={date => {
+            setShowPickerFor(null);
+            setStartDate(date);
+            setDateMode('custom');
+          }}
+        />
+      )}
+
+      {showPickerFor === 'end' && (
+        <CustomDatePickerModal
+          visible={true}
+          initialDate={endDate}
+          onClose={() => setShowPickerFor(null)}
+          onSelect={date => {
+            setShowPickerFor(null);
+            setEndDate(date);
+            setDateMode('custom');
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9f9f9' },
-  scroll: { padding: 16, paddingBottom: 40 },
-  header: { marginBottom: 24, paddingHorizontal: 4 },
-  title: { fontWeight: '900', color: '#111111', marginBottom: 4, letterSpacing: -0.5 },
-  subtitle: { color: '#666666', fontSize: 14 },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#eaeaea',
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAF8',
   },
-  sectionHeader: {
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    marginBottom: 12,
   },
-  iconWrapper: {
-    backgroundColor: '#f5f5f5',
-    padding: 6,
-    borderRadius: 8,
-  },
-  sectionTitle: {
-    fontWeight: '800',
-    color: '#000000',
-    fontSize: 15,
-  },
-  actionsRow: {
-    flexDirection: 'row',
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  actionText: {
-    fontSize: 13,
-    color: '#777777',
-    fontWeight: '500',
-  },
-  separator: {
-    marginHorizontal: 8,
-    color: '#dddddd',
-  },
-  dateRow: {
+  brandRow: {
     flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  brandTitle: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#132E22',
+    letterSpacing: -0.3,
+  },
+  brandSubtitle: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#16A34A',
+    letterSpacing: 1.2,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.5,
     marginBottom: 4,
   },
-  flex1: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    fontSize: 14,
+  subtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
   },
-  hint: {
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 110,
+    gap: 14,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  cardHeaderWithBadge: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  badgePill: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  badgePillText: {
     fontSize: 12,
-    color: '#999999',
-    marginTop: 8,
-    marginLeft: 4,
-    fontStyle: 'italic',
+    fontWeight: '800',
+    color: '#166534',
   },
-  checkboxContainer: {
+  dateModeRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -8,
+    gap: 8,
+    marginBottom: 12,
   },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '50%',
-    paddingVertical: 4,
-  },
-  itemName: {
-    fontSize: 14,
-    color: '#444444',
+  dateModeBtn: {
     flex: 1,
-  },
-  userListContainer: {
-    marginTop: 0,
-  },
-  userRow: {
-    flexDirection: 'row',
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateModeBtnActive: {
+    backgroundColor: '#DCFCE7',
+  },
+  dateModeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  dateModeTextActive: {
+    color: '#166534',
+    fontWeight: '800',
+  },
+  dateInputsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  dateBox: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 12,
+    backgroundColor: '#FAFAFA',
   },
-  userRowActive: {
-    backgroundColor: '#fafafa',
+  dateBoxLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
+    marginBottom: 4,
   },
-  userInfo: {
-    flex: 1,
-    marginLeft: 4,
+  dateBoxValueRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  userName: {
+  dateBoxValue: {
     fontSize: 14,
-    color: '#333333',
+    fontWeight: '700',
+    color: '#0F172A',
   },
-  userEmail: {
+  scopeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  scopeIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scopeLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  scopeValue: {
     fontSize: 12,
-    color: '#888888',
+    color: '#64748B',
     marginTop: 2,
   },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 10,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0F172A',
+    padding: 0,
+  },
+  selectAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 6,
+  },
+  selectAllLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginLeft: 10,
+  },
+  selectAllCount: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#94A3B8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  checkboxActive: {
+    backgroundColor: '#1B382B',
+    borderColor: '#1B382B',
+  },
+  employeeItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  employeeName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  employeeSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  seeMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  seeMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
   emptyText: {
+    fontSize: 13,
+    color: '#94A3B8',
     textAlign: 'center',
-    color: '#999999',
-    fontStyle: 'italic',
-    padding: 20,
+    paddingVertical: 16,
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  bottomBarMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
   },
   exportBtn: {
-    marginTop: 12,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
+    backgroundColor: '#1B382B', // Deep forest green matching template
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#1B382B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  exportBtnContent: {
-    height: 52,
+  exportBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  modalContent: {
-    backgroundColor: '#ffffff',
-    padding: 24,
-    margin: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  modalTitle: {
-    fontWeight: 'bold',
-    marginBottom: 16,
-    textAlign: 'center',
-    color: '#000000',
-  }
 });
