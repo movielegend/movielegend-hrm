@@ -133,13 +133,7 @@ export function AdminAttendanceDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {/* 1. Brand Header: movielegend PEOPLE */}
-      <View style={styles.brandHeader}>
-        <View style={styles.brandRow}>
-          <Text style={styles.brandTitle}>movielegend</Text>
-          <Text style={styles.brandSubtitle}>PEOPLE</Text>
-        </View>
-      </View>
+
 
       {/* 2. Title with Back Arrow */}
       <View style={styles.titleRow}>

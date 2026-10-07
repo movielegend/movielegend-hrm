@@ -293,10 +293,6 @@ export function AdminAttendanceScreen() {
       <View style={styles.headerContainer}>
         <View style={styles.headerTopRow}>
           <View>
-            <View style={styles.brandRow}>
-              <Text style={styles.brandTitle}>movielegend</Text>
-              <Text style={styles.brandSubtitle}>PEOPLE</Text>
-            </View>
             <Text style={styles.screenTitle}>
               {isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}
             </Text>
