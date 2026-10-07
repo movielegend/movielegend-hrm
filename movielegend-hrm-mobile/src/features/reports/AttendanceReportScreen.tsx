@@ -7,6 +7,7 @@ import {
   Platform,
   TextInput,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +21,6 @@ import { getDepartments } from '../../api/departments.api';
 import { getScopedEmployees } from '../../api/employees.api';
 import { useSnackbar } from '../../hooks/useSnackbar';
 import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
-import { CustomAlert } from '../../components/CustomAlert';
 
 const getFormattedDate = (date: Date) => {
   const yyyy = date.getFullYear();
@@ -89,6 +89,11 @@ export function AttendanceReportScreen() {
   // Search employee & pagination limit
   const [searchEmployee, setSearchEmployee] = useState('');
   const [displayLimit, setDisplayLimit] = useState(3);
+
+  // Modals for Department & Personnel selection
+  const [showDeptModal, setShowDeptModal] = useState(false);
+  const [tempSelectedDepts, setTempSelectedDepts] = useState<string[]>([]);
+  const [searchDeptModal, setSearchDeptModal] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -167,6 +172,49 @@ export function AttendanceReportScreen() {
       setSelectedUsers(prev => Array.from(new Set([...prev, ...allFilteredIds])));
     }
   };
+
+  // Open Department Selection Bottom Sheet
+  const openDepartmentModal = () => {
+    setTempSelectedDepts(selectedDepts);
+    setSearchDeptModal('');
+    setShowDeptModal(true);
+  };
+
+  const toggleTempDept = (deptId: string) => {
+    setTempSelectedDepts(prev =>
+      prev.includes(deptId) ? prev.filter(id => id !== deptId) : [...prev, deptId]
+    );
+  };
+
+  const toggleSelectAllTempDepts = () => {
+    if (tempSelectedDepts.length === departments.length) {
+      setTempSelectedDepts([]);
+    } else {
+      setTempSelectedDepts(departments.map(d => d.id));
+    }
+  };
+
+  const applyDepartmentSelection = () => {
+    setSelectedDepts(tempSelectedDepts);
+    setShowDeptModal(false);
+
+    // Auto update selected users based on department filter
+    if (tempSelectedDepts.length > 0) {
+      const usersInDepts = users
+        .filter(u => u.department?.id && tempSelectedDepts.includes(u.department.id))
+        .map(u => u.id);
+      setSelectedUsers(usersInDepts);
+    } else {
+      // If all departments, select all users
+      setSelectedUsers(users.map(u => u.id));
+    }
+  };
+
+  const filteredDeptsModal = useMemo(() => {
+    if (!searchDeptModal.trim()) return departments;
+    const q = searchDeptModal.trim().toLowerCase();
+    return departments.filter(d => (d.name || '').toLowerCase().includes(q));
+  }, [departments, searchDeptModal]);
 
   const handleExport = async () => {
     if (!startDate || !endDate) {
@@ -306,16 +354,9 @@ export function AttendanceReportScreen() {
             <Text style={styles.cardTitle}>Phạm vi báo cáo</Text>
           </View>
 
-          {/* Department Row Navigation */}
+          {/* Department Row Navigation -> Opens Modal to choose departments */}
           <Pressable
-            onPress={() => {
-              // Quick action: Toggle all or cycle
-              if (selectedDepts.length === departments.length) {
-                setSelectedDepts([]);
-              } else {
-                setSelectedDepts(departments.map(d => d.id));
-              }
-            }}
+            onPress={openDepartmentModal}
             style={styles.scopeRow}
             android_ripple={{ color: 'rgba(0,0,0,0.03)' }}
           >
@@ -336,7 +377,14 @@ export function AttendanceReportScreen() {
           <View style={styles.cardDivider} />
 
           {/* Personnel Summary Row */}
-          <View style={styles.scopeRow}>
+          <Pressable
+            onPress={() => {
+              // Focus or expand to personnel list
+              setDisplayLimit(filteredUsers.length);
+            }}
+            style={styles.scopeRow}
+            android_ripple={{ color: 'rgba(0,0,0,0.03)' }}
+          >
             <View style={styles.scopeIconWrap}>
               <Ionicons name="people-outline" size={18} color="#0F172A" />
             </View>
@@ -345,7 +393,7 @@ export function AttendanceReportScreen() {
               <Text style={styles.scopeValue}>Đã chọn {selectedUsers.length} nhân viên</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-          </View>
+          </Pressable>
         </View>
 
         {/* SECTION 3: Nhân sự được chọn */}
@@ -473,6 +521,84 @@ export function AttendanceReportScreen() {
           )}
         </Pressable>
       </View>
+
+      {/* BOTTOM SHEET MODAL: CHỌN PHÒNG BAN */}
+      <Modal visible={showDeptModal} transparent animationType="slide" onRequestClose={() => setShowDeptModal(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowDeptModal(false)} />
+          <View style={styles.bottomSheetDept}>
+            <View style={styles.grabberHandle} />
+
+            <View style={styles.modalHeaderRow}>
+              <View>
+                <Text style={styles.modalTitle}>Chọn phòng ban</Text>
+                <Text style={styles.modalSubtitle}>Đã chọn {tempSelectedDepts.length}/{departments.length} phòng ban</Text>
+              </View>
+              <Pressable onPress={() => setShowDeptModal(false)} hitSlop={8}>
+                <Ionicons name="close" size={22} color="#0F172A" />
+              </Pressable>
+            </View>
+
+            {/* Search Dept */}
+            <View style={[styles.searchBar, { marginBottom: 10 }]}>
+              <Ionicons name="search" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+              <TextInput
+                placeholder="Tìm phòng ban"
+                placeholderTextColor="#94A3B8"
+                value={searchDeptModal}
+                onChangeText={setSearchDeptModal}
+                style={styles.searchInput}
+                clearButtonMode="while-editing"
+              />
+            </View>
+
+            {/* Select All Toggle */}
+            <Pressable onPress={toggleSelectAllTempDepts} style={styles.selectAllRow}>
+              <View style={[styles.checkbox, tempSelectedDepts.length === departments.length && departments.length > 0 && styles.checkboxActive]}>
+                {tempSelectedDepts.length === departments.length && departments.length > 0 && (
+                  <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                )}
+              </View>
+              <Text style={styles.selectAllLabel}>Chọn tất cả phòng ban</Text>
+            </Pressable>
+
+            {/* Dept List */}
+            <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+              {filteredDeptsModal.map(dept => {
+                const isSelected = tempSelectedDepts.includes(dept.id);
+                const locationName = dept.branch?.name || dept.branch?.region?.name || 'Văn phòng chính';
+
+                return (
+                  <Pressable
+                    key={dept.id}
+                    onPress={() => toggleTempDept(dept.id)}
+                    style={styles.deptItemRow}
+                    android_ripple={{ color: 'rgba(0,0,0,0.03)' }}
+                  >
+                    <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
+                      {isSelected && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={styles.deptItemName}>{dept.name}</Text>
+                      <Text style={styles.deptItemLocation}>{locationName}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {/* Actions */}
+            <View style={styles.modalFooterRow}>
+              <Pressable onPress={() => setShowDeptModal(false)} style={styles.modalCancelBtn}>
+                <Text style={styles.modalCancelText}>Hủy</Text>
+              </Pressable>
+              <Pressable onPress={applyDepartmentSelection} style={styles.modalApplyBtn}>
+                <Text style={styles.modalApplyText}>Áp dụng ({tempSelectedDepts.length})</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Date Picker Modals */}
       {showPickerFor === 'start' && (
@@ -802,6 +928,107 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   exportBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+
+  // Modal Department styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    flex: 1,
+  },
+  bottomSheetDept: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 10,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  grabberHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  deptItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  deptItemName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  deptItemLocation: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modalFooterRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  modalApplyBtn: {
+    flex: 1.6,
+    backgroundColor: '#1B382B',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#1B382B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  modalApplyText: {
     fontSize: 14,
     fontWeight: '800',
     color: '#FFFFFF',
