@@ -93,14 +93,17 @@ export function DepartmentListScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* 1. Header (Back button + Title + Subtitle + "+ Thêm" button) */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Pressable
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/admin/branches' as any))}
-            style={styles.backBtn}
-            hitSlop={8}
-          >
-            <Ionicons name="chevron-back" size={24} color="#0F172A" />
-          </Pressable>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTitleGroup}>
+            <Pressable
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/admin/branches' as any))}
+              style={styles.backBtn}
+              hitSlop={8}
+            >
+              <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            </Pressable>
+            <Text style={styles.title}>Phòng ban</Text>
+          </View>
 
           {canCreate && (
             <Pressable
@@ -120,7 +123,6 @@ export function DepartmentListScreen() {
           )}
         </View>
 
-        <Text style={styles.title}>Phòng ban</Text>
         <Text style={styles.subtitle}>Quản lý cơ cấu tổ chức</Text>
       </View>
 
@@ -423,11 +425,16 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
-  headerTop: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 2,
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   backBtn: {
     padding: 4,
@@ -448,7 +455,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
     color: '#0F172A',
     letterSpacing: -0.5,
@@ -457,7 +464,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     fontWeight: '500',
-    marginTop: 2,
+    marginLeft: 32,
   },
   searchWrapper: {
     paddingHorizontal: 20,

@@ -188,12 +188,12 @@ export function BranchEditScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* 1. Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
+        <View style={styles.headerRow}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <Ionicons name="chevron-back" size={24} color="#0F172A" />
           </Pressable>
+          <Text style={styles.title}>Chỉnh sửa chi nhánh</Text>
         </View>
-        <Text style={styles.title}>Chỉnh sửa chi nhánh</Text>
         <Text style={styles.subtitle}>Cập nhật thông tin chi nhánh</Text>
       </View>
 
@@ -463,17 +463,18 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
-  headerTop: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    gap: 8,
+    marginBottom: 2,
   },
   backBtn: {
     padding: 4,
     marginLeft: -4,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
     color: '#0F172A',
     letterSpacing: -0.5,
@@ -482,7 +483,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
     fontWeight: '500',
-    marginTop: 2,
+    marginLeft: 32,
   },
   scrollContent: {
     paddingHorizontal: 16,
