@@ -369,7 +369,6 @@ export default function CreateRequestScreen() {
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#0F172A" />
           </Pressable>
-          <Text style={styles.topBarTitle}>MOVIE LEGEND</Text>
           <View style={styles.topAvatarCircle}>
             <Text style={styles.topAvatarText}>{userInitials}</Text>
           </View>
