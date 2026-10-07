@@ -8,12 +8,14 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useEmployees, useEmployeeReport, useDeleteEmployee, useUpdateAnyEmployee } from '../../hooks/useEmployees';
+import { useAssignLeader, useRevokeLeader } from '../../hooks/useLeaderAssignment';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useAuth } from '../../providers/AuthProvider';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -75,11 +77,18 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   const adminUsers = useEmployees(filters);
   const deleteEmployee = useDeleteEmployee();
   const updateEmployeeAny = useUpdateAnyEmployee();
+  const assignLeader = useAssignLeader();
+  const revokeLeader = useRevokeLeader();
+
+  const [selectedEmployeeMenu, setSelectedEmployeeMenu] = useState<any | null>(null);
 
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'lock' | 'unlock' | 'delete';
+    type: 'lock' | 'unlock' | 'delete' | 'appoint' | 'revoke' | 'error_inactive';
     employeeId?: string;
     employeeName?: string;
+    departmentId?: string;
+    leaderRoleId?: string;
+    isHrDept?: boolean;
   } | null>(null);
 
   const employees = adminUsers.data?.items || [];
@@ -97,12 +106,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   }, [selectedDeptId, departments]);
 
   const handleActionMenu = (emp: any) => {
-    const isLocked = emp.accountStatus !== 'ACTIVE';
-    setConfirmAction({
-      type: isLocked ? 'unlock' : 'lock',
-      employeeId: emp.id,
-      employeeName: emp.profile?.fullName || emp.userCode,
-    });
+    setSelectedEmployeeMenu(emp);
   };
 
   return (
@@ -286,21 +290,206 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
         onClose={() => setDeptModalVisible(false)}
       />
 
-      {/* Confirm Lock / Unlock Modal */}
+      {/* Action Sheet Modal for Selected Employee */}
+      <Modal
+        visible={!!selectedEmployeeMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedEmployeeMenu(null)}
+      >
+        <Pressable 
+          style={styles.actionSheetOverlay} 
+          onPress={() => setSelectedEmployeeMenu(null)}
+        >
+          <View style={styles.actionSheetContent}>
+            <View style={styles.actionSheetHeader}>
+              <Text style={styles.actionSheetTitle}>
+                {selectedEmployeeMenu?.profile?.fullName || selectedEmployeeMenu?.userCode}
+              </Text>
+              <Text style={styles.actionSheetSubtitle}>Tùy chọn thao tác nhân sự</Text>
+            </View>
+
+            {/* Chỉnh sửa */}
+            <Pressable
+              style={styles.actionSheetItem}
+              onPress={() => {
+                const empId = selectedEmployeeMenu?.id;
+                setSelectedEmployeeMenu(null);
+                if (empId) {
+                  router.push({ pathname: '/admin/employees/[id]', params: { id: empId, edit: '1' } });
+                }
+              }}
+            >
+              <Ionicons name="pencil-outline" size={20} color="#0F172A" />
+              <Text style={styles.actionSheetItemText}>Chỉnh sửa thông tin</Text>
+            </Pressable>
+
+            {/* Bổ nhiệm / Thu hồi Leader */}
+            {(() => {
+              if (!selectedEmployeeMenu) return null;
+              const isLeader = selectedEmployeeMenu.roles?.some((r: any) => r.role?.code === 'LEADER');
+              const leaderRole = selectedEmployeeMenu.roles?.find((r: any) => r.role?.code === 'LEADER');
+              const dept = selectedEmployeeMenu.departmentLinks?.find((l: any) => l.isPrimary)?.department ||
+                selectedEmployeeMenu.departmentLinks?.[0]?.department ||
+                (selectedEmployeeMenu as any).department;
+              const targetDeptId = dept?.id || (selectedDeptId !== 'ALL' ? selectedDeptId : undefined);
+              const isHrDept = dept?.code === 'HCNS' || dept?.code === 'HR' || dept?.name?.toLowerCase().includes('nhân sự');
+
+              if (isLeader) {
+                return (
+                  <Pressable
+                    style={styles.actionSheetItem}
+                    onPress={() => {
+                      const emp = selectedEmployeeMenu;
+                      setSelectedEmployeeMenu(null);
+                      setConfirmAction({
+                        type: 'revoke',
+                        employeeId: emp.id,
+                        employeeName: emp.profile?.fullName || emp.userCode,
+                        leaderRoleId: leaderRole?.id,
+                      });
+                    }}
+                  >
+                    <Ionicons name="ribbon-outline" size={20} color="#DC2626" />
+                    <Text style={[styles.actionSheetItemText, { color: '#DC2626' }]}>Thu hồi chức vụ Leader</Text>
+                  </Pressable>
+                );
+              }
+
+              return (
+                <Pressable
+                  style={styles.actionSheetItem}
+                  onPress={() => {
+                    const emp = selectedEmployeeMenu;
+                    setSelectedEmployeeMenu(null);
+                    if (emp.accountStatus !== 'ACTIVE') {
+                      setConfirmAction({ type: 'error_inactive' });
+                      return;
+                    }
+                    setConfirmAction({
+                      type: 'appoint',
+                      employeeId: emp.id,
+                      employeeName: emp.profile?.fullName || emp.userCode,
+                      departmentId: targetDeptId,
+                      isHrDept,
+                    });
+                  }}
+                >
+                  <Ionicons name="ribbon-outline" size={20} color="#166534" />
+                  <Text style={[styles.actionSheetItemText, { color: '#166534' }]}>
+                    {isHrDept ? 'Bổ nhiệm Trưởng phòng HR' : 'Bổ nhiệm Leader'}
+                  </Text>
+                </Pressable>
+              );
+            })()}
+
+            {/* Khóa / Mở khóa tài khoản */}
+            {selectedEmployeeMenu?.accountStatus === 'ACTIVE' ? (
+              <Pressable
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  const emp = selectedEmployeeMenu;
+                  setSelectedEmployeeMenu(null);
+                  setConfirmAction({
+                    type: 'lock',
+                    employeeId: emp.id,
+                    employeeName: emp.profile?.fullName || emp.userCode,
+                  });
+                }}
+              >
+                <Ionicons name="lock-closed-outline" size={20} color="#DC2626" />
+                <Text style={[styles.actionSheetItemText, { color: '#DC2626' }]}>Khóa tài khoản</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  const emp = selectedEmployeeMenu;
+                  setSelectedEmployeeMenu(null);
+                  setConfirmAction({
+                    type: 'unlock',
+                    employeeId: emp.id,
+                    employeeName: emp.profile?.fullName || emp.userCode,
+                  });
+                }}
+              >
+                <Ionicons name="lock-open-outline" size={20} color="#166534" />
+                <Text style={[styles.actionSheetItemText, { color: '#166534' }]}>Mở khóa tài khoản</Text>
+              </Pressable>
+            )}
+
+            {/* Cancel Button */}
+            <Pressable
+              style={styles.actionSheetCancelBtn}
+              onPress={() => setSelectedEmployeeMenu(null)}
+            >
+              <Text style={styles.actionSheetCancelText}>Hủy bỏ</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Confirm Modal */}
       <ConfirmModal
         visible={!!confirmAction}
-        title={confirmAction?.type === 'lock' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-        message={`Bạn có chắc chắn muốn ${confirmAction?.type === 'lock' ? 'khóa' : 'mở khóa'} tài khoản của ${confirmAction?.employeeName}?`}
-        confirmLabel={confirmAction?.type === 'lock' ? 'Khóa' : 'Mở khóa'}
-        loading={updateEmployeeAny.isPending}
+        title={
+          confirmAction?.type === 'appoint'
+            ? confirmAction?.isHrDept ? 'Bổ nhiệm Trưởng phòng HR' : 'Xác nhận bổ nhiệm'
+            : confirmAction?.type === 'revoke'
+            ? 'Xác nhận thu hồi chức vụ'
+            : confirmAction?.type === 'error_inactive'
+            ? 'Không thể bổ nhiệm'
+            : confirmAction?.type === 'lock'
+            ? 'Khóa tài khoản'
+            : 'Mở khóa tài khoản'
+        }
+        message={
+          confirmAction?.type === 'appoint'
+            ? confirmAction?.isHrDept
+              ? `Bạn có chắc chắn muốn bổ nhiệm ${confirmAction?.employeeName} làm Trưởng phòng Nhân sự? Tài khoản này sẽ tự động được cấp quyền Quản trị HR toàn công ty.`
+              : `Bạn có chắc chắn muốn bổ nhiệm nhân viên ${confirmAction?.employeeName} làm Leader?`
+            : confirmAction?.type === 'revoke'
+            ? `Bạn có chắc chắn muốn thu hồi chức vụ Leader của nhân viên ${confirmAction?.employeeName}?`
+            : confirmAction?.type === 'error_inactive'
+            ? 'Nhân viên này đang không trong trạng thái hoạt động nên không thể bổ nhiệm làm Leader.'
+            : confirmAction?.type === 'lock'
+            ? `Bạn có chắc chắn muốn khóa tài khoản của ${confirmAction?.employeeName}?`
+            : `Bạn có chắc chắn muốn mở khóa tài khoản của ${confirmAction?.employeeName}?`
+        }
+        confirmLabel={
+          confirmAction?.type === 'appoint'
+            ? 'Bổ nhiệm'
+            : confirmAction?.type === 'revoke'
+            ? 'Thu hồi'
+            : confirmAction?.type === 'error_inactive'
+            ? 'Đã hiểu'
+            : confirmAction?.type === 'lock'
+            ? 'Khóa'
+            : 'Mở khóa'
+        }
+        hideCancel={confirmAction?.type === 'error_inactive'}
+        loading={updateEmployeeAny.isPending || assignLeader.isPending || revokeLeader.isPending}
         onCancel={() => setConfirmAction(null)}
         onConfirm={async () => {
-          if (!confirmAction?.employeeId) return;
+          if (!confirmAction) return;
+          if (confirmAction.type === 'error_inactive') {
+            setConfirmAction(null);
+            return;
+          }
           try {
-            await updateEmployeeAny.mutateAsync({
-              id: confirmAction.employeeId,
-              status: confirmAction.type === 'lock' ? ('SUSPENDED' as any) : ('ACTIVE' as any),
-            });
+            if (confirmAction.type === 'appoint' && confirmAction.employeeId) {
+              await assignLeader.mutateAsync({
+                userId: confirmAction.employeeId,
+                departmentId: confirmAction.departmentId || '',
+              });
+            } else if (confirmAction.type === 'revoke' && confirmAction.leaderRoleId) {
+              await revokeLeader.mutateAsync(confirmAction.leaderRoleId);
+            } else if ((confirmAction.type === 'lock' || confirmAction.type === 'unlock') && confirmAction.employeeId) {
+              await updateEmployeeAny.mutateAsync({
+                id: confirmAction.employeeId,
+                status: confirmAction.type === 'lock' ? ('SUSPENDED' as any) : ('ACTIVE' as any),
+              });
+            }
             setConfirmAction(null);
           } catch {
             setConfirmAction(null);
@@ -535,6 +724,62 @@ const styles = StyleSheet.create({
   },
   footerNoteText: {
     fontSize: 13,
+    color: '#64748B',
+  },
+  actionSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  actionSheetContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 34,
+  },
+  actionSheetHeader: {
+    alignItems: 'center',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 8,
+  },
+  actionSheetTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  actionSheetSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  actionSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  actionSheetItemText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  actionSheetCancelBtn: {
+    marginTop: 14,
+    paddingVertical: 14,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionSheetCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
     color: '#64748B',
   },
 });
