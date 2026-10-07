@@ -88,20 +88,14 @@ export function CreateEmployeeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {/* 1. Header (Brand: movielegend PEOPLE + Title + Subtitle) */}
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
+        <View style={styles.headerRow}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <Ionicons name="arrow-back" size={24} color="#0F172A" />
           </Pressable>
-          <View style={styles.brandRow}>
-            <Text style={styles.brandTitle}>movielegend</Text>
-            <Text style={styles.brandSubtitle}>PEOPLE</Text>
-          </View>
-          <View style={{ width: 36 }} />
+          <Text style={styles.title}>Thêm nhân viên</Text>
         </View>
-
-        <Text style={styles.title}>Thêm nhân viên</Text>
         <Text style={styles.subtitle}>Tạo tài khoản và hồ sơ nhân sự</Text>
       </View>
 
@@ -293,31 +287,15 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
-  headerTop: {
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 4,
   },
   backBtn: {
     padding: 4,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  brandTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#132E22',
-    letterSpacing: -0.3,
-  },
-  brandSubtitle: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#16A34A',
-    letterSpacing: 1.5,
+    marginLeft: -4,
   },
   title: {
     fontSize: 24,

@@ -107,15 +107,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {/* 1. Brand Header */}
-      <View style={styles.brandHeader}>
-        <View style={styles.brandRow}>
-          <Text style={styles.brandTitle}>movielegend</Text>
-          <Text style={styles.brandSubtitle}>PEOPLE</Text>
-        </View>
-      </View>
-
-      {/* 2. Screen Header: Title + Subtitle + "+ Thêm" button */}
+      {/* Screen Header: Title + Subtitle + "+ Thêm" button */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Nhân viên</Text>
@@ -324,34 +316,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAF8',
   },
-  brandHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  brandTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#132E22',
-    letterSpacing: -0.3,
-  },
-  brandSubtitle: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#16A34A',
-    letterSpacing: 1.5,
-  },
+
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingTop: 12,
     paddingBottom: 12,
   },
   title: {
