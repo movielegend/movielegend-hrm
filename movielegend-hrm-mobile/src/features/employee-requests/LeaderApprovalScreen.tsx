@@ -243,6 +243,30 @@ export function LeaderApprovalScreen() {
     }
   }
 
+  // Determine role-based action text
+  let approveButtonLabel = 'Phê duyệt';
+  let approveSubtext = '';
+  if (isFinancial) {
+    if (stage === 'PENDING_DISBURSEMENT') {
+      approveButtonLabel = 'Xác nhận Giải ngân';
+      approveSubtext = 'Kế toán giải ngân & đóng đơn';
+    } else if (stage === 'PENDING_ADMIN') {
+      approveButtonLabel = 'Duyệt chuyển Kế toán';
+      approveSubtext = 'Ban Giám Đốc duyệt hạn mức > 5M';
+    } else if (stage === 'PENDING_HR') {
+      if (amount > 5000000) {
+        approveButtonLabel = 'Đối chứng & Chuyển Admin';
+        approveSubtext = 'Xác nhận đủ điều kiện, chuyển Ban Giám Đốc';
+      } else {
+        approveButtonLabel = 'Duyệt chuyển Kế toán';
+        approveSubtext = 'Leader HR duyệt hạn mức ≤ 5M';
+      }
+    } else if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
+      approveButtonLabel = 'Duyệt chuyển HR';
+      approveSubtext = 'Trưởng bộ phận đồng ý, chuyển HR đối chứng';
+    }
+  }
+
   // Formatting helpers matching mockup media_1791363426977.jpg
   const getUserInitials = (name: string) => {
     if (!name) return 'ML';
