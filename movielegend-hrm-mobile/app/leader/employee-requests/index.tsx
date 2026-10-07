@@ -113,7 +113,7 @@ export default function LeaderRequestsScreen() {
     if (!name) return 'NV';
     const parts = name.trim().split(/\s+/);
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   return (
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   headerCreateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1B382B',
+    backgroundColor: '#1E3E2F',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   headerCreateText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   segmentedContainer: {
     flexDirection: 'row',
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   segmentBtnActive: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#1E3E2F',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 10,
@@ -460,15 +460,15 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#D9E4DD',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
   },
   avatarText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#166534',
+    fontWeight: '800',
+    color: '#1B382B',
   },
   cardHeaderMiddle: {
     flex: 1,
@@ -494,8 +494,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
+    fontWeight: '700',
+    color: '#0F172A',
     marginBottom: 4,
   },
   cardContent: {
@@ -505,8 +505,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardAmount: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: '#166534',
     marginTop: 4,
   },
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   },
   cardFooterLink: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#166534',
+    fontWeight: '700',
+    color: '#1E3E2F',
   },
 });
