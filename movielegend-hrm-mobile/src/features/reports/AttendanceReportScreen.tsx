@@ -272,17 +272,12 @@ export function AttendanceReportScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {/* 1. Header (Back Button, Brand, Title, Subtitle) */}
+      {/* 1. Header (Back Button, Title, Subtitle) */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <Ionicons name="chevron-back" size={24} color="#0F172A" />
           </Pressable>
-          <View style={styles.brandRow}>
-            <Text style={styles.brandTitle}>movielegend</Text>
-            <Text style={styles.brandSubtitle}>PEOPLE</Text>
-          </View>
-          <View style={{ width: 36 }} />
         </View>
 
         <Text style={styles.title}>Báo cáo chấm công</Text>
