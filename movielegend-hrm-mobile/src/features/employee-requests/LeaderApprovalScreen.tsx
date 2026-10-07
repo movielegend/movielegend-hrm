@@ -638,19 +638,23 @@ export function LeaderApprovalScreen() {
             </View>
 
             <TouchableOpacity 
-              activeOpacity={0.9}
+              activeOpacity={0.8}
               onPress={() => setSelectedImage(meta.image)}
-              style={styles.imagePreviewWrap}
+              style={styles.attachmentRow}
             >
-              <Image 
-                source={{ uri: meta.image }} 
-                style={styles.imagePreviewImg} 
-                resizeMode="cover"
-              />
-              <View style={styles.imageZoomBadge}>
-                <MaterialCommunityIcons name="magnify-plus-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
-                <Text style={styles.imageZoomBadgeText}>Chạm để phóng to</Text>
+              <View style={styles.attachmentIconBox}>
+                <MaterialCommunityIcons name="file-document-outline" size={24} color="#64748B" />
               </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.attachmentFileName}>Ảnh chứng từ</Text>
+                <Text style={styles.attachmentFileSize}>Tài liệu đính kèm</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.openAttachmentBtn}
+                onPress={() => setSelectedImage(meta.image)}
+              >
+                <Text style={styles.openAttachmentText}>Mở ảnh ↗</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           </View>
         )}
@@ -664,19 +668,23 @@ export function LeaderApprovalScreen() {
             </View>
 
             <TouchableOpacity 
-              activeOpacity={0.9}
+              activeOpacity={0.8}
               onPress={() => setSelectedImage(meta.disbursementProofUrl)}
-              style={styles.imagePreviewWrap}
+              style={styles.attachmentRow}
             >
-              <Image 
-                source={{ uri: meta.disbursementProofUrl }} 
-                style={styles.imagePreviewImg} 
-                resizeMode="cover"
-              />
-              <View style={styles.imageZoomBadge}>
-                <MaterialCommunityIcons name="magnify-plus-outline" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
-                <Text style={styles.imageZoomBadgeText}>Chạm để phóng to</Text>
+              <View style={[styles.attachmentIconBox, { backgroundColor: '#DCFCE7' }]}>
+                <MaterialCommunityIcons name="check-decagram" size={24} color="#166534" />
               </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.attachmentFileName}>Biên lai giải ngân</Text>
+                <Text style={styles.attachmentFileSize}>Kế toán đã tải lên</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.openAttachmentBtn}
+                onPress={() => setSelectedImage(meta.disbursementProofUrl)}
+              >
+                <Text style={styles.openAttachmentText}>Mở ảnh ↗</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           </View>
         )}
@@ -1019,35 +1027,45 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '500',
   },
-  imagePreviewWrap: {
-    width: '100%',
-    height: 180,
+  attachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
     borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: '#F1F5F9',
+  },
+  attachmentIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachmentFileName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  attachmentFileSize: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  openAttachmentBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  imagePreviewImg: {
-    width: '100%',
-    height: '100%',
-  },
-  imageZoomBadge: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  imageZoomBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  openAttachmentText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   historyStepRow: {
     flexDirection: 'row',
