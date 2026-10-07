@@ -1,18 +1,4 @@
-import type { Audio as AudioType } from 'expo-av';
-
-let SafeAudio: typeof AudioType | null = null;
-let isAudioAvailable = false;
-
-try {
-  const av = require('expo-av');
-  if (av && av.Audio) {
-    SafeAudio = av.Audio;
-    isAudioAvailable = true;
-  }
-} catch (error) {
-  console.warn('[SafeAudio] Native module ExponentAV is not available in the current native build:', error);
-  SafeAudio = null;
-  isAudioAvailable = false;
-}
-
-export { SafeAudio, isAudioAvailable };
+// expo-av is unmaintained and causes native crash (UnsatisfiedLinkError libexpo-av.so on RN 0.86)
+// Safe mock export so chat features do not crash when referencing audio
+export const SafeAudio: any = null;
+export const isAudioAvailable = false;
