@@ -46,6 +46,7 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
   const router = useRouter();
   const [directionTab, setDirectionTab] = useState<'outgoing' | 'incoming' | 'all'>(mode === 'incoming' ? 'incoming' : 'outgoing');
   const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('ALL');
+  const [statusFilterModalVisible, setStatusFilterModalVisible] = useState(false);
 
   const list = useCrossDepartmentRequests({ 
     page: 1, 
@@ -63,84 +64,122 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
     return items;
   }, [list.data, activeTab]);
 
+  const activeStatusLabel = useMemo(() => {
+    if (activeTab === 'PENDING') return 'Chờ duyệt';
+    if (activeTab === 'APPROVED') return 'Đã duyệt';
+    if (activeTab === 'REJECTED') return 'Từ chối';
+    return 'Tất cả trạng thái';
+  }, [activeTab]);
+
   return (
     <Screen>
-      <ScreenContainer refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => void list.refetch()} />}>
-        <PageHeader 
-          title="Luân chuyển & Phối hợp" 
-          subtitle="Quản lý các yêu cầu liên phòng ban" 
-          showBack={false}
-          right={
-            area !== 'admin' ? (
-              <Pressable style={styles.addBtn} onPress={() => router.push(`/${area}/cross-department/create`)}>
-                <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-                <Text style={styles.addBtnText}>Tạo mới</Text>
-              </Pressable>
-            ) : null
-          }
-        />
+      {/* 1. Header (Back button + Title on same row) */}
+      <View style={crossListStyles.header}>
+        <View style={crossListStyles.headerTop}>
+          <View style={crossListStyles.headerRow}>
+            <Pressable 
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/admin/(tabs)' as any))} 
+              style={crossListStyles.backBtn} 
+              hitSlop={8}
+            >
+              <MaterialCommunityIcons name="chevron-left" size={26} color="#0F172A" />
+            </Pressable>
+            <Text style={crossListStyles.headerTitle}>Luân chuyển & phối hợp</Text>
+          </View>
+          {area !== 'admin' && (
+            <Pressable style={crossListStyles.headerAddBtn} onPress={() => router.push(`/${area}/cross-department/create`)}>
+              <MaterialCommunityIcons name="plus" size={16} color="#fff" />
+              <Text style={crossListStyles.headerAddText}>Tạo mới</Text>
+            </Pressable>
+          )}
+        </View>
+        <Text style={crossListStyles.headerSubtitle}>Quản lý yêu cầu liên phòng ban</Text>
+      </View>
 
-        {/* Modern Segmented Control */}
-        <View style={styles.segmentedContainer}>
-          <Pressable
-            style={[styles.segmentBtn, directionTab === 'outgoing' && styles.segmentBtnActive]}
-            onPress={() => setDirectionTab('outgoing')}
-          >
-            <MaterialCommunityIcons 
-              name="send-outline" 
-              size={16} 
-              color={directionTab === 'outgoing' ? colors.primary : colors.muted} 
-            />
-            <Text style={[styles.segmentText, directionTab === 'outgoing' && styles.segmentTextActive]}>Yêu cầu đã gửi</Text>
-          </Pressable>
+      {/* 2. Segmented Tabs (Đã gửi | Yêu cầu đến | Tất cả) */}
+      <View style={crossListStyles.segmentedContainer}>
+        <Pressable
+          style={[crossListStyles.segmentBtn, directionTab === 'outgoing' && crossListStyles.segmentBtnActive]}
+          onPress={() => setDirectionTab('outgoing')}
+        >
+          <Text style={[crossListStyles.segmentText, directionTab === 'outgoing' && crossListStyles.segmentTextActive]}>
+            Đã gửi
+          </Text>
+        </Pressable>
 
-          <Pressable
-            style={[styles.segmentBtn, directionTab === 'incoming' && styles.segmentBtnActive]}
-            onPress={() => setDirectionTab('incoming')}
-          >
-            <MaterialCommunityIcons 
-              name="inbox-arrow-down-outline" 
-              size={18} 
-              color={directionTab === 'incoming' ? colors.primary : colors.muted} 
-            />
-            <Text style={[styles.segmentText, directionTab === 'incoming' && styles.segmentTextActive]}>Yêu cầu đến</Text>
-          </Pressable>
+        <Pressable
+          style={[crossListStyles.segmentBtn, directionTab === 'incoming' && crossListStyles.segmentBtnActive]}
+          onPress={() => setDirectionTab('incoming')}
+        >
+          <Text style={[crossListStyles.segmentText, directionTab === 'incoming' && crossListStyles.segmentTextActive]}>
+            Yêu cầu đến
+          </Text>
+        </Pressable>
 
-          <Pressable
-            style={[styles.segmentBtn, directionTab === 'all' && styles.segmentBtnActive, { flex: 0.6 }]}
-            onPress={() => setDirectionTab('all')}
-          >
-            <Text style={[styles.segmentText, directionTab === 'all' && styles.segmentTextActive]}>Tất cả</Text>
+        <Pressable
+          style={[crossListStyles.segmentBtn, directionTab === 'all' && crossListStyles.segmentBtnActive]}
+          onPress={() => setDirectionTab('all')}
+        >
+          <Text style={[crossListStyles.segmentText, directionTab === 'all' && crossListStyles.segmentTextActive]}>
+            Tất cả
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* 3. Status Filter Dropdown Pill */}
+      <View style={crossListStyles.filterPillRow}>
+        <Pressable 
+          style={crossListStyles.statusDropdownPill}
+          onPress={() => setStatusFilterModalVisible(true)}
+        >
+          <MaterialCommunityIcons name="filter-variant" size={16} color="#475569" />
+          <Text style={crossListStyles.statusDropdownText}>
+            Trạng thái: {activeStatusLabel}
+          </Text>
+          <MaterialCommunityIcons name="chevron-down" size={16} color="#475569" />
+        </Pressable>
+      </View>
+
+      {/* 4. Content List or Empty State */}
+      {list.isLoading ? (
+        <View style={crossListStyles.centerBox}>
+          <ActivityIndicator size="large" color="#1B382B" />
+        </View>
+      ) : list.isError ? (
+        <View style={crossListStyles.centerBox}>
+          <Text style={{ color: '#EF4444', marginBottom: 12 }}>Có lỗi xảy ra khi tải dữ liệu</Text>
+          <Pressable style={crossListStyles.resetFilterBtn} onPress={() => void list.refetch()}>
+            <Text style={crossListStyles.resetFilterText}>Thử lại</Text>
           </Pressable>
         </View>
-
-        {/* Status Filter Chips */}
-        <View style={styles.chipsWrap}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
-            {[
-              { key: 'ALL', label: 'Tất cả' },
-              { key: 'PENDING', label: 'Chờ duyệt' },
-              { key: 'APPROVED', label: 'Đã duyệt / Tiến độ' },
-              { key: 'REJECTED', label: 'Từ chối' },
-            ].map((chip) => {
-              const isActive = activeTab === chip.key;
-              return (
-                <Pressable
-                  key={chip.key}
-                  style={[styles.chipBtn, isActive && styles.chipBtnActive]}
-                  onPress={() => setActiveTab(chip.key as any)}
-                >
-                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{chip.label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {list.isLoading && <LoadingState />}
-        {list.isError && <ErrorState error={list.error} onRetry={() => void list.refetch()} />}
-
-        <View style={styles.listWrap}>
+      ) : filteredItems.length === 0 ? (
+        <ScrollView
+          contentContainerStyle={crossListStyles.emptyContainer}
+          refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => void list.refetch()} />}
+        >
+          <View style={crossListStyles.emptyIconBg}>
+            <MaterialCommunityIcons name="inbox-arrow-down-outline" size={38} color="#166534" />
+          </View>
+          <Text style={crossListStyles.emptyTitle}>Không có yêu cầu phù hợp</Text>
+          <Text style={crossListStyles.emptySubtitle}>
+            Không tìm thấy yêu cầu nào theo bộ lọc hiện tại. Thử chọn trạng thái hoặc tab khác.
+          </Text>
+          <Pressable 
+            style={crossListStyles.resetFilterBtn}
+            onPress={() => {
+              setActiveTab('ALL');
+              setDirectionTab('all');
+            }}
+          >
+            <Text style={crossListStyles.resetFilterText}>Đặt lại bộ lọc</Text>
+          </Pressable>
+        </ScrollView>
+      ) : (
+        <ScrollView
+          contentContainerStyle={crossListStyles.listContent}
+          refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => void list.refetch()} />}
+          showsVerticalScrollIndicator={false}
+        >
           {filteredItems.map((request) => (
             <CrossDepartmentCard 
               key={request.id} 
@@ -148,11 +187,50 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
               onPress={() => router.push(`/${area}/cross-department/${request.id}`)} 
             />
           ))}
-          {!list.isLoading && filteredItems.length === 0 ? (
-            <EmptyState title="Không có yêu cầu nào" message="Không tìm thấy yêu cầu khớp với bộ lọc." />
-          ) : null}
-        </View>
-      </ScreenContainer>
+        </ScrollView>
+      )}
+
+      {/* Status Filter Modal */}
+      <Modal visible={statusFilterModalVisible} transparent animationType="fade">
+        <Pressable 
+          style={crossListStyles.modalBackdrop} 
+          onPress={() => setStatusFilterModalVisible(false)}
+        >
+          <View style={crossListStyles.modalCard}>
+            <Text style={crossListStyles.modalTitle}>Chọn trạng thái</Text>
+            {[
+              { key: 'ALL', label: 'Tất cả trạng thái' },
+              { key: 'PENDING', label: 'Chờ duyệt' },
+              { key: 'APPROVED', label: 'Đã duyệt / Tiến độ' },
+              { key: 'REJECTED', label: 'Từ chối' },
+            ].map((opt) => (
+              <Pressable
+                key={opt.key}
+                style={[
+                  crossListStyles.modalOption,
+                  activeTab === opt.key && crossListStyles.modalOptionActive,
+                ]}
+                onPress={() => {
+                  setActiveTab(opt.key as any);
+                  setStatusFilterModalVisible(false);
+                }}
+              >
+                <Text
+                  style={[
+                    crossListStyles.modalOptionText,
+                    activeTab === opt.key && crossListStyles.modalOptionTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+                {activeTab === opt.key && (
+                  <MaterialCommunityIcons name="check" size={18} color="#166534" />
+                )}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -1161,4 +1239,202 @@ const styles = StyleSheet.create({
   modalBtnCancelText: { fontSize: 15, fontWeight: '700', color: colors.muted },
   modalBtnConfirm: { flex: 1, padding: spacing.md, alignItems: 'center', borderRadius: 12, backgroundColor: colors.danger },
   modalBtnConfirmText: { fontSize: 15, fontWeight: '700', color: colors.surface },
+});
+
+const crossListStyles = StyleSheet.create({
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backBtn: {
+    marginRight: 6,
+    padding: 2,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+    marginLeft: 34,
+  },
+  headerAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1B382B',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  headerAddText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  segmentedContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 4,
+    borderRadius: 10,
+    gap: 4,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  segmentBtnActive: {
+    backgroundColor: '#1B382B',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  segmentTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  filterPillRow: {
+    paddingHorizontal: 16,
+    marginTop: 12,
+    flexDirection: 'row',
+  },
+  statusDropdownPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  statusDropdownText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  centerBox: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  emptyContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    paddingTop: 60,
+  },
+  emptyIconBg: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#DCFCE7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  resetFilterBtn: {
+    borderWidth: 1.5,
+    borderColor: '#1B382B',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  resetFilterText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1B382B',
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 32,
+    gap: 12,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  modalOptionActive: {
+    backgroundColor: '#F0FDF4',
+  },
+  modalOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#334155',
+  },
+  modalOptionTextActive: {
+    fontWeight: '700',
+    color: '#166534',
+  },
 });

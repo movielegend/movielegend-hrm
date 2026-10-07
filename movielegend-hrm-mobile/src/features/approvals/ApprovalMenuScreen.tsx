@@ -1,122 +1,249 @@
+import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Screen } from '../../components/Screen';
-import { spacing } from '../../theme/spacing';
+
 import { useAuth } from '../../providers/AuthProvider';
 import { roleBase } from '../../utils/notification-routing';
 
 export function ApprovalMenuScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  
-  const isAdmin = user?.roles?.some((r: any) => (typeof r === 'string' ? r : r.role?.code || r.name) === 'ADMIN') || user?.role?.code === 'ADMIN';
+
+  const isAdmin =
+    user?.roles?.some(
+      (r: any) => (typeof r === 'string' ? r : r.role?.code || r.name) === 'ADMIN'
+    ) || user?.role?.code === 'ADMIN';
 
   return (
-    <Screen>
-      <ScrollView 
-        contentContainerStyle={styles.container} 
-        bounces={false}
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      {/* 1. Header (Back button + Title + Subtitle on same line) */}
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/admin/(tabs)' as any))}
+            style={styles.backBtn}
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-back" size={24} color="#0F172A" />
+          </Pressable>
+          <Text style={styles.title}>Duyệt đơn từ</Text>
+        </View>
+        <Text style={styles.subtitle}>Tập trung các yêu cầu cần xét duyệt</Text>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Duyệt đơn từ</Text>
+        {/* 2. Hero Banner Card */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroIconBox}>
+            <MaterialCommunityIcons
+              name="clipboard-text-outline"
+              size={30}
+              color="#FFFFFF"
+            />
+          </View>
+          <View style={styles.heroContent}>
+            <Text style={styles.heroTitle}>Không gian phê duyệt</Text>
+            <Text style={styles.heroSubtitle}>
+              Chọn nhóm yêu cầu để bắt đầu
+            </Text>
+          </View>
+        </View>
 
-        <View style={styles.list}>
-          <MenuRow 
-            title="Duyệt yêu cầu" 
-            icon="text-box-multiple-outline" 
-            iconBg="#FCE7F3" 
-            iconColor="#E11D48" 
-            onPress={() => router.push(`${roleBase(user)}/employee-requests` as any)} 
-          />
-          <MenuRow 
-            title="Duyệt tài khoản" 
-            icon="account-check" 
-            iconBg="#FEF3C7" 
-            iconColor="#D97706" 
-            onPress={() => router.push(isAdmin ? '/admin/approvals' : `${roleBase(user)}/approvals/account` as any)}
-          />
-          <MenuRow 
-            title="Liên phòng ban" 
-            icon="transit-connection-variant" 
-            iconBg="#E0F2FE" 
-            iconColor="#2563EB" 
-            onPress={() => router.push(`${roleBase(user)}/cross-department` as any)} 
-          />
-          {!isAdmin && (
-            <>
-              <MenuRow 
-                title="Yêu cầu VTTB" 
-                icon="help" 
-                iconBg="#FDF2F8" 
-                iconColor="#DB2777" 
-                onPress={() => router.push(`${roleBase(user)}/material-issues` as any)} 
+        {/* 3. Navigation Cards List */}
+        <View style={styles.menuList}>
+          {/* Item 1: Duyệt yêu cầu */}
+          <Pressable
+            style={styles.menuCard}
+            onPress={() => router.push(`${roleBase(user)}/employee-requests` as any)}
+            android_ripple={{ color: '#F1F5F9' }}
+          >
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons
+                name="file-document-outline"
+                size={22}
+                color="#166534"
               />
-            </>
-          )}
+            </View>
+            <View style={styles.menuCardInfo}>
+              <Text style={styles.menuCardTitle}>Duyệt yêu cầu</Text>
+              <Text style={styles.menuCardSubtitle}>
+                Nghỉ phép, giải trình công, thanh toán
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </Pressable>
+
+          {/* Item 2: Duyệt tài khoản */}
+          <Pressable
+            style={styles.menuCard}
+            onPress={() =>
+              router.push(
+                isAdmin
+                  ? '/admin/approvals'
+                  : (`${roleBase(user)}/approvals/account` as any)
+              )
+            }
+            android_ripple={{ color: '#F1F5F9' }}
+          >
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons
+                name="account-group-outline"
+                size={22}
+                color="#166534"
+              />
+            </View>
+            <View style={styles.menuCardInfo}>
+              <Text style={styles.menuCardTitle}>Duyệt tài khoản</Text>
+              <Text style={styles.menuCardSubtitle}>
+                Xét duyệt đăng ký nhân viên mới
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </Pressable>
+
+          {/* Item 3: Liên phòng ban */}
+          <Pressable
+            style={styles.menuCard}
+            onPress={() => router.push(`${roleBase(user)}/cross-department` as any)}
+            android_ripple={{ color: '#F1F5F9' }}
+          >
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons
+                name="share-variant-outline"
+                size={22}
+                color="#166534"
+              />
+            </View>
+            <View style={styles.menuCardInfo}>
+              <Text style={styles.menuCardTitle}>Liên phòng ban</Text>
+              <Text style={styles.menuCardSubtitle}>
+                Theo dõi luân chuyển và phối hợp
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </Pressable>
         </View>
       </ScrollView>
-    </Screen>
-  );
-}
-
-function MenuRow({ icon, title, iconBg, iconColor, onPress }: any) {
-  return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <View style={[styles.iconContainer, { backgroundColor: iconBg }]}>
-        <MaterialCommunityIcons name={icon} size={28} color={iconColor} />
-      </View>
-      <Text style={styles.cardTitle}>{title}</Text>
-      <MaterialCommunityIcons name="chevron-right" size={20} color="#64748B" />
-    </Pressable>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xxl,
-    backgroundColor: '#F8FAFC',
-    minHeight: '100%',
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAF8',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  backBtn: {
+    padding: 4,
+    marginLeft: -4,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: '#0F172A',
-    marginTop: spacing.xs,
-    marginBottom: spacing.lg,
     letterSpacing: -0.5,
   },
-  list: {
-    gap: spacing.md,
+  subtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+    marginLeft: 32,
   },
-  card: {
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 40,
+  },
+  heroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1B382B', // Deep forest green
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    gap: 16,
+    shadowColor: '#1B382B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  heroIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroContent: {
+    flex: 1,
+  },
+  heroTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontWeight: '500',
+  },
+  menuList: {
+    gap: 12,
+  },
+  menuCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    padding: spacing.md,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+    gap: 14,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
+  iconCircle: {
+    width: 44,
+    height: 44,
     borderRadius: 14,
-    alignItems: 'center',
+    backgroundColor: '#EAF5EE', // Soft mint green
     justifyContent: 'center',
-    marginRight: spacing.md,
+    alignItems: 'center',
   },
-  cardTitle: {
+  menuCardInfo: {
     flex: 1,
+  },
+  menuCardTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '800',
     color: '#0F172A',
+    marginBottom: 3,
+  },
+  menuCardSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
   },
 });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import {StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl} from 'react-native';
+import {StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl, TextInput} from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -31,17 +31,26 @@ export default function LeaderRequestsScreen() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<EmployeeRequestStatus>('PENDING');
   const [selectedType, setSelectedType] = useState<EmployeeRequestType | 'ALL'>('ALL');
+  const [search, setSearch] = useState('');
 
   const { data: allRequests = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['leader-employee-requests'],
     queryFn: () => getEmployeeRequests()
   });
 
-  // Client-side filtering because getEmployeeRequests doesn't take status/type filters in this backend implementation version
-  const requests = allRequests.filter((r: any) => 
-    r.status === activeTab && 
-    (selectedType === 'ALL' || r.type === selectedType)
-  );
+  // Client-side filtering
+  const requests = allRequests.filter((r: any) => {
+    const matchTab = r.status === activeTab;
+    const matchType = selectedType === 'ALL' || r.type === selectedType;
+    const userName = r.user?.profile?.fullName || r.user?.email || '';
+    const content = r.content || '';
+    const title = r.title || '';
+    const matchSearch = !search.trim() || 
+      userName.toLowerCase().includes(search.toLowerCase()) || 
+      title.toLowerCase().includes(search.toLowerCase()) ||
+      content.toLowerCase().includes(search.toLowerCase());
+    return matchTab && matchType && matchSearch;
+  });
 
   const approveMutation = useMutation({
     mutationFn: approveEmployeeRequest,
@@ -75,22 +84,22 @@ export default function LeaderRequestsScreen() {
     }
     if (status === 'APPROVED') {
       if (meta.disbursementProofUrl || stage === 'DISBURSED') {
-        return { text: 'Đã giải ngân', color: '#10B981', bg: '#D1FAE5' };
+        return { text: 'Đã giải ngân', color: '#166534', bg: '#DCFCE7' };
       }
-      return { text: 'Đã duyệt', color: '#10B981', bg: '#D1FAE5' };
+      return { text: 'Đã duyệt', color: '#166534', bg: '#DCFCE7' };
     }
     if (status === 'PENDING') {
       switch (stage) {
         case 'PENDING_LEADER':
-          return { text: 'Chờ Leader duyệt', color: '#D97706', bg: '#FEF3C7' };
+          return { text: 'Chờ Leader duyệt', color: '#B45309', bg: '#FEF3C7' };
         case 'PENDING_HR':
-          return { text: 'Chờ HR đối chứng', color: '#2563EB', bg: '#DBEAFE' };
+          return { text: 'Chờ HR đối chứng', color: '#1D4ED8', bg: '#DBEAFE' };
         case 'PENDING_ADMIN':
-          return { text: 'Chờ Admin duyệt', color: '#7C3AED', bg: '#EDE9FE' };
+          return { text: 'Chờ Admin duyệt', color: '#6D28D9', bg: '#EDE9FE' };
         case 'PENDING_DISBURSEMENT':
-          return { text: 'Chờ giải ngân', color: '#EA580C', bg: '#FFEDD5' };
+          return { text: 'Chờ giải ngân', color: '#C2410C', bg: '#FFEDD5' };
         default:
-          return { text: 'Chờ xử lý', color: '#D97706', bg: '#FEF3C7' };
+          return { text: 'Chờ xử lý', color: '#B45309', bg: '#FEF3C7' };
       }
     }
     return { text: 'Không rõ', color: '#6B7280', bg: '#F3F4F6' };
@@ -100,69 +109,100 @@ export default function LeaderRequestsScreen() {
     return REQUEST_TYPES.find(t => t.type === type) || REQUEST_TYPES[0];
   };
 
+  const getInitials = (name?: string) => {
+    if (!name) return 'NV';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   return (
     <Screen>
+      {/* 1. Header (Back button + Title on same row + Right Action Button) */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#111827" />
-          </Pressable>
-          <View>
-            <Text style={styles.title}>Duyệt Yêu Cầu</Text>
-            <Text style={styles.dateText}>Quản lý yêu cầu của nhân sự</Text>
+        <View style={styles.headerTop}>
+          <View style={styles.headerRow}>
+            <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+              <MaterialCommunityIcons name="chevron-left" size={26} color="#0F172A" />
+            </Pressable>
+            <Text style={styles.title}>Duyệt yêu cầu</Text>
           </View>
+          <Pressable 
+            style={styles.headerCreateBtn} 
+            onPress={() => router.push('/employee/requests/create' as any)}
+          >
+            <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
+            <Text style={styles.headerCreateText}>Tạo đơn</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.subtitle}>Quản lý yêu cầu của nhân sự</Text>
+      </View>
+
+      {/* 2. Segmented Control */}
+      <View style={styles.segmentedContainer}>
+        <Pressable 
+          style={[styles.segmentBtn, activeTab === 'PENDING' && styles.segmentBtnActive]} 
+          onPress={() => setActiveTab('PENDING')}
+        >
+          <Text style={[styles.segmentText, activeTab === 'PENDING' && styles.segmentTextActive]}>Chờ xử lý</Text>
+        </Pressable>
+        <Pressable 
+          style={[styles.segmentBtn, activeTab === 'APPROVED' && styles.segmentBtnActive]} 
+          onPress={() => setActiveTab('APPROVED')}
+        >
+          <Text style={[styles.segmentText, activeTab === 'APPROVED' && styles.segmentTextActive]}>Đã duyệt</Text>
+        </Pressable>
+        <Pressable 
+          style={[styles.segmentBtn, activeTab === 'REJECTED' && styles.segmentBtnActive]} 
+          onPress={() => setActiveTab('REJECTED')}
+        >
+          <Text style={[styles.segmentText, activeTab === 'REJECTED' && styles.segmentTextActive]}>Từ chối</Text>
+        </Pressable>
+      </View>
+
+      {/* 3. Search Bar */}
+      <View style={styles.searchSection}>
+        <View style={styles.searchBar}>
+          <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm người gửi hoặc nội dung"
+            placeholderTextColor="#94A3B8"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch('')}>
+              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+            </Pressable>
+          )}
         </View>
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        <Pressable 
-          style={[styles.tab, activeTab === 'PENDING' && styles.tabActive]} 
-          onPress={() => setActiveTab('PENDING')}
-        >
-          <Text style={[styles.tabText, activeTab === 'PENDING' && styles.tabTextActive]}>Chờ xử lý</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.tab, activeTab === 'APPROVED' && styles.tabActive]} 
-          onPress={() => setActiveTab('APPROVED')}
-        >
-          <Text style={[styles.tabText, activeTab === 'APPROVED' && styles.tabTextActive]}>Đã duyệt</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.tab, activeTab === 'REJECTED' && styles.tabActive]} 
-          onPress={() => setActiveTab('REJECTED')}
-        >
-          <Text style={[styles.tabText, activeTab === 'REJECTED' && styles.tabTextActive]}>Từ chối</Text>
-        </Pressable>
-      </View>
-
-      {/* Categories Filter */}
-      <View>
+      {/* 4. Categories Filter */}
+      <View style={styles.filterSection}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
-          {REQUEST_TYPES.map((t) => (
-            <Pressable 
-              key={t.type} 
-              style={[styles.filterPill, selectedType === t.type && styles.filterPillActive]}
-              onPress={() => setSelectedType(t.type)}
-            >
-              <MaterialCommunityIcons 
-                name={t.icon} 
-                size={16} 
-                color={selectedType === t.type ? '#fff' : '#111827'} 
-                style={styles.filterPillIcon} 
-              />
-              <Text style={[styles.filterPillText, selectedType === t.type && styles.filterPillTextActive]}>
-                {t.label}
-              </Text>
-            </Pressable>
-          ))}
+          {REQUEST_TYPES.map((t) => {
+            const isSelected = selectedType === t.type;
+            return (
+              <Pressable 
+                key={t.type} 
+                style={[styles.filterPill, isSelected && styles.filterPillActive]}
+                onPress={() => setSelectedType(t.type)}
+              >
+                <Text style={[styles.filterPillText, isSelected && styles.filterPillTextActive]}>
+                  {t.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </ScrollView>
       </View>
 
-      {/* List */}
+      {/* 5. List */}
       {isLoading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color="#1B382B" />
         </View>
       ) : requests.length === 0 ? (
         <ScrollView 
@@ -170,20 +210,23 @@ export default function LeaderRequestsScreen() {
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
         >
           <View style={styles.emptyIconBg}>
-            <MaterialCommunityIcons name="file-document-edit-outline" size={64} color="#9CA3AF" />
+            <MaterialCommunityIcons name="text-box-search-outline" size={54} color="#94A3B8" />
           </View>
-          <Text style={styles.emptyText}>Không có yêu cầu nào</Text>
+          <Text style={styles.emptyText}>Không có yêu cầu phù hợp</Text>
+          <Text style={styles.emptySubtext}>Thử chọn danh mục khác hoặc thay đổi bộ lọc</Text>
         </ScrollView>
       ) : (
         <ScrollView 
           contentContainerStyle={styles.listContainer}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+          showsVerticalScrollIndicator={false}
         >
           {requests.map((item: any) => {
             const config = getTypeConfig(item.type);
             const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '';
-            const userName = item.user?.profile?.fullName || item.user?.email || 'Unknown User';
+            const userName = item.user?.profile?.fullName || item.user?.email || 'Nhân viên';
             const statusObj = getStatusDisplay(item);
+            const initials = getInitials(userName);
             
             return (
               <Pressable 
@@ -192,33 +235,33 @@ export default function LeaderRequestsScreen() {
                 onPress={() => router.push(`${rolePrefix}/employee-requests/${item.id}` as any)}
               >
                 <View style={styles.cardHeader}>
-                  <View style={styles.cardIconBox}>
-                    <MaterialCommunityIcons name={config.icon} size={24} color="#111827" />
+                  <View style={styles.avatarBox}>
+                    <Text style={styles.avatarText}>{initials}</Text>
                   </View>
-                  <View style={styles.cardHeaderRight}>
+                  <View style={styles.cardHeaderMiddle}>
                     <Text style={styles.cardUserName}>{userName}</Text>
-                    <Text style={styles.cardSubtitle}>{config.label} • {dateStr}</Text>
+                    <Text style={styles.cardMeta}>{config.label} • {dateStr}</Text>
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={[styles.statusPill, { backgroundColor: statusObj.bg, borderColor: statusObj.bg }]}>
-                      <Text style={[styles.statusPillText, { color: statusObj.color, fontWeight: '700' }]}>
-                        {statusObj.text}
-                      </Text>
-                    </View>
+                  <View style={[styles.statusBadge, { backgroundColor: statusObj.bg }]}>
+                    <Text style={[styles.statusBadgeText, { color: statusObj.color }]}>
+                      {statusObj.text}
+                    </Text>
                   </View>
                 </View>
                 
                 <Text style={styles.cardTitle}>{item.title || config.label}</Text>
-                <Text style={styles.cardContent} numberOfLines={2}>{item.content}</Text>
+                {item.content ? (
+                  <Text style={styles.cardContent} numberOfLines={2}>{item.content}</Text>
+                ) : null}
                 
                 {item.amount != null && (
                   <Text style={styles.cardAmount}>
-                    Số tiền: {Number(item.amount).toLocaleString('vi-VN')} VNĐ
+                    {Number(item.amount).toLocaleString('vi-VN')} VNĐ
                   </Text>
                 )}
 
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
-                  <Text style={{ fontSize: 13, color: '#2563EB', fontWeight: '600' }}>
+                <View style={styles.cardFooter}>
+                  <Text style={styles.cardFooterLink}>
                     Xem chi tiết & xử lý →
                   </Text>
                 </View>
@@ -227,259 +270,257 @@ export default function LeaderRequestsScreen() {
           })}
         </ScrollView>
       )}
-
-      {/* Floating Action Bubble (Bong bóng tạo đơn) */}
-      <Pressable 
-        style={styles.fabBubble} 
-        onPress={() => router.push('/employee/requests/create' as any)}
-      >
-        <MaterialCommunityIcons name="plus" size={22} color="#fff" />
-        <Text style={styles.fabText}>Tạo đơn</Text>
-      </Pressable>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  headerTop: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: '#fff',
   },
-  headerLeft: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  iconBtn: {
-    padding: spacing.xs,
-    marginRight: spacing.sm,
+  backBtn: {
+    marginRight: 6,
+    padding: 2,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.text,
+    color: '#0F172A',
   },
-  dateSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  dateText: {
+  subtitle: {
     fontSize: 13,
-    color: colors.muted,
+    color: '#64748B',
+    marginTop: 2,
+    marginLeft: 34,
   },
-  fabBubble: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    backgroundColor: '#111827',
+  headerCreateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 999,
+    backgroundColor: '#1B382B',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
   },
-  fabText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-    marginLeft: 6,
-  },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingHorizontal: spacing.md,
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    marginRight: spacing.lg,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: '#111827',
-  },
-  tabText: {
-    fontSize: 15,
+  headerCreateText: {
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '600',
-    color: '#9CA3AF',
-    marginRight: 6,
   },
-  tabTextActive: {
-    color: '#111827',
+  segmentedContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 4,
+    borderRadius: 10,
+    gap: 4,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  segmentBtnActive: {
+    backgroundColor: '#1B382B',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  segmentTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  searchSection: {
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 42,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  filterSection: {
+    marginTop: 8,
   },
   filterContainer: {
-    padding: spacing.md,
-    paddingRight: spacing.xl,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    gap: 8,
   },
   filterPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 24,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
   },
   filterPillActive: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
-  },
-  filterPillIcon: {
-    marginRight: 6,
+    backgroundColor: '#DCFCE7',
   },
   filterPillText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#111827',
+    color: '#64748B',
   },
   filterPillTextActive: {
-    color: '#fff',
+    color: '#166534',
+    fontWeight: '700',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
   },
   emptyContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 24,
+    paddingTop: 60,
   },
   emptyIconBg: {
-    marginBottom: spacing.lg,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.muted,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
   },
   listContainer: {
-    padding: spacing.md,
-    paddingBottom: 40,
+    padding: 16,
+    paddingBottom: 32,
+    gap: 12,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 10,
   },
-  cardIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+  avatarBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#DCFCE7',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginRight: 10,
   },
-  cardHeaderRight: {
+  avatarText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  cardHeaderMiddle: {
     flex: 1,
   },
   cardUserName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 2,
-  },
-  cardTitle: {
     fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: spacing.xs,
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#0F172A',
   },
-  cardSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
+  cardMeta: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
   },
-  statusPill: {
+  statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
+    borderRadius: 6,
   },
-  statusPillText: {
-    fontSize: 12,
-    color: '#4B5563',
-    fontWeight: '500',
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
-  blackDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#111827',
-    marginLeft: 8,
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4,
   },
   cardContent: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
+    fontSize: 13,
+    color: '#64748B',
+    lineHeight: 18,
+    marginBottom: 4,
   },
   cardAmount: {
-    marginTop: spacing.sm,
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
+    fontWeight: '700',
+    color: '#166534',
+    marginTop: 4,
   },
-  actionButtons: {
+  cardFooter: {
     flexDirection: 'row',
-    marginTop: spacing.md,
+    justifyContent: 'flex-end',
+    marginTop: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
+    borderTopColor: '#F1F5F9',
   },
-  btnAction: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  btnReject: {
-    backgroundColor: colors.dangerSoft,
-    marginRight: spacing.sm,
-  },
-  btnApprove: {
-    backgroundColor: colors.primary,
-  },
-  btnRejectText: {
-    color: colors.danger,
+  cardFooterLink: {
+    fontSize: 12,
     fontWeight: '600',
-    fontSize: 15,
+    color: '#166534',
   },
-  btnApproveText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 15,
-  }
 });
