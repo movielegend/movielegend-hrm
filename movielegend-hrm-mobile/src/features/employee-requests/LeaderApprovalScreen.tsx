@@ -243,348 +243,469 @@ export function LeaderApprovalScreen() {
     }
   }
 
-  // Determine role-based action text
-  let approveButtonLabel = 'Phê duyệt';
-  let approveSubtext = '';
-  if (isFinancial) {
-    if (stage === 'PENDING_DISBURSEMENT') {
-      approveButtonLabel = 'Xác nhận Giải ngân';
-      approveSubtext = 'Kế toán giải ngân & đóng đơn';
-    } else if (stage === 'PENDING_ADMIN') {
-      approveButtonLabel = 'Duyệt chuyển Kế toán';
-      approveSubtext = 'Ban Giám Đốc duyệt hạn mức > 5M';
-    } else if (stage === 'PENDING_HR') {
-      if (amount > 5000000) {
-        approveButtonLabel = 'Đối chứng & Chuyển Admin';
-        approveSubtext = 'Xác nhận đủ điều kiện, chuyển Ban Giám Đốc';
-      } else {
-        approveButtonLabel = 'Duyệt chuyển Kế toán';
-        approveSubtext = 'Leader HR duyệt hạn mức ≤ 5M';
-      }
-    } else if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
-      approveButtonLabel = 'Duyệt chuyển HR';
-      approveSubtext = 'Trưởng BP đồng ý, chuyển HR đối chứng';
+  // Formatting helpers matching mockup media_1791363426977.jpg
+  const getUserInitials = (name: string) => {
+    if (!name) return 'ML';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+  const userInitials = getUserInitials(userName);
+
+  // Subtitle e.g. "Nhân viên · Kế toán · Hà Nội"
+  const branchName = request.department?.branch?.name || (currentUser?.branch as any)?.name || 'Hà Nội';
+  const userSubtitle = `${userPos} · ${userDept} · ${branchName}`;
+
+  // Format submission time e.g. "Gửi lúc 15:21:51 · 06/10/2026"
+  const formatSubmissionTime = (dateVal?: string | Date | null) => {
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const date = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return `Gửi lúc ${time} · ${date}`;
+  };
+
+  // Status badge logic
+  const getStatusBadgeInfo = () => {
+    if (request.status === 'REJECTED') {
+      return {
+        label: 'Đã từ chối',
+        bg: '#FEE2E2',
+        color: '#DC2626',
+        icon: 'close-circle' as const,
+      };
     }
-  }
+    if (request.status === 'APPROVED') {
+      return {
+        label: 'Đã duyệt',
+        bg: '#DCFCE7',
+        color: '#166534',
+        icon: 'check-circle' as const,
+      };
+    }
+    // PENDING
+    if (stage === 'PENDING_HR') {
+      return {
+        label: 'Chờ HR đối chứng',
+        bg: '#FEF3C7',
+        color: '#B45309',
+        icon: 'clock-outline' as const,
+      };
+    }
+    if (stage === 'PENDING_ADMIN') {
+      return {
+        label: 'Chờ Admin duyệt',
+        bg: '#FEF3C7',
+        color: '#B45309',
+        icon: 'clock-outline' as const,
+      };
+    }
+    if (stage === 'PENDING_DISBURSEMENT') {
+      return {
+        label: 'Chờ giải ngân',
+        bg: '#FEF3C7',
+        color: '#B45309',
+        icon: 'clock-outline' as const,
+      };
+    }
+    return {
+      label: 'Chờ Leader duyệt',
+      bg: '#FEF3C7',
+      color: '#B45309',
+      icon: 'clock-outline' as const,
+    };
+  };
+
+  const statusBadge = getStatusBadgeInfo();
+
+  // Screen Title based on status and type
+  const getScreenTitle = () => {
+    if (request.status === 'PENDING') {
+      switch (request.type) {
+        case 'EXPENSE': return 'Duyệt thanh toán';
+        case 'ADVANCE': return 'Duyệt tạm ứng';
+        case 'PURCHASE': return 'Duyệt mua sắm';
+        case 'LEAVE': return 'Duyệt nghỉ phép';
+        case 'ATTENDANCE_ADJUSTMENT': return 'Duyệt giải trình';
+        case 'LATE_ARRIVAL': return 'Duyệt đi muộn';
+        case 'EARLY_LEAVE': return 'Duyệt về sớm';
+        case 'OVERTIME': return 'Duyệt làm thêm giờ';
+        default: return 'Phê duyệt đơn từ';
+      }
+    }
+    // In approved or rejected mode
+    switch (request.type) {
+      case 'EXPENSE': return 'Chi tiết đơn thanh toán';
+      case 'ADVANCE': return 'Chi tiết đơn tạm ứng';
+      case 'PURCHASE': return 'Chi tiết đơn mua sắm';
+      case 'LEAVE': return 'Chi tiết đơn nghỉ';
+      case 'ATTENDANCE_ADJUSTMENT': return 'Chi tiết giải trình';
+      case 'LATE_ARRIVAL': return 'Chi tiết đi muộn';
+      case 'EARLY_LEAVE': return 'Chi tiết về sớm';
+      case 'OVERTIME': return 'Chi tiết làm thêm giờ';
+      default: return 'Chi tiết đơn từ';
+    }
+  };
 
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#F0F4F8' }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      style={{ flex: 1, backgroundColor: '#F8FAFC' }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
-        <View style={[styles.header, shadows.sm]}>
-          <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={32} color="#111827" />
-          </Pressable>
-          <View style={{ paddingVertical: 4 }}>
-            <Text style={styles.headerTitle}>Phê duyệt Đơn từ</Text>
-            <Text style={styles.headerSubtitle}>Xem xét và quyết định</Text>
+        <View style={styles.header}>
+          {/* Top navigation row: back button and app brand */}
+          <View style={styles.topNavRow}>
+            <Pressable onPress={() => router.back()} hitSlop={12} style={styles.iconBtn}>
+              <MaterialCommunityIcons name="chevron-left" size={32} color="#0F172A" />
+            </Pressable>
+            <Text style={styles.appBrandText}>Movie Legend PEOPLE</Text>
+            <View style={{ width: 32 }} />
+          </View>
+
+          {/* Centered screen title */}
+          <View style={styles.titleRow}>
+            <Text style={styles.screenTitleText}>{screenTitle}</Text>
           </View>
         </View>
       </SafeAreaView>
 
       <ScrollView 
         ref={scrollViewRef}
-        contentContainerStyle={[styles.content, { paddingBottom: 100 + Math.max(insets.bottom, 24) }]}
+        contentContainerStyle={[styles.content, { paddingBottom: 110 + Math.max(insets.bottom, 24) }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
-        {/* 1. Header Card: Thông tin người nộp */}
-        <View style={[styles.userCard, shadows.sm]}>
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{userName}</Text>
-            <Text style={styles.userRole}>{userPos}</Text>
-            <Text style={styles.userDept}>{userDept}</Text>
+        {/* 1. Profile / Submitter Card */}
+        <View style={[styles.card, shadows.sm]}>
+          <View style={styles.profileRow}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarInitials}>{userInitials}</Text>
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{userName}</Text>
+              <Text style={styles.profileSubtitle}>{userSubtitle}</Text>
+            </View>
+            <View style={[styles.statusPill, { backgroundColor: statusBadge.bg }]}>
+              <MaterialCommunityIcons name={statusBadge.icon as any} size={13} color={statusBadge.color} style={{ marginRight: 4 }} />
+              <Text style={[styles.statusPillText, { color: statusBadge.color }]}>{statusBadge.label}</Text>
+            </View>
+          </View>
+
+          <View style={styles.cardDivider} />
+
+          <View style={styles.submissionTimeRow}>
+            <Text style={styles.submissionTimeText}>{formatSubmissionTime(request.createdAt)}</Text>
           </View>
         </View>
 
-        {/* 2. Thân Đơn: Chi tiết nội dung */}
-        <View style={styles.detailCard}>
-          <View style={styles.detailHeader}>
-            <View style={[styles.typeBadge, { backgroundColor: `${config.color}15` }]}>
-              <MaterialCommunityIcons name={config.icon as any} size={16} color={config.color} />
-              <Text style={[styles.typeBadgeText, { color: config.color }]}>{config.label}</Text>
-            </View>
-            <Text style={styles.submitTime}>{dateStr}</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.dynamicContent}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Tiêu đề:</Text>
-              <Text style={styles.detailValueBold}>{request.title}</Text>
-            </View>
-            
-            {request.amount != null && (
-              <View style={styles.amountWrap}>
-                <Text style={styles.amountLabel}>SỐ TIỀN</Text>
-                <Text style={styles.amountValue}>{Number(request.amount).toLocaleString('vi-VN')} <Text style={styles.amountCurrency}>VNĐ</Text></Text>
+        {/* 2. Main Content Card */}
+        <View style={[styles.card, shadows.sm]}>
+          {isFinancial ? (
+            <>
+              {/* Financial Title */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={styles.contentTitleLarge}>{request.title || 'Đề nghị thanh toán'}</Text>
               </View>
-            )}
 
-            <View style={styles.reasonBox}>
-              <Text style={styles.reasonLabel}>Nội dung chi tiết:</Text>
-              <Text style={styles.reasonText}>{request.content}</Text>
-            </View>
-
-            {/* 1. Chi tiết thông tin Đơn Nghỉ Phép (LEAVE) */}
-            {request.type === 'LEAVE' && (
-              <View style={styles.metaCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                  <MaterialCommunityIcons name="calendar-clock" size={18} color="#10B981" style={{ marginRight: 6 }} />
-                  <Text style={[styles.metaCardTitle, { color: '#047857', marginBottom: 0 }]}>
-                    THÔNG TIN NGHỈ PHÉP
-                  </Text>
-                </View>
-
-                {meta.leaveType ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Loại nghỉ:</Text>
-                    <Text style={styles.metaValueBold}>{meta.leaveType}</Text>
-                  </View>
-                ) : null}
-
-                {meta.leaveDurationType ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Hình thức:</Text>
-                    <Text style={styles.metaValueBold}>{meta.leaveDurationType}</Text>
-                  </View>
-                ) : null}
-
-                {/* Thời gian nghỉ */}
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Thời gian nghỉ:</Text>
-                  <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>
-                    {meta.leaveDurationType === 'Nhiều ngày' && meta.toDate
-                      ? `Từ ${formatDateStr(meta.fromDate)} đến ${formatDateStr(meta.toDate)}`
-                      : formatDateStr(meta.fromDate)}
-                    {meta.startTime && meta.endTime
-                      ? ` (${formatTimeStr(meta.startTime)} - ${formatTimeStr(meta.endTime)})`
-                      : ''}
-                  </Text>
-                </View>
-
-                {meta.handoverEmployee ? (
-                  <View style={[styles.metaRow, { borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 8, marginTop: 4 }]}>
-                    <Text style={styles.metaLabel}>Người bàn giao:</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <MaterialCommunityIcons name="account-check-outline" size={16} color="#059669" style={{ marginRight: 4 }} />
-                      <Text style={[styles.metaValueBold, { color: '#059669' }]}>
-                        {meta.handoverEmployee}
-                      </Text>
-                    </View>
-                  </View>
-                ) : null}
-              </View>
-            )}
-
-            {/* 2. Chi tiết thông tin Giải trình công (ATTENDANCE_ADJUSTMENT) */}
-            {request.type === 'ATTENDANCE_ADJUSTMENT' && (
-              <View style={styles.metaCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                  <MaterialCommunityIcons name="clock-edit-outline" size={18} color="#3B82F6" style={{ marginRight: 6 }} />
-                  <Text style={[styles.metaCardTitle, { color: '#1D4ED8', marginBottom: 0 }]}>
-                    THÔNG TIN GIẢI TRÌNH CÔNG
-                  </Text>
-                </View>
-
-                {meta.explanationType ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Loại giải trình:</Text>
-                    <Text style={styles.metaValueBold}>{meta.explanationType}</Text>
-                  </View>
-                ) : null}
-
-                {meta.fromDate ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Ngày cần giải trình:</Text>
-                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
-                  </View>
-                ) : null}
-
-                {meta.shiftName ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
-                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
-                  </View>
-                ) : null}
-
-                {(meta.startTime || meta.endTime) ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Giờ thực tế:</Text>
-                    <Text style={[styles.metaValueBold, { color: '#1D4ED8' }]}>
-                      {meta.startTime ? `Vào: ${formatTimeStr(meta.startTime)}` : ''}
-                      {meta.startTime && meta.endTime ? ' | ' : ''}
-                      {meta.endTime ? `Ra: ${formatTimeStr(meta.endTime)}` : ''}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            )}
-
-            {/* 3. Chi tiết Đi muộn / Về sớm */}
-            {(request.type === 'LATE_ARRIVAL' || request.type === 'EARLY_LEAVE') && (
-              <View style={styles.metaCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                  <MaterialCommunityIcons 
-                    name={request.type === 'LATE_ARRIVAL' ? 'clock-in' : 'clock-out'} 
-                    size={18} 
-                    color={request.type === 'LATE_ARRIVAL' ? '#F59E0B' : '#EF4444'} 
-                    style={{ marginRight: 6 }} 
-                  />
-                  <Text style={[styles.metaCardTitle, { color: request.type === 'LATE_ARRIVAL' ? '#B45309' : '#B91C1C', marginBottom: 0 }]}>
-                    {request.type === 'LATE_ARRIVAL' ? 'THÔNG TIN ĐI MUỘN' : 'THÔNG TIN VỀ SỚM'}
-                  </Text>
-                </View>
-
-                {meta.fromDate ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Ngày áp dụng:</Text>
-                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
-                  </View>
-                ) : null}
-
-                {meta.shiftName ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
-                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
-                  </View>
-                ) : null}
-
-                {request.type === 'LATE_ARRIVAL' && meta.startTime ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Giờ đến thực tế:</Text>
-                    <Text style={[styles.metaValueBold, { color: '#F59E0B' }]}>{formatTimeStr(meta.startTime)}</Text>
-                  </View>
-                ) : null}
-
-                {request.type === 'EARLY_LEAVE' && meta.endTime ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Giờ về thực tế:</Text>
-                    <Text style={[styles.metaValueBold, { color: '#EF4444' }]}>{formatTimeStr(meta.endTime)}</Text>
-                  </View>
-                ) : null}
-              </View>
-            )}
-
-            {/* 4. Chi tiết Làm thêm giờ (OVERTIME) */}
-            {request.type === 'OVERTIME' && (
-              <View style={styles.metaCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                  <MaterialCommunityIcons name="briefcase-clock" size={18} color="#8B5CF6" style={{ marginRight: 6 }} />
-                  <Text style={[styles.metaCardTitle, { color: '#6D28D9', marginBottom: 0 }]}>
-                    THÔNG TIN LÀM THÊM GIỜ (OT)
-                  </Text>
-                </View>
-
-                {meta.fromDate ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Ngày làm thêm:</Text>
-                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
-                  </View>
-                ) : null}
-
-                {meta.shiftName ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Ca làm việc:</Text>
-                    <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
-                  </View>
-                ) : null}
-
-                {(meta.startTime || meta.endTime) ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Khung giờ OT:</Text>
-                    <Text style={[styles.metaValueBold, { color: '#8B5CF6' }]}>
-                      {formatTimeStr(meta.startTime)} - {formatTimeStr(meta.endTime)}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            )}
-
-            {/* Thông tin tài khoản ngân hàng */}
-            {meta.bankInfo && (
-              <View style={{ backgroundColor: '#F0F9FF', padding: 12, borderRadius: 10, marginBottom: 16, borderWidth: 1, borderColor: '#BAE6FD' }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1', marginBottom: 6 }}>
-                  THÔNG TIN TÀI KHOẢN NHẬN TIỀN CỦA NHÂN VIÊN
+              {/* Green Amount Banner */}
+              <View style={styles.amountBanner}>
+                <Text style={styles.amountBannerLabel}>SỐ TIỀN ĐỀ NGHỊ</Text>
+                <Text style={styles.amountBannerValue}>
+                  {Number(request.amount || 0).toLocaleString('vi-VN')} VNĐ
                 </Text>
-                {meta.bankInfo.bankName ? (
-                  <Text style={{ fontSize: 13, color: '#334155', marginBottom: 2 }}>
-                    Ngân hàng: <Text style={{ fontWeight: '600' }}>{meta.bankInfo.bankName}</Text>
-                  </Text>
-                ) : null}
-                {meta.bankInfo.accountNumber ? (
-                  <Text style={{ fontSize: 13, color: '#334155', marginBottom: 2 }}>
-                    Số tài khoản: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{meta.bankInfo.accountNumber}</Text>
-                  </Text>
-                ) : null}
-                {meta.bankInfo.accountHolder ? (
-                  <Text style={{ fontSize: 13, color: '#334155' }}>
-                    Chủ tài khoản: <Text style={{ fontWeight: '600' }}>{meta.bankInfo.accountHolder}</Text>
-                  </Text>
-                ) : null}
               </View>
-            )}
-            
-            {meta.image && (
-              <View style={{ marginTop: 12 }}>
-                <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 8, fontWeight: '600' }}>Ảnh chứng từ / hóa đơn kèm theo:</Text>
-                <TouchableOpacity onPress={() => setSelectedImage(meta.image)}>
-                  <Image 
-                    source={{ uri: meta.image }} 
-                    style={{ width: '100%', height: 220, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' }} 
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
-              </View>
-            )}
 
-            {meta.disbursementProofUrl && (
-              <View style={{ marginTop: 12, backgroundColor: '#F0FDF4', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0' }}>
-                <Text style={{ fontSize: 13, color: '#15803D', marginBottom: 8, fontWeight: '700' }}>Biên lai giải ngân đã đính kèm:</Text>
-                <TouchableOpacity onPress={() => setSelectedImage(meta.disbursementProofUrl)}>
-                  <Image 
-                    source={{ uri: meta.disbursementProofUrl }} 
-                    style={{ width: '100%', height: 220, borderRadius: 10, borderWidth: 1, borderColor: '#BBF7D0' }} 
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
+              {/* Description */}
+              <View style={styles.detailSection}>
+                <Text style={styles.sectionHeaderLabel}>Nội dung chi tiết</Text>
+                <Text style={styles.detailBodyText}>{request.content || 'Không có mô tả chi tiết'}</Text>
               </View>
-            )}
-          </View>
+            </>
+          ) : (
+            <>
+              <View style={{ marginBottom: 6 }}>
+                <Text style={styles.sectionHeaderLabel}>Nội dung đơn</Text>
+              </View>
+              <Text style={styles.contentTitleLarge}>{request.title}</Text>
+              <Text style={styles.detailBodyText}>{request.content || 'Không có mô tả chi tiết'}</Text>
+              <Text style={styles.subtextMeta}>Nội dung theo đơn gốc</Text>
+            </>
+          )}
         </View>
 
-        {/* 3. Tiến độ phê duyệt qua các cấp */}
-        {approvalSteps.length > 0 && (
-          <View style={[styles.detailCard, { marginTop: 16 }]}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#4B5563', marginBottom: 12 }}>
-              LỊCH SỬ DUYỆT CỦA CÁC BỘ PHẬN
+        {/* 3. Meta Details Card */}
+        {/* LEAVE */}
+        {request.type === 'LEAVE' && (
+          <View style={[styles.card, shadows.sm]}>
+            <Text style={styles.metaSectionTitle}>Thông tin nghỉ phép</Text>
+            
+            {meta.leaveType ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Loại nghỉ</Text>
+                <Text style={styles.metaValue}>{meta.leaveType}</Text>
+              </View>
+            ) : null}
+
+            {meta.leaveDurationType ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Hình thức</Text>
+                <Text style={styles.metaValue}>{meta.leaveDurationType}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Thời gian nghỉ</Text>
+              <Text style={[styles.metaValue, { color: '#047857', fontWeight: '700' }]}>
+                {meta.leaveDurationType === 'Nhiều ngày' && meta.toDate
+                  ? `${formatDateStr(meta.fromDate)} - ${formatDateStr(meta.toDate)}`
+                  : formatDateStr(meta.fromDate)}
+                {meta.startTime && meta.endTime
+                  ? ` (${formatTimeStr(meta.startTime)} - ${formatTimeStr(meta.endTime)})`
+                  : ''}
+              </Text>
+            </View>
+
+            {meta.handoverEmployee ? (
+              <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                <Text style={styles.metaLabel}>Người bàn giao</Text>
+                <Text style={styles.metaValue}>{meta.handoverEmployee}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {/* ATTENDANCE_ADJUSTMENT */}
+        {request.type === 'ATTENDANCE_ADJUSTMENT' && (
+          <View style={[styles.card, shadows.sm]}>
+            <Text style={styles.metaSectionTitle}>Thông tin giải trình công</Text>
+
+            {meta.explanationType ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Loại giải trình</Text>
+                <Text style={styles.metaValue}>{meta.explanationType}</Text>
+              </View>
+            ) : null}
+
+            {meta.fromDate ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Ngày cần giải trình</Text>
+                <Text style={[styles.metaValue, { color: '#047857', fontWeight: '700' }]}>{formatDateStr(meta.fromDate)}</Text>
+              </View>
+            ) : null}
+
+            {meta.shiftName ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Ca làm việc</Text>
+                <Text style={styles.metaValue}>{meta.shiftName}</Text>
+              </View>
+            ) : null}
+
+            {(meta.startTime || meta.endTime) ? (
+              <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                <Text style={styles.metaLabel}>Giờ thực tế</Text>
+                <Text style={styles.metaValue}>
+                  {meta.startTime ? `Vào: ${formatTimeStr(meta.startTime)}` : ''}
+                  {meta.startTime && meta.endTime ? ' | ' : ''}
+                  {meta.endTime ? `Ra: ${formatTimeStr(meta.endTime)}` : ''}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {/* LATE / EARLY */}
+        {(request.type === 'LATE_ARRIVAL' || request.type === 'EARLY_LEAVE') && (
+          <View style={[styles.card, shadows.sm]}>
+            <Text style={styles.metaSectionTitle}>
+              {request.type === 'LATE_ARRIVAL' ? 'Thông tin đi muộn' : 'Thông tin về sớm'}
             </Text>
+
+            {meta.fromDate ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Ngày vi phạm</Text>
+                <Text style={[styles.metaValue, { color: '#047857', fontWeight: '700' }]}>{formatDateStr(meta.fromDate)}</Text>
+              </View>
+            ) : null}
+
+            {meta.shiftName ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Ca làm việc</Text>
+                <Text style={styles.metaValue}>{meta.shiftName}</Text>
+              </View>
+            ) : null}
+
+            {request.type === 'LATE_ARRIVAL' && meta.startTime ? (
+              <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                <Text style={styles.metaLabel}>Giờ đến thực tế</Text>
+                <Text style={styles.metaValue}>{formatTimeStr(meta.startTime)}</Text>
+              </View>
+            ) : null}
+
+            {request.type === 'EARLY_LEAVE' && meta.endTime ? (
+              <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                <Text style={styles.metaLabel}>Giờ về thực tế</Text>
+                <Text style={styles.metaValue}>{formatTimeStr(meta.endTime)}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {/* OVERTIME */}
+        {request.type === 'OVERTIME' && (
+          <View style={[styles.card, shadows.sm]}>
+            <Text style={styles.metaSectionTitle}>Thông tin làm thêm giờ (OT)</Text>
+
+            {meta.fromDate ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Ngày làm thêm</Text>
+                <Text style={[styles.metaValue, { color: '#047857', fontWeight: '700' }]}>{formatDateStr(meta.fromDate)}</Text>
+              </View>
+            ) : null}
+
+            {meta.shiftName ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Ca làm việc</Text>
+                <Text style={styles.metaValue}>{meta.shiftName}</Text>
+              </View>
+            ) : null}
+
+            {(meta.startTime || meta.endTime) ? (
+              <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                <Text style={styles.metaLabel}>Khung giờ OT</Text>
+                <Text style={styles.metaValue}>
+                  {formatTimeStr(meta.startTime)} - {formatTimeStr(meta.endTime)}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {/* Bank info */}
+        {meta.bankInfo && (
+          <View style={[styles.card, shadows.sm]}>
+            <Text style={styles.metaSectionTitle}>Tài khoản nhận tiền</Text>
+            {meta.bankInfo.bankName ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Ngân hàng</Text>
+                <Text style={styles.metaValue}>{meta.bankInfo.bankName}</Text>
+              </View>
+            ) : null}
+            {meta.bankInfo.accountNumber ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Số tài khoản</Text>
+                <Text style={[styles.metaValue, { fontWeight: '700', color: '#0F172A' }]}>{meta.bankInfo.accountNumber}</Text>
+              </View>
+            ) : null}
+            {meta.bankInfo.accountHolder ? (
+              <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                <Text style={styles.metaLabel}>Chủ tài khoản</Text>
+                <Text style={styles.metaValue}>{meta.bankInfo.accountHolder}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {/* 4. Attachments Card */}
+        {meta.image && (
+          <View style={[styles.card, shadows.sm]}>
+            <View style={styles.cardHeaderWithCount}>
+              <Text style={styles.metaSectionTitle}>Chứng từ đính kèm</Text>
+              <Text style={styles.attachmentCountBadge}>1 ảnh đính kèm</Text>
+            </View>
+
+            <View style={styles.attachmentRow}>
+              <View style={styles.attachmentIconBox}>
+                <MaterialCommunityIcons name="file-document-outline" size={24} color="#64748B" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.attachmentFileName}>Ảnh chứng từ</Text>
+                <Text style={styles.attachmentFileSize}>Tài liệu đính kèm</Text>
+              </View>
+              <Pressable 
+                style={styles.openAttachmentBtn}
+                onPress={() => setSelectedImage(meta.image)}
+              >
+                <Text style={styles.openAttachmentText}>Mở ảnh ↗</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* Disbursement receipt if any */}
+        {meta.disbursementProofUrl && (
+          <View style={[styles.card, shadows.sm]}>
+            <View style={styles.cardHeaderWithCount}>
+              <Text style={styles.metaSectionTitle}>Biên lai giải ngân</Text>
+              <Text style={styles.attachmentCountBadge}>1 ảnh</Text>
+            </View>
+
+            <View style={styles.attachmentRow}>
+              <View style={[styles.attachmentIconBox, { backgroundColor: '#DCFCE7' }]}>
+                <MaterialCommunityIcons name="check-decagram" size={24} color="#166534" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.attachmentFileName}>Biên lai giải ngân</Text>
+                <Text style={styles.attachmentFileSize}>Kế toán đã tải lên</Text>
+              </View>
+              <Pressable 
+                style={styles.openAttachmentBtn}
+                onPress={() => setSelectedImage(meta.disbursementProofUrl)}
+              >
+                <Text style={styles.openAttachmentText}>Mở ảnh ↗</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* 5. Approval History Card */}
+        {approvalSteps.length > 0 && (
+          <View style={[styles.card, shadows.sm]}>
+            <Text style={styles.metaSectionTitle}>Lịch sử phê duyệt</Text>
+
             {approvalSteps.map((step: any, idx: number) => {
               const isRejected = step.action === 'REJECTED';
               const isDisbursed = step.action === 'DISBURSED';
               return (
-                <View key={idx} style={{ flexDirection: 'row', marginBottom: 12, alignItems: 'flex-start' }}>
-                  <MaterialCommunityIcons 
-                    name={isRejected ? "close-circle" : "check-circle"} 
-                    size={20} 
-                    color={isRejected ? "#EF4444" : "#10B981"} 
-                    style={{ marginRight: 8, marginTop: 2 }}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>
-                      {step.actorName || 'Cấp duyệt'} • <Text style={{ color: '#2563EB', fontWeight: '600' }}>{getStageLabelVi(step.stage, step.action)}</Text>
-                    </Text>
-                    <Text style={{ fontSize: 12, color: '#6B7280' }}>
-                      {step.at ? new Date(step.at).toLocaleString('vi-VN') : ''}
-                    </Text>
-                    {step.note ? <Text style={{ fontSize: 13, color: '#374151', marginTop: 2 }}>Ghi chú: {step.note}</Text> : null}
-                    {step.reason ? <Text style={{ fontSize: 13, color: '#EF4444', marginTop: 2 }}>Lý do từ chối: {step.reason}</Text> : null}
+                <View key={idx} style={{ marginTop: idx === 0 ? 4 : 12 }}>
+                  <View style={styles.historyStepRow}>
+                    <View style={[styles.historyStepIcon, { backgroundColor: isRejected ? '#FEE2E2' : '#DCFCE7' }]}>
+                      <MaterialCommunityIcons 
+                        name={isRejected ? "close" : "check"} 
+                        size={16} 
+                        color={isRejected ? "#DC2626" : "#166534"} 
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={styles.historyActorName}>{step.actorName || 'Cấp duyệt'}</Text>
+                        <Text style={[styles.historyStatusText, { color: isRejected ? '#DC2626' : '#166534' }]}>
+                          {isRejected ? 'Từ chối' : isDisbursed ? 'Đã giải ngân' : 'Đã duyệt'}
+                        </Text>
+                      </View>
+                      <Text style={styles.historyTimeText}>
+                        {step.at ? new Date(step.at).toLocaleString('vi-VN') : ''}
+                      </Text>
+                    </View>
                   </View>
+
+                  {/* Rejection / Note box */}
+                  {step.reason ? (
+                    <View style={styles.rejectionBox}>
+                      <Text style={styles.rejectionBoxLabel}>Lý do từ chối:</Text>
+                      <Text style={styles.rejectionBoxContent}>{step.reason}</Text>
+                    </View>
+                  ) : null}
+
+                  {step.note ? (
+                    <View style={styles.noteBox}>
+                      <Text style={styles.noteBoxLabel}>Ghi chú:</Text>
+                      <Text style={styles.noteBoxContent}>{step.note}</Text>
+                    </View>
+                  ) : null}
                 </View>
               );
             })}
@@ -592,99 +713,104 @@ export function LeaderApprovalScreen() {
         )}
       </ScrollView>
 
-      {/* 4. Action Area */}
+      {/* 6. Bottom Sticky Action Area */}
       {request.status === 'PENDING' ? (
         canActOnCurrentStage ? (
-          <View style={[styles.footerAction, shadows.sm, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
-            {/* Cho phép kế toán tải lên ủy nhiệm chi khi giải ngân */}
+          <View style={[styles.bottomActionBar, shadows.lg, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            {/* Upload proof if accountant disbursement */}
             {stage === 'PENDING_DISBURSEMENT' && (
-              <View style={{ marginBottom: 12 }}>
+              <View style={{ marginBottom: 10 }}>
                 <Pressable 
                   onPress={handlePickDisbursementProof}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: '#EFF6FF',
-                    borderWidth: 1,
-                    borderColor: '#93C5FD',
-                    borderRadius: 8,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                  }}
+                  style={styles.uploadProofBtn}
                 >
-                  <MaterialCommunityIcons name="file-upload-outline" size={20} color="#2563EB" />
-                  <Text style={{ marginLeft: 6, color: '#2563EB', fontWeight: '600', fontSize: 13 }}>
-                    {disbursementProofUri ? 'Đã chọn ảnh ủy nhiệm chi (Bấm để đổi)' : 'Tải lên ảnh Ủy nhiệm chi / Biên lai giải ngân'}
+                  <MaterialCommunityIcons name="file-upload-outline" size={18} color="#1E3E2F" />
+                  <Text style={styles.uploadProofText}>
+                    {disbursementProofUri ? 'Đã chọn ảnh ủy nhiệm chi (Bấm đổi)' : 'Tải lên ảnh Ủy nhiệm chi'}
                   </Text>
                 </Pressable>
                 {disbursementProofUri && (
-                  <View style={{ marginTop: 8, alignItems: 'center' }}>
-                    <Image source={{ uri: disbursementProofUri }} style={{ width: 120, height: 80, borderRadius: 6 }} />
+                  <View style={{ marginTop: 6, alignItems: 'center' }}>
+                    <Image source={{ uri: disbursementProofUri }} style={{ width: 100, height: 60, borderRadius: 6 }} />
                   </View>
                 )}
               </View>
             )}
 
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Nhập ghi chú / ý kiến / lý do (nếu có)..."
-              placeholderTextColor="#9CA3AF"
-              multiline
-              value={comment}
-              onChangeText={setComment}
-              textAlignVertical="top"
-              onFocus={() => {
-                setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
-              }}
-            />
-            <View style={styles.actionRow}>
+            {/* Comment box */}
+            <View style={styles.commentBoxWrap}>
+              <Text style={styles.commentBoxLabel}>Ghi chú / Ý kiến</Text>
+              <TextInput
+                style={styles.commentInputModern}
+                placeholder="Nhập ghi chú nếu có..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                value={comment}
+                onChangeText={setComment}
+                textAlignVertical="top"
+                onFocus={() => {
+                  setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                }}
+              />
+            </View>
+
+            {approveSubtext ? (
+              <View style={styles.stageHelperRow}>
+                <MaterialCommunityIcons name="information-outline" size={14} color="#64748B" style={{ marginRight: 4 }} />
+                <Text style={styles.stageHelperText}>{approveSubtext}</Text>
+              </View>
+            ) : null}
+
+            {/* Button Row */}
+            <View style={styles.actionButtonsRow}>
               <Pressable 
-                style={[styles.rejectBtn, (rejectMutation.isPending || approveMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                style={[styles.rejectBtnModern, (rejectMutation.isPending || approveMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
                 onPress={handleReject}
                 disabled={rejectMutation.isPending || approveMutation.isPending || isUploadingProof}
               >
-                {rejectMutation.isPending ? <ActivityIndicator color="#111827" /> : (
-                  <Text style={styles.rejectBtnText}>Từ chối</Text>
+                {rejectMutation.isPending ? <ActivityIndicator color="#DC2626" /> : (
+                  <Text style={styles.rejectBtnModernText}>Từ chối</Text>
                 )}
               </Pressable>
+
               <Pressable 
-                style={[styles.approveBtn, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                style={[styles.approveBtnModern, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
                 onPress={handleApprove}
                 disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
               >
                 {approveMutation.isPending || isUploadingProof ? <ActivityIndicator color="#fff" /> : (
-                  <View style={{ alignItems: 'center' }}>
-                    <Text style={styles.approveBtnText}>{approveButtonLabel}</Text>
-                    {approveSubtext ? (
-                      <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
-                        {approveSubtext}
-                      </Text>
-                    ) : null}
-                  </View>
+                  <Text style={styles.approveBtnModernText}>{approveButtonLabel}</Text>
                 )}
               </Pressable>
             </View>
           </View>
         ) : (
-          <View style={[styles.footerAction, shadows.sm, { paddingVertical: 18, paddingBottom: Math.max(insets.bottom, 18), paddingHorizontal: 20, alignItems: 'center', backgroundColor: '#F0F9FF', borderTopWidth: 1, borderTopColor: '#BAE6FD' }]}>
-            <MaterialCommunityIcons name="clock-time-four-outline" size={24} color="#0284C7" style={{ marginBottom: 6 }} />
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#0369A1', textAlign: 'center', marginBottom: 4 }}>
-              {waitingStageDescription || 'Đang chờ cấp có thẩm quyền xử lý'}
-            </Text>
-            <Text style={{ fontSize: 12, color: '#64748B', textAlign: 'center' }}>
-              Bạn không cần thực hiện thao tác ở giai đoạn này.
-            </Text>
+          <View style={[styles.bottomActionBar, shadows.lg, { paddingBottom: Math.max(insets.bottom, 16), alignItems: 'center' }]}>
+            <View style={styles.waitingBanner}>
+              <MaterialCommunityIcons name="clock-outline" size={18} color="#B45309" style={{ marginRight: 6 }} />
+              <Text style={styles.waitingBannerText}>
+                {waitingStageDescription || 'Đang chờ cấp có thẩm quyền xử lý'}
+              </Text>
+            </View>
           </View>
         )
       ) : (
-        <View style={[styles.footerAction, shadows.sm, { paddingVertical: 24, paddingBottom: Math.max(insets.bottom, 24), alignItems: 'center' }]}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: request.status === 'APPROVED' ? '#10B981' : '#EF4444' }}>
-            Đơn từ đã được {request.status === 'APPROVED' ? (meta.disbursementProofUrl || stage === 'DISBURSED' ? 'Giải ngân thành công' : 'Phê duyệt') : 'Từ chối'}
-          </Text>
+        <View style={[styles.bottomActionBar, shadows.lg, { paddingBottom: Math.max(insets.bottom, 16), alignItems: 'center' }]}>
+          <View style={[styles.finalStatusBanner, { backgroundColor: request.status === 'APPROVED' ? '#DCFCE7' : '#FEE2E2' }]}>
+            <MaterialCommunityIcons 
+              name={request.status === 'APPROVED' ? 'check-circle' : 'close-circle'} 
+              size={18} 
+              color={request.status === 'APPROVED' ? '#166534' : '#DC2626'} 
+              style={{ marginRight: 6 }}
+            />
+            <Text style={[styles.finalStatusBannerText, { color: request.status === 'APPROVED' ? '#166534' : '#DC2626' }]}>
+              {request.status === 'APPROVED' ? 'Đơn đã được phê duyệt' : 'Đơn đã bị từ chối'}
+            </Text>
+          </View>
         </View>
       )}
-      {/* Full-screen Image Viewer with Zoom */}
+
+      {/* Full-screen Image Viewer */}
       <ImageView
         images={[{ uri: selectedImage || '' }]}
         imageIndex={0}
@@ -697,293 +823,414 @@ export function LeaderApprovalScreen() {
 
 const styles = StyleSheet.create({
   header: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 12,
+  },
+  topNavRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: '#fff',
-    zIndex: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   iconBtn: {
     padding: 4,
-    marginRight: 8,
+    marginLeft: -4,
   },
-  headerTitle: {
-    fontSize: 20,
+  appBrandText: {
+    fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
+    color: '#0F172A',
+    letterSpacing: 0.3,
   },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
+  titleRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 6,
+    paddingHorizontal: 20,
   },
-  devTools: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+  screenTitleText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   content: {
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingTop: 14,
+    paddingHorizontal: 16,
+    gap: 12,
   },
-  userCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  card: {
     backgroundColor: '#fff',
-    marginHorizontal: spacing.lg,
-    padding: spacing.md,
-    borderRadius: 16,
-    marginBottom: spacing.lg,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  userInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  userRole: {
-    fontSize: 14,
-    color: '#3B82F6',
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  userDept: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  detailCard: {
-    backgroundColor: '#fff',
-    marginHorizontal: spacing.lg,
-    borderRadius: 16,
-    padding: spacing.md,
+    borderRadius: 14,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
-  detailHeader: {
+  profileRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  typeBadge: {
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#D9E4DD',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1B382B',
+  },
+  profileInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  profileName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  profileSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingVertical: 5,
+    borderRadius: 20,
   },
-  typeBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginLeft: 6,
-  },
-  submitTime: {
+  statusPillText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    fontWeight: '700',
   },
-  divider: {
+  cardDivider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
-    marginVertical: 12,
-  },
-  dynamicContent: {
-    paddingTop: 4,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    backgroundColor: '#F1F5F9',
+    marginTop: 14,
     marginBottom: 10,
   },
-  detailLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    flex: 1,
-  },
-  detailValue: {
-    fontSize: 14,
-    color: '#111827',
-    flex: 2,
-    textAlign: 'right',
-  },
-  detailValueBold: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-    flex: 2,
-    textAlign: 'right',
-  },
-  reasonBox: {
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  reasonLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#4B5563',
-    marginBottom: 4,
-  },
-  reasonText: {
-    fontSize: 14,
-    color: '#111827',
-    fontStyle: 'italic',
-    lineHeight: 20,
-  },
-  attachmentBox: {
+  submissionTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
   },
-  attachmentText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#374151',
+  submissionTimeText: {
+    fontSize: 12,
+    color: '#94A3B8',
     fontWeight: '500',
-    marginLeft: 8,
   },
-  amountWrap: {
-    alignItems: 'center',
-    backgroundColor: '#FFF7ED',
-    padding: 16,
+  contentTitleLarge: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 22,
+  },
+  amountBanner: {
+    backgroundColor: '#1E3E2F',
     borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#FFEDD5',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 14,
   },
-  amountLabel: {
+  amountBannerLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#A7F3D0',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  amountBannerValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  detailSection: {
+    paddingTop: 2,
+  },
+  sectionHeaderLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#F97316',
-    letterSpacing: 0.5,
+    color: '#64748B',
     marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
-  amountValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  amountCurrency: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  imageEvidence: {
-    height: 120,
-    width: 120,
-    borderRadius: 8,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  evidenceImg: {
-    width: '100%',
-    height: '100%',
-  },
-  evidenceOverlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  footerAction: {
-    backgroundColor: '#fff',
-    padding: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  commentInput: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 12,
+  detailBodyText: {
     fontSize: 14,
-    minHeight: 80,
+    color: '#334155',
+    lineHeight: 21,
+  },
+  subtextMeta: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  metaSectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
     marginBottom: 12,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  rejectBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingVertical: 14,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rejectBtnText: {
-    color: '#111827',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  approveBtn: {
-    flex: 2,
-    flexDirection: 'row',
-    backgroundColor: '#111827',
-    paddingVertical: 14,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#111827',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  approveBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  metaCard: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-  },
-  metaCardTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
   },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 5,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
   },
   metaLabel: {
     fontSize: 13,
     color: '#64748B',
+    flex: 1,
   },
-  metaValueBold: {
+  metaValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+    flex: 2,
+    textAlign: 'right',
+  },
+  cardHeaderWithCount: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  attachmentCountBadge: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  attachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    borderRadius: 10,
+  },
+  attachmentIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachmentFileName: {
     fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
-    flexShrink: 1,
-    textAlign: 'right',
+  },
+  attachmentFileSize: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  openAttachmentBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  openAttachmentText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  historyStepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyStepIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  historyActorName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  historyStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  historyTimeText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  rejectionBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    marginLeft: 36,
+  },
+  rejectionBoxLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+    marginBottom: 2,
+  },
+  rejectionBoxContent: {
+    fontSize: 12,
+    color: '#991B1B',
+    lineHeight: 17,
+  },
+  noteBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    marginLeft: 36,
+  },
+  noteBoxLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 2,
+  },
+  noteBoxContent: {
+    fontSize: 12,
+    color: '#334155',
+    lineHeight: 17,
+  },
+  bottomActionBar: {
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  commentBoxWrap: {
+    marginBottom: 10,
+  },
+  commentBoxLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 6,
+  },
+  commentInputModern: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#0F172A',
+    minHeight: 56,
+  },
+  uploadProofBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  uploadProofText: {
+    marginLeft: 6,
+    color: '#166534',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  stageHelperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  stageHelperText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontStyle: 'italic',
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  rejectBtnModern: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectBtnModernText: {
+    color: '#EF4444',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  approveBtnModern: {
+    flex: 2,
+    backgroundColor: '#1E3E2F',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  approveBtnModernText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  waitingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  waitingBannerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B45309',
+    textAlign: 'center',
+  },
+  finalStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    width: '100%',
+  },
+  finalStatusBannerText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
