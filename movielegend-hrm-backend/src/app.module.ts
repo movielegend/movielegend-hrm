@@ -69,6 +69,7 @@ import { LevelingModule } from './modules/leveling/leveling.module';
 import { DepartmentDocumentsModule } from './modules/department-documents/department-documents.module';
 import { DailyReportsModule } from './modules/daily-reports/daily-reports.module';
 import { RecruitmentModule } from './modules/recruitment/recruitment.module';
+import { OtReportModule } from './modules/ot-report/ot-report.module';
 
 @Module({
   imports: [
@@ -159,6 +160,7 @@ import { RecruitmentModule } from './modules/recruitment/recruitment.module';
     DepartmentDocumentsModule,
     DailyReportsModule,
     RecruitmentModule,
+    OtReportModule,
   ],
   providers: [
     {

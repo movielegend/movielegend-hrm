@@ -68,6 +68,7 @@ enum UploadPurpose {
   KPI_EVIDENCE
   ASSET_INCIDENT
   CANDIDATE_CV
+  OT_REPORT_ATTACHMENT
 }
 
 enum UploadedFileStatus {
@@ -135,6 +136,12 @@ enum OvertimeRequestStatus {
   APPROVED
   REJECTED
   CANCELLED
+}
+
+enum OtReportStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum EmployeeRequestType {
@@ -732,6 +739,7 @@ model User {
   leaveBalances                   LeaveBalance[]
   leaveRequests                   LeaveRequest[]
   overtimeRequests                OvertimeRequest[]
+  otReports                       OtReport[]
   employeeRequests                EmployeeRequest[]
   createdTasks                    Task[]                       @relation("TaskCreator")
   groupLeaderTasks                Task[]                       @relation("TaskGroupLeader")
@@ -848,6 +856,7 @@ model UploadedFile {
   uploadedBy                User?              @relation("UploadedFileUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
   attendanceRecords         AttendanceRecord[] @relation("AttendancePhotoFile")
   attendanceCheckOutRecords AttendanceRecord[] @relation("AttendanceCheckOutPhotoFile")
+  otReportPhotos            OtReportPhoto[]
 
   @@index([purpose, status, createdAt])
   @@index([uploadedById])
@@ -1008,6 +1017,7 @@ model Department {
   attendanceAdjustments AttendanceAdjustment[]
   leaveRequests         LeaveRequest[]
   overtimeRequests      OvertimeRequest[]
+  otReports             OtReport[]
   overtimeConfig        DepartmentOvertimeConfig?
   overtimeRateRules     OvertimeRateRule[]
   employeeRequests      EmployeeRequest[]
@@ -1594,6 +1604,48 @@ model OvertimeRequest {
   @@index([departmentId, status])
   @@index([userId])
   @@map("overtime_requests")
+}
+
+model OtReport {
+  id                String         @id @default(uuid()) @db.Uuid
+  userId            String         @db.Uuid
+  departmentId      String         @db.Uuid
+  otDate            DateTime       @db.Date
+  startTime         DateTime
+  endTime           DateTime
+  proposedPercent   Int            @default(100)
+  approvedPercent   Int?
+  reason            String?
+  status            OtReportStatus @default(PENDING)
+  validOtMinutes    Int            @default(0)
+  decidedByUserId   String?        @db.Uuid
+  decidedAt         DateTime?
+  rejectionReason   String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  user              User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  department        Department     @relation(fields: [departmentId], references: [id])
+  photos            OtReportPhoto[]
+
+  @@unique([userId, otDate])
+  @@index([departmentId, status])
+  @@index([userId, otDate])
+  @@map("ot_reports")
+}
+
+model OtReportPhoto {
+  id           String       @id @default(uuid()) @db.Uuid
+  otReportId   String       @db.Uuid
+  fileId       String       @db.Uuid
+  createdAt    DateTime     @default(now())
+
+  otReport     OtReport     @relation(fields: [otReportId], references: [id], onDelete: Cascade)
+  file         UploadedFile @relation(fields: [fileId], references: [id])
+
+  @@index([otReportId])
+  @@index([fileId])
+  @@map("ot_report_photos")
 }
 
 model EmployeeRequest {

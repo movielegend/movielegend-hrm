@@ -57,112 +57,152 @@ export class AttendanceService {
       throw badRequest('UNACCEPTED_TASKS', 'Bạn có công việc chưa nhận. Vui lòng vào mục Nhiệm vụ để "Nhận việc" trước khi chấm công!');
     }
 
-    const workDate = this.businessTime.startOfBusinessDate(dto.workDate);
     const now = new Date();
 
-    // 1. Tìm ca làm việc trong ngày
-    let assignment = await this.prisma.shiftAssignment.findFirst({
-      where: { userId: actor.userId, workDate },
-      include: { shift: true },
-      orderBy: { createdAt: 'desc' }
+    // 0. Xác định phòng ban của nhân sự
+    const primaryDep = await this.prisma.departmentMember.findFirst({
+      where: { userId: actor.userId, isPrimary: true },
+      include: { department: true }
     });
+    let targetDepartmentId: string = primaryDep?.departmentId || '';
+    if (!targetDepartmentId) {
+      const anyDep = await this.prisma.departmentMember.findFirst({
+        where: { userId: actor.userId, leftAt: null },
+        include: { department: true }
+      });
+      targetDepartmentId = anyDep?.departmentId || '';
+    }
+    if (!targetDepartmentId) throw badRequest('NO_DEPARTMENT', 'Chưa xác định được phòng ban');
+
+    const targetDept = primaryDep?.departmentId === targetDepartmentId
+      ? primaryDep.department
+      : await this.prisma.department.findUnique({ where: { id: targetDepartmentId } });
+
+    const isLiveDepartment = Boolean(
+      (targetDept?.name && targetDept.name.toLowerCase().includes('live')) ||
+      (targetDept?.code && targetDept.code.toLowerCase().includes('live'))
+    );
+
+    // Ngày công xác định theo ngày check-in thực tế (Asia/Ho_Chi_Minh). Qua 0h thuộc ngày hôm sau.
+    const todayVnStr = this.businessTime.businessDateString(now);
+    const workDate = isLiveDepartment
+      ? this.businessTime.startOfBusinessDate(todayVnStr)
+      : this.businessTime.startOfBusinessDate(dto.workDate || todayVnStr);
 
     let isUnplannedOt = false;
     let lateMinutes = 0;
     let latePenaltyLevel: number | null = null;
     let latePenaltyAmount: number | null = null;
     let latePenaltyWorkDays: number | null = null;
+    let assignment: any = null;
 
-    if (assignment) {
-      if (!assignment.shift.isActive || assignment.shift.deletedAt) {
-        throw badRequest('SHIFT_INACTIVE', 'Ca làm đã bị vô hiệu hóa');
+    if (isLiveDepartment) {
+      // ĐẶC THÙ PHÒNG LIVE:
+      // 1. Kiểm tra xem có lượt nào đang mở (chưa checkout) không
+      const openRecord = await this.prisma.attendanceRecord.findFirst({
+        where: { userId: actor.userId, checkOutAt: null },
+        orderBy: { checkInAt: 'desc' }
+      });
+      if (openRecord) {
+        throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một lượt làm việc chưa check-out. Vui lòng check-out trước khi mở lượt mới!');
       }
 
-      // Kiem tra xem da co check-in cho ca nay chua
-      const existing = await this.prisma.attendanceRecord.findFirst({
-        where: { userId: actor.userId, shiftAssignmentId: assignment.id },
+      // 2. Phòng Live check-in tự do nhiều lượt, không áp dụng phạt đi muộn
+      assignment = null;
+      isUnplannedOt = false;
+      lateMinutes = 0;
+      latePenaltyLevel = null;
+      latePenaltyAmount = null;
+      latePenaltyWorkDays = null;
+    } else {
+      // 1. Tìm ca làm việc trong ngày (các phòng ban tiêu chuẩn)
+      assignment = await this.prisma.shiftAssignment.findFirst({
+        where: { userId: actor.userId, workDate },
+        include: { shift: true },
         orderBy: { createdAt: 'desc' }
       });
 
-      if (existing) {
-        if (existing.status === AttendanceStatus.CHECKED_IN) {
-          throw conflict('ALREADY_CHECKED_IN', 'Bạn đang trong một ca chưa check-out');
-        } else {
-          // Da hoan thanh ca nay, day la OT
-          isUnplannedOt = true;
-          assignment = null;
+      if (assignment) {
+        if (!assignment.shift.isActive || assignment.shift.deletedAt) {
+          throw badRequest('SHIFT_INACTIVE', 'Ca làm đã bị vô hiệu hóa');
         }
-      } else {
-        // Tinh toan di muon
-        const shiftStartStr = assignment.shift.startTime; // e.g., "09:00:00"
-        const [sh, sm] = shiftStartStr.split(':').map(Number);
-        const shiftStartDateTime = new Date(workDate);
-        shiftStartDateTime.setHours(sh || 0, sm || 0, 0, 0);
 
-        if (now > shiftStartDateTime) {
-          lateMinutes = Math.floor((now.getTime() - shiftStartDateTime.getTime()) / 60000);
+        // Kiem tra xem da co check-in cho ca nay chua
+        const existing = await this.prisma.attendanceRecord.findFirst({
+          where: { userId: actor.userId, shiftAssignmentId: assignment.id },
+          orderBy: { createdAt: 'desc' }
+        });
 
-          const shiftEndStr = assignment.shift.endTime;
-          const [eh, em] = shiftEndStr.split(':').map(Number);
-          const shiftEndDateTime = new Date(workDate);
-          shiftEndDateTime.setHours(eh || 0, em || 0, 0, 0);
-          if (shiftEndDateTime <= shiftStartDateTime) shiftEndDateTime.setDate(shiftEndDateTime.getDate() + 1); // qua dem
+        if (existing) {
+          if (existing.status === AttendanceStatus.CHECKED_IN) {
+            throw conflict('ALREADY_CHECKED_IN', 'Bạn đang trong một ca chưa check-out');
+          } else {
+            // Da hoan thanh ca nay, day la OT
+            isUnplannedOt = true;
+            assignment = null;
+          }
+        } else {
+          // Tinh toan di muon
+          const shiftStartStr = assignment.shift.startTime; // e.g., "09:00:00"
+          const [sh, sm] = shiftStartStr.split(':').map(Number);
+          const shiftStartDateTime = new Date(workDate);
+          shiftStartDateTime.setHours(sh || 0, sm || 0, 0, 0);
 
-          const durationMinutes = Math.floor((shiftEndDateTime.getTime() - shiftStartDateTime.getTime()) / 60000);
-          if (durationMinutes > 0 && lateMinutes > 0) {
-            const ratio = lateMinutes / durationMinutes;
-            if (ratio <= 0.105) {
-              latePenaltyLevel = 1; latePenaltyAmount = 50000; latePenaltyWorkDays = 1;
-            } else if (ratio <= 0.42) {
-              latePenaltyLevel = 2; latePenaltyAmount = 80000; latePenaltyWorkDays = 1;
-            } else if (ratio <= 0.63) {
-              latePenaltyLevel = 3; latePenaltyAmount = 50000; latePenaltyWorkDays = 0.5;
-            } else {
-              latePenaltyLevel = 4; latePenaltyAmount = 0; latePenaltyWorkDays = 0;
-            }
+          if (now > shiftStartDateTime) {
+            lateMinutes = Math.floor((now.getTime() - shiftStartDateTime.getTime()) / 60000);
 
-            // Nếu có đơn xin phép trễ (LeaveRequest) được APPROVED trong ngày:
-            // - Mức 1, 2, 3 → tẩy trắng hoàn toàn (không trừ tiền, tính 1 công)
-            // - Mức 4 → không tẩy trắng, giảm xuống Mức 3 (trừ 50k, tính 0.5 công)
-            if (latePenaltyLevel !== null) {
-              const approvedLeave = await this.prisma.leaveRequest.findFirst({
-                where: {
-                  userId: actor.userId,
-                  status: 'APPROVED',
-                  startDate: { lte: workDate },
-                  endDate:   { gte: workDate },
-                },
-              });
-              if (approvedLeave) {
-                if (latePenaltyLevel <= 3) {
-                  // Tẩy trắng: Mức 1/2/3 → không trừ gì
-                  latePenaltyLevel = null;
-                  latePenaltyAmount = null;
-                  latePenaltyWorkDays = null;
-                } else {
-                  // Mức 4: vẫn trừ (50k) nhưng tính 1 công
-                  latePenaltyLevel = 4;
-                  latePenaltyAmount = 50000;
-                  latePenaltyWorkDays = 1;
+            const shiftEndStr = assignment.shift.endTime;
+            const [eh, em] = shiftEndStr.split(':').map(Number);
+            const shiftEndDateTime = new Date(workDate);
+            shiftEndDateTime.setHours(eh || 0, em || 0, 0, 0);
+            if (shiftEndDateTime <= shiftStartDateTime) shiftEndDateTime.setDate(shiftEndDateTime.getDate() + 1); // qua dem
+
+            const durationMinutes = Math.floor((shiftEndDateTime.getTime() - shiftStartDateTime.getTime()) / 60000);
+            if (durationMinutes > 0 && lateMinutes > 0) {
+              const ratio = lateMinutes / durationMinutes;
+              if (ratio <= 0.105) {
+                latePenaltyLevel = 1; latePenaltyAmount = 50000; latePenaltyWorkDays = 1;
+              } else if (ratio <= 0.42) {
+                latePenaltyLevel = 2; latePenaltyAmount = 80000; latePenaltyWorkDays = 1;
+              } else if (ratio <= 0.63) {
+                latePenaltyLevel = 3; latePenaltyAmount = 50000; latePenaltyWorkDays = 0.5;
+              } else {
+                latePenaltyLevel = 4; latePenaltyAmount = 0; latePenaltyWorkDays = 0;
+              }
+
+              // Nếu có đơn xin phép trễ (LeaveRequest) được APPROVED trong ngày:
+              if (latePenaltyLevel !== null) {
+                const approvedLeave = await this.prisma.leaveRequest.findFirst({
+                  where: {
+                    userId: actor.userId,
+                    status: 'APPROVED',
+                    startDate: { lte: workDate },
+                    endDate:   { gte: workDate },
+                  },
+                });
+                if (approvedLeave) {
+                  if (latePenaltyLevel <= 3) {
+                    latePenaltyLevel = null;
+                    latePenaltyAmount = null;
+                    latePenaltyWorkDays = null;
+                  } else {
+                    latePenaltyLevel = 4;
+                    latePenaltyAmount = 50000;
+                    latePenaltyWorkDays = 1;
+                  }
                 }
               }
             }
           }
         }
+      } else {
+        // Khong tim thay ca nao -> OT
+        isUnplannedOt = true;
       }
-    } else {
-      // Khong tim thay ca nao -> OT
-      isUnplannedOt = true;
-    }
 
-    // Lay phong ban chinh hoac phong ban cua ca
-    let targetDepartmentId = assignment?.departmentId;
-    if (!targetDepartmentId) {
-      const primaryDep = await this.prisma.departmentMember.findFirst({
-        where: { userId: actor.userId, isPrimary: true }
-      });
-      targetDepartmentId = primaryDep?.departmentId;
-      if (!targetDepartmentId) throw badRequest('NO_DEPARTMENT', 'Chưa xác định được phòng ban');
+      if (assignment?.departmentId) {
+        targetDepartmentId = assignment.departmentId;
+      }
     }
 
     let photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;

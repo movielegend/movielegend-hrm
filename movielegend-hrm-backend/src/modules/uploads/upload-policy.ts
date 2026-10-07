@@ -118,6 +118,12 @@ export const uploadPolicies: Record<UploadPurpose, UploadPolicy> = {
     ],
     extensions: ['.pdf', '.doc', '.docx', '.jpg', '.png'],
   },
+  OT_REPORT_ATTACHMENT: {
+    purpose: UploadPurpose.OT_REPORT_ATTACHMENT,
+    maxSize: 20 * 1024 * 1024,
+    mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    extensions: ['.jpg', '.jpeg', '.png', '.webp'],
+  },
 };
 
 export const maxUploadSize = Math.max(...Object.values(uploadPolicies).map((policy) => policy.maxSize));

@@ -81,8 +81,8 @@ export class AttendanceReportService {
       },
     });
 
-    // Fetch Overtimes from OvertimeRequest table as well as EmployeeRequest
-    const [overtimesDb, overtimesRaw, leavesDb, lateRequestsRaw] = await Promise.all([
+    // Fetch Overtimes from OvertimeRequest table, EmployeeRequest, and OtReport (Live)
+    const [overtimesDb, overtimesRaw, leavesDb, lateRequestsRaw, otReportsDb] = await Promise.all([
       this.prisma.overtimeRequest.findMany({
         where: {
           status: 'APPROVED',
@@ -110,6 +110,13 @@ export class AttendanceReportService {
           type: { in: ['LATE_ARRIVAL', 'ATTENDANCE_ADJUSTMENT', 'LEAVE'] },
           status: 'APPROVED',
           userId: { in: userIds },
+        },
+      }),
+      this.prisma.otReport.findMany({
+        where: {
+          status: 'APPROVED',
+          userId: { in: userIds },
+          otDate: { gte: start, lte: end },
         },
       }),
     ]);
@@ -199,7 +206,15 @@ export class AttendanceReportService {
         const isHoliday = holidayDates.has(dateStr);
         const isWeekend = dayOfWeek === 'Thứ bảy' || dayOfWeek === 'Chủ nhật';
 
-        const record = userRecords.find(r => moment(r.workDate).format('YYYY-MM-DD') === dateStr || moment.utc(r.workDate).format('YYYY-MM-DD') === dateStr);
+        const dayRecords = userRecords.filter(r =>
+          moment(r.workDate).format('YYYY-MM-DD') === dateStr ||
+          moment.utc(r.workDate).format('YYYY-MM-DD') === dateStr
+        );
+        dayRecords.sort((a, b) => new Date(a.checkInAt).getTime() - new Date(b.checkInAt).getTime());
+
+        const record = dayRecords[0];
+        const isLiveDepartment = deptName.toLowerCase().includes('live');
+
         const otRequest = overtimes.find(o => o.userId === user.id && (
           moment(o.workDate).format('YYYY-MM-DD') === dateStr ||
           moment.utc(o.workDate).format('YYYY-MM-DD') === dateStr
@@ -210,18 +225,23 @@ export class AttendanceReportService {
           moment.utc(o.workDate).format('YYYY-MM-DD') === dateStr
         ));
 
-        let checkIn = record?.checkInAt ? moment(record.checkInAt).tz('Asia/Ho_Chi_Minh') : null;
-        let checkOut = record?.checkOutAt ? moment(record.checkOutAt).tz('Asia/Ho_Chi_Minh') : null;
-        
-        // Compute Total Hours worked
+        const liveOt = otReportsDb.find(o => o.userId === user.id && (
+          moment(o.otDate).format('YYYY-MM-DD') === dateStr ||
+          moment.utc(o.otDate).format('YYYY-MM-DD') === dateStr
+        ));
+
+        let checkIn = null;
+        let checkOut = null;
         let totalMinutes = 0;
-        const shift = record?.shiftAssignment?.shift;
-        if (checkIn && checkOut) {
-          totalMinutes = checkOut.diff(checkIn, 'minutes');
-          if (shift?.breakMinutes) totalMinutes -= shift.breakMinutes;
-        }
-        if (totalMinutes < 0) totalMinutes = 0;
-        
+        let lateMins = 0;
+        let earlyMins = 0;
+        let ot100 = 0;
+        let ot150 = 0;
+        let ot200 = 0;
+        let nightAllowance = 0;
+        let lateDeduction = 0;
+        let attendance = 0;
+
         const formatHrs = (mins: number) => {
           if (!mins) return '0:00:00';
           const h = Math.floor(mins / 60);
@@ -229,75 +249,113 @@ export class AttendanceReportService {
           return `${h}:${m.toString().padStart(2, '0')}:00`;
         };
 
-        // 3. Calculation logic
-        let lateMins = 0;
-        let earlyMins = 0;
-        let otMins = 0;
-        let nightAllowance = 0;
-        let lateDeduction = 0;
-        let attendance = 0;
+        if (isLiveDepartment) {
+          // QUY TẮC PHÒNG LIVE:
+          // 1. Có check-in -> 1 công, nhiều lượt không cộng thêm công
+          attendance = dayRecords.length > 0 ? 1 : 0;
+          if (dayRecords.length > 0) {
+            checkIn = dayRecords[0]?.checkInAt ? moment(dayRecords[0].checkInAt).tz('Asia/Ho_Chi_Minh') : null;
+            const lastWithOut = [...dayRecords].reverse().find(r => r.checkOutAt);
+            checkOut = lastWithOut?.checkOutAt
+              ? moment(lastWithOut.checkOutAt).tz('Asia/Ho_Chi_Minh')
+              : (dayRecords[dayRecords.length - 1]?.checkOutAt
+                ? moment(dayRecords[dayRecords.length - 1].checkOutAt).tz('Asia/Ho_Chi_Minh')
+                : null);
 
-        if (record) {
-          // Read stored values from AttendanceRecord
-          attendance = record.latePenaltyWorkDays !== null ? Number(record.latePenaltyWorkDays) : (record.isUnplannedOt ? 0 : 1);
-          lateDeduction = record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0;
-          lateMins = record.lateMinutes !== null ? Number(record.lateMinutes) : 0;
-
-          if (!shift) {
-            // User checked in but has no shift assignment (e.g. OT on an off day)
-            if (checkIn && checkOut && otRequest) {
-              const approvedStart = moment(otRequest.startAt).tz('Asia/Ho_Chi_Minh');
-              const approvedEnd = moment(otRequest.endAt).tz('Asia/Ho_Chi_Minh');
-              const effectiveOtStart = checkIn.isBefore(approvedStart) ? approvedStart : checkIn;
-              const effectiveOtEnd = checkOut.isAfter(approvedEnd) ? approvedEnd : checkOut;
-              otMins = Math.max(0, effectiveOtEnd.diff(effectiveOtStart, 'minutes'));
+            // 2. Giờ thực tế = cộng thời gian các lượt đã hoàn tất của ngày đó, không tính khoảng nghỉ
+            for (const r of dayRecords) {
+              if (r.checkInAt && r.checkOutAt) {
+                const diff = moment(r.checkOutAt).diff(moment(r.checkInAt), 'minutes');
+                if (diff > 0) totalMinutes += diff;
+              }
             }
-          } else {
-            const shiftStart = moment.tz(`${dateStr} ${shift.startTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
-            const shiftEnd = moment.tz(`${dateStr} ${shift.endTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
 
-            if (record.status === 'MISSING') {
-              if (lateRequest) {
-                attendance = 1;
-                lateDeduction = 0;
+            // 3. Không áp dụng đi muộn theo ca cho phòng Live
+            lateMins = 0;
+            earlyMins = 0;
+            lateDeduction = 0;
+
+            // 4. OT phòng Live lấy từ OtReport đã duyệt (theo % leader duyệt)
+            if (liveOt && liveOt.validOtMinutes > 0) {
+              const pct = liveOt.approvedPercent || liveOt.proposedPercent || 100;
+              if (pct === 100) ot100 = liveOt.validOtMinutes;
+              else if (pct === 150) ot150 = liveOt.validOtMinutes;
+              else if (pct === 200) ot200 = liveOt.validOtMinutes;
+              else ot100 = liveOt.validOtMinutes;
+            }
+
+            // Hỗ trợ đêm nếu lượt cuối ra sau giờ đêm
+            if (checkOut && checkOut.hour() >= Number(config.nightStartHour)) {
+              nightAllowance = Number(config.nightAllowanceAmount);
+            }
+          }
+        } else {
+          // CÁC PHÒNG BAN TIÊU CHUẨN:
+          checkIn = record?.checkInAt ? moment(record.checkInAt).tz('Asia/Ho_Chi_Minh') : null;
+          checkOut = record?.checkOutAt ? moment(record.checkOutAt).tz('Asia/Ho_Chi_Minh') : null;
+          
+          const shift = record?.shiftAssignment?.shift;
+          if (checkIn && checkOut) {
+            totalMinutes = checkOut.diff(checkIn, 'minutes');
+            if (shift?.breakMinutes) totalMinutes -= shift.breakMinutes;
+          }
+          if (totalMinutes < 0) totalMinutes = 0;
+
+          let otMins = 0;
+          if (record) {
+            attendance = record.latePenaltyWorkDays !== null ? Number(record.latePenaltyWorkDays) : (record.isUnplannedOt ? 0 : 1);
+            lateDeduction = record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0;
+            lateMins = record.lateMinutes !== null ? Number(record.lateMinutes) : 0;
+
+            if (!shift) {
+              if (checkIn && checkOut && otRequest) {
+                const approvedStart = moment(otRequest.startAt).tz('Asia/Ho_Chi_Minh');
+                const approvedEnd = moment(otRequest.endAt).tz('Asia/Ho_Chi_Minh');
+                const effectiveOtStart = checkIn.isBefore(approvedStart) ? approvedStart : checkIn;
+                const effectiveOtEnd = checkOut.isAfter(approvedEnd) ? approvedEnd : checkOut;
+                otMins = Math.max(0, effectiveOtEnd.diff(effectiveOtStart, 'minutes'));
               }
             } else {
-              // Late Request logic (Tẩy trắng)
-              if (lateMins > 0 && lateRequest) {
-                if (record.latePenaltyLevel === null || record.latePenaltyLevel <= 3) {
+              const shiftStart = moment.tz(`${dateStr} ${shift.startTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
+              const shiftEnd = moment.tz(`${dateStr} ${shift.endTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
+
+              if (record.status === 'MISSING') {
+                if (lateRequest) {
+                  attendance = 1;
                   lateDeduction = 0;
-                  attendance = 1;
-                } else if (record.latePenaltyLevel === 4) {
-                  lateDeduction = 50000;
-                  attendance = 1;
                 }
-              }
+              } else {
+                if (lateMins > 0 && lateRequest) {
+                  if (record.latePenaltyLevel === null || record.latePenaltyLevel <= 3) {
+                    lateDeduction = 0;
+                    attendance = 1;
+                  } else if (record.latePenaltyLevel === 4) {
+                    lateDeduction = 50000;
+                    attendance = 1;
+                  }
+                }
 
-              // Early leave (if no overtime)
-              if (checkOut && checkOut.isBefore(shiftEnd) && !otRequest) {
-                earlyMins = shiftEnd.diff(checkOut, 'minutes');
-              }
+                if (checkOut && checkOut.isBefore(shiftEnd) && !otRequest) {
+                  earlyMins = shiftEnd.diff(checkOut, 'minutes');
+                }
 
-              // Overtime
-              if (checkOut && checkOut.isAfter(shiftEnd) && otRequest) {
-                const approvedEnd = moment(otRequest.endAt).tz('Asia/Ho_Chi_Minh');
-                const effectiveOtEnd = checkOut.isAfter(approvedEnd) ? approvedEnd : checkOut;
-                otMins = Math.max(0, effectiveOtEnd.diff(shiftEnd, 'minutes'));
+                if (checkOut && checkOut.isAfter(shiftEnd) && otRequest) {
+                  const approvedEnd = moment(otRequest.endAt).tz('Asia/Ho_Chi_Minh');
+                  const effectiveOtEnd = checkOut.isAfter(approvedEnd) ? approvedEnd : checkOut;
+                  otMins = Math.max(0, effectiveOtEnd.diff(shiftEnd, 'minutes'));
+                }
               }
             }
           }
-        }
 
-        // Night allowance
-        if (checkOut && checkOut.hour() >= Number(config.nightStartHour)) {
-          nightAllowance = Number(config.nightAllowanceAmount);
-        }
+          if (checkOut && checkOut.hour() >= Number(config.nightStartHour)) {
+            nightAllowance = Number(config.nightAllowanceAmount);
+          }
 
-        // Multipliers
-        let ot150 = 0, ot200 = 0;
-        if (otMins > 0) {
-          if (isHoliday || isWeekend) ot200 = otMins;
-          else ot150 = otMins;
+          if (otMins > 0) {
+            if (isHoliday || isWeekend) ot200 = otMins;
+            else ot150 = otMins;
+          }
         }
 
         const row = {
@@ -309,8 +367,9 @@ export class AttendanceReportService {
           dayOfWeek,
           checkIn: checkIn ? checkIn.format('HH:mm') : '',
           checkOut: checkOut ? checkOut.format('HH:mm') : '',
-          attendance: record ? attendance : 0,
+          attendance: dayRecords.length > 0 ? attendance : 0,
           totalHours: formatHrs(totalMinutes),
+          overtime100: formatHrs(ot100),
           overtime150: formatHrs(ot150),
           overtime200: formatHrs(ot200),
           lateMorning: checkIn && checkIn.hour() < 12 ? formatHrs(lateMins) : '0:00:00',
@@ -322,6 +381,8 @@ export class AttendanceReportService {
           nightAllowance,
           
           // Raw values for summary
+          _rawTotalHours: totalMinutes,
+          _rawOt100: ot100,
           _rawOt150: ot150,
           _rawOt200: ot200,
           _rawLate: lateMins,
