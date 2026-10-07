@@ -365,13 +365,18 @@ export default function CreateRequestScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#F8FAFC' }}>
-        <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#0F172A" />
-          </Pressable>
-          <View style={styles.topAvatarCircle}>
-            <Text style={styles.topAvatarText}>{userInitials}</Text>
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#0F172A" />
+            </Pressable>
+            <Text style={styles.headerTitle}>Tạo đơn mới</Text>
+            <View style={{ flex: 1 }} />
+            <View style={styles.topAvatarCircle}>
+              <Text style={styles.topAvatarText}>{userInitials}</Text>
+            </View>
           </View>
+          <Text style={styles.headerSubtitle}>Gửi yêu cầu của bạn trong vài bước.</Text>
         </View>
       </SafeAreaView>
 
@@ -381,12 +386,6 @@ export default function CreateRequestScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Title Section */}
-        <View style={styles.screenHeader}>
-          <Text style={styles.screenTitle}>Tạo đơn mới</Text>
-          <Text style={styles.screenSubtitle}>Gửi yêu cầu của bạn trong vài bước.</Text>
-        </View>
-
         {/* 01 CHỌN LOẠI ĐƠN */}
         <View style={styles.sectionHeadingWrap}>
           <Text style={styles.sectionNumber}>01</Text>
@@ -1499,24 +1498,32 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 24,
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  header: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 8,
+    paddingBottom: 10,
     backgroundColor: '#F8FAFC',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   backBtn: {
     padding: 4,
     marginLeft: -4,
+    marginRight: 6,
   },
-  topBarTitle: {
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F2F20',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-    letterSpacing: 2,
+    color: '#64748B',
+    marginTop: 2,
+    marginLeft: 34,
   },
   topAvatarCircle: {
     width: 36,
@@ -1531,26 +1538,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1B382B',
   },
-  screenHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  screenTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#0F2F20',
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
-  screenSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
-  },
   sectionHeadingWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
+    marginTop: 8,
     marginBottom: 10,
     gap: 8,
   },
