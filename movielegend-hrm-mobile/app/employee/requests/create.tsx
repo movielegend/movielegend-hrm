@@ -352,17 +352,15 @@ export default function CreateRequestScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
-      <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-              <MaterialCommunityIcons name="chevron-left" size={32} color="#111827" />
+          <View style={styles.headerRow}>
+            <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
+              <MaterialCommunityIcons name="chevron-left" size={26} color="#0F172A" />
             </Pressable>
-            <View>
-              <Text style={styles.headerTitle}>Tạo đơn từ mới</Text>
-              <Text style={styles.headerSubtitle}>Chọn loại đơn và điền thông tin</Text>
-            </View>
+            <Text style={styles.headerTitle}>Tạo đơn từ mới</Text>
           </View>
+          <Text style={styles.headerSubtitle}>Chọn loại đơn và điền thông tin</Text>
         </View>
       </SafeAreaView>
 
@@ -372,26 +370,28 @@ export default function CreateRequestScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-          <Text style={styles.sectionLabel}>Loại đơn từ</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector} contentContainerStyle={{ paddingRight: spacing.md }}>
+          {/* 2x2 Grid Type Selector */}
+          <View style={styles.gridTypeSelector}>
             {REQUEST_TYPES.map(t => {
               const isSelected = selectedType === t.type;
               return (
                 <Pressable 
                   key={t.type} 
-                  style={[styles.typeBox, isSelected && { borderColor: t.color, backgroundColor: `${t.color}08`, borderWidth: 2 }]}
+                  style={[styles.gridTypeBox, isSelected && styles.gridTypeBoxActive]}
                   onPress={() => setSelectedType(t.type)}
                 >
-                  <View style={[styles.typeIconWrap, { backgroundColor: isSelected ? t.color : '#F3F4F6' }]}>
-                    <MaterialCommunityIcons name={t.icon} size={24} color={isSelected ? '#fff' : '#6B7280'} />
-                  </View>
-                  <Text style={[styles.typeLabel, isSelected && { color: t.color, fontWeight: '700' }]}>
+                  <MaterialCommunityIcons 
+                    name={t.icon} 
+                    size={22} 
+                    color={isSelected ? '#166534' : '#475569'} 
+                  />
+                  <Text style={[styles.gridTypeLabel, isSelected && styles.gridTypeLabelActive]}>
                     {t.label}
                   </Text>
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
 
           <View style={styles.formContainer}>
             {isExplanation ? (
@@ -721,151 +721,164 @@ export default function CreateRequestScreen() {
               </>
             ) : isLeave ? (
               <>
-                {/* Employee Name */}
-                <View style={styles.rowInput}>
-                  <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
-                    <MaterialCommunityIcons name="account-group" size={20} color="#000" />
+                {/* 1. Người gửi */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionCardHeader}>
+                    <MaterialCommunityIcons name="account-outline" size={18} color="#166534" />
+                    <Text style={styles.sectionCardTitle}>Người gửi</Text>
                   </View>
-                  <Text style={styles.rowTextValue}>{user?.fullName || 'Người dùng'}</Text>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+                  <View style={styles.selectRowBox}>
+                    <MaterialCommunityIcons name="account-circle-outline" size={20} color="#64748B" />
+                    <Text style={styles.selectRowText}>{user?.fullName || 'Người gửi'}</Text>
+                    <MaterialCommunityIcons name="chevron-down" size={18} color="#94A3B8" />
+                  </View>
                 </View>
 
-                {/* Chọn loại */}
-                <Pressable style={styles.rowInput} onPress={() => setShowLeaveDurationModal(true)}>
-                  <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
-                    <MaterialCommunityIcons name="view-grid-outline" size={20} color="#000" />
+                {/* 2. Thông tin nghỉ phép */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionCardHeader}>
+                    <MaterialCommunityIcons name="file-document-outline" size={18} color="#166534" />
+                    <Text style={styles.sectionCardTitle}>Thông tin nghỉ phép</Text>
                   </View>
-                  <Text style={[leaveDurationType ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                    <Text style={styles.required}>*</Text> {leaveDurationType || 'Chọn loại'}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
-                </Pressable>
 
-                {/* Chọn loại nghỉ phép */}
-                <Pressable style={styles.rowInput} onPress={() => setShowLeaveTypeModal(true)}>
-                  <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
-                    <MaterialCommunityIcons name="water-outline" size={20} color="#000" />
+                  {/* Hình thức nghỉ */}
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Hình thức nghỉ <Text style={styles.required}>*</Text></Text>
+                    <Pressable style={styles.fieldSelectBox} onPress={() => setShowLeaveDurationModal(true)}>
+                      <Text style={[styles.fieldSelectText, !leaveDurationType && styles.fieldSelectPlaceholder]}>
+                        {leaveDurationType || 'Chọn hình thức'}
+                      </Text>
+                      <MaterialCommunityIcons name="chevron-down" size={18} color="#94A3B8" />
+                    </Pressable>
                   </View>
-                  <Text style={[leaveType ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                    <Text style={styles.required}>*</Text> {leaveType || 'Chọn loại nghỉ phép'}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
-                </Pressable>
 
-                {/* Dynamic Date/Time Fields for Leave */}
-                {leaveDurationType === 'Nhiều ngày' ? (
-                  <>
-                    <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('from')}>
-                      <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
-                        <MaterialCommunityIcons name="calendar-range" size={20} color="#000" />
-                      </View>
-                      <Text style={[fromDate ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                        <Text style={styles.required}>*</Text> {fromDate ? formatDate(fromDate) : 'Từ ngày'}
+                  {/* Loại nghỉ phép */}
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Loại nghỉ phép <Text style={styles.required}>*</Text></Text>
+                    <Pressable style={styles.fieldSelectBox} onPress={() => setShowLeaveTypeModal(true)}>
+                      <Text style={[styles.fieldSelectText, !leaveType && styles.fieldSelectPlaceholder]}>
+                        {leaveType || 'Chọn loại nghỉ phép'}
                       </Text>
-                      <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
+                      <MaterialCommunityIcons name="chevron-down" size={18} color="#94A3B8" />
                     </Pressable>
-                    <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('to')}>
-                      <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
-                        <MaterialCommunityIcons name="calendar-range" size={20} color="#000" />
+                  </View>
+
+                  {/* Dynamic Date/Time Fields */}
+                  {leaveDurationType === 'Nhiều ngày' ? (
+                    <>
+                      <View style={styles.fieldRow}>
+                        <Text style={styles.fieldLabel}>Từ ngày <Text style={styles.required}>*</Text></Text>
+                        <Pressable style={styles.fieldSelectBox} onPress={() => setShowDatePicker('from')}>
+                          <Text style={[styles.fieldSelectText, !fromDate && styles.fieldSelectPlaceholder]}>
+                            {fromDate ? formatDate(fromDate) : 'Chọn từ ngày'}
+                          </Text>
+                          <MaterialCommunityIcons name="chevron-down" size={18} color="#94A3B8" />
+                        </Pressable>
                       </View>
-                      <Text style={[toDate ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                        <Text style={styles.required}>*</Text> {toDate ? formatDate(toDate) : 'Đến ngày'}
-                      </Text>
-                      <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
-                    </Pressable>
-                  </>
-                ) : ['Theo giờ', '1/4 ngày', '1/2 ngày', '3/4 ngày'].includes(leaveDurationType) ? (
-                  <>
-                    <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('single')}>
-                      <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
-                        <MaterialCommunityIcons name="calendar-today" size={20} color="#000" />
+
+                      <View style={styles.fieldRow}>
+                        <Text style={styles.fieldLabel}>Đến ngày <Text style={styles.required}>*</Text></Text>
+                        <Pressable style={styles.fieldSelectBox} onPress={() => setShowDatePicker('to')}>
+                          <Text style={[styles.fieldSelectText, !toDate && styles.fieldSelectPlaceholder]}>
+                            {toDate ? formatDate(toDate) : 'Chọn đến ngày'}
+                          </Text>
+                          <MaterialCommunityIcons name="chevron-down" size={18} color="#94A3B8" />
+                        </Pressable>
                       </View>
-                      <Text style={[fromDate ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                        <Text style={styles.required}>*</Text> {fromDate ? formatDate(fromDate) : 'Ngày nghỉ'}
-                      </Text>
-                      <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
-                    </Pressable>
-                    <Pressable style={styles.rowInput} onPress={() => setShowTimeModal('start')}>
-                      <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
-                        <MaterialCommunityIcons name="clock-outline" size={20} color="#000" />
+                    </>
+                  ) : ['Theo giờ', '1/4 ngày', '1/2 ngày', '3/4 ngày'].includes(leaveDurationType) ? (
+                    <>
+                      <View style={styles.fieldRow}>
+                        <Text style={styles.fieldLabel}>Ngày nghỉ <Text style={styles.required}>*</Text></Text>
+                        <Pressable style={styles.fieldSelectBox} onPress={() => setShowDatePicker('single')}>
+                          <Text style={[styles.fieldSelectText, !fromDate && styles.fieldSelectPlaceholder]}>
+                            {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
+                          </Text>
+                          <MaterialCommunityIcons name="chevron-down" size={18} color="#94A3B8" />
+                        </Pressable>
                       </View>
-                      <Text style={[startTime ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                        <Text style={styles.required}>*</Text> {startTime ? formatTime(startTime) : 'Từ giờ'}
-                      </Text>
-                      <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
-                    </Pressable>
-                    <Pressable style={styles.rowInput} onPress={() => setShowTimeModal('end')}>
-                      <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
-                        <MaterialCommunityIcons name="clock-outline" size={20} color="#000" />
+
+                      <View style={styles.fieldRow}>
+                        <Text style={styles.fieldLabel}>Từ giờ <Text style={styles.required}>*</Text></Text>
+                        <Pressable style={styles.fieldSelectBox} onPress={() => setShowTimeModal('start')}>
+                          <Text style={[styles.fieldSelectText, !startTime && styles.fieldSelectPlaceholder]}>
+                            {startTime ? formatTime(startTime) : 'Chọn từ giờ'}
+                          </Text>
+                          <MaterialCommunityIcons name="chevron-down" size={18} color="#94A3B8" />
+                        </Pressable>
                       </View>
-                      <Text style={[endTime ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                        <Text style={styles.required}>*</Text> {endTime ? formatTime(endTime) : 'Đến giờ'}
-                      </Text>
-                      <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
-                    </Pressable>
-                  </>
-                ) : leaveDurationType ? (
-                  <Pressable style={styles.rowInput} onPress={() => setShowDatePicker('single')}>
-                    <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
-                      <MaterialCommunityIcons name="calendar-today" size={20} color="#000" />
+
+                      <View style={styles.fieldRow}>
+                        <Text style={styles.fieldLabel}>Đến giờ <Text style={styles.required}>*</Text></Text>
+                        <Pressable style={styles.fieldSelectBox} onPress={() => setShowTimeModal('end')}>
+                          <Text style={[styles.fieldSelectText, !endTime && styles.fieldSelectPlaceholder]}>
+                            {endTime ? formatTime(endTime) : 'Chọn đến giờ'}
+                          </Text>
+                          <MaterialCommunityIcons name="chevron-down" size={18} color="#94A3B8" />
+                        </Pressable>
+                      </View>
+                    </>
+                  ) : leaveDurationType ? (
+                    <View style={styles.fieldRow}>
+                      <Text style={styles.fieldLabel}>Ngày nghỉ <Text style={styles.required}>*</Text></Text>
+                      <Pressable style={styles.fieldSelectBox} onPress={() => setShowDatePicker('single')}>
+                        <Text style={[styles.fieldSelectText, !fromDate && styles.fieldSelectPlaceholder]}>
+                          {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
+                        </Text>
+                        <MaterialCommunityIcons name="chevron-down" size={18} color="#94A3B8" />
+                      </Pressable>
                     </View>
-                    <Text style={[fromDate ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                      <Text style={styles.required}>*</Text> {fromDate ? formatDate(fromDate) : 'Ngày nghỉ'}
-                    </Text>
-                    <MaterialCommunityIcons name="chevron-down" size={20} color="#9CA3AF" />
-                  </Pressable>
-                ) : null}
+                  ) : null}
 
-                {/* Chọn người bàn giao */}
-                <Pressable
-                  style={styles.rowInput}
-                  onPress={() => {
-                    setShowEmployeeModal(true);
-                    void fetchEmployeesList();
-                  }}
-                >
-                  <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6' }]}>
-                    <MaterialCommunityIcons name="account-tie-outline" size={20} color="#000" />
+                  {/* Người bàn giao */}
+                  <View style={styles.fieldRow}>
+                    <Text style={styles.fieldLabel}>Người bàn giao</Text>
+                    <Pressable
+                      style={styles.fieldSelectBox}
+                      onPress={() => {
+                        setShowEmployeeModal(true);
+                        void fetchEmployeesList();
+                      }}
+                    >
+                      <Text style={[styles.fieldSelectText, !handoverEmployee && styles.fieldSelectPlaceholder]}>
+                        {handoverEmployee ? (handoverEmployee.fullName || (handoverEmployee as any).profile?.fullName || (handoverEmployee as any).userCode || 'Nhân sự') : 'Chọn người bàn giao'}
+                      </Text>
+                      <MaterialCommunityIcons name="chevron-down" size={18} color="#94A3B8" />
+                    </Pressable>
                   </View>
-                  <Text style={[handoverEmployee ? styles.rowTextValue : styles.rowTextPlaceholder]}>
-                    {handoverEmployee ? (handoverEmployee.fullName || (handoverEmployee as any).profile?.fullName || (handoverEmployee as any).userCode || 'Nhân sự') : 'Chọn người bàn giao'}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
-                </Pressable>
-
-                {/* Nhập nội dung */}
-                <View style={[styles.rowInput, shadows.sm, { alignItems: 'flex-start', paddingVertical: 16 }]}>
-                  <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6', marginTop: 2 }]}>
-                    <MaterialCommunityIcons name="message-text-outline" size={20} color="#000" />
-                  </View>
-                  <TextInput
-                    style={[styles.rowTextInput, { minHeight: 60 }]}
-                    placeholder="Nhập nội dung"
-                    placeholderTextColor="#9CA3AF"
-                    multiline
-                    value={content}
-                    onChangeText={setContent}
-                  />
                 </View>
 
-                {/* Nhập vào lý do */}
-                <Pressable 
-                  style={[styles.rowInput, shadows.sm, { alignItems: 'flex-start', paddingVertical: 16 }]}
-                  onPress={() => reasonRef.current?.focus()}
-                >
-                  <View style={[styles.rowIconWrap, { backgroundColor: '#F3F4F6', marginTop: 2 }]}>
-                    <MaterialCommunityIcons name="message-text-outline" size={20} color="#000" />
+                {/* 3. Nội dung đơn */}
+                <View style={styles.sectionCard}>
+                  <View style={styles.sectionCardHeader}>
+                    <MaterialCommunityIcons name="message-outline" size={18} color="#166534" />
+                    <Text style={styles.sectionCardTitle}>Nội dung đơn</Text>
                   </View>
-                  <TextInput
-                    ref={reasonRef}
-                    style={[styles.rowTextInput, { minHeight: 80 }]}
-                    placeholder="* Nhập vào lý do"
-                    placeholderTextColor="#9CA3AF"
-                    multiline
-                    value={title}
-                    onChangeText={setTitle}
-                  />
-                </Pressable>
+
+                  <View style={styles.fieldRowVertical}>
+                    <Text style={styles.fieldLabelVertical}>Nội dung</Text>
+                    <TextInput
+                      style={styles.fieldTextInput}
+                      placeholder="Nhập nội dung"
+                      placeholderTextColor="#94A3B8"
+                      value={content}
+                      onChangeText={setContent}
+                      multiline
+                    />
+                  </View>
+
+                  <View style={styles.fieldRowVertical}>
+                    <Text style={styles.fieldLabelVertical}>Lý do <Text style={styles.required}>*</Text></Text>
+                    <TextInput
+                      style={styles.fieldTextInput}
+                      placeholder="Nhập lý do nghỉ"
+                      placeholderTextColor="#94A3B8"
+                      value={title}
+                      onChangeText={setTitle}
+                      multiline
+                    />
+                  </View>
+                </View>
               </>
             ) : isLateOrEarly ? (
               <>
@@ -1417,6 +1430,11 @@ export default function CreateRequestScreen() {
       )}
 
       <SafeAreaView edges={['bottom']} style={styles.footer}>
+        <View style={styles.footerNoteRow}>
+          <Text style={styles.footerNoteText}>
+            <Text style={styles.required}>* </Text>Thông tin bắt buộc
+          </Text>
+        </View>
         <Pressable 
           style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]} 
           onPress={handleSubmit}
@@ -1426,8 +1444,8 @@ export default function CreateRequestScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <>
-              <MaterialCommunityIcons name="send" size={20} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.submitBtnText}>Gửi Đơn Từ</Text>
+              <MaterialCommunityIcons name="send-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.submitBtnText}>Gửi đơn từ</Text>
             </>
           )}
         </Pressable>
@@ -1438,71 +1456,159 @@ export default function CreateRequestScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: 'transparent',
-    zIndex: 10,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  headerLeft: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconBtn: {
-    padding: 4,
-    marginRight: 8,
+    marginRight: 6,
+    padding: 2,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#111827',
+    fontWeight: '700',
+    color: '#0F172A',
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#64748B',
     marginTop: 2,
+    marginLeft: 34,
   },
   content: {
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingTop: 12,
+    paddingBottom: 40,
   },
-  sectionLabel: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
+  gridTypeSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 16,
   },
-  typeSelector: {
-    marginBottom: spacing.xl,
-    paddingHorizontal: spacing.lg,
-  },
-  typeBox: {
-    width: 100,
-    height: 110,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: spacing.md,
-    justifyContent: 'center',
+  gridTypeBox: {
+    width: '48.5%',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: spacing.md,
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
+    gap: 8,
   },
-  typeIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
+  gridTypeBoxActive: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#166534',
+    borderWidth: 1.5,
+  },
+  gridTypeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  gridTypeLabelActive: {
+    color: '#166534',
+    fontWeight: '700',
+  },
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+  },
+  sectionCardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 14,
+    gap: 8,
   },
-  typeLabel: {
+  sectionCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  selectRowBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  selectRowText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  fieldLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#4B5563',
-    textAlign: 'center',
+    color: '#475569',
+    width: '38%',
+  },
+  fieldSelectBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  fieldSelectText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#0F172A',
+  },
+  fieldSelectPlaceholder: {
+    color: '#94A3B8',
+  },
+  fieldRowVertical: {
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  fieldLabelVertical: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 6,
+  },
+  fieldTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#0F172A',
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
   formContainer: {
     paddingHorizontal: spacing.lg,
@@ -1762,30 +1868,40 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   footer: {
-    padding: spacing.lg,
-    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 20,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: '#F1F5F9',
+  },
+  footerNoteRow: {
+    marginBottom: 8,
+  },
+  footerNoteText: {
+    fontSize: 12,
+    color: '#64748B',
   },
   submitBtn: {
-    backgroundColor: '#111827',
+    backgroundColor: '#1B382B',
     flexDirection: 'row',
-    paddingVertical: 18,
-    borderRadius: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitBtnDisabled: {
-    opacity: 0.6,
+    backgroundColor: '#94A3B8',
+    opacity: 0.8,
   },
   submitBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '800',
-  }
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
 });

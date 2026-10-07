@@ -224,6 +224,14 @@ export function ApprovalDetailScreen() {
   const item = approval.data;
   const canApprove = hasPermission(user, 'approval.approve') && item?.status === 'PENDING';
   const canReject = hasPermission(user, 'approval.reject') && item?.status === 'PENDING';
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'NV';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   if (approval.isLoading) return <LoadingState />;
   if (approval.isError) return <ErrorState error={approval.error} onRetry={() => void approval.refetch()} />;
   if (!item) return <EmptyState title="Không tìm thấy yêu cầu" />;
@@ -231,7 +239,9 @@ export function ApprovalDetailScreen() {
   const createdAt = item.user?.createdAt ? new Date(item.user.createdAt) : null;
   const createdDate = createdAt ? createdAt.toLocaleDateString('vi-VN') : '-';
   const createdTime = createdAt ? createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '-';
-  const faceImages = item.user?.faceProfile?.images ?? [];
+  const fullName = item.user?.profile?.fullName ?? 'Chưa có tên';
+  const initials = getInitials(fullName);
+
   const submitReject = handleSubmit(async (payload) => {
     await reject.mutateAsync({ id: item.id, payload });
     reset();
@@ -240,108 +250,201 @@ export function ApprovalDetailScreen() {
       router.back();
     }
   });
+
   return (
     <Screen>
-      <ScreenContainer>
-        <PageHeader title="Chi tiết duyệt tài khoản" subtitle="Xem thông tin chi tiết để quyết định duyệt hoặc từ chối yêu cầu." />
-        <SectionCard>
-          <View style={localStyles.detailHeader}>
-            <Avatar name={item.user?.profile?.fullName} uri={item.user?.profile?.avatarUrl} size={64} />
-            <View style={{ flex: 1, marginLeft: 16 }}>
-              <Text style={localStyles.cardTitle}>{item.user?.profile?.fullName ?? '-'}</Text>
-              <Text style={localStyles.cardSubtitle}>{item.user?.userCode ?? '-'}</Text>
-            </View>
-            <View style={{ alignSelf: 'flex-start' }}>
-              <StatusBadge label={statusLabels[item.status] || item.status} tone={toneForStatus(item.status)} />
+      {/* 1. Header (Back button + Title on same row) */}
+      <View style={localStyles.header}>
+        <View style={localStyles.headerRow}>
+          <Pressable 
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/admin/(tabs)' as any))} 
+            style={localStyles.backBtn} 
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons name="chevron-left" size={26} color="#0F172A" />
+          </Pressable>
+          <Text style={localStyles.headerTitle}>Duyệt tài khoản</Text>
+        </View>
+        <Text style={localStyles.headerSubtitle}>Chi tiết yêu cầu đăng ký</Text>
+      </View>
+
+      <ScrollView contentContainerStyle={localStyles.detailScroll} showsVerticalScrollIndicator={false}>
+        {/* 2. User Info Card */}
+        <View style={localStyles.detailUserCard}>
+          <View style={localStyles.detailAvatarBox}>
+            <Text style={localStyles.detailAvatarText}>{initials}</Text>
+          </View>
+          <View style={localStyles.detailUserMeta}>
+            <Text style={localStyles.detailUserName}>{fullName}</Text>
+            <Text style={localStyles.detailUserCode}>{item.user?.userCode ?? '-'}</Text>
+          </View>
+          <View style={localStyles.detailStatusBadge}>
+            <MaterialCommunityIcons name="clock-outline" size={14} color="#B45309" />
+            <Text style={localStyles.detailStatusBadgeText}>
+              {statusLabels[item.status] || (item.status === 'PENDING' ? 'Chờ duyệt' : item.status)}
+            </Text>
+          </View>
+        </View>
+
+        {/* 3. Registration Info Card */}
+        <View style={localStyles.detailInfoCard}>
+          <View style={localStyles.detailCardHeader}>
+            <MaterialCommunityIcons name="file-document-outline" size={18} color="#166534" />
+            <Text style={localStyles.detailCardTitle}>Thông tin đăng ký</Text>
+          </View>
+
+          <View style={localStyles.detailItemRow}>
+            <MaterialCommunityIcons name="phone-outline" size={18} color="#64748B" style={localStyles.detailItemIcon} />
+            <View style={localStyles.detailItemContent}>
+              <Text style={localStyles.detailItemLabel}>Số điện thoại</Text>
+              <Text style={localStyles.detailItemValue}>{maskPhone(item.user?.phone)}</Text>
             </View>
           </View>
 
-          <View style={localStyles.detailList}>
-            <View style={localStyles.infoRow}>
-              <MaterialCommunityIcons name="phone-outline" size={18} color="#6B7280" />
-              <Text style={localStyles.infoTextDetail}>SĐT: {maskPhone(item.user?.phone)}</Text>
-            </View>
-            <View style={localStyles.infoRow}>
-              <MaterialCommunityIcons name="email-outline" size={18} color="#6B7280" />
-              <Text style={localStyles.infoTextDetail}>Email: {item.user?.email ?? '-'}</Text>
-            </View>
-            <View style={localStyles.infoRow}>
-              <MaterialCommunityIcons name="office-building-outline" size={18} color="#6B7280" />
-              <Text style={localStyles.infoTextDetail}>Phòng ban yêu cầu: {item.requestedDepartment?.name ?? '-'}</Text>
-            </View>
-            <View style={localStyles.infoRow}>
-              <MaterialCommunityIcons name="calendar-outline" size={18} color="#6B7280" />
-              <Text style={localStyles.infoTextDetail}>Ngày đăng ký: {createdDate}</Text>
-            </View>
-            <View style={localStyles.infoRow}>
-              <MaterialCommunityIcons name="clock-outline" size={18} color="#6B7280" />
-              <Text style={localStyles.infoTextDetail}>Giờ đăng ký: {createdTime}</Text>
-            </View>
-            {item.user?.profile?.joinDate ? (
-              <View style={localStyles.infoRow}>
-                <MaterialCommunityIcons name="briefcase-outline" size={18} color="#6B7280" />
-                <Text style={localStyles.infoTextDetail}>
-                  Ngày vào làm (khai báo): {new Date(item.user.profile.joinDate).toLocaleDateString('vi-VN')}
-                </Text>
-              </View>
-            ) : null}
-            <View style={localStyles.infoRow}>
-              <MaterialCommunityIcons name="calendar-clock" size={18} color="#6B7280" />
-              <Text style={[localStyles.infoTextDetail, { color: item.status === 'APPROVED' ? '#059669' : '#D97706', fontWeight: '600' }]}>
-                {item.status === 'APPROVED' 
-                  ? `Thâm niên: ${formatSeniority(item.user?.profile?.joinDate || item.decidedAt || item.user?.createdAt)}` 
-                  : item.user?.profile?.joinDate
-                    ? `Thâm niên dự kiến: ${formatSeniority(item.user.profile.joinDate)}`
-                    : 'Thâm niên: Bắt đầu tính ngay khi bấm duyệt'}
-              </Text>
+          <View style={localStyles.detailItemRow}>
+            <MaterialCommunityIcons name="email-outline" size={18} color="#64748B" style={localStyles.detailItemIcon} />
+            <View style={localStyles.detailItemContent}>
+              <Text style={localStyles.detailItemLabel}>Email</Text>
+              <Text style={localStyles.detailItemValue}>{item.user?.email ?? '-'}</Text>
             </View>
           </View>
 
-          <View style={localStyles.divider} />
+          <View style={localStyles.detailItemRow}>
+            <MaterialCommunityIcons name="account-group-outline" size={18} color="#64748B" style={localStyles.detailItemIcon} />
+            <View style={localStyles.detailItemContent}>
+              <Text style={localStyles.detailItemLabel}>Phòng ban đăng ký</Text>
+              <Text style={localStyles.detailItemValue}>{item.requestedDepartment?.name ?? '-'}</Text>
+            </View>
+          </View>
 
-        </SectionCard>
-        {approve.error || reject.error ? <Text style={styles.error}>{normalizeApiError(approve.error ?? reject.error).message}</Text> : null}
-        {canApprove ? <PrimaryButton onPress={() => setConfirmApprove(true)} loading={approve.isPending}>Duyệt tài khoản</PrimaryButton> : null}
-        {canReject ? (
-          <SectionCard title="Từ chối">
-            <Controller control={control} name="reason" render={({ field }) => <FormField label="Lý do" value={field.value} onChangeText={field.onChange} error={errors.reason?.message} />} />
-            <SecondaryButton onPress={() => void submitReject()} loading={reject.isPending}>Từ chối</SecondaryButton>
-          </SectionCard>
-        ) : null}
-        <ConfirmModal
-          visible={confirmApprove}
-          title="Duyệt tài khoản"
-          message="Bạn có chắc muốn duyệt nhân sự này?"
-          loading={approve.isPending}
-          onCancel={() => setConfirmApprove(false)}
-          onConfirm={async () => {
-            await approve.mutateAsync(item.id);
-            setConfirmApprove(false);
-            void approval.refetch();
-            if (router.canGoBack()) {
-              router.back();
-            }
-          }}
-        />
+          <View style={localStyles.detailItemRow}>
+            <MaterialCommunityIcons name="office-building-outline" size={18} color="#64748B" style={localStyles.detailItemIcon} />
+            <View style={localStyles.detailItemContent}>
+              <Text style={localStyles.detailItemLabel}>Chi nhánh đăng ký</Text>
+              <Text style={localStyles.detailItemValue}>{item.requestedDepartment?.branch?.name ?? '-'}</Text>
+            </View>
+          </View>
 
-        <Modal visible={!!viewingImage} transparent={true} animationType="fade" onRequestClose={() => setViewingImage(null)}>
-          <View style={styles.imageViewerContainer}>
-            <View style={[styles.imageViewerSafeArea, { paddingTop: safeTopInset }]}>
-              <TouchableOpacity style={styles.imageViewerClose} onPress={() => setViewingImage(null)}>
-                <Text style={styles.imageViewerCloseText}>Đóng</Text>
-              </TouchableOpacity>
-              {viewingImage && (
-                <View style={styles.imageViewerContent}>
-                  <Image source={{ uri: viewingImage }} style={styles.fullScreenImage} resizeMode="contain" />
-                  <View style={styles.watermarkContainer}>
-                    <Image source={require('../../../assets/logo-watermark.png')} style={styles.watermarkLogo} resizeMode="contain" />
-                  </View>
-                </View>
+          <View style={localStyles.detailItemRow}>
+            <MaterialCommunityIcons name="calendar-outline" size={18} color="#64748B" style={localStyles.detailItemIcon} />
+            <View style={localStyles.detailItemContent}>
+              <Text style={localStyles.detailItemLabel}>Ngày đăng ký</Text>
+              <Text style={localStyles.detailItemValue}>{createdDate}</Text>
+            </View>
+          </View>
+
+          <View style={[localStyles.detailItemRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+            <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" style={localStyles.detailItemIcon} />
+            <View style={localStyles.detailItemContent}>
+              <Text style={localStyles.detailItemLabel}>Thời gian đăng ký</Text>
+              <Text style={localStyles.detailItemValue}>{createdTime}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 4. Seniority Notice Banner */}
+        <View style={localStyles.seniorityBanner}>
+          <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#D97706" />
+          <Text style={localStyles.seniorityText}>
+            {item.status === 'APPROVED' 
+              ? `Thâm niên: ${formatSeniority(item.user?.profile?.joinDate || item.decidedAt || item.user?.createdAt)}` 
+              : item.user?.profile?.joinDate
+                ? `Thâm niên dự kiến: ${formatSeniority(item.user.profile.joinDate)}`
+                : 'Thâm niên bắt đầu tính từ thời điểm duyệt.'}
+          </Text>
+        </View>
+
+        {/* 5. Reject Reason Input (if can reject/pending) */}
+        {canReject && (
+          <View style={localStyles.rejectReasonCard}>
+            <View style={localStyles.detailCardHeader}>
+              <MaterialCommunityIcons name="message-outline" size={18} color="#DC2626" />
+              <Text style={localStyles.rejectCardTitle}>Lý do từ chối</Text>
+            </View>
+            <Controller
+              control={control}
+              name="reason"
+              render={({ field }) => (
+                <TextInput
+                  style={localStyles.rejectInput}
+                  placeholder="Nhập lý do nếu từ chối yêu cầu"
+                  placeholderTextColor="#94A3B8"
+                  value={field.value}
+                  onChangeText={field.onChange}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
               )}
-            </View>
+            />
+            {errors.reason?.message ? (
+              <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 4 }}>{errors.reason.message}</Text>
+            ) : null}
           </View>
-        </Modal>
-      </ScreenContainer>
+        )}
+
+        {approve.error || reject.error ? (
+          <Text style={{ color: '#EF4444', textAlign: 'center', marginVertical: 8 }}>
+            {normalizeApiError(approve.error ?? reject.error).message}
+          </Text>
+        ) : null}
+      </ScrollView>
+
+      {/* 6. Bottom Sticky Action Buttons */}
+      {item.status === 'PENDING' && (canApprove || canReject) && (
+        <View style={localStyles.bottomActionsBar}>
+          {canReject && (
+            <Pressable
+              style={localStyles.btnRejectAction}
+              onPress={() => void submitReject()}
+              disabled={reject.isPending}
+            >
+              {reject.isPending ? (
+                <ActivityIndicator color="#DC2626" size="small" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="close" size={18} color="#DC2626" />
+                  <Text style={localStyles.btnRejectActionText}>Từ chối</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+
+          {canApprove && (
+            <Pressable
+              style={localStyles.btnApproveAction}
+              onPress={() => setConfirmApprove(true)}
+              disabled={approve.isPending}
+            >
+              {approve.isPending ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />
+                  <Text style={localStyles.btnApproveActionText}>Duyệt tài khoản</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {/* Approve Confirmation Modal */}
+      <ConfirmModal
+        visible={confirmApprove}
+        title="Duyệt tài khoản"
+        message="Bạn có chắc muốn duyệt nhân sự này?"
+        loading={approve.isPending}
+        onCancel={() => setConfirmApprove(false)}
+        onConfirm={async () => {
+          await approve.mutateAsync(item.id);
+          setConfirmApprove(false);
+          void approval.refetch();
+          if (router.canGoBack()) {
+            router.back();
+          }
+        }}
+      />
     </Screen>
   );
 }
@@ -650,5 +753,182 @@ const localStyles = StyleSheet.create({
     marginTop: 8,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  detailScroll: {
+    padding: 16,
+    paddingBottom: 40,
+    gap: 12,
+  },
+  detailUserCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailAvatarBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#DCFCE7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  detailAvatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  detailUserMeta: {
+    flex: 1,
+  },
+  detailUserName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  detailUserCode: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  detailStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
+  },
+  detailStatusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B45309',
+  },
+  detailInfoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  detailCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  detailItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  detailItemIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  detailItemContent: {
+    flex: 1,
+  },
+  detailItemLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  detailItemValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  seniorityBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    padding: 12,
+    gap: 10,
+  },
+  seniorityText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#B45309',
+  },
+  rejectReasonCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  rejectCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  rejectInput: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    minHeight: 80,
+    backgroundColor: '#F8FAFC',
+  },
+  bottomActionsBar: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    gap: 12,
+  },
+  btnRejectAction: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    backgroundColor: '#FFFFFF',
+    gap: 6,
+  },
+  btnRejectActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  btnApproveAction: {
+    flex: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#1B382B',
+    gap: 6,
+  },
+  btnApproveActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
