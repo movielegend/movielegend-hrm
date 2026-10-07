@@ -382,18 +382,12 @@ export function LeaderApprovalScreen() {
     >
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
         <View style={styles.header}>
-          {/* Top navigation row: back button and app brand */}
-          <View style={styles.topNavRow}>
+          <View style={styles.headerRow}>
             <Pressable onPress={() => router.back()} hitSlop={12} style={styles.iconBtn}>
               <MaterialCommunityIcons name="chevron-left" size={32} color="#0F172A" />
             </Pressable>
-            <Text style={styles.appBrandText}>Movie Legend PEOPLE</Text>
-            <View style={{ width: 32 }} />
-          </View>
-
-          {/* Centered screen title */}
-          <View style={styles.titleRow}>
             <Text style={styles.screenTitleText}>{screenTitle}</Text>
+            <View style={{ width: 32 }} />
           </View>
         </View>
       </SafeAreaView>
@@ -852,35 +846,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    paddingBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
   },
-  topNavRow: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 8,
   },
   iconBtn: {
     padding: 4,
     marginLeft: -4,
   },
-  appBrandText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: 0.3,
-  },
-  titleRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 6,
-    paddingHorizontal: 20,
-  },
   screenTitleText: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
     color: '#0F172A',
+    textAlign: 'center',
   },
   content: {
     paddingTop: 14,
