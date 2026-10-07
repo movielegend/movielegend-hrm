@@ -139,23 +139,27 @@ export function CreateOtReportScreen() {
               name: asset.fileName || `ot_proof_${Date.now()}.jpg`,
               purpose: 'OT_REPORT_ATTACHMENT' as any,
             });
-            if (uploaded && uploaded.id) {
+            const fileId = uploaded?.fileId || (uploaded as any)?.id;
+            if (fileId) {
               uploadedList.push({
-                fileId: uploaded.id,
+                fileId,
                 url: resolveFileUrl(uploaded.fileUrl) || asset.uri,
               });
+            } else {
+              console.warn('Upload returned without fileId:', uploaded);
             }
-          } catch (e) {
+          } catch (e: any) {
             console.error('Lỗi upload ảnh:', e);
+            showAlert('Lỗi tải ảnh', e?.message || 'Không thể upload ảnh lên máy chủ.');
           }
         }
 
         setPhotos((prev) => [...prev, ...uploadedList]);
         setUploading(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       setUploading(false);
-      showAlert('Lỗi', 'Không thể chọn ảnh, vui lòng thử lại.');
+      showAlert('Lỗi', err?.message || 'Không thể chọn ảnh, vui lòng thử lại.');
     }
   };
 
@@ -172,27 +176,33 @@ export function CreateOtReportScreen() {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setUploading(true);
         const asset = result.assets[0];
-        const uploaded = await uploadFile({
-          uri: asset.uri,
-          mimeType: asset.mimeType || 'image/jpeg',
-          name: asset.fileName || `ot_cam_${Date.now()}.jpg`,
-          purpose: 'OT_REPORT_ATTACHMENT' as any,
-        });
+        try {
+          const uploaded = await uploadFile({
+            uri: asset.uri,
+            mimeType: asset.mimeType || 'image/jpeg',
+            name: asset.fileName || `ot_cam_${Date.now()}.jpg`,
+            purpose: 'OT_REPORT_ATTACHMENT' as any,
+          });
 
-        if (uploaded && uploaded.id) {
-          setPhotos((prev) => [
-            ...prev,
-            {
-              fileId: uploaded.id,
-              url: resolveFileUrl(uploaded.fileUrl) || asset.uri,
-            },
-          ]);
+          const fileId = uploaded?.fileId || (uploaded as any)?.id;
+          if (fileId) {
+            setPhotos((prev) => [
+              ...prev,
+              {
+                fileId,
+                url: resolveFileUrl(uploaded.fileUrl) || asset.uri,
+              },
+            ]);
+          }
+        } catch (e: any) {
+          console.error('Lỗi chụp/upload ảnh:', e);
+          showAlert('Lỗi tải ảnh', e?.message || 'Không thể upload ảnh chụp.');
         }
         setUploading(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       setUploading(false);
-      showAlert('Lỗi', 'Không thể chụp ảnh, vui lòng thử lại.');
+      showAlert('Lỗi', err?.message || 'Không thể chụp ảnh, vui lòng thử lại.');
     }
   };
 
