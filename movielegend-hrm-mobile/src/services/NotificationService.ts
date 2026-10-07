@@ -1,13 +1,17 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { Platform } from 'react-native';
+import type { ShiftAssignment } from '../types/shift.types';
+import type { TaskDto } from '../types/task.types';
+
 let Notifications: any = null;
 if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
   Notifications = require('expo-notifications');
 }
-import type { ShiftAssignment } from '../types/shift.types';
-import type { TaskDto } from '../types/task.types';
 
-// Cấu hình cách hiển thị thông báo khi app đang mở (Bọc try-catch an toàn cho bản build Sideload)
-if (Notifications) {
+export async function setupNotificationChannel() {
+  if (!Notifications) return;
+
+  // Setup notification handler here (NOT at module level) to avoid Hermes native crash
   try {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -21,12 +25,7 @@ if (Notifications) {
   } catch (e) {
     console.warn('Notification handler init skipped:', e);
   }
-}
 
-import { Platform } from 'react-native';
-
-export async function setupNotificationChannel() {
-  if (!Notifications) return;
   try {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {

@@ -153,7 +153,6 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <CustomAlertProvider />
       <PaperProvider>
         <QueryProvider>
           <AlertProvider>
@@ -167,6 +166,7 @@ export default function RootLayout() {
                         <Stack screenOptions={{ headerShown: false }} />
                         <ToastWrapper />
                         <InAppChatNotificationBanner />
+                        <CustomAlertProvider />
                       </PushNotificationWrapper>
                     </UserGuideManager>
                   </VoiceCallProvider>

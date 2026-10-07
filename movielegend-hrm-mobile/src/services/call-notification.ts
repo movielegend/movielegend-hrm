@@ -1,9 +1,10 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { Platform } from 'react-native';
+
 let Notifications: any = null;
 if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
   Notifications = require('expo-notifications');
 }
-import { Platform } from 'react-native';
 
 const CALL_NOTIFICATION_ID = 'incoming_voice_call';
 

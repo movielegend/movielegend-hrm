@@ -1,11 +1,10 @@
 import { Platform } from 'react-native';
+import { useEffect } from 'react';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-
-let Notifications: any = null;
-if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
-  Notifications = require('expo-notifications');
-}
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../providers/AuthProvider';
+import { useRouter } from 'expo-router';
+import { setupNotificationChannel } from '../services/NotificationService';
 import { registerDeviceToken, revokeDeviceToken } from '../api/device-tokens.api';
 import { 
   getMyNotifications, 
@@ -18,6 +17,11 @@ import {
 import { markGroupAsRead, fetchMyChatGroups } from '../api/chat.api';
 import { queryKeys, chatKeys } from '../constants/queryKeys';
 import type { DevicePlatform } from '../types/notification.types';
+
+let Notifications: any = null;
+if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
+  Notifications = require('expo-notifications');
+}
 
 export function useNotifications() {
   const { user } = useAuth();
@@ -98,10 +102,6 @@ export function useRegisterCurrentDeviceToken() {
   });
 }
 
-import { useEffect } from 'react';
-import { useAuth } from '../providers/AuthProvider';
-import { useRouter } from 'expo-router';
-import { setupNotificationChannel } from '../services/NotificationService';
 
 export function usePushNotificationSetup() {
   const { user } = useAuth();
