@@ -198,16 +198,12 @@ export function AdminAttendanceScreen() {
       const response = await getDepartments();
       const items = response.items || [];
       setDepartments(items);
-      // Default select first 2 if available and none selected yet
-      if (selectedDeptIds.length === 0 && items.length > 0) {
-        setSelectedDeptIds(items.slice(0, Math.min(2, items.length)).map(d => d.id));
-      }
     } catch {
       // Ignore or notify
     } finally {
       setLoadingDepts(false);
     }
-  }, [selectedDeptIds.length]);
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'config') {
