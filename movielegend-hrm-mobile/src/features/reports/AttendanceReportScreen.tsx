@@ -272,15 +272,14 @@ export function AttendanceReportScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {/* 1. Header (Back Button, Title, Subtitle) */}
+      {/* 1. Header (Back Button and Title on the same line, Subtitle below) */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
+        <View style={styles.headerRow}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <Ionicons name="chevron-back" size={24} color="#0F172A" />
           </Pressable>
+          <Text style={styles.title}>Báo cáo chấm công</Text>
         </View>
-
-        <Text style={styles.title}>Báo cáo chấm công</Text>
         <Text style={styles.subtitle}>Tạo và xuất bảng công của đội ngũ</Text>
       </View>
 
@@ -635,11 +634,11 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
-  headerTop: {
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 4,
   },
   backBtn: {
     width: 36,
@@ -647,35 +646,19 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  brandTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#132E22',
-    letterSpacing: -0.3,
-  },
-  brandSubtitle: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#16A34A',
-    letterSpacing: 1.2,
+    marginLeft: -4,
   },
   title: {
     fontSize: 22,
     fontWeight: '900',
     color: '#0F172A',
     letterSpacing: -0.5,
-    marginBottom: 4,
   },
   subtitle: {
     fontSize: 13,
     color: '#64748B',
     fontWeight: '500',
+    marginLeft: 42, // Indents neatly under title aligned with text
   },
   scrollContent: {
     paddingHorizontal: 16,
