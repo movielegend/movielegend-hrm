@@ -638,23 +638,21 @@ export function LeaderApprovalScreen() {
             </View>
 
             <TouchableOpacity 
-              activeOpacity={0.8}
+              activeOpacity={0.9}
               onPress={() => setSelectedImage(meta.image)}
-              style={styles.attachmentRow}
+              style={styles.imageCardContainer}
             >
-              <View style={styles.attachmentIconBox}>
-                <MaterialCommunityIcons name="file-document-outline" size={24} color="#64748B" />
+              <Image 
+                source={{ uri: meta.image }} 
+                style={styles.imageCardDisplay} 
+                resizeMode="cover"
+              />
+              <View style={styles.imageCardOverlay}>
+                <View style={styles.imageCardBadge}>
+                  <MaterialCommunityIcons name="magnify-plus-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.imageCardBadgeText}>Chạm để xem chi tiết</Text>
+                </View>
               </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.attachmentFileName}>Ảnh chứng từ</Text>
-                <Text style={styles.attachmentFileSize}>Tài liệu đính kèm</Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.openAttachmentBtn}
-                onPress={() => setSelectedImage(meta.image)}
-              >
-                <Text style={styles.openAttachmentText}>Mở ảnh ↗</Text>
-              </TouchableOpacity>
             </TouchableOpacity>
           </View>
         )}
@@ -668,23 +666,21 @@ export function LeaderApprovalScreen() {
             </View>
 
             <TouchableOpacity 
-              activeOpacity={0.8}
+              activeOpacity={0.9}
               onPress={() => setSelectedImage(meta.disbursementProofUrl)}
-              style={styles.attachmentRow}
+              style={styles.imageCardContainer}
             >
-              <View style={[styles.attachmentIconBox, { backgroundColor: '#DCFCE7' }]}>
-                <MaterialCommunityIcons name="check-decagram" size={24} color="#166534" />
+              <Image 
+                source={{ uri: meta.disbursementProofUrl }} 
+                style={styles.imageCardDisplay} 
+                resizeMode="cover"
+              />
+              <View style={styles.imageCardOverlay}>
+                <View style={styles.imageCardBadge}>
+                  <MaterialCommunityIcons name="magnify-plus-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.imageCardBadgeText}>Chạm để xem chi tiết</Text>
+                </View>
               </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.attachmentFileName}>Biên lai giải ngân</Text>
-                <Text style={styles.attachmentFileSize}>Kế toán đã tải lên</Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.openAttachmentBtn}
-                onPress={() => setSelectedImage(meta.disbursementProofUrl)}
-              >
-                <Text style={styles.openAttachmentText}>Mở ảnh ↗</Text>
-              </TouchableOpacity>
             </TouchableOpacity>
           </View>
         )}
@@ -1027,45 +1023,41 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '500',
   },
-  attachmentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  imageCardContainer: {
+    width: '100%',
+    height: 190,
+    borderRadius: 12,
+    overflow: 'hidden',
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 12,
-    borderRadius: 12,
+    position: 'relative',
   },
-  attachmentIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: '#E2E8F0',
+  imageCardDisplay: {
+    width: '100%',
+    height: '100%',
+  },
+  imageCardOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 10,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  imageCardBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
   },
-  attachmentFileName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  attachmentFileSize: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  openAttachmentBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  openAttachmentText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
+  imageCardBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   historyStepRow: {
     flexDirection: 'row',
