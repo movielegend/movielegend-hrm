@@ -1,10 +1,19 @@
-import { Redirect } from 'expo-router';
+import { useEffect } from 'react';
+import { useRouter } from 'expo-router';
 import { LoadingState } from '../src/components/LoadingState';
 import { useAuth } from '../src/providers/AuthProvider';
 import { getHomeRouteForUser } from '../src/utils/role-routing';
 
 export default function IndexRoute() {
   const { isLoading, user } = useAuth();
-  if (isLoading) return <LoadingState label="Đang khôi phục phiên đăng nhập" />;
-  return <Redirect href={getHomeRouteForUser(user)} />;
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading) {
+      router.replace(getHomeRouteForUser(user) as any);
+    }
+  }, [isLoading, user, router]);
+
+  return <LoadingState label="Đang khôi phục phiên đăng nhập" />;
 }
+

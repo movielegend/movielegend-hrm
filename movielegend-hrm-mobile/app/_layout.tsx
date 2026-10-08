@@ -22,6 +22,7 @@ LogBox.ignoreLogs([
   'viewIsDescendantOf() noop',
   'Cannot find view with reactTag',
   "The action 'GO_BACK' was not handled by any navigator",
+  "Can't perform a React state update on a component that hasn't mounted yet",
 ]);
 
 if (typeof globalThis !== 'undefined') {
