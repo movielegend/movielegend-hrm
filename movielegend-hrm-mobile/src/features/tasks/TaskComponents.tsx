@@ -582,8 +582,8 @@ export function AttachmentList({
         const fn = attachment.fileName || 'file';
         const ext = (fn.split('.').pop() || '').toLowerCase();
         const mime = (attachment.mimeType || '').toLowerCase();
-        const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext) || mime.startsWith('image/') || attachment.type === 'IMAGE';
-        const isPdf = ext === 'pdf' || mime.includes('pdf');
+        const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp', 'svg'].includes(ext) || mime.startsWith('image/') || attachment.type === 'IMAGE' || (url ? /\.(jpg|jpeg|png|webp|gif|heic|bmp)/i.test(url) : false);
+        const isPdf = ext === 'pdf' || mime.includes('pdf') || (url ? /\.pdf/i.test(url) : false);
 
         return (
           <Pressable 
@@ -615,11 +615,19 @@ export function AttachmentList({
                 const { uri } = await FileSystem.downloadAsync(url, localUri, {
                   headers: { 'ngrok-skip-browser-warning': 'true' }
                 });
-                await Sharing.shareAsync(uri, { UTI: mime || undefined, mimeType: mime || undefined });
+                if (await Sharing.isAvailableAsync()) {
+                  await Sharing.shareAsync(uri, { UTI: mime || undefined, mimeType: mime || undefined });
+                } else {
+                  await Linking.openURL(url);
+                }
               } catch (err) {
                 console.error(err);
-                if (url) {
-                  setPdfPreviewUrl(url);
+                try {
+                  await Linking.openURL(url);
+                } catch {
+                  if (url) {
+                    setPdfPreviewUrl(url);
+                  }
                 }
               } finally {
                 setDownloadingId(null);

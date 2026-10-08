@@ -1,7 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSyncSubtasksResults } from '../../hooks/useTasks';
 import { useMemo, useState, useEffect } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch, Image, TextInput } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch, Image, TextInput, Linking, StatusBar } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -864,6 +867,239 @@ function getInitials(name?: string | null): string {
   return (first + last).toUpperCase();
 }
 
+function AdminAttachmentList({ 
+  attachments = [],
+  canDelete,
+  onDeleteAttachment,
+}: { 
+  attachments?: any[]; 
+  canDelete?: (id: string) => boolean;
+  onDeleteAttachment?: (id: string) => void;
+}) {
+  const [imagePreviewUri, setImagePreviewUri] = useState<string | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>('Xem tệp');
+  const [openingId, setOpeningId] = useState<string | null>(null);
+  const { showAlert } = useAppAlert();
+
+  if (!attachments || attachments.length === 0) return null;
+
+  const handleOpen = async (att: any) => {
+    const rawUrl = att.fileUrl || att.url;
+    const url = resolveFileUrl(rawUrl) || rawUrl;
+    if (!url) {
+      showAlert('Lỗi', 'Không tìm thấy đường dẫn tệp.');
+      return;
+    }
+    const fn = att.fileName || att.name || 'file';
+    const ext = (fn.split('.').pop() || '').toLowerCase();
+    const mime = (att.mimeType || '').toLowerCase();
+    const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp'].includes(ext) || mime.startsWith('image/') || att.type === 'IMAGE' || (url && /\.(jpg|jpeg|png|webp|gif|heic)/i.test(url));
+    const isPdf = ext === 'pdf' || mime.includes('pdf') || (url && /\.pdf/i.test(url));
+
+    setPreviewTitle(fn);
+
+    if (isImg) {
+      setImagePreviewUri(url);
+      return;
+    }
+
+    if (isPdf) {
+      setPdfPreviewUrl(url);
+      return;
+    }
+
+    try {
+      setOpeningId(att.id || fn);
+      let cleanFileName = fn.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const localUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${cleanFileName}`;
+      const { uri } = await FileSystem.downloadAsync(url, localUri, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+      });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { UTI: mime || undefined, mimeType: mime || undefined });
+      } else {
+        await Linking.openURL(url);
+      }
+    } catch (err) {
+      console.error('Open file error:', err);
+      try {
+        await Linking.openURL(url);
+      } catch {
+        showAlert('Lỗi mở tệp', 'Không thể mở tệp này trên thiết bị.');
+      }
+    } finally {
+      setOpeningId(null);
+    }
+  };
+
+  return (
+    <>
+      <PdfViewerModal
+        visible={!!pdfPreviewUrl}
+        url={pdfPreviewUrl}
+        title={previewTitle}
+        onClose={() => setPdfPreviewUrl(null)}
+      />
+
+      <Modal
+        visible={!!imagePreviewUri}
+        animationType="fade"
+        transparent={true}
+        statusBarTranslucent={true}
+        onRequestClose={() => setImagePreviewUri(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)' }}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 8 : 50,
+              paddingBottom: 12,
+              paddingHorizontal: 16,
+              backgroundColor: 'rgba(20, 20, 20, 0.95)',
+              gap: 10,
+              borderBottomWidth: 1,
+              borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+              zIndex: 20,
+            }}
+          >
+            <Pressable
+              onPress={() => setImagePreviewUri(null)}
+              style={({ pressed }) => [
+                {
+                  paddingHorizontal: 12,
+                  paddingVertical: 7,
+                  backgroundColor: '#374151',
+                  borderRadius: 8,
+                },
+                pressed && { opacity: 0.7 },
+              ]}
+              hitSlop={10}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>✕ Đóng</Text>
+            </Pressable>
+            <Text style={{ color: '#fff', flex: 1, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
+              {previewTitle}
+            </Text>
+            {imagePreviewUri ? (
+              <Pressable
+                onPress={async () => {
+                  try {
+                    let shareUri = imagePreviewUri;
+                    if (imagePreviewUri.startsWith('http')) {
+                      const cleanName = (previewTitle || 'image.jpg').replace(/[^a-zA-Z0-9.-]/g, '_');
+                      const localUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${cleanName}`;
+                      const { uri } = await FileSystem.downloadAsync(imagePreviewUri, localUri, {
+                        headers: { 'ngrok-skip-browser-warning': 'true' }
+                      });
+                      shareUri = uri;
+                    }
+                    await Sharing.shareAsync(shareUri);
+                  } catch (shareErr) {
+                    console.error('Share error:', shareErr);
+                  }
+                }}
+                style={({ pressed }) => [
+                  {
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    backgroundColor: '#204E3B',
+                    borderRadius: 8,
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+                hitSlop={10}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Chia sẻ</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {imagePreviewUri ? (
+            <ScrollView
+              contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
+              maximumZoomScale={4}
+              minimumZoomScale={1}
+            >
+              <Image
+                source={{ uri: imagePreviewUri }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="contain"
+              />
+            </ScrollView>
+          ) : null}
+        </View>
+      </Modal>
+
+      <View style={{ gap: 8 }}>
+        {attachments.map((att: any, i: number) => {
+          const rawUrl = att.fileUrl || att.url;
+          const resolvedUrl = resolveFileUrl(rawUrl) || rawUrl;
+          const fn = att.fileName || att.name || 'Tài liệu';
+          const ext = (fn.split('.').pop() || '').toLowerCase();
+          const mime = (att.mimeType || '').toLowerCase();
+          const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp'].includes(ext) || mime.startsWith('image/') || att.type === 'IMAGE' || (resolvedUrl && /\.(jpg|jpeg|png|webp|gif|heic)/i.test(resolvedUrl));
+          const isPdf = ext === 'pdf' || mime.includes('pdf') || (resolvedUrl && /\.pdf/i.test(resolvedUrl));
+          const isOpening = openingId === (att.id || fn);
+
+          return (
+            <Pressable
+              key={att.id || i}
+              style={({ pressed }) => [
+                adminStyles.submissionFileCard,
+                pressed && { opacity: 0.75, backgroundColor: '#F1F5F9' },
+              ]}
+              onPress={() => void handleOpen(att)}
+            >
+              {isImg && resolvedUrl ? (
+                <View style={adminStyles.submissionFileThumbBox}>
+                  <Image source={{ uri: resolvedUrl }} style={adminStyles.submissionFileThumb} resizeMode="cover" />
+                  <View style={adminStyles.thumbOverlayIcon}>
+                    <MaterialCommunityIcons name="magnify-plus-outline" size={12} color="#FFFFFF" />
+                  </View>
+                </View>
+              ) : isPdf ? (
+                <View style={[adminStyles.submissionFileIconBox, { backgroundColor: '#FEE2E2' }]}>
+                  <MaterialCommunityIcons name="file-pdf-box" size={24} color="#DC2626" />
+                </View>
+              ) : (
+                <View style={adminStyles.submissionFileIconBox}>
+                  <MaterialCommunityIcons name="file-document-outline" size={24} color="#204E3B" />
+                </View>
+              )}
+
+              <View style={{ flex: 1 }}>
+                <Text style={adminStyles.submissionFileName} numberOfLines={1}>
+                  {isOpening ? 'Đang mở tệp...' : fn}
+                </Text>
+                <Text style={adminStyles.submissionFileSize}>
+                  {att.sizeBytes ? `${(att.sizeBytes / 1024 / 1024).toFixed(1)} MB • Nhấn để xem` : 'Nhấn để xem chi tiết'}
+                </Text>
+              </View>
+
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
+
+              {onDeleteAttachment && (!canDelete || canDelete(att.id)) && (
+                <Pressable
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    onDeleteAttachment(att.id);
+                  }}
+                  style={{ padding: 6 }}
+                  hitSlop={10}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={20} color="#DC2626" />
+                </Pressable>
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
+    </>
+  );
+}
+
 function AdminTaskCard({ task, onPress }: { task: TaskDto; onPress: () => void }) {
   const isOverdue = Boolean(task.dueAt && new Date(task.dueAt).getTime() < Date.now() && task.status !== 'COMPLETED' && task.status !== 'CANCELLED');
   const isCompleted = task.status === 'COMPLETED';
@@ -1356,23 +1592,14 @@ function AdminCreateTaskScreen() {
 
               <Text style={adminStyles.inputLabel}>Tài liệu đính kèm (nếu có)</Text>
               {attachments.length > 0 && (
-                <View style={{ marginBottom: 10, gap: 8 }}>
-                  {attachments.map((att, i) => (
-                    <View key={i} style={adminStyles.attachmentItemRow}>
-                      <MaterialCommunityIcons 
-                        name={att.type === 'IMAGE' ? 'image' : 'file-document'} 
-                        size={22} 
-                        color="#204E3B" 
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={adminStyles.attachmentItemName} numberOfLines={1}>{att.fileName}</Text>
-                        <Text style={adminStyles.attachmentItemMeta}>{att.mimeType || att.type}</Text>
-                      </View>
-                      <Pressable onPress={() => setAttachments(attachments.filter((_, idx) => idx !== i))}>
-                        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#DC2626" />
-                      </Pressable>
-                    </View>
-                  ))}
+                <View style={{ marginBottom: 10 }}>
+                  <AdminAttachmentList
+                    attachments={attachments.map((att, idx) => ({ ...att, id: (att as any).id || String(idx) }))}
+                    canDelete={() => true}
+                    onDeleteAttachment={(id) => {
+                      setAttachments(prev => prev.filter((att, idx) => ((att as any).id || String(idx)) !== id));
+                    }}
+                  />
                 </View>
               )}
               <AttachmentPicker
@@ -1688,7 +1915,19 @@ function AdminTaskDetailScreen({ id }: { id?: string }) {
   const assigneeRole = (primaryAssignee as any)?.position?.name || (primaryAssignee as any)?.profile?.position?.name || 'Nhân viên';
   const initials = getInitials(assigneeName);
 
-  const submissionAttachments = item.attachments?.filter(att => att.uploadedByUserId !== item.createdByUserId) ?? [];
+  const allAttachments = item.attachments ?? [];
+  const initialAttachments = useMemo(() => {
+    return allAttachments.filter(att => att.uploadedByUserId === item.createdByUserId);
+  }, [allAttachments, item.createdByUserId]);
+
+  const submissionAttachments = useMemo(() => {
+    return allAttachments.filter(att => att.uploadedByUserId !== item.createdByUserId);
+  }, [allAttachments, item.createdByUserId]);
+
+  const displayInitialAtts = initialAttachments.length > 0 
+    ? initialAttachments 
+    : (submissionAttachments.length === 0 ? allAttachments : []);
+
   const submittedNote = waitingAssignment?.completionNote || item.assignments?.find(a => Boolean(a.completionNote))?.completionNote;
 
   const handleReviewAction = async (action: 'approve' | 'reject') => {
@@ -1796,10 +2035,20 @@ function AdminTaskDetailScreen({ id }: { id?: string }) {
           </View>
         </View>
 
+        {displayInitialAtts.length > 0 && (
+          <View style={adminStyles.cardBox}>
+            <View style={adminStyles.cardHeaderRow}>
+              <MaterialCommunityIcons name="paperclip" size={20} color="#204E3B" />
+              <Text style={adminStyles.cardTitle}>Tài liệu đính kèm ({displayInitialAtts.length})</Text>
+            </View>
+            <AdminAttachmentList attachments={displayInitialAtts} />
+          </View>
+        )}
+
         {(submittedNote || submissionAttachments.length > 0) ? (
           <View style={adminStyles.cardBox}>
             <Text style={adminStyles.detailSectionHeader}>
-              Báo cáo đã nộp ({submissionAttachments.length > 0 ? submissionAttachments.length : 1})
+              Báo cáo đã nộp {submissionAttachments.length > 0 ? `(${submissionAttachments.length})` : ''}
             </Text>
             <Text style={adminStyles.detailSubmissionTime}>
               Đã nộp lúc {formatShortDate(waitingAssignment?.updatedAt || item.updatedAt)}
@@ -1808,26 +2057,8 @@ function AdminTaskDetailScreen({ id }: { id?: string }) {
               <Text style={adminStyles.detailSubmissionNote}>{submittedNote}</Text>
             ) : null}
             {submissionAttachments.length > 0 && (
-              <View style={{ marginTop: 10, gap: 8 }}>
-                {submissionAttachments.map((att, i) => {
-                  const resolvedUrl = resolveFileUrl(att.fileUrl) || att.fileUrl;
-                  const isImg = att.type === 'IMAGE' || att.mimeType?.startsWith('image/');
-                  return (
-                    <View key={i} style={adminStyles.submissionFileCard}>
-                      {isImg && resolvedUrl ? (
-                        <Image source={{ uri: resolvedUrl }} style={adminStyles.submissionFileThumb} />
-                      ) : (
-                        <View style={adminStyles.submissionFileIconBox}>
-                          <MaterialCommunityIcons name="file-document" size={24} color="#204E3B" />
-                        </View>
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <Text style={adminStyles.submissionFileName} numberOfLines={1}>{att.fileName}</Text>
-                        <Text style={adminStyles.submissionFileSize}>{att.sizeBytes ? `${(att.sizeBytes / 1024 / 1024).toFixed(1)} MB` : att.mimeType}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
+              <View style={{ marginTop: 10 }}>
+                <AdminAttachmentList attachments={submissionAttachments} />
               </View>
             )}
           </View>
@@ -1976,26 +2207,11 @@ function AdminTaskReviewQueueScreen() {
               ) : null}
 
               {atts.length > 0 && (
-                <View style={{ marginVertical: 8, gap: 6 }}>
-                  {atts.map((att: any, idx: number) => {
-                    const resolvedUrl = resolveFileUrl(att.fileUrl) || att.fileUrl;
-                    const isImg = att.type === 'IMAGE' || att.mimeType?.startsWith('image/');
-                    return (
-                      <View key={idx} style={adminStyles.submissionFileCard}>
-                        {isImg && resolvedUrl ? (
-                          <Image source={{ uri: resolvedUrl }} style={adminStyles.submissionFileThumb} />
-                        ) : (
-                          <View style={adminStyles.submissionFileIconBox}>
-                            <MaterialCommunityIcons name="file-document" size={24} color="#204E3B" />
-                          </View>
-                        )}
-                        <View style={{ flex: 1 }}>
-                          <Text style={adminStyles.submissionFileName} numberOfLines={1}>{att.fileName}</Text>
-                          <Text style={adminStyles.submissionFileSize}>{att.sizeBytes ? `${(att.sizeBytes / 1024 / 1024).toFixed(1)} MB` : att.mimeType}</Text>
-                        </View>
-                      </View>
-                    );
-                  })}
+                <View style={{ marginVertical: 8 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 6 }}>
+                    Tệp đính kèm ({atts.length}):
+                  </Text>
+                  <AdminAttachmentList attachments={atts} />
                 </View>
               )}
 
@@ -5749,6 +5965,22 @@ const adminStyles = StyleSheet.create({
     borderColor: '#E2E8F0',
     padding: 8,
     gap: 10,
+  },
+  submissionFileThumbBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F1F5F9',
+  },
+  thumbOverlayIcon: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 4,
+    padding: 2,
   },
   submissionFileThumb: {
     width: 44,
