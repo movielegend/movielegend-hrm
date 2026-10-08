@@ -725,13 +725,15 @@ export function AssetCreateScreen() {
 
       {/* Header Container */}
       <View style={[adminAssetStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-        <View style={adminAssetStyles.backRow}>
+        <View style={adminAssetStyles.headerRow}>
           <Pressable style={adminAssetStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
           </Pressable>
+          <View style={adminAssetStyles.headerTextWrap}>
+            <Text style={adminAssetStyles.title}>Thêm thiết bị</Text>
+            <Text style={adminAssetStyles.subtitle}>Tạo mới vật tư, thiết bị cho phòng ban.</Text>
+          </View>
         </View>
-        <Text style={adminAssetStyles.title}>Thêm thiết bị</Text>
-        <Text style={adminAssetStyles.subtitle}>Tạo mới vật tư, thiết bị cho phòng ban.</Text>
       </View>
 
       {/* Main Curved White Form Sheet */}
@@ -1366,15 +1368,23 @@ const adminAssetStyles = StyleSheet.create({
     marginBottom: 6,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.8)',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTextWrap: {
+    flex: 1,
   },
   backRow: {
     flexDirection: 'row',

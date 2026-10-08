@@ -190,10 +190,14 @@ export function AdminFeedbackDetailScreen() {
     return (
       <View style={styles.screen}>
         <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-          <Pressable style={styles.backRow} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color="#FFF" />
-          </Pressable>
-          <Text style={styles.headerTitle}>Chi tiết góp ý</Text>
+          <View style={styles.headerRow}>
+            <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={10}>
+              <Ionicons name="chevron-back" size={24} color="#FFF" />
+            </Pressable>
+            <View style={styles.headerTextWrap}>
+              <Text style={styles.headerDetailTitle}>Chi tiết góp ý</Text>
+            </View>
+          </View>
         </View>
         <View style={[styles.curvedSheet, { padding: 24 }]}>
           <EmptyState title="Lỗi" message="Không thể tải dữ liệu góp ý" />
@@ -238,13 +242,15 @@ export function AdminFeedbackDetailScreen() {
 
       {/* Header Container */}
       <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-        <View style={styles.backRow}>
+        <View style={styles.headerRow}>
           <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={10}>
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </Pressable>
+          <View style={styles.headerTextWrap}>
+            <Text style={styles.headerDetailTitle}>Chi tiết góp ý</Text>
+            <Text style={styles.headerDetailSubtitle}>Xem nội dung & cập nhật trạng thái</Text>
+          </View>
         </View>
-        <Text style={styles.headerTitle}>Chi tiết góp ý</Text>
-        <Text style={styles.headerSubtitle}>Xem nội dung & cập nhật trạng thái</Text>
       </View>
 
       {/* Main Curved White Sheet */}
@@ -468,6 +474,25 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTextWrap: {
+    flex: 1,
+  },
+  headerDetailTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  headerDetailSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   backRow: {
     flexDirection: 'row',
