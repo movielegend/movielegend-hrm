@@ -30,6 +30,8 @@ import { EmptyState } from '../../components/EmptyState';
 import { LoadingState } from '../../components/LoadingState';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { SelectModal, SelectOption } from '../../components/SelectModal';
+import { Screen } from '../../components/Screen';
+import { PageHeader } from '../../components/PageHeader';
 import { UploadDocumentModal } from './UploadDocumentModal';
 import { DocumentDetailModal } from './DocumentDetailModal';
 import { resolveFileUrl } from '../../utils/url';
@@ -250,8 +252,8 @@ export function DocumentListScreen() {
                   </Text>
                 </View>
               ) : (
-                <View style={[styles.deptBadge, { backgroundColor: '#D9E4DD' }]}>
-                  <Text style={[styles.deptBadgeText, { color: '#1E3E2F', fontWeight: '700' }]}>Toàn công ty</Text>
+                <View style={[styles.deptBadge, { backgroundColor: '#EFF6FF' }]}>
+                  <Text style={[styles.deptBadgeText, { color: '#0055D4', fontWeight: '700' }]}>Toàn công ty</Text>
                 </View>
               )}
             </View>
@@ -301,7 +303,7 @@ export function DocumentListScreen() {
                   <MaterialCommunityIcons
                     name={isPdfOrImg ? 'eye-outline' : 'download-outline'}
                     size={16}
-                    color="#1E3E2F"
+                    color="#0055D4"
                   />
                   <Text style={styles.viewBtnText}>{isPdfOrImg ? 'Xem tệp' : 'Tải về'}</Text>
                 </Pressable>
@@ -320,31 +322,22 @@ export function DocumentListScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {/* Header: Back button + Title on same row */}
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerTitleGroup}>
-            <Pressable
-              onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/(tabs)` as any))}
-              style={styles.backBtn}
-              hitSlop={10}
-            >
-              <Ionicons name="chevron-back" size={24} color="#0F172A" />
-            </Pressable>
-            <View>
-              <Text style={styles.screenTitle}>Tài liệu nội bộ</Text>
-              <Text style={styles.screenSubtitle}>Quy chế, biểu mẫu, tài liệu ca làm</Text>
-            </View>
-          </View>
-
-          {canUpload && (
-            <Pressable style={styles.addHeaderBtn} onPress={() => setShowUploadModal(true)}>
-              <Ionicons name="add" size={18} color="#FFFFFF" />
-              <Text style={styles.addHeaderBtnText}>Thêm mới</Text>
-            </Pressable>
-          )}
-        </View>
+    <Screen>
+      <View style={styles.headerSection}>
+        <PageHeader
+          title="Tài liệu nội bộ"
+          subtitle="Quy chế, biểu mẫu, tài liệu ca làm"
+          showBack={true}
+          onBack={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/(tabs)` as any))}
+          right={
+            canUpload ? (
+              <Pressable style={styles.addHeaderBtn} onPress={() => setShowUploadModal(true)}>
+                <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
+                <Text style={styles.addHeaderBtnText}>Thêm mới</Text>
+              </Pressable>
+            ) : undefined
+          }
+        />
       </View>
 
       <View style={styles.searchSection}>
@@ -369,7 +362,7 @@ export function DocumentListScreen() {
       {(canManageAll || isRegionAdmin) && (
         <View style={styles.deptFilterRow}>
           <Pressable style={styles.deptFilterBtn} onPress={() => setShowDeptModal(true)}>
-            <MaterialCommunityIcons name="filter-variant" size={16} color="#1E3E2F" />
+            <MaterialCommunityIcons name="filter-variant" size={16} color="#0055D4" />
             <Text style={styles.deptFilterBtnText} numberOfLines={1}>
               {selectedDeptId
                 ? deptOptions.find((d) => d.value === selectedDeptId)?.label || 'Phòng ban'
@@ -447,7 +440,7 @@ export function DocumentListScreen() {
         onDelete={handleDelete}
         canDelete={canUpload}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -531,7 +524,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#1E3E2F',
+    backgroundColor: '#0055D4',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
@@ -660,7 +653,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#D9E4DD',
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -668,7 +661,7 @@ const styles = StyleSheet.create({
   viewBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1E3E2F',
+    color: '#0055D4',
   },
   deleteBtn: {
     padding: 6,

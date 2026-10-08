@@ -71,11 +71,11 @@ export function formatFileSize(bytes?: number | null): string {
 
 export function formatDocumentDate(dateStr?: string | null): string {
   if (!dateStr) return '---';
-  return new Date(dateStr).toLocaleString('vi-VN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  const d = new Date(dateStr);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${hours}:${mins}, ${day}/${month}/${year}`;
 }

@@ -1,27 +1,24 @@
 import React from 'react';
 import {
-  Alert,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View} from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { useAppAlert } from '../../contexts/AlertContext';
 import type { DepartmentDocument } from '../../api/department-documents.api';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
 import { resolveFileUrl } from '../../utils/url';
 import {
   CATEGORY_LABELS,
   formatDocumentDate,
   formatFileSize,
-  getCategoryColor,
   getFileIcon,
 } from './document.utils';
 
@@ -46,7 +43,6 @@ export function DocumentDetailModal({
   if (!visible || !document) return null;
 
   const icon = getFileIcon(document.fileName, document.mimeType);
-  const catColor = getCategoryColor(document.category);
   const catLabel = CATEGORY_LABELS[document.category] || document.category;
 
   const isRegionWide = Boolean((document as any).isRegionWide);
@@ -59,6 +55,16 @@ export function DocumentDetailModal({
 
   const fileSizeText = formatFileSize(document.fileSize);
   const createdDate = formatDocumentDate(document.createdAt);
+
+  const fileExt = (() => {
+    const parts = (document.fileName || '').split('.');
+    return parts.length > 1 ? parts.pop() || 'FILE' : 'FILE';
+  })();
+  const isPdf = fileExt.toLowerCase() === 'pdf' || document.mimeType?.includes('pdf');
+  const isPdfOrImg =
+    /\.(pdf|jpg|jpeg|png|webp|gif|svg)$/i.test(document.fileName || '') ||
+    document.mimeType?.includes('pdf') ||
+    document.mimeType?.startsWith('image/');
 
   const handleCopyLink = async () => {
     try {
@@ -74,6 +80,12 @@ export function DocumentDetailModal({
     }
   };
 
+  const uploaderName =
+    document.uploadedBy?.profile?.fullName ||
+    document.uploadedBy?.fullName ||
+    'Admin Movie Legend';
+  const uploaderCode = document.uploadedBy?.userCode || 'NV000001';
+
   return (
     <Modal
       visible={visible}
@@ -83,168 +95,165 @@ export function DocumentDetailModal({
     >
       <View style={styles.overlay}>
         <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
+          {/* Drag handle */}
+          <View style={styles.dragHandleContainer}>
             <View style={styles.dragHandle} />
-            <View style={styles.headerTop}>
-              <View style={styles.headerBadgeRow}>
-                <View style={[styles.catBadge, { backgroundColor: catColor.bg }]}>
-                  <Text style={[styles.catBadgeText, { color: catColor.text }]}>
-                    {catLabel}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.deptBadge,
-                    !document.department && !isRegionWide && { backgroundColor: '#D9E4DD' },
-                    isRegionWide && { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={isRegionWide ? 'earth' : (document.department ? 'domain' : 'earth')}
-                    size={14}
-                    color={isRegionWide ? '#B45309' : (document.department ? '#4B5563' : '#1E3E2F')}
-                  />
-                  <Text
-                    style={[
-                      styles.deptBadgeText,
-                      !document.department && !isRegionWide && { color: '#1E3E2F', fontWeight: '700' },
-                      isRegionWide && { color: '#B45309', fontWeight: '700' },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {deptText}
-                  </Text>
-                </View>
-              </View>
+          </View>
 
-              <Pressable onPress={onClose} style={styles.closeBtn}>
-                <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
-              </Pressable>
+          {/* Modal Header */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerTitleGroup}>
+              <MaterialCommunityIcons name="file-document-outline" size={24} color="#0055D4" />
+              <Text style={styles.headerTitle}>Chi tiết tài liệu</Text>
             </View>
+            <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
+              <MaterialCommunityIcons name="close" size={20} color="#64748B" />
+            </Pressable>
           </View>
 
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-            {/* Title & File Preview Card */}
-            <View style={styles.heroCard}>
-              <View style={[styles.fileIconWrap, { backgroundColor: `${icon.color}15` }]}>
-                <MaterialCommunityIcons name={icon.name} size={42} color={icon.color} />
+            {/* Badges Row */}
+            <View style={styles.badgesRow}>
+              <View style={styles.catBadge}>
+                <Text style={styles.catBadgeText}>{catLabel.toUpperCase()}</Text>
               </View>
-              <Text style={styles.docTitle}>{document.title}</Text>
-              <Text style={styles.fileNameText} numberOfLines={2}>
-                {document.fileName}
-              </Text>
+              <View style={styles.deptBadge}>
+                <MaterialCommunityIcons
+                  name={document.department ? 'office-building' : 'earth'}
+                  size={14}
+                  color="#475569"
+                />
+                <Text style={styles.deptBadgeText} numberOfLines={1}>
+                  {deptText.toUpperCase()}
+                </Text>
+              </View>
             </View>
 
-            {/* Description Section */}
+            {/* File Card Box */}
+            <View style={styles.fileCard}>
+              <View style={styles.fileIconBox}>
+                {isPdf ? (
+                  <View style={styles.pdfBadge}>
+                    <Text style={styles.pdfBadgeText}>PDF</Text>
+                  </View>
+                ) : (
+                  <MaterialCommunityIcons name={icon.name} size={30} color={icon.color} />
+                )}
+              </View>
+              <View style={styles.fileCardInfo}>
+                <Text style={styles.docTitle} numberOfLines={2}>
+                  {document.title}
+                </Text>
+                <Text style={styles.fileNameText} numberOfLines={1}>
+                  {document.fileName}
+                </Text>
+                <View style={styles.filePill}>
+                  <MaterialCommunityIcons name="file-document-outline" size={13} color="#64748B" />
+                  <Text style={styles.filePillText}>
+                    {fileExt.toUpperCase()} • {fileSizeText}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Description if any */}
             {document.description ? (
               <View style={styles.descCard}>
-                <View style={styles.descHeader}>
-                  <MaterialCommunityIcons name="text-box-outline" size={16} color="#1E3E2F" />
-                  <Text style={styles.descLabel}>Mô tả & Hướng dẫn</Text>
-                </View>
+                <Text style={styles.descLabel}>Mô tả & Hướng dẫn:</Text>
                 <Text style={styles.descContent}>{document.description}</Text>
               </View>
             ) : null}
 
-            {/* Metadata Information Cards */}
+            {/* Section: Thông tin chi tiết */}
+            <Text style={styles.sectionTitle}>Thông tin chi tiết</Text>
             <View style={styles.infoCard}>
-              <Text style={styles.infoSectionTitle}>Thông tin chi tiết</Text>
-
-              {/* Uploader */}
+              {/* Row 1: Người đăng tải */}
               <View style={styles.infoRow}>
-                <View style={styles.infoLeft}>
-                  <View style={styles.avatarMini}>
-                    <MaterialCommunityIcons name="account-outline" size={16} color="#4B5563" />
-                  </View>
-                  <Text style={styles.infoKey}>Người đăng tải</Text>
+                <View style={styles.infoIconCircle}>
+                  <MaterialCommunityIcons name="account-outline" size={20} color="#475569" />
                 </View>
-                <Text style={styles.infoVal}>
-                  {document.uploadedBy?.profile?.fullName || document.uploadedBy?.fullName || 'Hệ thống'}
-                  {document.uploadedBy?.userCode ? ` (${document.uploadedBy.userCode})` : ''}
-                </Text>
-              </View>
-
-              {/* Scope */}
-              <View style={styles.infoRow}>
-                <View style={styles.infoLeft}>
-                  <MaterialCommunityIcons
-                    name={isRegionWide ? 'earth' : (document.department ? 'domain' : 'earth')}
-                    size={18}
-                    color={isRegionWide ? '#B45309' : '#6B7280'}
-                  />
-                  <Text style={styles.infoKey}>Phạm vi</Text>
-                </View>
-                <Text style={[styles.infoVal, isRegionWide && { color: '#B45309', fontWeight: '600' }]}>
-                  {deptText}
-                </Text>
-              </View>
-
-              {/* Upload Date */}
-              <View style={styles.infoRow}>
-                <View style={styles.infoLeft}>
-                  <MaterialCommunityIcons name="clock-outline" size={18} color="#6B7280" />
-                  <Text style={styles.infoKey}>Thời gian tải lên</Text>
-                </View>
-                <Text style={styles.infoVal}>{createdDate}</Text>
-              </View>
-
-              {/* File Size */}
-              <View style={styles.infoRow}>
-                <View style={styles.infoLeft}>
-                  <MaterialCommunityIcons name="database-outline" size={18} color="#6B7280" />
-                  <Text style={styles.infoKey}>Dung lượng tệp</Text>
-                </View>
-                <Text style={styles.infoVal}>{fileSizeText}</Text>
-              </View>
-
-              {/* MIME Type */}
-              {document.mimeType ? (
-                <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                  <View style={styles.infoLeft}>
-                    <MaterialCommunityIcons name="file-cog-outline" size={18} color="#6B7280" />
-                    <Text style={styles.infoKey}>Định dạng MIME</Text>
-                  </View>
-                  <Text style={[styles.infoVal, { maxWidth: '55%' }]} numberOfLines={1}>
-                    {document.mimeType}
+                <View style={styles.infoTextCol}>
+                  <Text style={styles.infoLabel}>Người đăng tải</Text>
+                  <Text style={styles.infoValue}>
+                    {uploaderName} ({uploaderCode})
                   </Text>
                 </View>
-              ) : null}
+              </View>
+
+              {/* Row 2: Phạm vi */}
+              <View style={styles.infoRow}>
+                <View style={styles.infoIconCircle}>
+                  <MaterialCommunityIcons
+                    name={document.department ? 'office-building' : 'earth'}
+                    size={20}
+                    color="#475569"
+                  />
+                </View>
+                <View style={styles.infoTextCol}>
+                  <Text style={styles.infoLabel}>Phạm vi</Text>
+                  <Text style={styles.infoValue}>{deptText.toUpperCase()}</Text>
+                </View>
+              </View>
+
+              {/* Row 3: Thời gian tải lên */}
+              <View style={styles.infoRow}>
+                <View style={styles.infoIconCircle}>
+                  <MaterialCommunityIcons name="clock-outline" size={20} color="#475569" />
+                </View>
+                <View style={styles.infoTextCol}>
+                  <Text style={styles.infoLabel}>Thời gian tải lên</Text>
+                  <Text style={styles.infoValue}>{createdDate}</Text>
+                </View>
+              </View>
+
+              {/* Row 4: Dung lượng tệp */}
+              <View style={styles.infoRow}>
+                <View style={styles.infoIconCircle}>
+                  <MaterialCommunityIcons name="database-outline" size={20} color="#475569" />
+                </View>
+                <View style={styles.infoTextCol}>
+                  <Text style={styles.infoLabel}>Dung lượng tệp</Text>
+                  <Text style={styles.infoValue}>{fileSizeText}</Text>
+                </View>
+              </View>
+
+              {/* Row 5: Định dạng MIME */}
+              <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                <View style={styles.infoIconCircle}>
+                  <MaterialCommunityIcons name="file-cog-outline" size={20} color="#475569" />
+                </View>
+                <View style={styles.infoTextCol}>
+                  <Text style={styles.infoLabel}>Định dạng MIME</Text>
+                  <Text style={styles.infoValue}>
+                    {document.mimeType || 'application/pdf'}
+                  </Text>
+                </View>
+              </View>
             </View>
           </ScrollView>
 
           {/* Action Buttons Footer */}
           <View style={styles.footer}>
-            {/* Primary Action: View / Download Document */}
-            {(() => {
-              const isPdfOrImg =
-                /\.(pdf|jpg|jpeg|png|webp|gif|svg)$/i.test(document.fileName || '') ||
-                document.mimeType?.includes('pdf') ||
-                document.mimeType?.startsWith('image/');
-              return (
-                <Pressable
-                  style={styles.openBtn}
-                  onPress={() => {
-                    onClose();
-                    onOpenDocument(document);
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name={isPdfOrImg ? 'eye-outline' : 'download-outline'}
-                    size={20}
-                    color="#FFFFFF"
-                  />
-                  <Text style={styles.openBtnText}>
-                    {isPdfOrImg ? 'Xem tài liệu' : 'Tải về máy'}
-                  </Text>
-                </Pressable>
-              );
-            })()}
+            <Pressable
+              style={styles.openBtn}
+              onPress={() => {
+                onClose();
+                onOpenDocument(document);
+              }}
+            >
+              <MaterialCommunityIcons
+                name={isPdfOrImg ? 'eye-outline' : 'download-outline'}
+                size={20}
+                color="#FFFFFF"
+              />
+              <Text style={styles.openBtnText}>
+                {isPdfOrImg ? 'Xem tài liệu' : 'Tải về máy'}
+              </Text>
+            </Pressable>
 
-            {/* Secondary Actions */}
             <View style={styles.secondaryRow}>
               <Pressable style={styles.copyBtn} onPress={handleCopyLink}>
-                <MaterialCommunityIcons name="content-copy" size={18} color="#1E3E2F" />
+                <MaterialCommunityIcons name="content-copy" size={18} color="#0055D4" />
                 <Text style={styles.copyBtnText}>Sao chép liên kết</Text>
               </Pressable>
 
@@ -286,34 +295,54 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 20,
   },
-  header: {
+  dragHandleContainer: {
+    alignItems: 'center',
     paddingTop: 10,
-    paddingHorizontal: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    paddingBottom: 4,
   },
   dragHandle: {
-    width: 36,
+    width: 44,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-    alignSelf: 'center',
-    marginBottom: 12,
+    backgroundColor: '#CBD5E1',
   },
-  headerTop: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
-  headerBadgeRow: {
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollBody: {
+    paddingHorizontal: 20,
+  },
+  badgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
-    flex: 1,
+    marginBottom: 14,
   },
   catBadge: {
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -321,163 +350,169 @@ const styles = StyleSheet.create({
   catBadgeText: {
     fontSize: 12,
     fontWeight: '700',
+    color: '#475569',
   },
   deptBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 8,
+    gap: 6,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    maxWidth: 180,
+    maxWidth: 220,
   },
   deptBadgeText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#4B5563',
+    fontWeight: '700',
+    color: '#475569',
   },
-  closeBtn: {
-    width: 32,
-    height: 32,
+  fileCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollBody: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  heroCard: {
-    alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    padding: 14,
     marginBottom: 16,
   },
-  fileIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+  fileIconBox: {
+    width: 58,
+    height: 58,
+    borderRadius: 14,
+    backgroundColor: '#FEE2E2',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+  },
+  pdfBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pdfBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  fileCardInfo: {
+    flex: 1,
   },
   docTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#0F172A',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 6,
+    lineHeight: 22,
   },
   fileNameText: {
     fontSize: 13,
     color: '#64748B',
-    textAlign: 'center',
+    marginTop: 3,
+  },
+  filePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  filePillText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
   },
   descCard: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#1E3E2F',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginBottom: 16,
   },
-  descHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
   descLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1E3E2F',
+    color: '#475569',
+    marginBottom: 4,
   },
   descContent: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
     color: '#334155',
+    lineHeight: 18,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 10,
   },
   infoCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  infoSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 12,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
+    gap: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: '#F1F5F9',
   },
-  infoLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  avatarMini: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  infoIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  infoKey: {
-    fontSize: 13,
+  infoTextCol: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
     color: '#64748B',
   },
-  infoVal: {
-    fontSize: 13,
+  infoValue: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#0F172A',
+    marginTop: 2,
   },
   footer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: '#F1F5F9',
     gap: 10,
   },
   openBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E3E2F',
-    paddingVertical: 14,
-    borderRadius: 14,
+    backgroundColor: '#0055D4',
+    height: 48,
+    borderRadius: 12,
     gap: 8,
-    shadowColor: '#1E3E2F',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
   },
   openBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   secondaryRow: {
@@ -490,15 +525,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 12,
+    backgroundColor: '#EFF6FF',
+    height: 46,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#DBEAFE',
   },
   copyBtnText: {
-    color: '#1E3E2F',
+    color: '#0055D4',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -507,8 +542,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FEF2F2',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    height: 46,
+    paddingHorizontal: 22,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
