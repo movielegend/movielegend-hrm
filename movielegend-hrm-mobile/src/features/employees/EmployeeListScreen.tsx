@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useEmployees, useEmployeeReport, useDeleteEmployee, useUpdateAnyEmployee } from '../../hooks/useEmployees';
 import { useAssignLeader, useRevokeLeader } from '../../hooks/useLeaderAssignment';
+import { useAssignAccountant, useRevokeAccountant } from '../../hooks/useAccountantAssignment';
+import { type AccountantRoleType } from '../../api/accountant-assignments.api';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useAuth } from '../../providers/AuthProvider';
 import { ConfirmModal } from '../../components/ConfirmModal';
@@ -79,17 +81,40 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   const updateEmployeeAny = useUpdateAnyEmployee();
   const assignLeader = useAssignLeader();
   const revokeLeader = useRevokeLeader();
+  const assignAccountant = useAssignAccountant();
+  const revokeAccountant = useRevokeAccountant();
 
   const [selectedEmployeeMenu, setSelectedEmployeeMenu] = useState<any | null>(null);
 
+  // Accountant Assignment Modal State
+  const [accountantModalVisible, setAccountantModalVisible] = useState(false);
+  const [selectedAccountantRole, setSelectedAccountantRole] = useState<AccountantRoleType>('ACCOUNTANT_GENERAL');
+  const [accountantTargetEmployee, setAccountantTargetEmployee] = useState<any | null>(null);
+
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'lock' | 'unlock' | 'delete' | 'appoint' | 'revoke' | 'error_inactive';
+    type: 'lock' | 'unlock' | 'delete' | 'appoint' | 'revoke' | 'revoke_accountant' | 'error_inactive' | 'error_chief_accountant';
     employeeId?: string;
     employeeName?: string;
     departmentId?: string;
     leaderRoleId?: string;
     isHrDept?: boolean;
   } | null>(null);
+
+  const currentUserRoles = useMemo(() => {
+    const r = user?.roles || [];
+    const raw = Array.isArray(r) ? r : [r];
+    return raw.map((item: any) => (typeof item === 'string' ? item : item?.code || item?.role?.code || item?.name || '').toUpperCase());
+  }, [user?.roles]);
+
+  const isCurrentUserAdmin = useMemo(() => {
+    return currentUserRoles.includes('ADMIN') || currentUserRoles.includes('SUPER_ADMIN') || currentUserRoles.includes('SUPERADMIN') || currentUserRoles.includes('SYSTEM_ADMIN');
+  }, [currentUserRoles]);
+
+  const isCurrentUserHR = useMemo(() => {
+    return currentUserRoles.includes('HR') || currentUserRoles.includes('HUMAN_RESOURCE');
+  }, [currentUserRoles]);
+
+  const isCurrentUserManager = isCurrentUserAdmin || isCurrentUserHR;
 
   const employees = adminUsers.data?.items || [];
 
@@ -309,26 +334,28 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               <Text style={styles.actionSheetSubtitle}>Tùy chọn thao tác nhân sự</Text>
             </View>
 
-            {/* Chỉnh sửa */}
-            <Pressable
-              style={styles.actionSheetItem}
-              onPress={() => {
-                const empId = selectedEmployeeMenu?.id;
-                setSelectedEmployeeMenu(null);
-                if (empId) {
-                  router.push({ pathname: '/admin/employees/[id]', params: { id: empId, edit: '1' } });
-                }
-              }}
-            >
-              <Ionicons name="pencil-outline" size={20} color="#0F172A" />
-              <Text style={styles.actionSheetItemText}>Chỉnh sửa thông tin</Text>
-            </Pressable>
+            {/* Chỉnh sửa thông tin - Chỉ Quản trị viên và HR */}
+            {isCurrentUserManager && (
+              <Pressable
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  const empId = selectedEmployeeMenu?.id;
+                  setSelectedEmployeeMenu(null);
+                  if (empId) {
+                    router.push({ pathname: '/admin/employees/[id]', params: { id: empId, edit: '1' } });
+                  }
+                }}
+              >
+                <Ionicons name="pencil-outline" size={20} color="#0F172A" />
+                <Text style={styles.actionSheetItemText}>Chỉnh sửa thông tin</Text>
+              </Pressable>
+            )}
 
-            {/* Bổ nhiệm / Thu hồi Leader */}
-            {(() => {
+            {/* Bổ nhiệm / Thu hồi Leader - Chỉ Admin */}
+            {isCurrentUserAdmin && (() => {
               if (!selectedEmployeeMenu) return null;
-              const isLeader = selectedEmployeeMenu.roles?.some((r: any) => r.role?.code === 'LEADER');
-              const leaderRole = selectedEmployeeMenu.roles?.find((r: any) => r.role?.code === 'LEADER');
+              const isLeader = selectedEmployeeMenu.roles?.some((r: any) => (r.role?.code || r.code || r) === 'LEADER');
+              const leaderRole = selectedEmployeeMenu.roles?.find((r: any) => (r.role?.code || r.code || r) === 'LEADER');
               const dept = selectedEmployeeMenu.departmentLinks?.find((l: any) => l.isPrimary)?.department ||
                 selectedEmployeeMenu.departmentLinks?.[0]?.department ||
                 (selectedEmployeeMenu as any).department;
@@ -383,39 +410,111 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               );
             })()}
 
-            {/* Khóa / Mở khóa tài khoản */}
-            {selectedEmployeeMenu?.accountStatus === 'ACTIVE' ? (
-              <Pressable
-                style={styles.actionSheetItem}
-                onPress={() => {
-                  const emp = selectedEmployeeMenu;
-                  setSelectedEmployeeMenu(null);
-                  setConfirmAction({
-                    type: 'lock',
-                    employeeId: emp.id,
-                    employeeName: emp.profile?.fullName || emp.userCode,
-                  });
-                }}
-              >
-                <Ionicons name="lock-closed-outline" size={20} color="#DC2626" />
-                <Text style={[styles.actionSheetItemText, { color: '#DC2626' }]}>Khóa tài khoản</Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                style={styles.actionSheetItem}
-                onPress={() => {
-                  const emp = selectedEmployeeMenu;
-                  setSelectedEmployeeMenu(null);
-                  setConfirmAction({
-                    type: 'unlock',
-                    employeeId: emp.id,
-                    employeeName: emp.profile?.fullName || emp.userCode,
-                  });
-                }}
-              >
-                <Ionicons name="lock-open-outline" size={20} color="#166534" />
-                <Text style={[styles.actionSheetItemText, { color: '#166534' }]}>Mở khóa tài khoản</Text>
-              </Pressable>
+            {/* Bổ nhiệm / Thu hồi chức vụ Kế toán */}
+            {(() => {
+              if (!selectedEmployeeMenu) return null;
+              const rawRoles = selectedEmployeeMenu.roles || [];
+              const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+              const roleCodes = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || r?.role?.code || '').toUpperCase());
+              const hasAccRole = roleCodes.includes('ACCOUNTANT_LEAD') || roleCodes.includes('ACCOUNTANT_PAYROLL') || roleCodes.includes('ACCOUNTANT_TAX') || roleCodes.includes('ACCOUNTANT_GENERAL') || roleCodes.includes('ACCOUNTANT');
+              const isAccLead = roleCodes.includes('ACCOUNTANT_LEAD');
+
+              const dept = selectedEmployeeMenu.departmentLinks?.find((l: any) => l.isPrimary)?.department ||
+                selectedEmployeeMenu.departmentLinks?.[0]?.department ||
+                (selectedEmployeeMenu as any).department;
+              const isAccDept = dept?.name?.toLowerCase().includes('kế toán') || dept?.code?.toLowerCase().includes('kt') || isCurrentUserAdmin;
+
+              if (!isAccDept && !hasAccRole) return null;
+
+              return (
+                <>
+                  <Pressable
+                    style={styles.actionSheetItem}
+                    onPress={() => {
+                      const emp = selectedEmployeeMenu;
+                      setSelectedEmployeeMenu(null);
+                      let initialRole: AccountantRoleType = 'ACCOUNTANT_GENERAL';
+                      if (roleCodes.includes('ACCOUNTANT_LEAD') && isCurrentUserAdmin) initialRole = 'ACCOUNTANT_LEAD';
+                      else if (roleCodes.includes('ACCOUNTANT_PAYROLL')) initialRole = 'ACCOUNTANT_PAYROLL';
+                      else if (roleCodes.includes('ACCOUNTANT_TAX')) initialRole = 'ACCOUNTANT_TAX';
+                      else initialRole = 'ACCOUNTANT_GENERAL';
+
+                      setSelectedAccountantRole(initialRole);
+                      setAccountantTargetEmployee(emp);
+                      setAccountantModalVisible(true);
+                    }}
+                  >
+                    <Ionicons name="calculator-outline" size={20} color="#059669" />
+                    <Text style={[styles.actionSheetItemText, { color: '#059669' }]}>
+                      {hasAccRole ? 'Thay đổi chức vụ Kế toán' : 'Bổ nhiệm chức vụ Kế toán'}
+                    </Text>
+                  </Pressable>
+
+                  {hasAccRole && (
+                    <Pressable
+                      style={styles.actionSheetItem}
+                      onPress={() => {
+                        const emp = selectedEmployeeMenu;
+                        setSelectedEmployeeMenu(null);
+                        if (isAccLead && !isCurrentUserAdmin) {
+                          setConfirmAction({
+                            type: 'error_chief_accountant',
+                            employeeName: emp.profile?.fullName || emp.userCode,
+                          });
+                          return;
+                        }
+                        setConfirmAction({
+                          type: 'revoke_accountant',
+                          employeeId: emp.id,
+                          employeeName: emp.profile?.fullName || emp.userCode,
+                        });
+                      }}
+                    >
+                      <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
+                      <Text style={[styles.actionSheetItemText, { color: '#DC2626' }]}>
+                        Thu hồi chức vụ Kế toán
+                      </Text>
+                    </Pressable>
+                  )}
+                </>
+              );
+            })()}
+
+            {/* Khóa / Mở khóa tài khoản - Chỉ Admin và HR */}
+            {isCurrentUserManager && (
+              selectedEmployeeMenu?.accountStatus === 'ACTIVE' ? (
+                <Pressable
+                  style={styles.actionSheetItem}
+                  onPress={() => {
+                    const emp = selectedEmployeeMenu;
+                    setSelectedEmployeeMenu(null);
+                    setConfirmAction({
+                      type: 'lock',
+                      employeeId: emp.id,
+                      employeeName: emp.profile?.fullName || emp.userCode,
+                    });
+                  }}
+                >
+                  <Ionicons name="lock-closed-outline" size={20} color="#DC2626" />
+                  <Text style={[styles.actionSheetItemText, { color: '#DC2626' }]}>Khóa tài khoản</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={styles.actionSheetItem}
+                  onPress={() => {
+                    const emp = selectedEmployeeMenu;
+                    setSelectedEmployeeMenu(null);
+                    setConfirmAction({
+                      type: 'unlock',
+                      employeeId: emp.id,
+                      employeeName: emp.profile?.fullName || emp.userCode,
+                    });
+                  }}
+                >
+                  <Ionicons name="lock-open-outline" size={20} color="#166534" />
+                  <Text style={[styles.actionSheetItemText, { color: '#166534' }]}>Mở khóa tài khoản</Text>
+                </Pressable>
+              )
             )}
 
             {/* Cancel Button */}
@@ -429,6 +528,148 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
         </Pressable>
       </Modal>
 
+      {/* Modal Bổ nhiệm chức vụ Kế toán */}
+      <Modal
+        visible={accountantModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAccountantModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.accountantModalContainer}>
+            <View style={styles.accountantModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.accountantModalTitle}>Phân quyền chức vụ Kế toán</Text>
+                <Text style={styles.accountantModalSubtitle}>
+                  {accountantTargetEmployee?.profile?.fullName || accountantTargetEmployee?.userCode}
+                </Text>
+              </View>
+              <Pressable
+                style={styles.modalCloseBtn}
+                onPress={() => setAccountantModalVisible(false)}
+              >
+                <Ionicons name="close" size={20} color="#64748B" />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {[
+                {
+                  role: 'ACCOUNTANT_LEAD' as AccountantRoleType,
+                  title: 'Kế toán trưởng (Chief Accountant)',
+                  badge: 'Admin bổ nhiệm',
+                  desc: 'Phụ trách toàn bộ hoạt động tài chính, duyệt bảng lương và báo cáo thuế.',
+                  isAdminOnly: true,
+                  icon: 'shield-checkmark',
+                  color: '#059669',
+                  bgColor: '#ECFDF5',
+                },
+                {
+                  role: 'ACCOUNTANT_PAYROLL' as AccountantRoleType,
+                  title: 'Kế toán lương (Payroll Accountant)',
+                  badge: 'Kế toán lương',
+                  desc: 'Quản lý bảng lương nhân sự, tính công, tính thưởng và khấu trừ.',
+                  isAdminOnly: false,
+                  icon: 'wallet',
+                  color: '#D97706',
+                  bgColor: '#FFFBEB',
+                },
+                {
+                  role: 'ACCOUNTANT_TAX' as AccountantRoleType,
+                  title: 'Kế toán thuế (Tax Accountant)',
+                  badge: 'Kế toán thuế',
+                  desc: 'Khai báo thuế, xuất hóa đơn chứng từ và báo cáo tài chính định kỳ.',
+                  isAdminOnly: false,
+                  icon: 'document-text',
+                  color: '#2563EB',
+                  bgColor: '#EFF6FF',
+                },
+                {
+                  role: 'ACCOUNTANT_GENERAL' as AccountantRoleType,
+                  title: 'Kế toán viên (General Accountant)',
+                  badge: 'Kế toán tổng hợp',
+                  desc: 'Xử lý các nghiệp vụ thu chi, vật tư, văn phòng phẩm và chứng từ nội bộ.',
+                  isAdminOnly: false,
+                  icon: 'calculator',
+                  color: '#0D9488',
+                  bgColor: '#F0FDFA',
+                },
+              ].map((item) => {
+                const isDisabled = item.isAdminOnly && !isCurrentUserAdmin;
+                const isSelected = selectedAccountantRole === item.role;
+                return (
+                  <Pressable
+                    key={item.role}
+                    disabled={isDisabled}
+                    onPress={() => setSelectedAccountantRole(item.role)}
+                    style={[
+                      styles.accountantRoleCard,
+                      isSelected && styles.accountantRoleCardSelected,
+                      isDisabled && styles.accountantRoleCardDisabled,
+                    ]}
+                  >
+                    <View style={[styles.accountantRoleIconWrap, { backgroundColor: item.bgColor }]}>
+                      <Ionicons name={item.icon as any} size={22} color={item.color} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={[styles.accountantRoleTitle, isSelected && { color: '#059669' }]}>
+                          {item.title}
+                        </Text>
+                      </View>
+                      <Text style={styles.accountantRoleDesc}>{item.desc}</Text>
+                      {isDisabled && (
+                        <Text style={styles.adminOnlyNote}>* Chỉ Admin mới có quyền bổ nhiệm Kế toán trưởng</Text>
+                      )}
+                    </View>
+                    <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                      {isSelected && <View style={styles.radioInner} />}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.accountantModalFooter}>
+              <Pressable
+                style={styles.accountantCancelBtn}
+                onPress={() => setAccountantModalVisible(false)}
+              >
+                <Text style={styles.accountantCancelText}>Hủy</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.accountantConfirmBtn, assignAccountant.isPending && { opacity: 0.7 }]}
+                disabled={assignAccountant.isPending}
+                onPress={async () => {
+                  if (!accountantTargetEmployee) return;
+                  try {
+                    const dept = accountantTargetEmployee.departmentLinks?.find((l: any) => l.isPrimary)?.department ||
+                      accountantTargetEmployee.departmentLinks?.[0]?.department ||
+                      (accountantTargetEmployee as any).department;
+                    const deptId = dept?.id || (departments.find(d => d.name?.toLowerCase().includes('kế toán'))?.id);
+
+                    await assignAccountant.mutateAsync({
+                      userId: accountantTargetEmployee.id,
+                      accountantRole: selectedAccountantRole,
+                      departmentId: deptId,
+                    });
+                    setAccountantModalVisible(false);
+                  } catch (e: any) {
+                    // handled by react query
+                  }
+                }}
+              >
+                {assignAccountant.isPending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.accountantConfirmText}>Xác nhận phân quyền</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Confirm Modal */}
       <ConfirmModal
         visible={!!confirmAction}
@@ -437,8 +678,12 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             ? confirmAction?.isHrDept ? 'Bổ nhiệm Trưởng phòng HR' : 'Xác nhận bổ nhiệm'
             : confirmAction?.type === 'revoke'
             ? 'Xác nhận thu hồi chức vụ'
+            : confirmAction?.type === 'revoke_accountant'
+            ? 'Thu hồi chức vụ Kế toán'
             : confirmAction?.type === 'error_inactive'
             ? 'Không thể bổ nhiệm'
+            : confirmAction?.type === 'error_chief_accountant'
+            ? 'Quyền hạn bị giới hạn'
             : confirmAction?.type === 'lock'
             ? 'Khóa tài khoản'
             : 'Mở khóa tài khoản'
@@ -450,8 +695,12 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               : `Bạn có chắc chắn muốn bổ nhiệm nhân viên ${confirmAction?.employeeName} làm Leader?`
             : confirmAction?.type === 'revoke'
             ? `Bạn có chắc chắn muốn thu hồi chức vụ Leader của nhân viên ${confirmAction?.employeeName}?`
+            : confirmAction?.type === 'revoke_accountant'
+            ? `Bạn có chắc chắn muốn thu hồi các chức vụ Kế toán chuyên trách của nhân sự ${confirmAction?.employeeName}?`
             : confirmAction?.type === 'error_inactive'
             ? 'Nhân viên này đang không trong trạng thái hoạt động nên không thể bổ nhiệm làm Leader.'
+            : confirmAction?.type === 'error_chief_accountant'
+            ? `Chỉ Quản trị viên hệ thống (Admin) mới có quyền thu hồi chức vụ Kế toán trưởng của ${confirmAction?.employeeName}.`
             : confirmAction?.type === 'lock'
             ? `Bạn có chắc chắn muốn khóa tài khoản của ${confirmAction?.employeeName}?`
             : `Bạn có chắc chắn muốn mở khóa tài khoản của ${confirmAction?.employeeName}?`
@@ -459,20 +708,20 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
         confirmLabel={
           confirmAction?.type === 'appoint'
             ? 'Bổ nhiệm'
-            : confirmAction?.type === 'revoke'
+            : confirmAction?.type === 'revoke' || confirmAction?.type === 'revoke_accountant'
             ? 'Thu hồi'
-            : confirmAction?.type === 'error_inactive'
+            : confirmAction?.type === 'error_inactive' || confirmAction?.type === 'error_chief_accountant'
             ? 'Đã hiểu'
             : confirmAction?.type === 'lock'
             ? 'Khóa'
             : 'Mở khóa'
         }
-        hideCancel={confirmAction?.type === 'error_inactive'}
-        loading={updateEmployeeAny.isPending || assignLeader.isPending || revokeLeader.isPending}
+        hideCancel={confirmAction?.type === 'error_inactive' || confirmAction?.type === 'error_chief_accountant'}
+        loading={updateEmployeeAny.isPending || assignLeader.isPending || revokeLeader.isPending || revokeAccountant.isPending}
         onCancel={() => setConfirmAction(null)}
         onConfirm={async () => {
           if (!confirmAction) return;
-          if (confirmAction.type === 'error_inactive') {
+          if (confirmAction.type === 'error_inactive' || confirmAction.type === 'error_chief_accountant') {
             setConfirmAction(null);
             return;
           }
@@ -484,6 +733,8 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               });
             } else if (confirmAction.type === 'revoke' && confirmAction.leaderRoleId) {
               await revokeLeader.mutateAsync(confirmAction.leaderRoleId);
+            } else if (confirmAction.type === 'revoke_accountant' && confirmAction.employeeId) {
+              await revokeAccountant.mutateAsync(confirmAction.employeeId);
             } else if ((confirmAction.type === 'lock' || confirmAction.type === 'unlock') && confirmAction.employeeId) {
               await updateEmployeeAny.mutateAsync({
                 id: confirmAction.employeeId,
@@ -781,5 +1032,140 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#64748B',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  accountantModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 34,
+  },
+  accountantModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 12,
+  },
+  accountantModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  accountantModalSubtitle: {
+    fontSize: 13,
+    color: '#059669',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+  },
+  accountantRoleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 10,
+  },
+  accountantRoleCardSelected: {
+    borderColor: '#059669',
+    backgroundColor: '#F0FDF4',
+  },
+  accountantRoleCardDisabled: {
+    opacity: 0.5,
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  accountantRoleIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountantRoleTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  accountantRoleDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  adminOnlyNote: {
+    fontSize: 11,
+    color: '#DC2626',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  radioCircleSelected: {
+    borderColor: '#059669',
+    backgroundColor: '#FFFFFF',
+  },
+  radioInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#059669',
+  },
+  accountantModalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  accountantCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountantCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  accountantConfirmBtn: {
+    flex: 2,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountantConfirmText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

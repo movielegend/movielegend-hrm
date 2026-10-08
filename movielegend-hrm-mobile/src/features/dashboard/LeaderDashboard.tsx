@@ -98,6 +98,23 @@ export function LeaderDashboard() {
   const checkedInCount = deptStats.checkedInCount || 0;
   const myTasksUncompletedCount = myTasks?.items?.filter(t => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
 
+  const isLiveDept = useMemo(() => {
+    if (!user) return false;
+    const deptName = (user.department?.name || '').toLowerCase();
+    const deptCode = (user.department?.code || '').toLowerCase();
+    if (deptName.includes('live') || deptCode.includes('live')) return true;
+    if (Array.isArray((user as any).departmentLinks)) {
+      return (user as any).departmentLinks.some((l: any) => {
+        const name = (l.department?.name || l.name || '').toLowerCase();
+        const code = (l.department?.code || l.code || '').toLowerCase();
+        return name.includes('live') || code.includes('live');
+      });
+    }
+    const roles = (user.roles || []).map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
+    if (roles.includes('ADMIN') || roles.includes('SUPER_ADMIN')) return true;
+    return false;
+  }, [user]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await queryClient.invalidateQueries();
@@ -401,13 +418,15 @@ export function LeaderDashboard() {
               bgColor="#EFF6FF"
               onPress={() => router.push('/leader/attendance-history' as any)}
             />
-            <GridItem4
-              icon="video-vintage"
-              title="Duyệt OT Live"
-              color="#EA580C"
-              bgColor="#FFF7ED"
-              onPress={() => router.push('/leader/ot-report-approvals' as any)}
-            />
+            {isLiveDept && (
+              <GridItem4
+                icon="video-vintage"
+                title="Duyệt OT Live"
+                color="#EA580C"
+                bgColor="#FFF7ED"
+                onPress={() => router.push('/leader/ot-report-approvals' as any)}
+              />
+            )}
 
             {/* Nhóm 2: Hành chính & Đơn từ (Teal thanh lịch) */}
             <GridItem4

@@ -86,6 +86,23 @@ export function EmployeeDashboardScreen() {
 
   const uncompletedTasksCount = myTasks?.items?.filter(t => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
 
+  const isLiveDept = useMemo(() => {
+    if (!user) return false;
+    const deptName = (user.department?.name || '').toLowerCase();
+    const deptCode = (user.department?.code || '').toLowerCase();
+    if (deptName.includes('live') || deptCode.includes('live')) return true;
+    if (Array.isArray((user as any).departmentLinks)) {
+      return (user as any).departmentLinks.some((l: any) => {
+        const name = (l.department?.name || l.name || '').toLowerCase();
+        const code = (l.department?.code || l.code || '').toLowerCase();
+        return name.includes('live') || code.includes('live');
+      });
+    }
+    const roles = (user.roles || []).map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
+    if (roles.includes('ADMIN') || roles.includes('SUPER_ADMIN')) return true;
+    return false;
+  }, [user]);
+
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -374,13 +391,15 @@ export function EmployeeDashboardScreen() {
               bgColor="#EFF6FF"
               onPress={() => router.push('/employee/shift-swaps')}
             />
-            <GridItem4
-              icon="video-vintage"
-              title="OT Live"
-              color="#EA580C"
-              bgColor="#FFF7ED"
-              onPress={() => router.push('/employee/ot-report' as any)}
-            />
+            {isLiveDept && (
+              <GridItem4
+                icon="video-vintage"
+                title="OT Live"
+                color="#EA580C"
+                bgColor="#FFF7ED"
+                onPress={() => router.push('/employee/ot-report' as any)}
+              />
+            )}
 
             {/* Nhóm 2: Hành chính & Đơn từ (Teal thanh lịch) */}
             <GridItem4
