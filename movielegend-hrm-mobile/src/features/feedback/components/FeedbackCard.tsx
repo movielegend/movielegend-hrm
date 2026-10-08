@@ -13,9 +13,12 @@ interface Props {
 
 export function FeedbackCard({ feedback, onPress, isAdmin }: Props) {
   const dateStr = new Date(feedback.createdAt).toLocaleDateString('vi-VN');
+  const senderText = feedback.isAnonymous 
+    ? 'Ẩn danh' 
+    : (feedback.senderDisplayName || feedback.sender?.fullName || feedback.sender?.userCode || 'Ẩn danh');
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.header}>
         <Text style={styles.title} numberOfLines={1}>
           {feedback.title}
@@ -35,74 +38,79 @@ export function FeedbackCard({ feedback, onPress, isAdmin }: Props) {
       )}
       
       <View style={styles.footer}>
-        <Text style={styles.date}>{dateStr}</Text>
-        {isAdmin && (
-          <Text style={styles.sender}>
-            {feedback.isAnonymous ? 'Ẩn danh' : (feedback.senderDisplayName || feedback.sender?.fullName || feedback.sender?.userCode || 'Không rõ')}
-          </Text>
-        )}
+        <View style={styles.footerLeft}>
+          <Ionicons name="calendar-outline" size={15} color="#64748B" />
+          <Text style={styles.date}>{dateStr}</Text>
+        </View>
+        <View style={styles.footerRight}>
+          <Ionicons name="person-outline" size={15} color="#64748B" />
+          <Text style={styles.sender}>{senderText}</Text>
+          <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+        </View>
       </View>
     </TouchableOpacity>
   );
 }
 
-const appleTheme = {
-  primary: '#111827',
-  card: '#FFFFFF',
-  text: '#111827',
-  textSecondary: '#6B7280',
-  border: 'rgba(17, 24, 39, 0.05)',
-};
-
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: appleTheme.card,
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: appleTheme.border,
-    shadowColor: '#111827',
-    shadowOffset: { width: 0, height: 4 },
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
-    color: appleTheme.primary,
+    color: '#0F172A',
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
   content: {
-    fontSize: 15,
-    color: appleTheme.textSecondary,
-    marginBottom: 16,
-    lineHeight: 22,
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 14,
+    lineHeight: 20,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: appleTheme.border,
-    paddingTop: 16,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 12,
+  },
+  footerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  footerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   date: {
     fontSize: 13,
-    color: appleTheme.textSecondary,
+    color: '#64748B',
     fontWeight: '500',
   },
   sender: {
     fontSize: 13,
-    color: appleTheme.primary,
-    fontWeight: '700',
+    color: '#475569',
+    fontWeight: '600',
   },
 });
