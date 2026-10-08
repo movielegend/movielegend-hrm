@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/Screen';
-import { PageHeader } from '../../components/PageHeader';
 import { SelectModal, SelectOption } from '../../components/SelectModal';
 import { useAppAlert } from '../../contexts/AlertContext';
 import { useDepartments } from '../../hooks/useDepartments';
@@ -345,14 +344,22 @@ export function AdminLevelConfigScreen() {
 
   return (
     <Screen>
-      {/* ── Top Header ── */}
-      <View style={styles.headerWrap}>
-        <PageHeader
-          title="Cấp bậc & Dự án"
-          subtitle="Quản lý danh xưng, phần thưởng và dự án."
-          showBack={true}
-          onBack={() => (router.canGoBack() ? router.back() : router.replace('/admin/(tabs)' as any))}
-        />
+      {/* ── Top Header: Back button and Title on the same row ── */}
+      <View style={styles.header}>
+        <View style={styles.headerTitleGroup}>
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/admin/(tabs)' as any))}
+            style={styles.backBtn}
+            hitSlop={10}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="arrow-back" size={22} color="#0F172A" />
+          </Pressable>
+          <View style={styles.titleTextWrap}>
+            <Text style={styles.screenTitle}>Cấp bậc & Dự án</Text>
+            <Text style={styles.screenSubtitle}>Quản lý danh xưng, phần thưởng và dự án.</Text>
+          </View>
+        </View>
       </View>
 
       {/* ── Segmented Tabs: Danh xưng & Dự án ── */}
@@ -962,10 +969,37 @@ export function AdminLevelConfigScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerWrap: {
+  header: {
     paddingHorizontal: 16,
-    paddingTop: 6,
-    marginBottom: 4,
+    paddingTop: 8,
+    paddingBottom: 10,
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleTextWrap: {
+    flex: 1,
+  },
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  screenSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
   },
   tabContainer: {
     flexDirection: 'row',
