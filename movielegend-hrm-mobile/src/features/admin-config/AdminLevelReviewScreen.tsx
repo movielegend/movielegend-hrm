@@ -66,7 +66,6 @@ export function AdminLevelReviewScreen() {
     projects: deptLevelProjects,
     adminApproveProject,
     adminRejectProject,
-    fetchProjects,
   } = useLevelProjects(selectedDeptId, activeDeptName);
 
   const submittedDeptProjects = useMemo(() => {
@@ -97,10 +96,10 @@ export function AdminLevelReviewScreen() {
     useState<LevelDepartmentProject | null>(null);
 
   // Load data for selected department
-  const loadDepartmentData = useCallback(async () => {
+  const loadDepartmentData = useCallback(async (isSilent = false) => {
     if (!selectedDeptId) return;
     try {
-      setIsLoading(true);
+      if (!isSilent) setIsLoading(true);
       const [membersRes, requestsRes, configsRes] = await Promise.all([
         fetchEmployees({ departmentId: selectedDeptId, limit: 100 }).catch(() => ({ data: [] })),
         levelingApi.getDepartmentPromotionRequests(selectedDeptId).catch(() => []),
@@ -110,33 +109,37 @@ export function AdminLevelReviewScreen() {
       setMembers(Array.isArray((membersRes as any)?.data) ? (membersRes as any).data : []);
       setPromotionRequests(Array.isArray(requestsRes) ? requestsRes : []);
       setLevelConfigs(Array.isArray(configsRes) ? configsRes : []);
-      void fetchProjects();
     } catch (err: any) {
       // silently handle
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [selectedDeptId, fetchProjects]);
+  }, [selectedDeptId]);
 
   useEffect(() => {
     if (selectedDeptId) {
-      loadDepartmentData();
+      void loadDepartmentData();
     }
   }, [selectedDeptId, loadDepartmentData]);
 
   // Reload when screen gains focus
+  const isInitialMount = React.useRef(true);
   useFocusEffect(
     useCallback(() => {
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+      }
       if (selectedDeptId) {
-        loadDepartmentData();
+        void loadDepartmentData(true);
       }
     }, [selectedDeptId, loadDepartmentData])
   );
 
   const onRefresh = () => {
     setIsRefreshing(true);
-    loadDepartmentData();
+    void loadDepartmentData(true);
   };
 
   // Helper to get initials
