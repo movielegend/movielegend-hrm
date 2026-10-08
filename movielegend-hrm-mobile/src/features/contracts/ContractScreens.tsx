@@ -642,44 +642,6 @@ export function ContractListScreen() {
 
                   <View style={cStyles.cardDivider} />
 
-                  {/* Middle Meta: Tag & Dates */}
-                  <View style={cStyles.cardMeta}>
-                    <View style={cStyles.metaRow}>
-                      <Ionicons name="pricetag-outline" size={15} color="#0F172A" />
-                      <Text style={cStyles.metaText}>
-                        {CONTRACT_TYPE_LABELS[contract.contractType as ContractType] ||
-                          contract.contractType ||
-                          "Có thời hạn"}
-                      </Text>
-                    </View>
-
-                    <View style={[cStyles.metaRow, { marginTop: 8 }]}>
-                      <Ionicons
-                        name="calendar-outline"
-                        size={15}
-                        color="#0F172A"
-                        style={{ marginTop: 2 }}
-                      />
-                      <View style={cStyles.dateRangeContainer}>
-                        <View>
-                          <Text style={cStyles.dateSubLabel}>Bắt đầu</Text>
-                          <Text style={cStyles.dateMainText}>
-                            {formatDate(contract.startDate)}
-                          </Text>
-                        </View>
-                        <View style={cStyles.dateVerticalDivider} />
-                        <View>
-                          <Text style={cStyles.dateSubLabel}>Kết thúc</Text>
-                          <Text style={cStyles.dateMainText}>
-                            {formatDate(contract.endDate)}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={cStyles.cardDivider} />
-
                   {/* Bottom Row: Xem chi tiết -> & ... */}
                   <View style={cStyles.cardBottomRow}>
                     <Pressable
