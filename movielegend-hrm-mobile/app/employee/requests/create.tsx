@@ -18,12 +18,13 @@ import type { Shift } from '../../../src/types/shift.types';
 import { getScopedEmployees } from '../../../src/api/employees.api';
 import { getDepartment } from '../../../src/api/departments.api';
 import type { EmployeeUser } from '../../../src/types/employee.types';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { uploadFile } from '../../../src/api/uploads.api';
+import { resolveFileUrl } from '../../../src/utils/url';
 
 const REQUEST_TYPES: { type: EmployeeRequestType, label: string, icon: keyof typeof MaterialCommunityIcons.glyphMap, color: string }[] = [
   { type: 'LEAVE', label: 'Nghỉ phép', icon: 'umbrella-outline', color: '#1B382B' },
   { type: 'ATTENDANCE_ADJUSTMENT', label: 'Giải trình\ncông', icon: 'file-document-outline', color: '#1B382B' },
+  { type: 'BUSINESS_TRIP', label: 'Đi công tác', icon: 'airplane', color: '#1B382B' },
   { type: 'LATE_ARRIVAL', label: 'Đi muộn', icon: 'clock-outline', color: '#1B382B' },
   { type: 'EARLY_LEAVE', label: 'Về sớm', icon: 'exit-to-app', color: '#1B382B' },
   { type: 'OVERTIME', label: 'Làm thêm\ngiờ', icon: 'clock-plus-outline', color: '#1B382B' },
@@ -71,6 +72,12 @@ export default function CreateRequestScreen() {
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [shift, setShift] = useState<Shift | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [hasVat, setHasVat] = useState(false);
+
+  // Specific fields for Business Trip
+  const [tripLocation, setTripLocation] = useState('');
+  const [tripImages, setTripImages] = useState<string[]>([]);
+  const [isUploadingTripImages, setIsUploadingTripImages] = useState(false);
 
   // Specific fields for Leave & Explanation
   const [leaveDurationType, setLeaveDurationType] = useState('');
@@ -82,6 +89,9 @@ export default function CreateRequestScreen() {
   const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
 
   // Modal states
+  const [calendarViewDate, setCalendarViewDate] = useState<Date>(new Date());
+  const [selectedHour, setSelectedHour] = useState<number>(8);
+  const [selectedMinute, setSelectedMinute] = useState<number>(0);
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState<'start' | 'end' | null>(null);
   const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | 'single' | null>(null);
@@ -95,6 +105,27 @@ export default function CreateRequestScreen() {
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
 
+  const handleOpenDatePicker = (mode: 'from' | 'to' | 'single') => {
+    let initialDate = new Date();
+    if (mode === 'from' && fromDate) initialDate = new Date(fromDate);
+    if (mode === 'to' && toDate) initialDate = new Date(toDate);
+    if (mode === 'single' && fromDate) initialDate = new Date(fromDate);
+    setCalendarViewDate(initialDate);
+    setShowDatePicker(mode);
+  };
+
+  const handleOpenTimePicker = (mode: 'start' | 'end') => {
+    let t = mode === 'start' ? startTime : endTime;
+    if (t) {
+      setSelectedHour(t.getHours());
+      setSelectedMinute(t.getMinutes());
+    } else {
+      setSelectedHour(mode === 'start' ? 8 : 17);
+      setSelectedMinute(mode === 'start' ? 0 : 30);
+    }
+    setShowTimeModal(mode);
+  };
+
   const leaveDurationTypes = ["1/4 ngày", "1/2 ngày", "3/4 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
   const leaveTypes = ["Nghỉ phép năm", "Nghỉ ốm", "Nghỉ không lương", "Thai sản", "Khác"];
   const explanationTypes = ["Quên Check-in", "Quên Check-out", "Quên cả In & Out", "Lỗi hệ thống/máy chấm công", "Đi công tác/Làm việc bên ngoài"];
@@ -105,6 +136,7 @@ export default function CreateRequestScreen() {
 
   const isLeave = selectedType === 'LEAVE';
   const isExplanation = selectedType === 'ATTENDANCE_ADJUSTMENT';
+  const isBusinessTrip = selectedType === 'BUSINESS_TRIP';
   const isOvertime = selectedType === 'OVERTIME';
   const isLateOrEarly = selectedType === 'LATE_ARRIVAL' || selectedType === 'EARLY_LEAVE';
   const isFinancial = selectedType === 'ADVANCE' || selectedType === 'EXPENSE' || selectedType === 'PURCHASE';
@@ -160,36 +192,138 @@ export default function CreateRequestScreen() {
     }
   };
 
-  const handleTimeChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowTimeModal(null); // Hide picker on Android
-    }
-    
-    if (event.type === 'dismissed') {
-      return; // User cancelled, do not update time
-    }
-    
-    if (selectedDate) {
-      if (showTimeModal === 'start') setStartTime(selectedDate);
-      if (showTimeModal === 'end') setEndTime(selectedDate);
+  const handlePickTripImages = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsUploadingTripImages(true);
+        const newUrls: string[] = [];
+        for (const asset of result.assets) {
+          if (asset.uri) {
+            try {
+              const uploadRes = await uploadFile({
+                uri: asset.uri,
+                name: `business_trip_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`,
+                mimeType: 'image/jpeg',
+                purpose: 'TASK_ATTACHMENT'
+              });
+              if (uploadRes?.fileUrl) {
+                newUrls.push(uploadRes.fileUrl);
+              }
+            } catch (err) {
+              console.log('Upload trip image error:', err);
+            }
+          }
+        }
+        setTripImages(prev => [...prev, ...newUrls]);
+      }
+    } catch (err) {
+      console.log('Pick trip images error:', err);
+      showAlert('Lỗi', 'Không thể chọn ảnh từ thư viện.');
+    } finally {
+      setIsUploadingTripImages(false);
     }
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') setShowDatePicker(null);
-    if (event.type === 'dismissed') return;
-    
-    if (selectedDate) {
-      if (Platform.OS === 'ios') {
-        setTempSelectedDate(selectedDate);
-      } else {
-        if (showDatePicker === 'from' || showDatePicker === 'single') {
-          setFromDate(selectedDate);
-        } else if (showDatePicker === 'to') {
-          setToDate(selectedDate);
+  const handleTakeTripPhoto = async () => {
+    const hasPermission = await requestCameraPermissionWithFallback();
+    if (!hasPermission) return;
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
+        setIsUploadingTripImages(true);
+        const uploadRes = await uploadFile({
+          uri: result.assets[0].uri,
+          name: `business_trip_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          purpose: 'TASK_ATTACHMENT'
+        });
+        if (uploadRes?.fileUrl) {
+          setTripImages(prev => [...prev, uploadRes.fileUrl]);
         }
       }
+    } catch (err) {
+      console.log('Camera trip photo error:', err);
+      showAlert('Lỗi', 'Không thể chụp ảnh.');
+    } finally {
+      setIsUploadingTripImages(false);
     }
+  };
+
+  const handleRemoveTripImage = (indexToRemove: number) => {
+    setTripImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const calendarYear = calendarViewDate.getFullYear();
+  const calendarMonth = calendarViewDate.getMonth(); // 0-indexed
+
+  const handlePrevMonth = () => {
+    setCalendarViewDate(new Date(calendarYear, calendarMonth - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCalendarViewDate(new Date(calendarYear, calendarMonth + 1, 1));
+  };
+
+  const handleSelectDay = (day: number) => {
+    const chosen = new Date(calendarYear, calendarMonth, day, 12, 0, 0);
+    if (showDatePicker === 'from' || showDatePicker === 'single') {
+      setFromDate(chosen);
+      if (showDatePicker === 'from' && toDate && chosen > toDate) {
+        setToDate(null);
+      }
+    } else if (showDatePicker === 'to') {
+      setToDate(chosen);
+    }
+    setShowDatePicker(null);
+  };
+
+  const handleQuickDateSelect = (daysOffset: number) => {
+    const target = new Date();
+    target.setDate(target.getDate() + daysOffset);
+    target.setHours(12, 0, 0, 0);
+    if (showDatePicker === 'from' || showDatePicker === 'single') {
+      setFromDate(target);
+      if (showDatePicker === 'from' && toDate && target > toDate) {
+        setToDate(null);
+      }
+    } else if (showDatePicker === 'to') {
+      setToDate(target);
+    }
+    setShowDatePicker(null);
+  };
+
+  const handleConfirmTime = () => {
+    const baseDate = (showTimeModal === 'start' ? fromDate : (toDate || fromDate)) || new Date();
+    const resultTime = new Date(baseDate);
+    resultTime.setHours(selectedHour, selectedMinute, 0, 0);
+    if (showTimeModal === 'start') {
+      setStartTime(resultTime);
+    } else {
+      setEndTime(resultTime);
+    }
+    setShowTimeModal(null);
+  };
+
+  const handleSelectPresetTime = (h: number, m: number) => {
+    setSelectedHour(h);
+    setSelectedMinute(m);
+    const baseDate = (showTimeModal === 'start' ? fromDate : (toDate || fromDate)) || new Date();
+    const resultTime = new Date(baseDate);
+    resultTime.setHours(h, m, 0, 0);
+    if (showTimeModal === 'start') {
+      setStartTime(resultTime);
+    } else {
+      setEndTime(resultTime);
+    }
+    setShowTimeModal(null);
   };
 
   const formatTime = (date: Date | null) => {
@@ -215,7 +349,10 @@ export default function CreateRequestScreen() {
       const typeLabel = typeConfig ? typeConfig.label : 'Yêu cầu';
       const dateStr = fromDate ? formatDate(fromDate) : new Date().toLocaleDateString('vi-VN');
       
-      if (isExplanation && explanationType) {
+      if (isBusinessTrip) {
+        const toDateStr = toDate ? formatDate(toDate) : dateStr;
+        generatedTitle = `Đi công tác: ${tripLocation.trim() || 'Công tác'} (${dateStr} - ${toDateStr})`;
+      } else if (isExplanation && explanationType) {
         generatedTitle = `Giải trình: ${explanationType} - ${dateStr}`;
       } else if (isLeave && leaveType) {
         generatedTitle = `Nghỉ phép: ${leaveType} - ${dateStr}`;
@@ -230,8 +367,27 @@ export default function CreateRequestScreen() {
       }
     }
 
+    if (isBusinessTrip) {
+      if (!tripLocation.trim()) {
+        showAlert('Lỗi', 'Vui lòng nhập Địa điểm / Vị trí công tác.');
+        return;
+      }
+      if (!fromDate) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày bắt đầu công tác.');
+        return;
+      }
+      if (!toDate) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày kết thúc công tác.');
+        return;
+      }
+      if (toDate < fromDate) {
+        showAlert('Lỗi', 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.');
+        return;
+      }
+    }
+
     if (!content.trim()) {
-      showAlert('Lỗi', 'Vui lòng nhập Lý do/Nội dung chi tiết.');
+      showAlert('Lỗi', isBusinessTrip ? 'Vui lòng nhập Mục đích / Kế hoạch công tác chi tiết.' : 'Vui lòng nhập Lý do/Nội dung chi tiết.');
       return;
     }
     if (isFinancial && !amount.trim()) {
@@ -325,6 +481,12 @@ export default function CreateRequestScreen() {
 
       const attachmentMetadata = {
         ...(uploadedUrl ? { image: uploadedUrl } : {}),
+        ...(selectedType === 'EXPENSE' ? { hasVat: Boolean(hasVat), vatInvoiceUrl: uploadedUrl || undefined } : {}),
+        ...(isBusinessTrip ? {
+          location: tripLocation.trim(),
+          images: tripImages,
+          ...(tripImages.length > 0 ? { image: tripImages[0] } : {})
+        } : {}),
         ...(fromDate ? { fromDate: fromDate.toISOString() } : {}),
         ...(toDate ? { toDate: toDate.toISOString() } : {}),
         ...(startTime ? { startTime: startTime.toISOString() } : {}),
@@ -449,7 +611,7 @@ export default function CreateRequestScreen() {
                 <Text style={styles.formLabel}>
                   Ngày áp dụng <Text style={styles.required}>*</Text>
                 </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowDatePicker('single')}>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
                   <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
                     {fromDate ? formatDate(fromDate) : 'Chọn ngày áp dụng'}
                   </Text>
@@ -489,7 +651,7 @@ export default function CreateRequestScreen() {
                   <Text style={styles.formLabel}>
                     Giờ vào thực tế <Text style={styles.required}>*</Text>
                   </Text>
-                  <Pressable style={styles.inputBox} onPress={() => setShowTimeModal('start')}>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
                     <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
                       {startTime ? formatTime(startTime) : 'Chọn giờ vào thực tế'}
                     </Text>
@@ -504,7 +666,7 @@ export default function CreateRequestScreen() {
                   <Text style={styles.formLabel}>
                     Giờ ra thực tế <Text style={styles.required}>*</Text>
                   </Text>
-                  <Pressable style={styles.inputBox} onPress={() => setShowTimeModal('end')}>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
                     <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
                       {endTime ? formatTime(endTime) : 'Chọn giờ ra thực tế'}
                     </Text>
@@ -561,6 +723,166 @@ export default function CreateRequestScreen() {
                 )}
               </View>
             </>
+          ) : isBusinessTrip ? (
+            <>
+              {/* Địa điểm / Vị trí công tác */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Địa điểm / Vị trí công tác <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.inputBox}>
+                  <TextInput
+                    style={[styles.inputText, { flex: 1 }]}
+                    placeholder="VD: Chi nhánh Đà Nẵng, Khách sạn Melia..."
+                    placeholderTextColor="#94A3B8"
+                    value={tripLocation}
+                    onChangeText={setTripLocation}
+                  />
+                  <MaterialCommunityIcons name="map-marker-outline" size={20} color="#0284C7" />
+                </View>
+              </View>
+
+              {/* Lịch trình công tác: Từ ngày -> Đến ngày */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Từ ngày <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('from')}>
+                  <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
+                    {fromDate ? formatDate(fromDate) : 'Chọn từ ngày'}
+                  </Text>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                </Pressable>
+              </View>
+
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Đến ngày <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('to')}>
+                  <Text style={[styles.inputText, !toDate && styles.inputPlaceholder]}>
+                    {toDate ? formatDate(toDate) : 'Chọn đến ngày'}
+                  </Text>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                </Pressable>
+              </View>
+
+              {/* Khung giờ công tác (Tùy chọn) */}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={[styles.formItem, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>Từ giờ (Tùy chọn)</Text>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
+                    <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
+                      {startTime ? formatTime(startTime) : 'Giờ bắt đầu'}
+                    </Text>
+                    <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" />
+                  </Pressable>
+                </View>
+
+                <View style={[styles.formItem, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>Đến giờ (Tùy chọn)</Text>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
+                    <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
+                      {endTime ? formatTime(endTime) : 'Giờ kết thúc'}
+                    </Text>
+                    <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Banner quyền lợi 1 công / ngày */}
+              <View style={[styles.approvalWorkflowBanner, { backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <MaterialCommunityIcons name="airplane" size={16} color="#0284C7" />
+                  <Text style={[styles.approvalWorkflowTitle, { color: '#0369A1', marginLeft: 4 }]}>
+                    Quyền lợi chấm công
+                  </Text>
+                </View>
+                <Text style={[styles.approvalWorkflowSubtitle, { color: '#0C4A6E' }]}>
+                  Sau khi Leader phê duyệt, hệ thống sẽ tự động ghi nhận 1 công/ngày cho các ngày trong lịch trình công tác.
+                </Text>
+              </View>
+
+              {/* Lý do / Kế hoạch công tác chi tiết */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Mục đích / Kế hoạch công tác chi tiết <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.textAreaBox}>
+                  <TextInput
+                    style={styles.textAreaInput}
+                    placeholder="Nhập nội dung công việc, đối tác làm việc, kế hoạch công tác..."
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    maxLength={500}
+                    value={content}
+                    onChangeText={setContent}
+                    textAlignVertical="top"
+                    onFocus={() => {
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                    }}
+                  />
+                  <Text style={styles.counterText}>{content.length}/500</Text>
+                </View>
+              </View>
+
+              {/* Hình ảnh minh họa / Lịch trình công tác (Multi-image) */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>Hình ảnh minh họa / Kế hoạch (Tùy chọn)</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
+                  <Pressable 
+                    style={[styles.photoButton, { flex: 1 }]} 
+                    onPress={handlePickTripImages}
+                    disabled={isUploadingTripImages}
+                  >
+                    {isUploadingTripImages ? (
+                      <ActivityIndicator size="small" color="#0284C7" />
+                    ) : (
+                      <MaterialCommunityIcons name="image-multiple-outline" size={20} color="#0284C7" />
+                    )}
+                    <Text style={[styles.photoButtonText, { color: '#0284C7', fontWeight: '600' }]}>
+                      {isUploadingTripImages ? 'Đang tải...' : 'Thư viện ảnh'}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable 
+                    style={[styles.photoButton, { flex: 1 }]} 
+                    onPress={handleTakeTripPhoto}
+                    disabled={isUploadingTripImages}
+                  >
+                    <MaterialCommunityIcons name="camera-outline" size={20} color="#475569" />
+                    <Text style={styles.photoButtonText}>Chụp ảnh</Text>
+                  </Pressable>
+                </View>
+
+                {tripImages.length > 0 && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                    {tripImages.map((imgUri, index) => {
+                      const displayUri = resolveFileUrl(imgUri) || imgUri;
+                      return (
+                        <View key={index} style={{ width: 80, height: 80, borderRadius: 10, overflow: 'hidden', position: 'relative', borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F1F5F9' }}>
+                          <TouchableOpacity 
+                            onPress={() => {
+                              setPhotoUri(displayUri);
+                              setIsFullScreenPhoto(true);
+                            }} 
+                            style={{ width: '100%', height: '100%' }}
+                          >
+                            <Image source={{ uri: displayUri }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.removePhotoBtn} 
+                            onPress={() => handleRemoveTripImage(index)}
+                          >
+                            <MaterialCommunityIcons name="close" size={14} color="#fff" />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            </>
           ) : isLeave ? (
             <>
               {/* Hình thức nghỉ */}
@@ -596,7 +918,7 @@ export default function CreateRequestScreen() {
                     <Text style={styles.formLabel}>
                       Từ ngày <Text style={styles.required}>*</Text>
                     </Text>
-                    <Pressable style={styles.inputBox} onPress={() => setShowDatePicker('from')}>
+                    <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('from')}>
                       <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
                         {fromDate ? formatDate(fromDate) : 'Chọn từ ngày'}
                       </Text>
@@ -608,7 +930,7 @@ export default function CreateRequestScreen() {
                     <Text style={styles.formLabel}>
                       Đến ngày <Text style={styles.required}>*</Text>
                     </Text>
-                    <Pressable style={styles.inputBox} onPress={() => setShowDatePicker('to')}>
+                    <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('to')}>
                       <Text style={[styles.inputText, !toDate && styles.inputPlaceholder]}>
                         {toDate ? formatDate(toDate) : 'Chọn đến ngày'}
                       </Text>
@@ -622,7 +944,7 @@ export default function CreateRequestScreen() {
                     <Text style={styles.formLabel}>
                       Ngày nghỉ <Text style={styles.required}>*</Text>
                     </Text>
-                    <Pressable style={styles.inputBox} onPress={() => setShowDatePicker('single')}>
+                    <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
                       <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
                         {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
                       </Text>
@@ -634,7 +956,7 @@ export default function CreateRequestScreen() {
                     <Text style={styles.formLabel}>
                       Từ giờ <Text style={styles.required}>*</Text>
                     </Text>
-                    <Pressable style={styles.inputBox} onPress={() => setShowTimeModal('start')}>
+                    <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
                       <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
                         {startTime ? formatTime(startTime) : 'Chọn từ giờ'}
                       </Text>
@@ -646,7 +968,7 @@ export default function CreateRequestScreen() {
                     <Text style={styles.formLabel}>
                       Đến giờ <Text style={styles.required}>*</Text>
                     </Text>
-                    <Pressable style={styles.inputBox} onPress={() => setShowTimeModal('end')}>
+                    <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
                       <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
                         {endTime ? formatTime(endTime) : 'Chọn đến giờ'}
                       </Text>
@@ -659,7 +981,7 @@ export default function CreateRequestScreen() {
                   <Text style={styles.formLabel}>
                     Ngày áp dụng <Text style={styles.required}>*</Text>
                   </Text>
-                  <Pressable style={styles.inputBox} onPress={() => setShowDatePicker('single')}>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
                     <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
                       {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
                     </Text>
@@ -715,7 +1037,7 @@ export default function CreateRequestScreen() {
                 <Text style={styles.formLabel}>
                   Ngày áp dụng <Text style={styles.required}>*</Text>
                 </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowDatePicker('single')}>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
                   <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
                     {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
                   </Text>
@@ -742,7 +1064,7 @@ export default function CreateRequestScreen() {
                   <Text style={styles.formLabel}>
                     Giờ vào thực tế <Text style={styles.required}>*</Text>
                   </Text>
-                  <Pressable style={styles.inputBox} onPress={() => setShowTimeModal('start')}>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
                     <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
                       {startTime ? formatTime(startTime) : 'Chọn giờ vào'}
                     </Text>
@@ -754,7 +1076,7 @@ export default function CreateRequestScreen() {
                   <Text style={styles.formLabel}>
                     Giờ ra thực tế <Text style={styles.required}>*</Text>
                   </Text>
-                  <Pressable style={styles.inputBox} onPress={() => setShowTimeModal('end')}>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
                     <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
                       {endTime ? formatTime(endTime) : 'Chọn giờ ra'}
                     </Text>
@@ -818,7 +1140,7 @@ export default function CreateRequestScreen() {
                 <Text style={styles.formLabel}>
                   Ngày áp dụng <Text style={styles.required}>*</Text>
                 </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowDatePicker('single')}>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
                   <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
                     {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
                   </Text>
@@ -842,7 +1164,7 @@ export default function CreateRequestScreen() {
                 <Text style={styles.formLabel}>
                   Từ giờ <Text style={styles.required}>*</Text>
                 </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowTimeModal('start')}>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
                   <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
                     {startTime ? formatTime(startTime) : 'Chọn từ giờ'}
                   </Text>
@@ -855,7 +1177,7 @@ export default function CreateRequestScreen() {
                 <Text style={styles.formLabel}>
                   Đến giờ <Text style={styles.required}>*</Text>
                 </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowTimeModal('end')}>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
                   <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
                     {endTime ? formatTime(endTime) : 'Chọn đến giờ'}
                   </Text>
@@ -913,7 +1235,7 @@ export default function CreateRequestScreen() {
                   {selectedType === 'EXPENSE' ? 'Ngày phát sinh chi phí' : 'Ngày mong muốn nhận'}{' '}
                   <Text style={styles.required}>*</Text>
                 </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowDatePicker('single')}>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
                   <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
                     {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
                   </Text>
@@ -944,22 +1266,61 @@ export default function CreateRequestScreen() {
                 </View>
               </View>
 
-              {/* Quy trình duyệt thông minh */}
+              {/* Phân loại Hóa đơn VAT (chỉ dành cho EXPENSE) */}
+              {selectedType === 'EXPENSE' && (
+                <View style={[styles.formItem, { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text style={[styles.formLabel, { marginBottom: 2 }]}>Hóa đơn VAT</Text>
+                      <Text style={{ fontSize: 12, color: '#64748B' }}>
+                        {hasVat 
+                          ? 'Đơn có VAT (Duyệt: Leader ➔ Chị Tâm giải ngân)' 
+                          : 'Đơn K° VAT (Dưới 2tr: Chị Tâm | Trên 2tr: A Kiên ➔ Chị Tâm)'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setHasVat(!hasVat)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 16,
+                        backgroundColor: hasVat ? '#10B981' : '#E2E8F0'
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: hasVat ? '#FFFFFF' : '#475569' }}>
+                        {hasVat ? 'CÓ VAT' : 'K° VAT'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {/* Quy trình duyệt thông minh Movie Legend */}
               <View style={styles.approvalWorkflowBanner}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                   <MaterialCommunityIcons 
                     name="transit-connection-variant" 
                     size={16} 
-                    color={Number(amount || 0) > 5000000 ? '#2563EB' : '#16A34A'} 
+                    color={hasVat || Number(amount || 0) <= 2000000 ? '#16A34A' : '#2563EB'} 
                   />
-                  <Text style={[styles.approvalWorkflowTitle, { color: Number(amount || 0) > 5000000 ? '#1E40AF' : '#15803D' }]}>
-                    Quy trình duyệt {Number(amount || 0) > 5000000 ? '(Đơn > 5tr)' : '(Đơn ≤ 5tr)'}
+                  <Text style={[styles.approvalWorkflowTitle, { color: hasVat || Number(amount || 0) <= 2000000 ? '#15803D' : '#1E40AF' }]}>
+                    {selectedType === 'EXPENSE'
+                      ? (hasVat 
+                          ? 'Quy trình: Có hóa đơn VAT' 
+                          : Number(amount || 0) > 2000000 
+                            ? 'Quy trình: K° VAT trên 2tr (A Kiên duyệt)' 
+                            : 'Quy trình: K° VAT dưới 2tr (Chị Tâm chi)')
+                      : Number(amount || 0) > 2000000 ? 'Quy trình: Trên 2 triệu' : 'Quy trình: Dưới 2 triệu'}
                   </Text>
                 </View>
                 <Text style={styles.approvalWorkflowSubtitle}>
-                  {Number(amount || 0) > 5000000
-                    ? '1. Trưởng BP duyệt ➔ 2. Leader HR đối chứng ➔ 3. BGĐ duyệt ➔ 4. Kế toán chi'
-                    : '1. Trưởng BP duyệt ➔ 2. Leader HR duyệt ➔ 3. Kế toán chi'}
+                  {selectedType === 'EXPENSE'
+                    ? (hasVat
+                        ? '1. Leader PB duyệt ➔ 2. Kế toán chị Tâm giải ngân'
+                        : Number(amount || 0) > 2000000
+                          ? '1. Leader PB duyệt ➔ 2. BGĐ (A Kiên) duyệt ➔ 3. Kế toán chị Tâm chi'
+                          : '1. Leader PB duyệt ➔ 2. Kế toán chị Tâm giải ngân')
+                    : '1. Leader PB duyệt ➔ 2. Kế toán chị Tâm duyệt & giải ngân'}
                 </Text>
               </View>
 
@@ -1013,7 +1374,7 @@ export default function CreateRequestScreen() {
                 <Text style={styles.formLabel}>
                   Ngày áp dụng <Text style={styles.required}>*</Text>
                 </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowDatePicker('single')}>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
                   <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
                     {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
                   </Text>
@@ -1119,48 +1480,108 @@ export default function CreateRequestScreen() {
         </View>
       </Modal>
 
-      {/* Real Time Picker */}
-      {Platform.OS === 'ios' ? (
-        <Modal visible={showTimeModal !== null} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={styles.iosPickerContainer}>
-              <View style={styles.iosPickerHeader}>
-                <Pressable onPress={() => setShowTimeModal(null)}>
-                  <Text style={styles.iosPickerBtn}>Hủy</Text>
-                </Pressable>
-                <Pressable onPress={() => {
-                  if (showTimeModal === 'start' && !startTime) setStartTime(new Date());
-                  if (showTimeModal === 'end' && !endTime) setEndTime(new Date());
-                  setShowTimeModal(null);
-                }}>
-                  <Text style={[styles.iosPickerBtn, { fontWeight: '700' }]}>Xong</Text>
-                </Pressable>
-              </View>
-              {showTimeModal !== null && (
-                <DateTimePicker
-                  value={showTimeModal === 'start' ? (startTime || new Date()) : (endTime || new Date())}
-                  mode="time"
-                  is24Hour={true}
-                  display="spinner"
-                  onChange={handleTimeChange}
-                  textColor="#000"
-                  locale="vi-VN"
-                />
-              )}
+      {/* Custom Cross-Platform Time Picker Modal */}
+      <Modal visible={showTimeModal !== null} transparent animationType="fade" onRequestClose={() => setShowTimeModal(null)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowTimeModal(null)} />
+          <View style={styles.timeModalContent}>
+            {/* Header */}
+            <View style={styles.modalHeaderRow}>
+              <View style={{ width: 28 }} />
+              <Text style={styles.modalTitle}>
+                {showTimeModal === 'start' ? 'Chọn giờ bắt đầu' : 'Chọn giờ kết thúc'}
+              </Text>
+              <Pressable onPress={() => setShowTimeModal(null)} style={styles.modalCloseBtn}>
+                <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
+              </Pressable>
+            </View>
+
+            {/* Digital Display */}
+            <View style={styles.timeDisplayBox}>
+              <Text style={styles.timeDisplayText}>
+                {`${String(selectedHour).padStart(2, '0')} : ${String(selectedMinute).padStart(2, '0')}`}
+              </Text>
+            </View>
+
+            {/* Quick Presets */}
+            <Text style={styles.pickerSectionLabel}>Khung giờ phổ biến</Text>
+            <View style={styles.presetPillsWrap}>
+              {[
+                { label: '08:00', h: 8, m: 0 },
+                { label: '08:30', h: 8, m: 30 },
+                { label: '09:00', h: 9, m: 0 },
+                { label: '11:30', h: 11, m: 30 },
+                { label: '12:00', h: 12, m: 0 },
+                { label: '13:30', h: 13, m: 30 },
+                { label: '17:00', h: 17, m: 0 },
+                { label: '17:30', h: 17, m: 30 },
+                { label: '18:00', h: 18, m: 0 },
+              ].map((p, idx) => {
+                const isCurrent = selectedHour === p.h && selectedMinute === p.m;
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[styles.presetPill, isCurrent && styles.presetPillActive]}
+                    onPress={() => handleSelectPresetTime(p.h, p.m)}
+                  >
+                    <Text style={[styles.presetPillText, isCurrent && styles.presetPillTextActive]}>
+                      {p.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Hour Selector */}
+            <Text style={styles.pickerSectionLabel}>Chọn giờ (0 - 23)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScrollRow}>
+              {Array.from({ length: 24 }, (_, i) => i).map((h) => {
+                const isSelected = selectedHour === h;
+                return (
+                  <TouchableOpacity
+                    key={`h-${h}`}
+                    style={[styles.selectorChip, isSelected && styles.selectorChipActive]}
+                    onPress={() => setSelectedHour(h)}
+                  >
+                    <Text style={[styles.selectorChipText, isSelected && styles.selectorChipTextActive]}>
+                      {String(h).padStart(2, '0')}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Minute Selector */}
+            <Text style={styles.pickerSectionLabel}>Chọn phút</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScrollRow}>
+              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => {
+                const isSelected = selectedMinute === m;
+                return (
+                  <TouchableOpacity
+                    key={`m-${m}`}
+                    style={[styles.selectorChip, isSelected && styles.selectorChipActive]}
+                    onPress={() => setSelectedMinute(m)}
+                  >
+                    <Text style={[styles.selectorChipText, isSelected && styles.selectorChipTextActive]}>
+                      {String(m).padStart(2, '0')}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Confirm Actions */}
+            <View style={styles.timeModalActions}>
+              <TouchableOpacity style={styles.timeCancelBtn} onPress={() => setShowTimeModal(null)}>
+                <Text style={styles.timeCancelBtnText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.timeConfirmBtn} onPress={handleConfirmTime}>
+                <Text style={styles.timeConfirmBtnText}>Xác nhận</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      ) : (
-        showTimeModal !== null && (
-          <DateTimePicker
-            value={showTimeModal === 'start' ? (startTime || new Date()) : (endTime || new Date())}
-            mode="time"
-            is24Hour={true}
-            display="default"
-            onChange={handleTimeChange}
-          />
-        )
-      )}
+        </View>
+      </Modal>
 
       {/* Full Screen Photo Modal */}
       <Modal visible={isFullScreenPhoto} transparent animationType="fade">
@@ -1408,68 +1829,111 @@ export default function CreateRequestScreen() {
         </View>
       </Modal>
 
-      {/* Real Date Picker */}
-      {Platform.OS === 'ios' ? (
-        <Modal visible={showDatePicker !== null} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={styles.iosPickerContainer}>
-              <View style={styles.iosPickerHeader}>
-                <Pressable onPress={() => {
-                  setTempSelectedDate(null);
-                  setShowDatePicker(null);
-                }}>
-                  <Text style={styles.iosPickerBtn}>Hủy</Text>
-                </Pressable>
-                <Pressable onPress={() => {
-                  const targetDate = tempSelectedDate || (
-                    showDatePicker === 'from' ? (fromDate || new Date())
-                    : showDatePicker === 'to' ? (toDate || new Date())
-                    : (fromDate || new Date())
+      {/* Custom Cross-Platform Calendar Modal */}
+      <Modal visible={showDatePicker !== null} transparent animationType="fade" onRequestClose={() => setShowDatePicker(null)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowDatePicker(null)} />
+          <View style={styles.calendarModalContent}>
+            {/* Header */}
+            <View style={styles.modalHeaderRow}>
+              <View style={{ width: 28 }} />
+              <Text style={styles.modalTitle}>
+                {showDatePicker === 'from' ? 'Chọn ngày bắt đầu' : showDatePicker === 'to' ? 'Chọn ngày kết thúc' : 'Chọn ngày'}
+              </Text>
+              <Pressable onPress={() => setShowDatePicker(null)} style={styles.modalCloseBtn}>
+                <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
+              </Pressable>
+            </View>
+
+            {/* Month / Year Navigator */}
+            <View style={styles.calendarNavRow}>
+              <TouchableOpacity onPress={handlePrevMonth} style={styles.calendarNavBtn}>
+                <MaterialCommunityIcons name="chevron-left" size={24} color="#1E293B" />
+              </TouchableOpacity>
+              <Text style={styles.calendarMonthTitle}>
+                {`Tháng ${calendarMonth + 1}, ${calendarYear}`}
+              </Text>
+              <TouchableOpacity onPress={handleNextMonth} style={styles.calendarNavBtn}>
+                <MaterialCommunityIcons name="chevron-right" size={24} color="#1E293B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Day of Week Row */}
+            <View style={styles.calendarWeekRow}>
+              {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((d, i) => (
+                <Text key={i} style={[styles.calendarWeekText, (i === 5 || i === 6) && styles.calendarWeekendText]}>
+                  {d}
+                </Text>
+              ))}
+            </View>
+
+            {/* Days Grid */}
+            {(() => {
+              const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+              const rawFirstDay = new Date(calendarYear, calendarMonth, 1).getDay();
+              const firstDayOffset = rawFirstDay === 0 ? 6 : rawFirstDay - 1;
+              const totalCells = Math.ceil((daysInMonth + firstDayOffset) / 7) * 7;
+              
+              const activeDate = showDatePicker === 'to' ? toDate : fromDate;
+              const today = new Date();
+
+              const cells = [];
+              for (let i = 0; i < totalCells; i++) {
+                const dayNum = i - firstDayOffset + 1;
+                if (dayNum < 1 || dayNum > daysInMonth) {
+                  cells.push(<View key={`empty-${i}`} style={styles.calendarDayCell} />);
+                } else {
+                  const isSelected = activeDate &&
+                    activeDate.getFullYear() === calendarYear &&
+                    activeDate.getMonth() === calendarMonth &&
+                    activeDate.getDate() === dayNum;
+                  
+                  const isToday = today.getFullYear() === calendarYear &&
+                    today.getMonth() === calendarMonth &&
+                    today.getDate() === dayNum;
+
+                  cells.push(
+                    <TouchableOpacity
+                      key={`day-${dayNum}`}
+                      style={[
+                        styles.calendarDayCell,
+                        isToday && styles.calendarDayToday,
+                        isSelected && styles.calendarDaySelected,
+                      ]}
+                      onPress={() => handleSelectDay(dayNum)}
+                    >
+                      <Text
+                        style={[
+                          styles.calendarDayText,
+                          isToday && styles.calendarDayTextToday,
+                          isSelected && styles.calendarDayTextSelected,
+                        ]}
+                      >
+                        {dayNum}
+                      </Text>
+                    </TouchableOpacity>
                   );
-                  if (showDatePicker === 'from' || showDatePicker === 'single') {
-                    setFromDate(targetDate);
-                  } else if (showDatePicker === 'to') {
-                    setToDate(targetDate);
-                  }
-                  setTempSelectedDate(null);
-                  setShowDatePicker(null);
-                }}>
-                  <Text style={[styles.iosPickerBtn, { fontWeight: '700' }]}>Xong</Text>
-                </Pressable>
-              </View>
-              {showDatePicker !== null && (
-                <DateTimePicker
-                  value={
-                    tempSelectedDate || (
-                      showDatePicker === 'from' ? (fromDate || new Date()) 
-                      : showDatePicker === 'to' ? (toDate || new Date())
-                      : (fromDate || new Date())
-                    )
-                  }
-                  mode="date"
-                  display="spinner"
-                  onChange={handleDateChange}
-                  textColor="#000"
-                  locale="vi-VN"
-                />
-              )}
+                }
+              }
+
+              return <View style={styles.calendarGrid}>{cells}</View>;
+            })()}
+
+            {/* Quick shortcuts */}
+            <View style={styles.calendarQuickActions}>
+              <TouchableOpacity style={styles.quickDateBtn} onPress={() => handleQuickDateSelect(0)}>
+                <Text style={styles.quickDateText}>Hôm nay</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.quickDateBtn} onPress={() => handleQuickDateSelect(1)}>
+                <Text style={styles.quickDateText}>Ngày mai</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.quickDateBtn, { backgroundColor: '#F1F5F9' }]} onPress={() => setShowDatePicker(null)}>
+                <Text style={[styles.quickDateText, { color: '#64748B' }]}>Đóng</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      ) : (
-        showDatePicker !== null && (
-          <DateTimePicker
-            value={
-              showDatePicker === 'from' ? (fromDate || new Date()) 
-              : showDatePicker === 'to' ? (toDate || new Date())
-              : (fromDate || new Date())
-            }
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
-          />
-        )
-      )}
+        </View>
+      </Modal>
 
       <SafeAreaView edges={['bottom']} style={styles.footerContainer}>
         <Text style={styles.requiredNoteText}>
@@ -1799,17 +2263,49 @@ const styles = StyleSheet.create({
   // Modal & Picker styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 24,
     paddingTop: 20,
     paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-    maxHeight: '60%',
+    paddingBottom: 20,
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '75%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  calendarModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  timeModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalHeaderRow: {
     flexDirection: 'row',
@@ -1818,15 +2314,221 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalCloseBtn: {
-    padding: 6,
+    width: 32,
+    height: 32,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#111827',
+    color: '#0F172A',
     textAlign: 'center',
+  },
+  calendarNavRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+    paddingHorizontal: 4,
+  },
+  calendarNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  calendarMonthTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  calendarWeekRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  calendarWeekText: {
+    width: '14.28%',
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  calendarWeekendText: {
+    color: '#EF4444',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: '100%',
+  },
+  calendarDayCell: {
+    width: '14.28%',
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    marginVertical: 2,
+  },
+  calendarDayToday: {
+    borderWidth: 1.5,
+    borderColor: '#0284C7',
+  },
+  calendarDaySelected: {
+    backgroundColor: '#1B382B',
+  },
+  calendarDayText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  calendarDayTextToday: {
+    color: '#0284C7',
+    fontWeight: '700',
+  },
+  calendarDayTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  calendarQuickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    gap: 8,
+  },
+  quickDateBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#F0FDF4',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+  },
+  quickDateText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#15803D',
+  },
+  timeDisplayBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  timeDisplayText: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#1B382B',
+    letterSpacing: 2,
+  },
+  pickerSectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    marginTop: 8,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  presetPillsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  presetPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  presetPillActive: {
+    backgroundColor: '#1B382B',
+    borderColor: '#1B382B',
+  },
+  presetPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  presetPillTextActive: {
+    color: '#FFFFFF',
+  },
+  selectorScrollRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  selectorChip: {
+    width: 44,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  selectorChipActive: {
+    backgroundColor: '#1B382B',
+    borderColor: '#1B382B',
+  },
+  selectorChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  selectorChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  timeModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  timeCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  timeCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  timeConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#1B382B',
+    alignItems: 'center',
+  },
+  timeConfirmBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   modalItem: {
     flexDirection: 'row',

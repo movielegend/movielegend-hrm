@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import ImageView from '../../components/ImageViewer/ImageViewer';
+import { resolveFileUrl } from '../../utils/url';
 import { spacing } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
 import { useEmployeeRequestById, useApproveEmployeeRequest, useRejectEmployeeRequest } from '../../hooks/useEmployeeRequests';
@@ -41,6 +42,7 @@ export function LeaderApprovalScreen() {
       case 'LATE_ARRIVAL': return { label: 'Đi muộn', color: '#F59E0B', icon: 'clock-in' };
       case 'EARLY_LEAVE': return { label: 'Về sớm', color: '#EF4444', icon: 'clock-out' };
       case 'OVERTIME': return { label: 'Làm thêm giờ', color: '#8B5CF6', icon: 'briefcase-clock' };
+      case 'BUSINESS_TRIP': return { label: 'Đi công tác', color: '#0284C7', icon: 'airplane' };
       case 'ADVANCE': return { label: 'Tạm ứng', color: '#14B8A6', icon: 'cash' };
       case 'EXPENSE': return { label: 'Thanh toán', color: '#F97316', icon: 'receipt' };
       case 'PURCHASE': return { label: 'Mua sắm', color: '#0EA5E9', icon: 'cart-outline' };
@@ -101,10 +103,14 @@ export function LeaderApprovalScreen() {
   };
 
   const handleReject = () => {
+    if (!comment.trim()) {
+      showAlert('Yêu cầu lý do', 'Vui lòng nhập lý do từ chối (bắt buộc theo quy trình duyệt chi phí Movie Legend).');
+      return;
+    }
     rejectMutation.mutate({
       id,
       payload: {
-        reason: comment.trim() || 'Không đáp ứng điều kiện duyệt',
+        reason: comment.trim(),
       }
     }, {
       onSuccess: () => {
@@ -154,10 +160,11 @@ export function LeaderApprovalScreen() {
         return 'HR đối chứng & duyệt';
       case 'PENDING_ADMIN':
       case 'ADMIN':
-        return 'Ban Giám Đốc duyệt';
+        return 'Ban Giám Đốc duyệt (A Kiên)';
+      case 'PENDING_ACCOUNTANT':
       case 'PENDING_DISBURSEMENT':
       case 'ACCOUNTANT':
-        return 'Kế toán giải ngân';
+        return 'Kế toán giải ngân (Chị Tâm)';
       default:
         return 'Cấp duyệt';
     }
@@ -232,13 +239,13 @@ export function LeaderApprovalScreen() {
       if (isAdmin) {
         canActOnCurrentStage = true;
       } else {
-        waitingStageDescription = 'HR đã đối chứng hồ sơ. Đang chờ Ban Giám Đốc phê duyệt hạn mức.';
+        waitingStageDescription = 'Đơn không VAT trên 2 triệu. Đang chờ Ban Giám Đốc (A Kiên) phê duyệt.';
       }
-    } else if (stage === 'PENDING_DISBURSEMENT') {
+    } else if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
       if (isAccountant || isAdmin) {
         canActOnCurrentStage = true;
       } else {
-        waitingStageDescription = 'Đơn đã được duyệt. Đang chờ Kế toán thực hiện giải ngân.';
+        waitingStageDescription = 'Đơn đã được duyệt. Đang chờ Kế toán (Chị Tâm) thực hiện giải ngân.';
       }
     }
   }
@@ -247,23 +254,26 @@ export function LeaderApprovalScreen() {
   let approveButtonLabel = 'Phê duyệt';
   let approveSubtext = '';
   if (isFinancial) {
-    if (stage === 'PENDING_DISBURSEMENT') {
+    if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
       approveButtonLabel = 'Xác nhận Giải ngân';
-      approveSubtext = 'Kế toán giải ngân & đóng đơn';
+      approveSubtext = 'Kế toán (Chị Tâm) giải ngân & hoàn tất';
     } else if (stage === 'PENDING_ADMIN') {
       approveButtonLabel = 'Duyệt chuyển Kế toán';
-      approveSubtext = 'Ban Giám Đốc duyệt hạn mức > 5M';
-    } else if (stage === 'PENDING_HR') {
-      if (amount > 5000000) {
-        approveButtonLabel = 'Đối chứng & Chuyển Admin';
-        approveSubtext = 'Xác nhận đủ điều kiện, chuyển Ban Giám Đốc';
-      } else {
-        approveButtonLabel = 'Duyệt chuyển Kế toán';
-        approveSubtext = 'Leader HR duyệt hạn mức ≤ 5M';
-      }
+      approveSubtext = 'Ban Giám Đốc (A Kiên) duyệt chi > 2 triệu';
     } else if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
-      approveButtonLabel = 'Duyệt chuyển HR';
-      approveSubtext = 'Trưởng bộ phận đồng ý, chuyển HR đối chứng';
+      if (request.type === 'EXPENSE') {
+        const hasVat = Boolean(meta.hasVat);
+        if (hasVat || amount <= 2000000) {
+          approveButtonLabel = 'Duyệt chuyển Kế toán';
+          approveSubtext = hasVat ? 'Có VAT: chuyển Chị Tâm chi' : 'Đơn ≤ 2 triệu: chuyển Chị Tâm chi';
+        } else {
+          approveButtonLabel = 'Duyệt chuyển Giám Đốc';
+          approveSubtext = 'K° VAT trên 2 triệu: chuyển A Kiên duyệt';
+        }
+      } else {
+        approveButtonLabel = 'Duyệt chuyển tiếp';
+        approveSubtext = 'Trưởng bộ phận phê duyệt';
+      }
     }
   }
 
@@ -355,6 +365,7 @@ export function LeaderApprovalScreen() {
         case 'LATE_ARRIVAL': return 'Duyệt đi muộn';
         case 'EARLY_LEAVE': return 'Duyệt về sớm';
         case 'OVERTIME': return 'Duyệt làm thêm giờ';
+        case 'BUSINESS_TRIP': return 'Duyệt đi công tác';
         default: return 'Phê duyệt đơn từ';
       }
     }
@@ -368,6 +379,7 @@ export function LeaderApprovalScreen() {
       case 'LATE_ARRIVAL': return 'Chi tiết đi muộn';
       case 'EARLY_LEAVE': return 'Chi tiết về sớm';
       case 'OVERTIME': return 'Chi tiết làm thêm giờ';
+      case 'BUSINESS_TRIP': return 'Chi tiết đi công tác';
       default: return 'Chi tiết đơn từ';
     }
   };
@@ -604,6 +616,81 @@ export function LeaderApprovalScreen() {
           </View>
         )}
 
+        {/* BUSINESS_TRIP */}
+        {request.type === 'BUSINESS_TRIP' && (
+          <View style={[styles.card, shadows.sm]}>
+            <Text style={styles.metaSectionTitle}>Thông tin đi công tác</Text>
+
+            {meta.location ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Địa điểm / Vị trí</Text>
+                <Text style={[styles.metaValue, { color: '#0F172A', fontWeight: '700' }]}>{meta.location}</Text>
+              </View>
+            ) : null}
+
+            {meta.fromDate ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Lịch trình công tác</Text>
+                <Text style={[styles.metaValue, { color: '#0284C7', fontWeight: '700' }]}>
+                  {meta.toDate && meta.toDate !== meta.fromDate
+                    ? `${formatDateStr(meta.fromDate)} - ${formatDateStr(meta.toDate)}`
+                    : formatDateStr(meta.fromDate)}
+                  {meta.startTime && meta.endTime
+                    ? ` (${formatTimeStr(meta.startTime)} - ${formatTimeStr(meta.endTime)})`
+                    : ''}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={[styles.approvalWorkflowBanner, { backgroundColor: '#F0F9FF', borderColor: '#BAE6FD', marginTop: 12, marginBottom: 0 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                <MaterialCommunityIcons name="information" size={16} color="#0284C7" />
+                <Text style={[styles.approvalWorkflowTitle, { color: '#0369A1', marginLeft: 4 }]}>
+                  Quy chế chấm công
+                </Text>
+              </View>
+              <Text style={[styles.approvalWorkflowSubtitle, { color: '#0C4A6E' }]}>
+                Khi phê duyệt, nhân sự sẽ được tự động ghi nhận 1 công/ngày cho các ngày trong lịch trình công tác.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* EXPENSE - VAT & Beneficiary */}
+        {request.type === 'EXPENSE' && (
+          <View style={[styles.card, shadows.sm]}>
+            <Text style={styles.metaSectionTitle}>Thông tin thanh toán & Hóa đơn</Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Phân loại VAT</Text>
+              <Text style={[styles.metaValue, { color: meta.hasVat ? '#059669' : '#D97706', fontWeight: '700' }]}>
+                {meta.hasVat ? 'Có hóa đơn VAT (Chị Tâm chi)' : 'Không VAT (Dưới 2tr: Chị Tâm | Trên 2tr: A Kiên)'}
+              </Text>
+            </View>
+            {(meta.beneficiaryBank || meta.beneficiaryAccount || meta.beneficiaryName) ? (
+              <>
+                {meta.beneficiaryBank && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngân hàng nhận</Text>
+                    <Text style={styles.metaValue}>{meta.beneficiaryBank}</Text>
+                  </View>
+                )}
+                {meta.beneficiaryAccount && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Số tài khoản</Text>
+                    <Text style={[styles.metaValue, { fontWeight: '700' }]}>{meta.beneficiaryAccount}</Text>
+                  </View>
+                )}
+                {meta.beneficiaryName && (
+                  <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                    <Text style={styles.metaLabel}>Chủ tài khoản</Text>
+                    <Text style={styles.metaValue}>{meta.beneficiaryName}</Text>
+                  </View>
+                )}
+              </>
+            ) : null}
+          </View>
+        )}
+
         {/* Bank info */}
         {meta.bankInfo && (
           <View style={[styles.card, shadows.sm]}>
@@ -630,30 +717,61 @@ export function LeaderApprovalScreen() {
         )}
 
         {/* 4. Attachments Card */}
-        {meta.image && (
+        {((Array.isArray(meta.images) && meta.images.length > 0) || meta.image) && (
           <View style={[styles.card, shadows.sm]}>
             <View style={styles.cardHeaderWithCount}>
-              <Text style={styles.metaSectionTitle}>Chứng từ đính kèm</Text>
-              <Text style={styles.attachmentCountBadge}>1 ảnh đính kèm</Text>
+              <Text style={styles.metaSectionTitle}>Hình ảnh / Chứng từ đính kèm</Text>
+              <Text style={styles.attachmentCountBadge}>
+                {Array.isArray(meta.images) && meta.images.length > 0
+                  ? `${meta.images.length} ảnh đính kèm`
+                  : '1 ảnh đính kèm'}
+              </Text>
             </View>
 
-            <TouchableOpacity 
-              activeOpacity={0.9}
-              onPress={() => setSelectedImage(meta.image)}
-              style={styles.imageCardContainer}
-            >
-              <Image 
-                source={{ uri: meta.image }} 
-                style={styles.imageCardDisplay} 
-                resizeMode="cover"
-              />
-              <View style={styles.imageCardOverlay}>
-                <View style={styles.imageCardBadge}>
-                  <MaterialCommunityIcons name="magnify-plus-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-                  <Text style={styles.imageCardBadgeText}>Chạm để xem chi tiết</Text>
-                </View>
+            {Array.isArray(meta.images) && meta.images.length > 0 ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
+                {meta.images.map((imgUrl: string, idx: number) => {
+                  const resolvedUrl = resolveFileUrl(imgUrl) || imgUrl;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      activeOpacity={0.9}
+                      onPress={() => setSelectedImage(resolvedUrl)}
+                      style={{ width: '48%', height: 130, borderRadius: 10, overflow: 'hidden', position: 'relative', borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 6, backgroundColor: '#F1F5F9' }}
+                    >
+                      <Image
+                        source={{ uri: resolvedUrl }}
+                        style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+                      />
+                      <View style={styles.imageCardOverlay}>
+                        <View style={[styles.imageCardBadge, { paddingHorizontal: 6, paddingVertical: 2 }]}>
+                          <MaterialCommunityIcons name="magnify-plus-outline" size={12} color="#FFFFFF" style={{ marginRight: 2 }} />
+                          <Text style={[styles.imageCardBadgeText, { fontSize: 10 }]}>Xem</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            </TouchableOpacity>
+            ) : meta.image ? (
+              <TouchableOpacity 
+                activeOpacity={0.9}
+                onPress={() => setSelectedImage(resolveFileUrl(meta.image) || meta.image)}
+                style={styles.imageCardContainer}
+              >
+                <Image 
+                  source={{ uri: resolveFileUrl(meta.image) || meta.image }} 
+                  style={styles.imageCardDisplay} 
+                  resizeMode="cover"
+                />
+                <View style={styles.imageCardOverlay}>
+                  <View style={styles.imageCardBadge}>
+                    <MaterialCommunityIcons name="magnify-plus-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                    <Text style={styles.imageCardBadgeText}>Chạm để xem chi tiết</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ) : null}
           </View>
         )}
 
@@ -1240,5 +1358,23 @@ const styles = StyleSheet.create({
   finalStatusBannerText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  approvalWorkflowBanner: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  approvalWorkflowTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  approvalWorkflowSubtitle: {
+    fontSize: 12,
+    color: '#374151',
+    lineHeight: 18,
   },
 });

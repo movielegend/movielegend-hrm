@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { useMyEmployeeRequests, useEmployeeRequestById } from '../../hooks/useEmployeeRequests';
+import { resolveFileUrl } from '../../utils/url';
 import { shadows } from '../../theme/shadows';
 import { spacing } from '../../theme/spacing';
 
@@ -36,9 +37,10 @@ export function EmployeeRequestsHomeScreen() {
         case 'PENDING_HR':
           return { text: 'Chờ HR đối chứng', color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.1)' };
         case 'PENDING_ADMIN':
-          return { text: 'Chờ Admin duyệt', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' };
+          return { text: 'Chờ A Kiên duyệt', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' };
+        case 'PENDING_ACCOUNTANT':
         case 'PENDING_DISBURSEMENT':
-          return { text: 'Chờ Kế toán giải ngân', color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' };
+          return { text: 'Chờ Chị Tâm giải ngân', color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' };
         default:
           return { text: 'Đang chờ duyệt', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)' };
       }
@@ -147,6 +149,7 @@ export function EmployeeRequestDetailScreen() {
       case 'LATE_ARRIVAL': return { label: 'Đi muộn', color: '#F59E0B', icon: 'clock-in' };
       case 'EARLY_LEAVE': return { label: 'Về sớm', color: '#EF4444', icon: 'clock-out' };
       case 'OVERTIME': return { label: 'Làm thêm giờ', color: '#8B5CF6', icon: 'briefcase-clock' };
+      case 'BUSINESS_TRIP': return { label: 'Đi công tác', color: '#0284C7', icon: 'airplane' };
       case 'ADVANCE': return { label: 'Tạm ứng', color: '#14B8A6', icon: 'cash' };
       case 'EXPENSE': return { label: 'Thanh toán', color: '#F97316', icon: 'receipt' };
       case 'PURCHASE': return { label: 'Mua sắm', color: '#0EA5E9', icon: 'cart-outline' };
@@ -175,9 +178,10 @@ export function EmployeeRequestDetailScreen() {
         case 'PENDING_HR':
           return { text: 'Chờ HR đối chứng', color: '#3B82F6', bg: '#DBEAFE' };
         case 'PENDING_ADMIN':
-          return { text: 'Chờ Admin duyệt', color: '#8B5CF6', bg: '#EDE9FE' };
+          return { text: 'Chờ A Kiên duyệt', color: '#8B5CF6', bg: '#EDE9FE' };
+        case 'PENDING_ACCOUNTANT':
         case 'PENDING_DISBURSEMENT':
-          return { text: 'Chờ Kế toán giải ngân', color: '#F97316', bg: '#FFEDD5' };
+          return { text: 'Chờ Chị Tâm giải ngân', color: '#F97316', bg: '#FFEDD5' };
         default:
           return { text: 'Đang chờ duyệt', color: '#F59E0B', bg: '#FEF3C7' };
       }
@@ -265,6 +269,41 @@ export function EmployeeRequestDetailScreen() {
               <Text style={styles.reasonLabel}>Nội dung chi tiết:</Text>
               <Text style={styles.reasonText}>"{request.content}"</Text>
             </View>
+
+            {/* Chi tiết thông tin Đơn Thanh toán (EXPENSE) */}
+            {request.type === 'EXPENSE' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="receipt" size={18} color="#F97316" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#C2410C', marginBottom: 0 }]}>
+                    THÔNG TIN THANH TOÁN & HÓA ĐƠN
+                  </Text>
+                </View>
+
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Phân loại VAT:</Text>
+                  <Text style={[styles.metaValueBold, { color: meta.hasVat ? '#059669' : '#D97706' }]}>
+                    {meta.hasVat ? 'Có hóa đơn VAT (Chị Tâm giải ngân)' : 'Không VAT (Dưới 2tr: Chị Tâm | Trên 2tr: A Kiên)'}
+                  </Text>
+                </View>
+
+                {meta.fromDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày phát sinh:</Text>
+                    <Text style={styles.metaValueBold}>{formatDateStr(meta.fromDate)}</Text>
+                  </View>
+                ) : null}
+
+                {(meta.beneficiaryBank || meta.beneficiaryAccount || meta.beneficiaryName) ? (
+                  <View style={[styles.metaRow, { borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 8, marginTop: 4 }]}>
+                    <Text style={styles.metaLabel}>Tài khoản nhận:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#0F172A' }]}>
+                      {meta.beneficiaryBank} - {meta.beneficiaryAccount} ({meta.beneficiaryName})
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
 
             {/* 1. Chi tiết thông tin Đơn Nghỉ Phép (LEAVE) */}
             {request.type === 'LEAVE' && (
@@ -441,6 +480,44 @@ export function EmployeeRequestDetailScreen() {
               </View>
             )}
 
+            {/* 5. Chi tiết Đi công tác (BUSINESS_TRIP) */}
+            {request.type === 'BUSINESS_TRIP' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="airplane" size={18} color="#0284C7" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#0369A1', marginBottom: 0 }]}>
+                    THÔNG TIN ĐI CÔNG TÁC
+                  </Text>
+                </View>
+
+                {meta.location ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Địa điểm / Vị trí:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#0F172A' }]}>{meta.location}</Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaLabel}>Thời gian công tác:</Text>
+                  <Text style={[styles.metaValueBold, { color: '#0284C7' }]}>
+                    {meta.toDate && meta.toDate !== meta.fromDate
+                      ? `Từ ${formatDateStr(meta.fromDate)} đến ${formatDateStr(meta.toDate)}`
+                      : formatDateStr(meta.fromDate)}
+                    {meta.startTime && meta.endTime
+                      ? ` (${formatTimeStr(meta.startTime)} - ${formatTimeStr(meta.endTime)})`
+                      : ''}
+                  </Text>
+                </View>
+
+                <View style={[styles.metaRow, { borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 8, marginTop: 4 }]}>
+                  <Text style={styles.metaLabel}>Quyền lợi:</Text>
+                  <Text style={[styles.metaValueBold, { color: '#059669' }]}>
+                    +1 công/ngày khi được duyệt
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {meta.bankInfo && (
               <View style={{ backgroundColor: '#F0F9FF', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#BAE6FD' }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1', marginBottom: 6 }}>
@@ -464,25 +541,46 @@ export function EmployeeRequestDetailScreen() {
               </View>
             )}
 
-            {meta.image && (
+            {Array.isArray(meta.images) && meta.images.length > 0 ? (
+              <View style={styles.attachmentBox}>
+                <Text style={styles.attachmentLabel}>Hình ảnh minh họa ({meta.images.length} ảnh):</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                  {meta.images.map((imgUrl: string, idx: number) => {
+                    const resolvedUrl = resolveFileUrl(imgUrl) || imgUrl;
+                    return (
+                      <TouchableOpacity 
+                        key={idx} 
+                        onPress={() => setSelectedImage(resolvedUrl)}
+                        style={{ width: 90, height: 90, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F1F5F9' }}
+                      >
+                        <Image 
+                          source={{ uri: resolvedUrl }} 
+                          style={{ width: '100%', height: '100%', resizeMode: 'cover' }} 
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : meta.image ? (
               <View style={styles.attachmentBox}>
                 <Text style={styles.attachmentLabel}>Ảnh chứng từ/hóa đơn đính kèm:</Text>
-                <TouchableOpacity onPress={() => setSelectedImage(meta.image)}>
+                <TouchableOpacity onPress={() => setSelectedImage(resolveFileUrl(meta.image) || meta.image)}>
                   <Image 
-                    source={{ uri: meta.image }} 
+                    source={{ uri: resolveFileUrl(meta.image) || meta.image }} 
                     style={styles.evidenceImage} 
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
               </View>
-            )}
+            ) : null}
 
             {meta.disbursementProofUrl && (
               <View style={[styles.attachmentBox, { marginTop: 16, backgroundColor: '#F0FDF4', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#BBF7D0' }]}>
                 <Text style={[styles.attachmentLabel, { color: '#15803D' }]}>Biên lai / Chứng từ giải ngân từ Kế toán:</Text>
-                <TouchableOpacity onPress={() => setSelectedImage(meta.disbursementProofUrl)}>
+                <TouchableOpacity onPress={() => setSelectedImage(resolveFileUrl(meta.disbursementProofUrl) || meta.disbursementProofUrl)}>
                   <Image 
-                    source={{ uri: meta.disbursementProofUrl }} 
+                    source={{ uri: resolveFileUrl(meta.disbursementProofUrl) || meta.disbursementProofUrl }} 
                     style={styles.evidenceImage} 
                     resizeMode="contain"
                   />
@@ -525,8 +623,8 @@ export function EmployeeRequestDetailScreen() {
               let stepTitle = 'Phê duyệt';
               if (step.stage === 'PENDING_LEADER' || step.action === 'LEADER_APPROVED') stepTitle = 'Trưởng bộ phận duyệt';
               else if (step.stage === 'PENDING_HR' || step.action === 'HR_VERIFIED' || step.action === 'HR_APPROVED') stepTitle = 'HR đối chứng & duyệt';
-              else if (step.stage === 'PENDING_ADMIN' || step.action === 'ADMIN_APPROVED') stepTitle = 'Ban Giám Đốc duyệt';
-              else if (step.stage === 'PENDING_DISBURSEMENT' || isDisbursed) stepTitle = 'Kế toán giải ngân';
+              else if (step.stage === 'PENDING_ADMIN' || step.action === 'ADMIN_APPROVED') stepTitle = 'Ban Giám Đốc duyệt (A Kiên)';
+              else if (step.stage === 'PENDING_ACCOUNTANT' || step.stage === 'PENDING_DISBURSEMENT' || isDisbursed) stepTitle = 'Kế toán giải ngân (Chị Tâm)';
 
               return (
                 <View key={idx} style={[styles.timelineRow, isLast && { marginBottom: 0 }]}>
@@ -567,16 +665,16 @@ export function EmployeeRequestDetailScreen() {
                     <Text style={[styles.timelineTitle, { color: '#D97706' }]}>
                       {meta.stage === 'PENDING_LEADER' ? 'Chờ Leader duyệt' :
                        meta.stage === 'PENDING_HR' ? 'Chờ Leader HR đối chứng' :
-                       meta.stage === 'PENDING_ADMIN' ? 'Chờ Ban Giám Đốc duyệt' :
-                       meta.stage === 'PENDING_DISBURSEMENT' ? 'Chờ Kế toán giải ngân' :
+                       meta.stage === 'PENDING_ADMIN' ? 'Chờ Ban Giám Đốc duyệt (A Kiên)' :
+                       meta.stage === 'PENDING_ACCOUNTANT' || meta.stage === 'PENDING_DISBURSEMENT' ? 'Chờ Kế toán giải ngân (Chị Tâm)' :
                        'Đang chờ xem xét'}
                     </Text>
                   </View>
                   <Text style={styles.timelineDesc}>
-                    {meta.stage === 'PENDING_LEADER' ? 'Đang chờ Trưởng bộ phận xem xét và chuyển HR' :
+                    {meta.stage === 'PENDING_LEADER' ? 'Đang chờ Trưởng bộ phận xem xét và phê duyệt' :
                      meta.stage === 'PENDING_HR' ? 'HR đang đối chứng bảng lương & hợp đồng' :
-                     meta.stage === 'PENDING_ADMIN' ? 'Ban Giám Đốc đang xem xét phê duyệt đơn trên 5 triệu' :
-                     meta.stage === 'PENDING_DISBURSEMENT' ? 'Kế toán đang tiến hành chuyển khoản giải ngân' :
+                     meta.stage === 'PENDING_ADMIN' ? 'Đơn không VAT trên 2 triệu đang chờ Ban Giám Đốc (A Kiên) phê duyệt' :
+                     meta.stage === 'PENDING_ACCOUNTANT' || meta.stage === 'PENDING_DISBURSEMENT' ? 'Kế toán (Chị Tâm) đang tiến hành giải ngân chi tiền' :
                      'Đơn đang được xử lý theo quy trình'}
                   </Text>
                 </View>
