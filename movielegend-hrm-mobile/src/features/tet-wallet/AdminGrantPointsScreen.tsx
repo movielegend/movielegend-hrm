@@ -252,7 +252,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
         </Pressable>
         <View style={styles.navLogoCenter}>
           <Text style={styles.navLogoText}>
-            MOVIE <MaterialCommunityIcons name="filmstrip" size={13} color="#0563bb" /> LEGEND
+            MOVIE <MaterialCommunityIcons name="video-vintage" size={13} color="#204E3B" /> LEGEND
           </Text>
         </View>
         <View style={{ width: 38 }} />
@@ -332,10 +332,12 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             <View style={styles.bigPointsSection}>
               <Text style={styles.fieldSectionTitle}>Số điểm trao tặng</Text>
               <View style={styles.bigPointsCenter}>
-                <Text style={styles.bigPointsNumber}>
-                  {pointsToGrant.toLocaleString('vi-VN')}{' '}
+                <View style={styles.bigPointsNumberRow}>
+                  <Text style={styles.bigPointsNumber}>
+                    {pointsToGrant.toLocaleString('vi-VN')}
+                  </Text>
                   <Text style={styles.bigPointsUnit}>điểm</Text>
-                </Text>
+                </View>
                 <View style={styles.cashEquivalentPill}>
                   <Text style={styles.cashEquivalentText}>
                     = {(pointsToGrant * 1000).toLocaleString('vi-VN')} VNĐ
@@ -440,6 +442,8 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
                     </Pressable>
                   );
                 })}
+                {/* 4th spacer column to keep identical width as Row 1 */}
+                <View style={{ flex: 1 }} />
               </View>
             </View>
 
@@ -457,14 +461,14 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             {/* Summary Box */}
             <View style={styles.stepTwoSummaryBox}>
               <View style={styles.summaryBoxCol}>
-                <MaterialCommunityIcons name="gift-outline" size={20} color="#0563bb" />
+                <MaterialCommunityIcons name="gift-outline" size={20} color="#204E3B" />
                 <Text style={styles.summaryBoxValue}>
                   {pointsToGrant.toLocaleString('vi-VN')} điểm
                 </Text>
               </View>
               <View style={styles.summaryBoxDivider} />
               <View style={styles.summaryBoxCol}>
-                <Ionicons name="time-outline" size={20} color="#0563bb" />
+                <Ionicons name="time-outline" size={20} color="#204E3B" />
                 <Text style={styles.summaryBoxValue}>{durationMonths} tháng</Text>
               </View>
             </View>
@@ -669,7 +673,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
                   {opt.label}
                 </Text>
                 {intervalMonths === opt.value && (
-                  <Ionicons name="checkmark" size={18} color="#0563bb" />
+                  <Ionicons name="checkmark" size={18} color="#204E3B" />
                 )}
               </Pressable>
             ))}
@@ -722,31 +726,30 @@ const styles = StyleSheet.create({
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    paddingVertical: 14,
   },
   stepNode: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   stepCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCircleActive: {
-    backgroundColor: '#0563bb',
+    backgroundColor: '#204E3B',
   },
   stepCircleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#9CA3AF',
   },
   stepCircleTextActive: {
     color: '#FFFFFF',
@@ -754,25 +757,25 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#64748B',
+    color: '#9CA3AF',
   },
   stepLabelActive: {
-    color: '#0F172A',
+    color: '#111827',
     fontWeight: '700',
   },
   stepLine: {
-    flex: 1,
-    height: 2,
-    backgroundColor: '#E2E8F0',
+    width: 44,
+    height: 1.5,
+    backgroundColor: '#CBD5E1',
     marginHorizontal: 12,
   },
   stepLineActive: {
-    backgroundColor: '#0563bb',
+    backgroundColor: '#204E3B',
   },
 
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 8,
     paddingBottom: 40,
   },
 
@@ -781,38 +784,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 12,
+    borderColor: '#ECEEF0',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     marginBottom: 20,
   },
   recipientAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    backgroundColor: '#E2EBE5',
     alignItems: 'center',
     justifyContent: 'center',
   },
   recipientAvatarText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#0563bb',
+    color: '#204E3B',
   },
   recipientNameText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#111827',
   },
   recipientSubText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#6B7280',
     marginTop: 2,
   },
   recipientGrantedText: {
-    fontSize: 11,
-    color: '#64748B',
+    fontSize: 12,
+    color: '#6B7280',
     fontWeight: '500',
   },
 
@@ -824,38 +828,41 @@ const styles = StyleSheet.create({
   fieldSectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#111827',
     alignSelf: 'flex-start',
     marginBottom: 8,
   },
   fieldSectionSubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#6B7280',
     alignSelf: 'flex-start',
     marginBottom: 12,
   },
   bigPointsCenter: {
     alignItems: 'center',
-    marginVertical: 12,
+    marginVertical: 10,
+  },
+  bigPointsNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
   },
   bigPointsNumber: {
-    fontSize: 34,
+    fontSize: 38,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#111827',
   },
   bigPointsUnit: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#111827',
   },
   cashEquivalentPill: {
     backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 5,
-    borderRadius: 8,
-    marginTop: 6,
+    borderRadius: 20,
+    marginTop: 8,
   },
   cashEquivalentText: {
     fontSize: 13,
@@ -868,26 +875,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   presetGridBtn: {
-    width: '31%',
+    width: '31.3%',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    height: 42,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   presetGridBtnActive: {
-    backgroundColor: '#0563bb',
-    borderColor: '#0563bb',
+    backgroundColor: '#204E3B',
+    borderColor: '#204E3B',
   },
   presetGridBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#111827',
   },
   presetGridBtnTextActive: {
     color: '#FFFFFF',
@@ -896,11 +903,11 @@ const styles = StyleSheet.create({
   customPointsHintRow: {
     alignItems: 'center',
     paddingVertical: 6,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   customPointsHintText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#9CA3AF',
   },
 
   customInputBox: {
@@ -930,7 +937,7 @@ const styles = StyleSheet.create({
 
   /* Duration Section */
   durationSection: {
-    marginTop: 8,
+    marginTop: 4,
     marginBottom: 20,
   },
   durationRow: {
@@ -941,20 +948,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    height: 38,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   durationPillActive: {
-    backgroundColor: '#0563bb',
-    borderColor: '#0563bb',
+    backgroundColor: '#204E3B',
+    borderColor: '#204E3B',
   },
   durationPillText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#0F172A',
+    color: '#111827',
   },
   durationPillTextActive: {
     color: '#FFFFFF',
@@ -964,23 +971,27 @@ const styles = StyleSheet.create({
   conversionNoteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingTop: 4,
+    gap: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   conversionNoteText: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 13,
+    color: '#4B5563',
+    fontWeight: '500',
   },
 
-  /* Step 2 Elements (Screen 4) */
+  /* Step 2 Elements */
   stepTwoSummaryBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 14,
+    borderColor: '#ECEEF0',
+    padding: 16,
     marginBottom: 18,
   },
   summaryBoxCol: {
@@ -993,12 +1004,12 @@ const styles = StyleSheet.create({
   summaryBoxDivider: {
     width: 1,
     height: 24,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E5E7EB',
   },
   summaryBoxValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#111827',
   },
 
   fieldGroup: {
@@ -1007,7 +1018,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: '#374151',
     marginBottom: 6,
   },
   dropdownBtn: {
@@ -1017,13 +1028,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
     paddingHorizontal: 14,
     height: 44,
   },
   dropdownBtnText: {
     fontSize: 14,
-    color: '#0F172A',
+    color: '#111827',
     fontWeight: '500',
   },
 
@@ -1034,14 +1045,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
     paddingHorizontal: 14,
     height: 44,
     marginBottom: 8,
   },
   dateInputText: {
     fontSize: 14,
-    color: '#0F172A',
+    color: '#111827',
     fontWeight: '500',
   },
   datePresetRow: {
@@ -1052,20 +1063,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
     borderRadius: 8,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   datePresetBtnActive: {
-    backgroundColor: '#0563bb',
-    borderColor: '#0563bb',
+    backgroundColor: '#204E3B',
+    borderColor: '#204E3B',
   },
   datePresetBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#6B7280',
   },
   datePresetBtnTextActive: {
     color: '#FFFFFF',
@@ -1084,7 +1095,7 @@ const styles = StyleSheet.create({
   },
   timelineCountText: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#6B7280',
     fontWeight: '600',
   },
   timelineList: {
@@ -1100,7 +1111,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    backgroundColor: '#E2EBE5',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
@@ -1108,7 +1119,7 @@ const styles = StyleSheet.create({
   timelineNodeText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#0563bb',
+    color: '#204E3B',
   },
   timelineDottedLine: {
     position: 'absolute',
@@ -1126,33 +1137,33 @@ const styles = StyleSheet.create({
   milestoneBatchTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0F172A',
+    color: '#111827',
   },
   milestonePointsText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0563bb',
+    color: '#204E3B',
     marginTop: 1,
   },
   lockedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3F4F6',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   lockedBadgeText: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#6B7280',
     fontWeight: '500',
   },
 
   /* Footer */
   footerBar: {
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#E5E7EB',
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
@@ -1164,20 +1175,20 @@ const styles = StyleSheet.create({
   },
   stepCounterText: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#6B7280',
     fontWeight: '600',
   },
   continueBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#0563bb',
+    backgroundColor: '#204E3B',
     borderRadius: 12,
-    height: 46,
-    paddingHorizontal: 24,
+    height: 48,
+    paddingHorizontal: 32,
   },
   continueBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -1189,25 +1200,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   totalGrantLabel: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#6B7280',
     fontWeight: '500',
   },
   totalGrantValue: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#111827',
   },
   confirmGrantBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#0563bb',
+    backgroundColor: '#204E3B',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1232,7 +1243,7 @@ const styles = StyleSheet.create({
   modalBoxTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#111827',
     marginBottom: 12,
   },
   modalOptionRow: {
@@ -1241,17 +1252,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F3F4F6',
   },
   modalOptionRowActive: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F9FAFB',
   },
   modalOptionText: {
     fontSize: 14,
-    color: '#0F172A',
+    color: '#111827',
   },
   modalOptionTextActive: {
-    color: '#0563bb',
+    color: '#204E3B',
     fontWeight: '700',
   },
 });

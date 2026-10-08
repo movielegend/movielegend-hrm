@@ -381,7 +381,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
             <MaterialCommunityIcons
               name="file-document-check-outline"
               size={36}
-              color="#0563bb"
+              color="#204E3B"
             />
           </View>
           <Text style={styles.customEmptyTitle}>Chưa có yêu cầu chờ duyệt</Text>
@@ -987,7 +987,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   filterPillActive: {
-    backgroundColor: '#0563bb',
+    backgroundColor: '#204E3B',
   },
   filterPillText: {
     fontSize: 12,
