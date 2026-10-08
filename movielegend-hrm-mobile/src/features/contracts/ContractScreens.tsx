@@ -474,9 +474,24 @@ export function ContractListScreen() {
   const { showAlert, showConfirm } = useAppAlert();
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
+  const [departmentModalVisible, setDepartmentModalVisible] = useState(false);
   const [selectedContractMenu, setSelectedContractMenu] = useState<any | null>(null);
+
+  const departmentsQuery = useDepartments({ limit: 1000 });
+  const departmentsData = Array.isArray(departmentsQuery.data)
+    ? departmentsQuery.data
+    : departmentsQuery.data?.items || departmentsQuery.data?.data || [];
+
+  const departmentFilterOptions: SelectOption[] = useMemo(() => {
+    return [
+      { id: "ALL", label: "Tất cả phòng ban" },
+      ...departmentsData.map((d: any) => ({
+        id: d.id,
+        label: d.name,
+      })),
+    ];
+  }, [departmentsData]);
 
   const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
@@ -487,9 +502,25 @@ export function ContractListScreen() {
 
   const filteredContracts = useMemo(() => {
     return rawContractItems.filter((contract: any) => {
-      if (statusFilter !== "ALL" && contract.status !== statusFilter) {
-        return false;
+      // 1. Lọc theo Phòng ban
+      if (departmentFilter !== "ALL") {
+        const u = contract.user;
+        const matchesDept =
+          u?.departmentId === departmentFilter ||
+          u?.department?.id === departmentFilter ||
+          contract.departmentId === departmentFilter ||
+          (u?.departmentLinks &&
+            u.departmentLinks.some(
+              (l: any) =>
+                l.departmentId === departmentFilter ||
+                l.department?.id === departmentFilter,
+            ));
+        if (!matchesDept) {
+          return false;
+        }
       }
+
+      // 2. Tìm kiếm theo tên hoặc mã
       if (search.trim()) {
         const query = search.trim().toLowerCase();
         const empName = (
@@ -506,14 +537,14 @@ export function ContractListScreen() {
       }
       return true;
     });
-  }, [rawContractItems, statusFilter, search]);
+  }, [rawContractItems, departmentFilter, search]);
 
-  const selectedStatusLabel = useMemo(() => {
+  const selectedDepartmentLabel = useMemo(() => {
     return (
-      STATUS_FILTER_OPTIONS.find((opt) => opt.id === statusFilter)?.label ||
-      "Tất cả trạng thái"
+      departmentFilterOptions.find((opt) => opt.id === departmentFilter)?.label ||
+      "Tất cả phòng ban"
     );
-  }, [statusFilter]);
+  }, [departmentFilterOptions, departmentFilter]);
 
   const handleDeleteContract = (contract: any) => {
     showConfirm({
@@ -584,9 +615,9 @@ export function ContractListScreen() {
 
         <Pressable
           style={cStyles.statusDropdown}
-          onPress={() => setStatusModalVisible(true)}
+          onPress={() => setDepartmentModalVisible(true)}
         >
-          <Text style={cStyles.statusDropdownText}>{selectedStatusLabel}</Text>
+          <Text style={cStyles.statusDropdownText} numberOfLines={1}>{selectedDepartmentLabel}</Text>
           <Ionicons name="chevron-down" size={18} color="#64748B" />
         </Pressable>
       </View>
@@ -680,17 +711,18 @@ export function ContractListScreen() {
         )}
       </ScrollView>
 
-      {/* Select Status Modal */}
+      {/* Select Department Modal */}
       <SelectModal
-        visible={statusModalVisible}
-        title="Chọn trạng thái hợp đồng"
-        options={STATUS_FILTER_OPTIONS}
-        selectedValue={statusFilter}
+        visible={departmentModalVisible}
+        title="Chọn phòng ban"
+        options={departmentFilterOptions}
+        selectedValue={departmentFilter}
+        isLoading={departmentsQuery.isLoading}
         onSelect={(opt) => {
-          setStatusFilter(opt.id || "ALL");
-          setStatusModalVisible(false);
+          setDepartmentFilter(opt.id || "ALL");
+          setDepartmentModalVisible(false);
         }}
-        onClose={() => setStatusModalVisible(false)}
+        onClose={() => setDepartmentModalVisible(false)}
       />
 
       {/* Action Sheet Modal */}
