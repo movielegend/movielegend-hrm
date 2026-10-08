@@ -18,6 +18,7 @@ import { ConfirmModal } from '../../components/ConfirmModal';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge, toneForStatus } from '../../components/StatusBadge';
 import { colors } from '../../theme/colors';
@@ -483,98 +484,13 @@ export function AttachmentList({
       onClose={() => setPdfPreviewUrl(null)}
     />
 
-    {/* Modal xem Ảnh trực tiếp trong App */}
-    <Modal
+    {/* Modal xem Ảnh trực tiếp trong App có hỗ trợ Pinch to Zoom */}
+    <ImageView
+      images={imagePreviewUri ? [{ uri: imagePreviewUri }] : []}
+      imageIndex={0}
       visible={!!imagePreviewUri}
-      animationType="fade"
-      transparent={true}
-      statusBarTranslucent={true}
       onRequestClose={() => setImagePreviewUri(null)}
-    >
-      <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)' }}>
-        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
-        <SafeAreaView edges={['bottom']} style={{ flex: 1 }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 8 : 50,
-              paddingBottom: 12,
-              paddingHorizontal: 12,
-              backgroundColor: 'rgba(20, 20, 20, 0.95)',
-              gap: 8,
-              borderBottomWidth: 1,
-              borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-              zIndex: 20,
-            }}
-          >
-            <Pressable
-              onPress={() => setImagePreviewUri(null)}
-              style={({ pressed }) => [
-                {
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
-                  backgroundColor: '#374151',
-                  borderRadius: 8,
-                },
-                pressed && { opacity: 0.7 },
-              ]}
-              hitSlop={10}
-            >
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>✕ Đóng</Text>
-            </Pressable>
-            <Text style={{ color: '#fff', flex: 1, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
-              {previewTitle}
-            </Text>
-            {imagePreviewUri ? (
-              <Pressable
-                onPress={async () => {
-                  try {
-                    let shareUri = imagePreviewUri;
-                    if (imagePreviewUri.startsWith('http')) {
-                      const cleanName = (previewTitle || 'image.jpg').replace(/[^a-zA-Z0-9.-]/g, '_');
-                      const localUri = `${FileSystem.cacheDirectory || FileSystem.documentDirectory}${cleanName}`;
-                      const { uri } = await FileSystem.downloadAsync(imagePreviewUri, localUri, {
-                        headers: { 'ngrok-skip-browser-warning': 'true' }
-                      });
-                      shareUri = uri;
-                    }
-                    await Sharing.shareAsync(shareUri);
-                  } catch (shareErr) {
-                    console.error('Share error:', shareErr);
-                  }
-                }}
-                style={({ pressed }) => [
-                  {
-                    paddingHorizontal: 12,
-                    paddingVertical: 7,
-                    backgroundColor: colors.primary,
-                    borderRadius: 8,
-                  },
-                  pressed && { opacity: 0.8 },
-                ]}
-                hitSlop={10}
-              >
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Chia sẻ</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          {imagePreviewUri ? (
-            <ScrollView
-              contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
-              maximumZoomScale={3}
-              minimumZoomScale={1}
-            >
-              <Image
-                source={{ uri: imagePreviewUri }}
-                style={{ width: '100%', height: '100%' }}
-                resizeMode="contain"
-              />
-            </ScrollView>
-          ) : null}
-        </SafeAreaView>
-      </View>
-    </Modal>
+    />
 
     <View style={styles.stack}>
       {attachments.map((attachment) => {

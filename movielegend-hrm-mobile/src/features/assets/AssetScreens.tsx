@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
 import { useAppAlert } from '../../contexts/AlertContext';
-import {RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image, Switch, Platform, ActivityIndicator} from 'react-native';
+import {RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image, Switch, Platform, ActivityIndicator, StatusBar} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
@@ -224,42 +225,148 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
 
 export function AssetListScreen({ area }: { area: AssetArea }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const assets = useAssets();
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
 
-  const statuses = useMemo(() => {
-    const found = new Set((assets.data?.items ?? []).map((asset) => asset.assetStatus));
-    return ['ALL', ...found];
-  }, [assets.data]);
+  const filterOptions = useMemo(() => [
+    { id: 'ALL', label: 'Tất cả' },
+    { id: 'AVAILABLE', label: 'Sẵn sàng / Trong kho' },
+    { id: 'IN_USE', label: 'Đang sử dụng' },
+    { id: 'MAINTENANCE', label: 'Bảo trì / Sửa chữa' },
+    { id: 'BROKEN', label: 'Hỏng hóc' },
+    { id: 'DISPOSED', label: 'Đã thanh lý' },
+  ], []);
 
-  const visible = (assets.data?.items ?? []).filter((asset) => statusFilter === 'ALL' || asset.assetStatus === statusFilter);
+  const currentFilterLabel = useMemo(() => {
+    return filterOptions.find(f => f.id === statusFilter)?.label || 'Tất cả';
+  }, [filterOptions, statusFilter]);
+
+  const items = assets.data?.items ?? [];
+  const visible = items.filter((asset) => statusFilter === 'ALL' || asset.assetStatus === statusFilter);
 
   return (
-    <Screen>
-      <ScreenContainer refreshControl={<RefreshControl refreshing={assets.isRefetching} onRefresh={() => void assets.refetch()} />}>
-        <PageHeader title="Quản lý Tài sản" subtitle="Danh sách và tình trạng toàn bộ tài sản, thiết bị" />
-        {area === 'admin' && hasPermission(user, 'asset.create') ? (
-          <PrimaryButton onPress={() => router.push('/admin/assets/create' as never)}>Tạo tài sản</PrimaryButton>
-        ) : null}
-        <View style={styles.chipRow}>
-          {statuses.map((status) => (
-            <FilterChip
-              key={status}
-              label={status === 'ALL' ? 'Tất cả' : (assetStatusLabels[status as AssetStatus] || status)}
-              selected={statusFilter === status}
-              onPress={() => setStatusFilter(status)}
-            />
-          ))}
+    <View style={adminAssetStyles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      
+      {/* Header Container */}
+      <View style={[adminAssetStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <Text style={adminAssetStyles.brandText}>MOVIE LEGEND</Text>
+        <Text style={adminAssetStyles.title}>Quản lý tài sản</Text>
+        <Text style={adminAssetStyles.subtitle}>Theo dõi tài sản & thiết bị.</Text>
+      </View>
+
+      {/* Main White Curved Sheet */}
+      <View style={adminAssetStyles.curvedCard}>
+        {/* Card Header */}
+        <View style={adminAssetStyles.listCardHeader}>
+          <Text style={adminAssetStyles.listCardTitle}>Danh sách tài sản</Text>
+          <Text style={adminAssetStyles.listCardCount}>{visible.length} tài sản</Text>
         </View>
-        {assets.isLoading ? <LoadingState /> : null}
-        {assets.isError ? <ErrorState error={assets.error} onRetry={() => void assets.refetch()} /> : null}
-        {visible.map((asset) => (
-          <AssetCard key={asset.id} asset={asset} onPress={() => router.push(`${assetBase(area)}/${asset.id}` as never)} />
-        ))}
-        {assets.data && !visible.length ? <EmptyState title="Không có tài sản" /> : null}
-      </ScreenContainer>
-    </Screen>
+
+        {/* Filter Pill */}
+        <View style={adminAssetStyles.filterPillRow}>
+          <Pressable 
+            style={adminAssetStyles.filterPill} 
+            onPress={() => setShowFilterModal(true)}
+          >
+            <MaterialCommunityIcons name="menu" size={16} color="#475569" />
+            <Text style={adminAssetStyles.filterPillText}>{currentFilterLabel}</Text>
+          </Pressable>
+        </View>
+
+        {/* Scrollable Content */}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 20, paddingBottom: 24 }}
+          refreshControl={
+            <RefreshControl 
+              refreshing={assets.isRefetching} 
+              onRefresh={() => void assets.refetch()} 
+              tintColor="#1B3B2B" 
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {assets.isLoading ? <LoadingState label="Đang tải danh sách tài sản..." /> : null}
+          {assets.isError ? <ErrorState error={assets.error} onRetry={() => void assets.refetch()} /> : null}
+
+          {!assets.isLoading && !assets.isError && visible.length === 0 ? (
+            <View style={adminAssetStyles.emptyCenterContainer}>
+              <View style={adminAssetStyles.emptyCircle}>
+                <MaterialCommunityIcons name="laptop" size={76} color="#1E3E2B" />
+                <View style={adminAssetStyles.emptyBoxBadge}>
+                  <MaterialCommunityIcons name="package-variant-closed" size={40} color="#2D5A40" />
+                </View>
+              </View>
+              <Text style={adminAssetStyles.emptyTitle}>Chưa có tài sản</Text>
+              <Text style={adminAssetStyles.emptySubtitle}>
+                Thêm thiết bị đầu tiên để bắt đầu quản lý.
+              </Text>
+            </View>
+          ) : null}
+
+          {!assets.isLoading && !assets.isError && visible.length > 0 ? (
+            visible.map((asset) => (
+              <Pressable
+                key={asset.id}
+                style={adminAssetStyles.assetItemCard}
+                onPress={() => router.push(`${assetBase(area)}/${asset.id}` as never)}
+              >
+                <View style={adminAssetStyles.assetItemIconBox}>
+                  <MaterialCommunityIcons 
+                    name={
+                      asset.name?.toLowerCase().includes('laptop') || asset.name?.toLowerCase().includes('macbook')
+                        ? 'laptop'
+                        : asset.name?.toLowerCase().includes('màn hình') || asset.name?.toLowerCase().includes('monitor')
+                        ? 'monitor'
+                        : 'devices'
+                    } 
+                    size={24} 
+                    color="#1B3B2B" 
+                  />
+                </View>
+                <View style={adminAssetStyles.assetItemInfo}>
+                  <Text style={adminAssetStyles.assetItemName} numberOfLines={1}>{asset.name}</Text>
+                  <Text style={adminAssetStyles.assetItemSub}>
+                    Mã: {asset.assetCode} {asset.brand ? `• ${asset.brand}` : ''} {asset.model ? `• ${asset.model}` : ''}
+                  </Text>
+                </View>
+                <AssetStatusBadge status={asset.assetStatus} />
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
+              </Pressable>
+            ))
+          ) : null}
+        </ScrollView>
+
+        {/* Bottom Fixed Action Bar */}
+        {(area === 'admin' || hasPermission(user, 'asset.create')) ? (
+          <View style={[adminAssetStyles.bottomBarFixed, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Pressable 
+              style={adminAssetStyles.primaryCreateBtn} 
+              onPress={() => router.push(`${assetBase(area)}/create` as never)}
+            >
+              <MaterialCommunityIcons name="plus" size={22} color="#FFFFFF" />
+              <Text style={adminAssetStyles.primaryCreateBtnText}>Tạo tài sản</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+
+      <SelectModal
+        visible={showFilterModal}
+        title="Lọc theo trạng thái"
+        options={filterOptions}
+        selectedValue={statusFilter}
+        onSelect={(opt) => {
+          setStatusFilter(opt.id);
+          setShowFilterModal(false);
+        }}
+        onClose={() => setShowFilterModal(false)}
+      />
+    </View>
   );
 }
 
@@ -611,109 +718,212 @@ export function AssetCreateScreen() {
     }
   }
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <Screen>
-      <ScreenContainer style={styles.content} disableGlobalRefresh={true}>
-        <PageHeader
-          title="Thêm thiết bị"
-          subtitle="Tạo mới vật tư/thiết bị cho phòng ban."
-          onBack={() => router.back()}
-        />
-        <SectionCard>
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Tên thiết bị</Text>
+    <View style={adminAssetStyles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+
+      {/* Header Container */}
+      <View style={[adminAssetStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={adminAssetStyles.backRow}>
+          <Pressable style={adminAssetStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <Text style={adminAssetStyles.brandText}>MOVIE LEGEND</Text>
+        </View>
+        <Text style={adminAssetStyles.title}>Thêm thiết bị</Text>
+        <Text style={adminAssetStyles.subtitle}>Tạo mới vật tư, thiết bị cho phòng ban.</Text>
+      </View>
+
+      {/* Main Curved White Form Sheet */}
+      <View style={adminAssetStyles.curvedCard}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={adminAssetStyles.formContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={adminAssetStyles.formSectionTitle}>Thông tin thiết bị</Text>
+
+          {/* Tên thiết bị */}
+          <View style={adminAssetStyles.formField}>
+            <Text style={adminAssetStyles.fieldLabel}>Tên thiết bị</Text>
             <TextInput
-              style={styles.inputRounded}
+              style={adminAssetStyles.fieldInput}
               placeholder="Ví dụ: Laptop làm việc 01"
-              placeholderTextColor="#98A0A8"
+              placeholderTextColor="#94A3B8"
               value={name}
               onChangeText={setName}
             />
           </View>
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Hãng / Thương hiệu</Text>
-            <Pressable style={styles.pickerContainer} onPress={() => setShowBrandSelect(true)}>
-              <Text style={[styles.pickerText, !brand && styles.pickerPlaceholder]}>{brand || 'Chọn hãng sản xuất'}</Text>
+          {/* Hãng / Thương hiệu */}
+          <View style={adminAssetStyles.formField}>
+            <Text style={adminAssetStyles.fieldLabel}>Hãng / Thương hiệu</Text>
+            <Pressable
+              style={adminAssetStyles.fieldDropdown}
+              onPress={() => setShowBrandSelect(true)}
+            >
+              <Text style={adminAssetStyles.fieldDropdownText}>{brand || 'Chọn hãng sản xuất'}</Text>
               <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
             </Pressable>
           </View>
           {brand === 'Khác' && (
-            <FormField label="Nhập tên hãng" value={customBrand} onChangeText={setCustomBrand} />
+            <View style={adminAssetStyles.formField}>
+              <Text style={adminAssetStyles.fieldLabel}>Nhập tên hãng</Text>
+              <TextInput
+                style={adminAssetStyles.fieldInput}
+                placeholder="Nhập tên hãng sản xuất"
+                placeholderTextColor="#94A3B8"
+                value={customBrand}
+                onChangeText={setCustomBrand}
+              />
+            </View>
           )}
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Dòng máy / Loại</Text>
-            <Pressable style={styles.pickerContainer} onPress={() => setShowModelSelect(true)}>
-              <Text style={[styles.pickerText, !model && styles.pickerPlaceholder]}>{model || 'Chọn dòng máy'}</Text>
+          {/* Dòng máy / Loại */}
+          <View style={adminAssetStyles.formField}>
+            <Text style={adminAssetStyles.fieldLabel}>Dòng máy / Loại</Text>
+            <Pressable
+              style={adminAssetStyles.fieldDropdown}
+              onPress={() => setShowModelSelect(true)}
+            >
+              <Text style={adminAssetStyles.fieldDropdownText}>{model || 'Chọn dòng máy'}</Text>
               <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
             </Pressable>
           </View>
           {model === 'Khác' && (
-            <FormField label="Nhập dòng máy" value={customModel} onChangeText={setCustomModel} />
+            <View style={adminAssetStyles.formField}>
+              <Text style={adminAssetStyles.fieldLabel}>Nhập dòng máy</Text>
+              <TextInput
+                style={adminAssetStyles.fieldInput}
+                placeholder="Nhập dòng máy"
+                placeholderTextColor="#94A3B8"
+                value={customModel}
+                onChangeText={setCustomModel}
+              />
+            </View>
           )}
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Ghi chú thủ công (Tình trạng)</Text>
+          {/* Ghi chú tình trạng */}
+          <View style={adminAssetStyles.formField}>
+            <Text style={adminAssetStyles.fieldLabel}>Ghi chú tình trạng</Text>
             <TextInput
-              style={[styles.inputRounded, { height: 80, textAlignVertical: 'top' }]}
-              placeholder="Nhập ghi chú thêm về thiết bị (nếu có)..."
-              placeholderTextColor="#98A0A8"
+              style={adminAssetStyles.fieldTextarea}
+              placeholder="Nhập tình trạng hoặc ghi chú..."
+              placeholderTextColor="#94A3B8"
               value={conditionNote}
               onChangeText={setConditionNote}
               multiline
             />
           </View>
 
-          <View style={styles.formGroup}>
-            <Text style={[styles.label, { marginBottom: 8 }]}>Ảnh thiết bị (tối đa 5 ảnh)</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-              {imageUrls.map((uri, index) => (
-                <View key={index} style={{ position: 'relative', width: 120, height: 120 }}>
-                  <Image source={{ uri }} style={{ width: 120, height: 120, borderRadius: 12 }} />
+          {/* Ảnh thiết bị */}
+          <View style={adminAssetStyles.formField}>
+            <View style={adminAssetStyles.imageSectionHeader}>
+              <Text style={adminAssetStyles.fieldLabel}>Ảnh thiết bị</Text>
+              <Text style={adminAssetStyles.imageSectionCount}>{imageUrls.length}/5 ảnh</Text>
+            </View>
+
+            {imageUrls.length === 0 ? (
+              <Pressable
+                style={[adminAssetStyles.uploadDashedBox, isUploading && { opacity: 0.6 }]}
+                onPress={handleSelectImage}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <ActivityIndicator size="small" color="#1B3B2B" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="camera-plus-outline" size={32} color="#475569" />
+                    <Text style={adminAssetStyles.uploadTitle}>Thêm ảnh</Text>
+                    <Text style={adminAssetStyles.uploadSubtitle}>Tối đa 5 ảnh</Text>
+                  </>
+                )}
+              </Pressable>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 4 }}>
+                {imageUrls.map((uri, index) => (
+                  <View key={index} style={{ position: 'relative', width: 100, height: 100 }}>
+                    <Image source={{ uri }} style={{ width: 100, height: 100, borderRadius: 12 }} />
+                    <Pressable
+                      style={{
+                        position: 'absolute',
+                        top: -6,
+                        right: -6,
+                        backgroundColor: '#EF4444',
+                        borderRadius: 12,
+                        width: 22,
+                        height: 22,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 10,
+                      }}
+                      onPress={() => setImageUrls(prev => prev.filter((_, i) => i !== index))}
+                    >
+                      <MaterialCommunityIcons name="close" size={14} color="#FFF" />
+                    </Pressable>
+                  </View>
+                ))}
+                {imageUrls.length < 5 && (
                   <Pressable
-                    style={{ position: 'absolute', top: -6, right: -6, backgroundColor: '#EF4444', borderRadius: 12, width: 24, height: 24, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}
-                    onPress={() => setImageUrls(prev => prev.filter((_, i) => i !== index))}
+                    style={[
+                      {
+                        width: 100,
+                        height: 100,
+                        borderRadius: 12,
+                        borderWidth: 1.5,
+                        borderColor: '#CBD5E1',
+                        borderStyle: 'dashed',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        backgroundColor: '#F8FAF8',
+                      },
+                      isUploading && { opacity: 0.6 },
+                    ]}
+                    onPress={handleSelectImage}
+                    disabled={isUploading}
                   >
-                    <MaterialCommunityIcons name="close" size={16} color="#FFF" />
+                    {isUploading ? (
+                      <ActivityIndicator size="small" color="#1B3B2B" />
+                    ) : (
+                      <>
+                        <MaterialCommunityIcons name="camera-plus-outline" size={26} color="#64748B" />
+                        <Text style={{ fontSize: 11, color: '#64748B', marginTop: 4, fontWeight: '600' }}>Thêm ảnh</Text>
+                      </>
+                    )}
                   </Pressable>
-                </View>
-              ))}
-              
-              {imageUrls.length < 5 && (
-                <Pressable
-                  style={[
-                    { width: 120, height: 120, borderRadius: 12, borderWidth: 1.5, borderColor: '#E2E8F0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
-                    isUploading && { opacity: 0.5 },
-                  ]}
-                  onPress={handleSelectImage}
-                  disabled={isUploading}
-                >
-                  {isUploading ? (
-                    <ActivityIndicator size="small" color="#36C59E" />
-                  ) : (
-                    <View style={{ alignItems: 'center', gap: 4 }}>
-                      <MaterialCommunityIcons name="camera-plus" size={32} color="#98A0A8" />
-                      <Text style={{ fontSize: 12, color: '#98A0A8' }}>Thêm ảnh</Text>
-                    </View>
-                  )}
-                </Pressable>
-              )}
-            </ScrollView>
+                )}
+              </ScrollView>
+            )}
           </View>
+        </ScrollView>
 
-          <View style={styles.bottomButtonsRow}>
-            <Pressable style={styles.cancelBtn} onPress={() => router.back()}>
-              <Text style={styles.cancelBtnText}>Hủy</Text>
+        {/* Bottom Actions Bar */}
+        <View style={[adminAssetStyles.createActionsWrap, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+          <View style={adminAssetStyles.createButtonsRow}>
+            <Pressable style={adminAssetStyles.cancelButton} onPress={() => router.back()}>
+              <Text style={adminAssetStyles.cancelButtonText}>Hủy</Text>
             </Pressable>
-            <Pressable style={[styles.submitBtn, !name.trim() && { opacity: 0.5 }]} onPress={submit} disabled={!name.trim() || create.isPending}>
-              <Text style={styles.submitBtnText}>{create.isPending ? 'Đang tạo...' : 'Tạo thiết bị'}</Text>
+            <Pressable
+              style={[
+                adminAssetStyles.submitButton,
+                (!name.trim() || create.isPending) && adminAssetStyles.submitButtonDisabled,
+              ]}
+              onPress={submit}
+              disabled={!name.trim() || create.isPending}
+            >
+              <Text style={adminAssetStyles.submitButtonText}>
+                {create.isPending ? 'Đang tạo...' : 'Tạo thiết bị'}
+              </Text>
             </Pressable>
           </View>
-
-
-        </SectionCard>
-      </ScreenContainer>
+          {!name.trim() && (
+            <Text style={adminAssetStyles.submitHelperText}>Nhập tên thiết bị để tiếp tục.</Text>
+          )}
+        </View>
+      </View>
 
       <SelectModal
         visible={showBrandSelect}
@@ -732,7 +942,7 @@ export function AssetCreateScreen() {
         onSelect={(opt) => { setModel(opt.id); setShowModelSelect(false); }}
         onClose={() => setShowModelSelect(false)}
       />
-    </Screen>
+    </View>
   );
 }
 
@@ -1136,5 +1346,320 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+});
+
+const adminAssetStyles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#1B3B2B',
+  },
+  headerWrap: {
+    backgroundColor: '#1B3B2B',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  brandText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 2,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  backBtn: {
+    padding: 4,
+    marginLeft: -6,
+  },
+  curvedCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
+  listCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 14,
+  },
+  listCardTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  listCardCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  filterPillRow: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    gap: 6,
+  },
+  filterPillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  emptyCenterContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+  },
+  emptyCircle: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: '#E8F3EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    position: 'relative',
+  },
+  emptyBoxBadge: {
+    position: 'absolute',
+    bottom: 24,
+    right: 28,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 280,
+  },
+  bottomBarFixed: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  primaryCreateBtn: {
+    backgroundColor: '#1B3B2B',
+    height: 52,
+    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  primaryCreateBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  assetItemCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  assetItemIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#EBF5EE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  assetItemInfo: {
+    flex: 1,
+  },
+  assetItemName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  assetItemSub: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  formSectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    paddingTop: 22,
+    paddingBottom: 16,
+  },
+  formContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    gap: 16,
+  },
+  formField: {
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  fieldInput: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: '#0F172A',
+    backgroundColor: '#FFFFFF',
+  },
+  fieldDropdown: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  fieldDropdownText: {
+    fontSize: 15,
+    color: '#0F172A',
+  },
+  fieldTextarea: {
+    height: 90,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    fontSize: 15,
+    color: '#0F172A',
+    backgroundColor: '#FFFFFF',
+    textAlignVertical: 'top',
+  },
+  imageSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  imageSectionCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  uploadDashedBox: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+    borderRadius: 14,
+    backgroundColor: '#F8FAF8',
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+    marginTop: 6,
+  },
+  uploadSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  createActionsWrap: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  createButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: '#EDF2EE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  submitButton: {
+    flex: 2,
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: '#1B3B2B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#93BEA7',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  submitHelperText: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 6,
   },
 });
