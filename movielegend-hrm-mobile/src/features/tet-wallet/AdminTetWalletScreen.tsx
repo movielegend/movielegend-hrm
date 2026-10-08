@@ -438,27 +438,20 @@ export function AdminTetWalletScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />}
         >
-          {/* ── Top Bar: Back button + MOVIE LEGEND center logo (matching Screen 1 & 2) ── */}
-          <View style={styles.topNavBar}>
+          {/* ── Top Header: Back button + Title on the same row ── */}
+          <View style={styles.topHeader}>
             <Pressable
               onPress={() => router.back()}
               style={styles.navBackBtn}
               hitSlop={10}
+              accessibilityLabel="Quay lại"
             >
               <Ionicons name="arrow-back" size={22} color="#0F172A" />
             </Pressable>
-            <View style={styles.navLogoCenter}>
-              <Text style={styles.navLogoText}>
-                MOVIE <MaterialCommunityIcons name="video-vintage" size={13} color="#204E3B" /> LEGEND
-              </Text>
+            <View style={styles.titleTextWrap}>
+              <Text style={styles.screenTitleText}>Ví thưởng</Text>
+              <Text style={styles.screenSubtitleText}>Quản lý điểm thưởng & quyền ví</Text>
             </View>
-            <View style={{ width: 38 }} />
-          </View>
-
-          {/* ── Title & Subtitle ── */}
-          <View style={styles.titleSection}>
-            <Text style={styles.screenTitleText}>Ví thưởng</Text>
-            <Text style={styles.screenSubtitleText}>Quản lý điểm thưởng & quyền ví</Text>
           </View>
 
           {/* ── Scope Row: Toàn hệ thống ⌄ | SUPER ADMIN ── */}
@@ -1009,43 +1002,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
 
-  /* Top Navigation Bar: Back button + MOVIE LEGEND center */
-  topNavBar: {
+  /* Top Header: Back button + Title on the same row */
+  topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 4,
+    paddingBottom: 12,
   },
   navBackBtn: {
-    width: 38,
-    height: 38,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  navLogoCenter: {
-    flexDirection: 'row',
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navLogoText: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    color: '#0F172A',
-  },
-
-  /* Title & Subtitle */
-  titleSection: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 10,
+  titleTextWrap: {
+    flex: 1,
   },
   screenTitleText: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#0F172A',
+    letterSpacing: -0.3,
   },
   screenSubtitleText: {
     fontSize: 13,
