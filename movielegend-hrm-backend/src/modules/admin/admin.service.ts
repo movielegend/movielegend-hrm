@@ -353,6 +353,17 @@ export class AdminService {
   }
 
   async assignAccountant(dto: AccountantAssignmentDto, actor: AuthenticatedUser) {
+    const isActorAdmin = actor.roles?.some(r => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r.toUpperCase()));
+    const isActorLeader = isActorAdmin || actor.roles?.some(r => ['LEADER', 'DEPARTMENT_HEAD', 'MANAGER', 'ACCOUNTANT_LEAD'].includes(r.toUpperCase()));
+
+    if (!isActorLeader) {
+      throw forbidden('FORBIDDEN', 'Bạn không có quyền bổ nhiệm chức năng kế toán');
+    }
+
+    if (dto.accountantRole === 'ACCOUNTANT_LEAD' && !isActorAdmin) {
+      throw forbidden('FORBIDDEN', 'Chỉ Quản trị viên hệ thống (Admin) mới có quyền bổ nhiệm vị trí Kế toán trưởng');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
         where: { id: dto.userId },
@@ -555,9 +566,26 @@ export class AdminService {
   }
 
   async revokeAccountant(userId: string, actor: AuthenticatedUser) {
+    const isActorAdmin = actor.roles?.some(r => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r.toUpperCase()));
+    const isActorLeader = isActorAdmin || actor.roles?.some(r => ['LEADER', 'DEPARTMENT_HEAD', 'MANAGER', 'ACCOUNTANT_LEAD'].includes(r.toUpperCase()));
+
+    if (!isActorLeader) {
+      throw forbidden('FORBIDDEN', 'Bạn không có quyền thu hồi chức vụ kế toán');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({ where: { id: userId }, include: { profile: true } });
       if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy người dùng');
+
+      // Check if target user has ACCOUNTANT_LEAD role
+      const targetRoles = await tx.userRole.findMany({
+        where: { userId },
+        include: { role: true }
+      });
+      const isTargetLead = targetRoles.some(r => r.role.code === 'ACCOUNTANT_LEAD');
+      if (isTargetLead && !isActorAdmin) {
+        throw forbidden('FORBIDDEN', 'Chỉ Quản trị viên hệ thống (Admin) mới có quyền thu hồi chức vụ Kế toán trưởng');
+      }
 
       const accountantRoles = await tx.role.findMany({
         where: { code: { in: ['ACCOUNTANT', 'ACCOUNTANT_LEAD', 'ACCOUNTANT_PAYROLL', 'ACCOUNTANT_TAX', 'ACCOUNTANT_GENERAL'] } }

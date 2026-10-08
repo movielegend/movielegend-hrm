@@ -55,13 +55,13 @@ export class AdminController {
     return this.adminService.revokeLeader(id, actor);
   }
 
-  @Permissions('role.assign')
+  @Roles('ADMIN', 'LEADER', 'ACCOUNTANT')
   @Post('accountant-assignments')
   assignAccountant(@Body() dto: AccountantAssignmentDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.adminService.assignAccountant(dto, actor);
   }
 
-  @Permissions('role.assign')
+  @Roles('ADMIN', 'LEADER', 'ACCOUNTANT')
   @Delete('accountant-assignments/:userId')
   revokeAccountant(@Param('userId') userId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.adminService.revokeAccountant(userId, actor);
