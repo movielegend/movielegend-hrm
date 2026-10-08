@@ -21,7 +21,7 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
         const hasPermission = await requestCameraPermissionWithFallback();
         if (!hasPermission) return;
         result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ['images'],
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [1, 1],
           quality: 0.5,
@@ -30,7 +30,7 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
         const hasPermission = await requestMediaLibraryPermissionWithFallback();
         if (!hasPermission) return;
         result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [1, 1],
           quality: 0.5,

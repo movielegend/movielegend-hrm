@@ -305,7 +305,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
         return;
       }
       const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
       });
       if (res.canceled || !res.assets || res.assets.length === 0) return;

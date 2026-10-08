@@ -53,7 +53,7 @@ export function LeaderApprovalScreen() {
 
   const handlePickDisbursementProof = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {

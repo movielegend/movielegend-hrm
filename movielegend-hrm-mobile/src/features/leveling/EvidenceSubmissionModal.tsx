@@ -54,7 +54,7 @@ export const EvidenceSubmissionModal: React.FC<EvidenceSubmissionModalProps> = (
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.8,
       });

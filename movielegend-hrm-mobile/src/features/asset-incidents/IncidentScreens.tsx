@@ -87,7 +87,7 @@ export function IncidentReportScreen() {
       const hasPermission = await requestMediaLibraryPermissionWithFallback();
       if (!hasPermission) return;
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images', 'videos'],
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: false,
         quality: 0.8,
       });
@@ -105,7 +105,7 @@ export function IncidentReportScreen() {
       const hasPermission = await requestCameraPermissionWithFallback();
       if (!hasPermission) return;
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
         quality: 0.8,
       });
