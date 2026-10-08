@@ -164,14 +164,22 @@ export function ContractTemplatesScreen() {
   const deleteTemplate = useDeleteContractTemplate();
   const { showAlert, showConfirm } = useAppAlert();
   const templateItems = Array.isArray(templates.data) ? templates.data : [];
+  const [search, setSearch] = useState("");
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [pdfViewerVisible, setPdfViewerVisible] = useState(false);
   const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 
+  const filteredTemplates = useMemo(() => {
+    if (!search.trim()) return templateItems;
+    const query = search.trim().toLowerCase();
+    return templateItems.filter((t: any) =>
+      (t.name || "").toLowerCase().includes(query) ||
+      (t.code || "").toLowerCase().includes(query)
+    );
+  }, [templateItems, search]);
+
   const handleLongPressTemplate = (tpl: any) => {
-    // Currently relying on Action Sheet pattern which showConfirm doesn't fully support
-    // We will just use standard confirm for deletion instead of action sheet for template options
     showConfirm({
       title: "Xác nhận xoá",
       message: `Bạn có chắc chắn muốn xoá mẫu hợp đồng "${tpl.name}" không? Dữ liệu trên cloud cũng sẽ bị xoá.`,
@@ -187,9 +195,56 @@ export function ContractTemplatesScreen() {
   };
 
   return (
-    <Screen>
+    <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
+      {/* Header: Back Button + Title + Add Button on same line */}
+      <View style={cStyles.header}>
+        <View style={cStyles.headerRow}>
+          <View style={cStyles.headerTitleGroup}>
+            <Pressable
+              onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/(tabs)` as any))}
+              style={cStyles.backBtn}
+              hitSlop={10}
+            >
+              <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            </Pressable>
+            <View>
+              <Text style={cStyles.screenTitle}>Mẫu hợp đồng</Text>
+              <Text style={cStyles.screenSubtitle}>Danh sách mẫu hợp đồng công ty</Text>
+            </View>
+          </View>
+
+          <Pressable
+            style={[cStyles.templateBtn, { backgroundColor: '#1E3E2F', borderColor: '#1E3E2F' }]}
+            onPress={() => setCreateModalVisible(true)}
+          >
+            <Ionicons name="add" size={18} color="#FFFFFF" />
+            <Text style={[cStyles.templateBtnText, { color: '#FFFFFF' }]}>Thêm mẫu</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Search Bar */}
+      <View style={{ paddingHorizontal: 16, marginBottom: 12, marginTop: 4 }}>
+        <View style={cStyles.searchBar}>
+          <Ionicons name="search" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+          <TextInput
+            placeholder="Tìm theo tên hoặc mã mẫu hợp đồng"
+            placeholderTextColor="#94A3B8"
+            value={search}
+            onChangeText={setSearch}
+            style={cStyles.searchInput}
+          />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={16} color="#94A3B8" />
+            </Pressable>
+          )}
+        </View>
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 12 }}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={templates.isRefetching}
@@ -197,26 +252,9 @@ export function ContractTemplatesScreen() {
           />
         }
       >
-        <PageHeader
-          title="Mẫu hợp đồng"
-          subtitle="Danh sách mẫu hợp đồng công ty"
-          right={
-            <Pressable
-              onPress={() => setCreateModalVisible(true)}
-              style={styles.headerBtn}
-            >
-              <MaterialCommunityIcons
-                name="plus"
-                size={24}
-                color={colors.primary}
-              />
-            </Pressable>
-          }
-        />
-
         <View style={styles.list}>
-          {templateItems.length > 0 ? (
-            templateItems.map((tpl: any) => (
+          {filteredTemplates.length > 0 ? (
+            filteredTemplates.map((tpl: any) => (
               <Pressable 
                 key={tpl.id} 
                 style={styles.templateCard}
@@ -233,11 +271,11 @@ export function ContractTemplatesScreen() {
                 delayLongPress={500}
               >
                 <View style={styles.templateHeader}>
-                  <View style={styles.templateIcon}>
+                  <View style={[styles.templateIcon, { backgroundColor: '#D9E4DD' }]}>
                     <MaterialCommunityIcons
                       name="file-document-outline"
-                      size={24}
-                      color={colors.primary}
+                      size={22}
+                      color="#1E3E2F"
                     />
                   </View>
                   <View style={styles.templateInfo}>
@@ -255,7 +293,7 @@ export function ContractTemplatesScreen() {
                     <MaterialCommunityIcons
                       name="tag-outline"
                       size={14}
-                      color={colors.muted}
+                      color="#64748B"
                     />
                     <Text style={styles.metaText}>
                       {CONTRACT_TYPE_LABELS[tpl.contractType as ContractType] ??
@@ -266,7 +304,7 @@ export function ContractTemplatesScreen() {
                     <MaterialCommunityIcons
                       name="history"
                       size={14}
-                      color={colors.muted}
+                      color="#64748B"
                     />
                     <Text style={styles.metaText}>v{tpl.version}</Text>
                   </View>
@@ -278,16 +316,16 @@ export function ContractTemplatesScreen() {
                   </Text>
                 ) : null}
 
-                <View style={{ flexDirection: "row", gap: 8, marginTop: 16 }}>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
                   <Pressable
                     style={({ pressed }) => [
                       {
                         flex: 1,
-                        backgroundColor: "#ffffff",
+                        backgroundColor: "#FFFFFF",
                         borderWidth: 1,
-                        borderColor: "#e5e7eb",
-                        borderRadius: 8,
-                        paddingVertical: 10,
+                        borderColor: "#E2E8F0",
+                        borderRadius: 10,
+                        paddingVertical: 9,
                         alignItems: "center",
                         justifyContent: "center",
                         flexDirection: "row",
@@ -302,12 +340,12 @@ export function ContractTemplatesScreen() {
                   >
                     <MaterialCommunityIcons
                       name="pencil-outline"
-                      size={18}
-                      color="#4b5563"
+                      size={16}
+                      color="#475569"
                     />
                     <Text
                       style={{
-                        color: "#4b5563",
+                        color: "#475569",
                         fontSize: 13,
                         fontWeight: "600",
                       }}
@@ -320,20 +358,15 @@ export function ContractTemplatesScreen() {
                     style={({ pressed }) => [
                       {
                         flex: 1,
-                        backgroundColor: "#111827",
-                        borderRadius: 8,
-                        paddingVertical: 10,
+                        backgroundColor: "#1E3E2F",
+                        borderRadius: 10,
+                        paddingVertical: 9,
                         alignItems: "center",
                         justifyContent: "center",
                         flexDirection: "row",
                         gap: 6,
-                        shadowColor: "#000",
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 4,
-                        elevation: 2,
                       },
-                      pressed && { backgroundColor: "#1f2937" },
+                      pressed && { opacity: 0.85 },
                     ]}
                     onPress={() => {
                       router.push({
@@ -344,14 +377,14 @@ export function ContractTemplatesScreen() {
                   >
                     <MaterialCommunityIcons
                       name="pencil-box-outline"
-                      size={18}
-                      color="#ffffff"
+                      size={16}
+                      color="#FFFFFF"
                     />
                     <Text
                       style={{
                         fontSize: 13,
-                        fontWeight: "600",
-                        color: "#ffffff",
+                        fontWeight: "700",
+                        color: "#FFFFFF",
                       }}
                     >
                       Tạo HĐ
@@ -362,17 +395,17 @@ export function ContractTemplatesScreen() {
                     style={({ pressed }) => [
                       {
                         flex: 1,
-                        backgroundColor: "#ffffff",
+                        backgroundColor: "#FFFFFF",
                         borderWidth: 1,
-                        borderColor: "#e5e7eb",
-                        borderRadius: 8,
-                        paddingVertical: 10,
+                        borderColor: "#E2E8F0",
+                        borderRadius: 10,
+                        paddingVertical: 9,
                         alignItems: "center",
                         justifyContent: "center",
                         flexDirection: "row",
                         gap: 6,
                       },
-                      pressed && { backgroundColor: "#f9fafb" },
+                      pressed && { backgroundColor: "#F8FAFC" },
                     ]}
                     onPress={() => {
                       const url = resolveFileUrl(tpl.templateFileUrl) || "";
@@ -391,14 +424,14 @@ export function ContractTemplatesScreen() {
                   >
                     <MaterialCommunityIcons
                       name="draw-pen"
-                      size={18}
-                      color="#374151"
+                      size={16}
+                      color="#475569"
                     />
                     <Text
                       style={{
                         fontSize: 13,
                         fontWeight: "600",
-                        color: "#374151",
+                        color: "#475569",
                       }}
                     >
                       Tọa độ
@@ -427,7 +460,7 @@ export function ContractTemplatesScreen() {
         }}
         title="Xem mẫu hợp đồng"
       />
-    </Screen>
+    </SafeAreaView>
   );
 }
 
@@ -1416,33 +1449,46 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
           <View
             style={{
               backgroundColor: "#fff",
-              borderRadius: 12,
+              borderRadius: 20,
               padding: 24,
               width: "100%",
               maxWidth: 400,
               alignItems: "center",
             }}
           >
+            <View
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 26,
+                backgroundColor: "#D9E4DD",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 12,
+              }}
+            >
+              <MaterialCommunityIcons name="draw-pen" size={26} color="#1E3E2F" />
+            </View>
             <Text
               style={{
                 fontSize: 18,
-                fontWeight: "bold",
+                fontWeight: "800",
                 marginBottom: 16,
-                color: "#111827",
+                color: "#0F172A",
               }}
             >
               Chữ ký
             </Text>
             <View
               style={{
-                backgroundColor: "#f9fafb",
+                backgroundColor: "#F8FAFC",
                 padding: 16,
-                borderRadius: 8,
+                borderRadius: 12,
                 width: "100%",
                 alignItems: "center",
-                marginBottom: 24,
+                marginBottom: 20,
                 borderWidth: 1,
-                borderColor: "#e5e7eb",
+                borderColor: "#E2E8F0",
               }}
             >
               {viewingSignatureUrl && (
@@ -1453,12 +1499,24 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
                 />
               )}
             </View>
-            <PrimaryButton
+            <Pressable
               onPress={() => setViewingSignatureUrl(null)}
-              style={{ width: "100%" }}
+              style={({ pressed }) => [
+                {
+                  width: "100%",
+                  height: 48,
+                  borderRadius: 12,
+                  backgroundColor: "#1E3E2F",
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+                pressed && { opacity: 0.85 },
+              ]}
             >
-              Đóng
-            </PrimaryButton>
+              <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>
+                Đóng
+              </Text>
+            </Pressable>
           </View>
         </Pressable>
       </Modal>
@@ -1742,17 +1800,79 @@ export function CreateContractScreen() {
   }
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Tạo Hợp đồng" subtitle="Tạo hợp đồng mới từ mẫu" />
+    <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
+      {/* Header: Back Button + Title on same line */}
+      <View style={cStyles.header}>
+        <View style={cStyles.headerRow}>
+          <View style={cStyles.headerTitleGroup}>
+            <Pressable
+              onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/contracts` as any))}
+              style={cStyles.backBtn}
+              hitSlop={10}
+            >
+              <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            </Pressable>
+            <View>
+              <Text style={cStyles.screenTitle}>Tạo hợp đồng</Text>
+              <Text style={cStyles.screenSubtitle}>Điền thông tin để tạo hợp đồng mới</Text>
+            </View>
+          </View>
+        </View>
+      </View>
 
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, gap: 16 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Selected Template Info (if applicable) */}
+        {templateId && (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "#FFFFFF",
+              borderRadius: 14,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: "#E2E8F0",
+              gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 12,
+                backgroundColor: "#D9E4DD",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <MaterialCommunityIcons name="file-document-outline" size={22} color="#1E3E2F" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, color: "#64748B", fontWeight: "600", textTransform: "uppercase" }}>
+                Mẫu hợp đồng áp dụng
+              </Text>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: "#0F172A", marginTop: 2 }}>
+                {title || "Đang tải mẫu..."}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Section: Phạm vi áp dụng */}
         <View style={styles.formCard}>
+          <Text style={{ fontSize: 15, fontWeight: "800", color: "#0F172A", marginBottom: 4 }}>
+            Phạm vi áp dụng
+          </Text>
+
           <Field icon="map-marker-radius-outline" label="Khu vực (Miền)">
             <Pressable
               style={styles.input}
               onPress={() => setRegionSelectVisible(true)}
             >
-              <Text style={{ fontSize: 15, color: colors.text }}>
+              <Text style={{ fontSize: 14, color: "#0F172A" }}>
                 {regionOptions.find((r) => r.id === selectedRegionId)?.label || "Tất cả các Miền"}
               </Text>
             </Pressable>
@@ -1763,7 +1883,7 @@ export function CreateContractScreen() {
               style={styles.input}
               onPress={() => setBranchSelectVisible(true)}
             >
-              <Text style={{ fontSize: 15, color: colors.text }}>
+              <Text style={{ fontSize: 14, color: "#0F172A" }}>
                 {branchOptions.find((b) => b.id === selectedBranchId)?.label || "Tất cả Chi nhánh"}
               </Text>
             </Pressable>
@@ -1774,44 +1894,54 @@ export function CreateContractScreen() {
               style={styles.input}
               onPress={() => setDeptSelectVisible(true)}
             >
-              <Text style={{ fontSize: 15, color: colors.text }}>
+              <Text style={{ fontSize: 14, color: "#0F172A" }}>
                 {departmentOptions.find((d) => d.id === selectedDepartmentId)?.label || "Tất cả Phòng ban"}
               </Text>
             </Pressable>
           </Field>
 
-          <Field icon="account-multiple-outline" label="Nhân viên">
+          <Field icon="account-multiple-outline" label="Nhân viên (*)">
             <Pressable
               style={styles.input}
               onPress={() => setEmployeeSelectVisible(true)}
             >
               <Text
                 style={{
-                  color: userIds.length > 0 ? colors.text : colors.muted,
-                  fontSize: 15,
+                  color: userIds.length > 0 ? "#0F172A" : "#94A3B8",
+                  fontSize: 14,
+                  fontWeight: userIds.length > 0 ? "600" : "400",
                 }}
               >
                 {userIds.length > 0
                   ? `${userIds.length} nhân viên đã chọn`
-                  : "Chọn nhân viên"}
+                  : "Chọn nhân viên áp dụng"}
               </Text>
             </Pressable>
           </Field>
+        </View>
 
-          <Field icon="format-title" label="Tiêu đề hợp đồng">
+        {/* Section: Thông tin hợp đồng */}
+        <View style={styles.formCard}>
+          <Text style={{ fontSize: 15, fontWeight: "800", color: "#0F172A", marginBottom: 4 }}>
+            Thông tin hợp đồng
+          </Text>
+
+          <Field icon="format-title" label="Tiêu đề hợp đồng (*)">
             <TextInput
               style={styles.input}
               value={title}
               onChangeText={setTitle}
+              placeholder="VD: Hợp đồng thử việc - Nguyễn Văn A"
+              placeholderTextColor="#94A3B8"
             />
           </Field>
 
-          <Field icon="calendar-range" label="Ngày bắt đầu">
+          <Field icon="calendar-range" label="Ngày bắt đầu (*)">
             <Pressable
               style={styles.input}
               onPress={() => setDatePickerState("start")}
             >
-              <Text>{formatDate(startDate)}</Text>
+              <Text style={{ fontSize: 14, color: "#0F172A" }}>{formatDate(startDate)}</Text>
             </Pressable>
           </Field>
 
@@ -1821,24 +1951,40 @@ export function CreateContractScreen() {
                 style={styles.input}
                 onPress={() => setDatePickerState("end")}
               >
-                <Text style={{ color: endDate ? colors.text : colors.muted }}>
-                  {endDate ? formatDate(endDate) : "Chọn ngày"}
+                <Text style={{ color: endDate ? "#0F172A" : "#94A3B8", fontSize: 14 }}>
+                  {endDate ? formatDate(endDate) : "Chọn ngày kết thúc"}
                 </Text>
               </Pressable>
             ) : (
               <View style={[styles.input, { opacity: 0.6 }]}>
-                <Text style={{ color: colors.muted }}>Vô thời hạn (Không có ngày kết thúc)</Text>
+                <Text style={{ color: "#64748B", fontSize: 14 }}>Vô thời hạn (Không có ngày kết thúc)</Text>
               </View>
             )}
           </Field>
 
-          <View style={{ marginTop: 12 }}>
-            <PrimaryButton
+          <View style={{ marginTop: 8 }}>
+            <Pressable
               onPress={submit}
-              loading={createContractMutation.isPending}
+              disabled={createContractMutation.isPending}
+              style={({ pressed }) => [
+                {
+                  height: 48,
+                  borderRadius: 12,
+                  backgroundColor: "#1E3E2F",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 8,
+                },
+                pressed && { opacity: 0.85 },
+                createContractMutation.isPending && { opacity: 0.6 },
+              ]}
             >
-              Tạo hợp đồng
-            </PrimaryButton>
+              <MaterialCommunityIcons name="check-circle-outline" size={20} color="#FFFFFF" />
+              <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>
+                {createContractMutation.isPending ? "Đang tạo..." : "Tạo hợp đồng"}
+              </Text>
+            </Pressable>
           </View>
         </View>
       </ScrollView>
@@ -1955,7 +2101,7 @@ export function CreateContractScreen() {
           </View>
         </View>
       </Modal>
-    </Screen>
+    </SafeAreaView>
   );
 }
 

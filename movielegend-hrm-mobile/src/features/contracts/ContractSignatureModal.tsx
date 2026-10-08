@@ -1,13 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { Modal, StyleSheet, View, Text, TextInput, Pressable, ScrollView, Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import SignatureScreen from '../../components/SignaturePad/SignaturePad';
-import { PageHeader } from '../../components/PageHeader';
-import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { colors } from '../../theme/colors';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
-
-import { Linking } from 'react-native';
 import { resolveFileUrl } from '../../utils/url';
 import { useAppAlert } from '../../contexts/AlertContext';
 
@@ -123,93 +120,132 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <View style={[styles.container, { paddingTop: safeTopInset }]}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-        <PageHeader title="Ký hợp đồng" subtitle="Vui lòng ký tên vào khung bên dưới" />
+        <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
         
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 8 }}>
-          {pdfUrl ? (
-            <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-              <SecondaryButton
-                onPress={() => {
-                  const url = resolveFileUrl(pdfUrl);
-                  if (url) {
-                    setPdfViewerVisible(true);
-                    setPdfViewerUrl(url);
-                  } else {
-                    showAlert('Lỗi', 'Không tìm thấy file hợp đồng');
-                  }
-                }}
-              >
-                📄 Xem phôi hợp đồng (bản chưa điền)
-              </SecondaryButton>
-              <PdfViewerModal
-                visible={pdfViewerVisible}
-                url={pdfViewerUrl}
-                onClose={() => {
-                  setPdfViewerVisible(false);
-                  setPdfViewerUrl(null);
-                }}
-                title="Xem hợp đồng"
-              />
+        {/* Header: Back Button + Title on same line */}
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <Pressable onPress={onClose} style={styles.backBtn} hitSlop={10}>
+              <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            </Pressable>
+            <View>
+              <Text style={styles.screenTitle}>Ký hợp đồng</Text>
+              <Text style={styles.screenSubtitle}>Hoàn tất thông tin và ký xác nhận</Text>
             </View>
+          </View>
+        </View>
+        
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16, gap: 14 }}>
+          {pdfUrl ? (
+            <Pressable
+              style={styles.pdfCard}
+              onPress={() => {
+                const url = resolveFileUrl(pdfUrl);
+                if (url) {
+                  setPdfViewerUrl(url);
+                  setPdfViewerVisible(true);
+                } else {
+                  showAlert('Lỗi', 'Không tìm thấy file hợp đồng');
+                }
+              }}
+            >
+              <View style={styles.pdfIconCircle}>
+                <MaterialCommunityIcons name="file-pdf-box" size={24} color="#DC2626" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pdfCardTitle}>Xem phôi hợp đồng</Text>
+                <Text style={styles.pdfCardSub}>Bản phôi mẫu văn bản chưa điền thông tin</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            </Pressable>
           ) : null}
+
+          <PdfViewerModal
+            visible={pdfViewerVisible}
+            url={pdfViewerUrl}
+            onClose={() => {
+              setPdfViewerVisible(false);
+              setPdfViewerUrl(null);
+            }}
+            title="Xem hợp đồng"
+          />
           
           {fieldsToFill.length > 0 && (
-            <View style={styles.formContainer}>
-              <Text style={{fontWeight: 'bold', marginBottom: 8}}>Vui lòng điền các thông tin sau:</Text>
+            <View style={styles.cardContainer}>
+              <View style={styles.cardHeader}>
+                <MaterialCommunityIcons name="form-textbox" size={20} color="#1E3E2F" />
+                <Text style={styles.cardTitle}>Thông tin bổ sung hợp đồng</Text>
+              </View>
               {fieldsToFill.map(field => {
                 if (field.type === 'text') {
                   return (
-                    <View key={field.id} style={{marginBottom: 12}}>
-                    <Text style={{marginBottom: 4, fontWeight: '500'}}>{field.label || field.id}</Text>
-                    {field.description ? <Text style={{fontSize: 12, color: colors.muted, marginBottom: 8}}>{field.description}</Text> : null}
-                    <TextInput 
-                      style={{borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8}}
-                      value={filledValues[field.id] || ''}
-                      onChangeText={(val) => setFilledValues(prev => ({...prev, [field.id]: val}))}
-                    />
-                  </View>
+                    <View key={field.id} style={{ marginBottom: 12 }}>
+                      <Text style={styles.fieldLabel}>{field.label || field.id}</Text>
+                      {field.description ? <Text style={styles.fieldDesc}>{field.description}</Text> : null}
+                      <TextInput 
+                        style={styles.input}
+                        value={filledValues[field.id] || ''}
+                        onChangeText={(val) => setFilledValues(prev => ({ ...prev, [field.id]: val }))}
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
                   );
                 }
                 if (field.type === 'checkbox') {
                   return (
-                    <View key={field.id} style={{marginBottom: 12}}>
-                    <Pressable style={{flexDirection: 'row', alignItems: 'center'}} onPress={() => setFilledValues(prev => ({...prev, [field.id]: !prev[field.id]}))}>
-                      <View style={{width: 24, height: 24, borderWidth: 1, borderColor: colors.border, borderRadius: 4, marginRight: 8, alignItems: 'center', justifyContent: 'center'}}>
-                        {filledValues[field.id] && <Text>✓</Text>}
-                      </View>
-                      <Text style={{fontWeight: '500'}}>{field.label || field.id}</Text>
-                    </Pressable>
-                    {field.description ? <Text style={{fontSize: 12, color: colors.muted, marginTop: 4, marginLeft: 32}}>{field.description}</Text> : null}
-                  </View>
+                    <View key={field.id} style={{ marginBottom: 12 }}>
+                      <Pressable 
+                        style={{ flexDirection: 'row', alignItems: 'center' }} 
+                        onPress={() => setFilledValues(prev => ({ ...prev, [field.id]: !prev[field.id] }))}
+                      >
+                        <View style={[styles.checkbox, filledValues[field.id] && styles.checkboxActive]}>
+                          {filledValues[field.id] && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                        </View>
+                        <Text style={styles.fieldLabel}>{field.label || field.id}</Text>
+                      </Pressable>
+                      {field.description ? <Text style={[styles.fieldDesc, { marginLeft: 32 }]}>{field.description}</Text> : null}
+                    </View>
                   );
                 }
                 return null;
               })}
             </View>
           )}
+
+          <View style={styles.cardContainer}>
+            <View style={styles.cardHeader}>
+              <MaterialCommunityIcons name="draw-pen" size={20} color="#1E3E2F" />
+              <Text style={styles.cardTitle}>Ký tên xác nhận</Text>
+            </View>
+            <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 10 }}>
+              Dùng ngón tay ký tên vào khung trắng bên dưới
+            </Text>
+            <View style={styles.padWrapper}>
+              <SignatureScreen
+                ref={ref}
+                onOK={handleSignature}
+                descriptionText="Ký tên của bạn"
+                clearText="Xóa"
+                confirmText="Lưu"
+                webStyle={`
+                  .m-signature-pad { box-shadow: none; border: none; }
+                  .m-signature-pad--body { border: none; }
+                  .m-signature-pad--footer { display: none; margin: 0px; }
+                `}
+              />
+            </View>
+          </View>
         </ScrollView>
 
-        <View style={styles.signatureContainer}>
-          <Text style={{fontWeight: 'bold', marginBottom: 8, color: colors.text}}>Ký tên xác nhận:</Text>
-          <SignatureScreen
-            ref={ref}
-            onOK={handleSignature}
-            descriptionText="Ký tên của bạn"
-            clearText="Xóa"
-            confirmText="Lưu"
-            webStyle={`
-              .m-signature-pad { box-shadow: none; border: none; }
-              .m-signature-pad--body { border: 1px solid #e2e8f0; border-radius: 8px; }
-              .m-signature-pad--footer { display: none; margin: 0px; }
-            `}
-          />
-        </View>
-
         <View style={styles.footer}>
-          <SecondaryButton onPress={onClose} style={styles.button}>Hủy</SecondaryButton>
-          <SecondaryButton onPress={handleClear} style={styles.button}>Xóa ký lại</SecondaryButton>
-          <PrimaryButton onPress={handleConfirm} style={styles.button}>Xác nhận</PrimaryButton>
+          <Pressable onPress={handleClear} style={styles.clearBtn}>
+            <MaterialCommunityIcons name="eraser" size={18} color="#475569" />
+            <Text style={styles.clearBtnText}>Xóa ký lại</Text>
+          </Pressable>
+          <Pressable onPress={handleConfirm} style={styles.confirmBtn}>
+            <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+            <Text style={styles.confirmBtnText}>Xác nhận ký</Text>
+          </Pressable>
         </View>
       </View>
     </Modal>
@@ -219,26 +255,169 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAFC',
   },
-  signatureContainer: {
-    height: 250,
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  backBtn: {
+    padding: 4,
+    marginLeft: -4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  screenSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  pdfCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  pdfIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pdfCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  pdfCardSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  cardContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 16,
-    paddingTop: 0,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  fieldDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 6,
+    marginRight: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxActive: {
+    backgroundColor: '#1E3E2F',
+    borderColor: '#1E3E2F',
+  },
+  padWrapper: {
+    height: 200,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
   footer: {
     flexDirection: 'row',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 28,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    borderTopColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
   },
-  button: {
+  clearBtn: {
     flex: 1,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
-  formContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  }
+  clearBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  confirmBtn: {
+    flex: 2,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#1E3E2F',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  confirmBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });
+
