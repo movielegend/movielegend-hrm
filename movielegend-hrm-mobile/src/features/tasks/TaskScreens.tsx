@@ -1916,13 +1916,8 @@ function AdminTaskDetailScreen({ id }: { id?: string }) {
   const initials = getInitials(assigneeName);
 
   const allAttachments = item.attachments ?? [];
-  const initialAttachments = useMemo(() => {
-    return allAttachments.filter(att => att.uploadedByUserId === item.createdByUserId);
-  }, [allAttachments, item.createdByUserId]);
-
-  const submissionAttachments = useMemo(() => {
-    return allAttachments.filter(att => att.uploadedByUserId !== item.createdByUserId);
-  }, [allAttachments, item.createdByUserId]);
+  const initialAttachments = allAttachments.filter(att => att.uploadedByUserId === item.createdByUserId);
+  const submissionAttachments = allAttachments.filter(att => att.uploadedByUserId !== item.createdByUserId);
 
   const displayInitialAtts = initialAttachments.length > 0 
     ? initialAttachments 
