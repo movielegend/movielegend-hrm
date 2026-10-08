@@ -234,8 +234,8 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
 
   return (
     <Screen backgroundColor="#F8FAFC">
-      {/* ── Top Bar: Back button + MOVIE LEGEND center matching Screens 3 & 4 ── */}
-      <View style={styles.topNavBar}>
+      {/* ── Top Header: Back button + Title on the same row ── */}
+      <View style={styles.topHeader}>
         <Pressable
           onPress={() => {
             if (currentStep === 2) {
@@ -250,19 +250,11 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
         >
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
         </Pressable>
-        <View style={styles.navLogoCenter}>
-          <Text style={styles.navLogoText}>
-            MOVIE <MaterialCommunityIcons name="video-vintage" size={13} color="#204E3B" /> LEGEND
+        <View style={styles.titleTextWrap}>
+          <Text style={styles.screenTitle}>
+            {currentStep === 1 ? 'Trao điểm thưởng' : 'Lịch mở khóa'}
           </Text>
         </View>
-        <View style={{ width: 38 }} />
-      </View>
-
-      {/* ── Screen Title Row ── */}
-      <View style={styles.titleSection}>
-        <Text style={styles.screenTitle}>
-          {currentStep === 1 ? 'Trao điểm thưởng' : 'Lịch mở khóa'}
-        </Text>
       </View>
 
       {/* ── Stepper Indicator (Screens 3 & 4) ── */}
@@ -685,41 +677,30 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
 }
 
 const styles = StyleSheet.create({
-  topNavBar: {
+  /* Top Header: Back button + Title on the same row */
+  topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 4,
+    paddingBottom: 8,
     backgroundColor: '#FFFFFF',
   },
   navBackBtn: {
-    width: 38,
-    height: 38,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  navLogoCenter: {
-    flexDirection: 'row',
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navLogoText: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    color: '#0F172A',
-  },
-  titleSection: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
+  titleTextWrap: {
+    flex: 1,
   },
   screenTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#0F172A',
+    letterSpacing: -0.3,
   },
 
   /* Stepper */
