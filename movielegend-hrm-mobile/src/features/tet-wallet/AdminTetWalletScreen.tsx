@@ -427,129 +427,91 @@ export function AdminTetWalletScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />}
         >
-          {/* Header */}
-          <PageHeader
-            title="Ví Thưởng"
-            subtitle="Quản lý ngân sách, cấp điểm & tất toán thưởng"
-            showBack={false}
-            right={
-              <View style={styles.headerIconBox}>
-                <MaterialCommunityIcons name="wallet-giftcard" size={24} color="#D97706" />
-              </View>
-            }
-          />
-
-          {/* Scope Banner: Region Admin vs Super Admin */}
-          {isRegionAdmin && !isGlobalAdmin ? (
-            <View style={styles.regionScopeBanner}>
-              <View style={styles.regionScopeIconBox}>
-                <MaterialCommunityIcons name="shield-account" size={22} color="#2563EB" />
-              </View>
-              <View style={styles.regionScopeContent}>
-                <View style={styles.regionScopeHeaderRow}>
-                  <Text style={styles.regionScopeTitle}>
-                    Phạm vi: {managedRegion?.name || 'Miền quản lý'}
-                  </Text>
-                  <View style={styles.regionBadge}>
-                    <Text style={styles.regionBadgeText}>ADMIN MIỀN</Text>
-                  </View>
-                </View>
-                <Text style={styles.regionScopeDesc}>
-                  Toàn quyền quản trị Ví Thưởng (cấp điểm, duyệt chi trả, cấu hình quyền) cho toàn bộ nhân sự và phòng ban trong khu vực miền.
-                </Text>
-              </View>
-            </View>
-          ) : isGlobalAdmin ? (
-            <View style={[styles.regionScopeBanner, styles.globalScopeBanner]}>
-              <View style={[styles.regionScopeIconBox, styles.globalScopeIconBox]}>
-                <MaterialCommunityIcons name="shield-crown" size={22} color="#059669" />
-              </View>
-              <View style={styles.regionScopeContent}>
-                <View style={styles.regionScopeHeaderRow}>
-                  <Text style={[styles.regionScopeTitle, { color: '#065F46' }]}>
-                    Phạm vi: Toàn hệ thống
-                  </Text>
-                  <View style={[styles.regionBadge, styles.globalBadge]}>
-                    <Text style={[styles.regionBadgeText, { color: '#065F46' }]}>SUPER ADMIN</Text>
-                  </View>
-                </View>
-                <Text style={[styles.regionScopeDesc, { color: '#047857' }]}>
-                  Toàn quyền quản trị Ví Thưởng trên tất cả các miền, phòng ban và nhân sự trong công ty.
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
-          {/* Main Top Tab Switcher */}
-          <View style={styles.topMainTabWrapper}>
+          {/* Header matching template: Back button and Title on same row */}
+          <View style={styles.customHeaderBar}>
             <Pressable
-              style={[styles.topMainTabBtn, mainTab === 'MEMBERS' && styles.topMainTabBtnActive]}
+              style={styles.headerBackBtn}
+              onPress={() => router.back()}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#1E293B" />
+            </Pressable>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.screenMainTitle}>Ví thưởng</Text>
+              <Text style={styles.screenSubTitle}>Quản lý điểm thưởng & quyền ví</Text>
+            </View>
+          </View>
+
+          {/* Compact Scope Selector */}
+          <View style={styles.compactScopeRow}>
+            <View style={styles.scopeSelectorPill}>
+              <Text style={styles.scopeSelectorText}>
+                {isRegionAdmin && !isGlobalAdmin ? (managedRegion?.name || 'Miền quản lý') : 'Toàn hệ thống'}
+              </Text>
+              <MaterialCommunityIcons name="chevron-down" size={16} color="#64748B" />
+            </View>
+            <View style={styles.scopeBadgePill}>
+              <Text style={styles.scopeBadgePillText}>
+                {isRegionAdmin && !isGlobalAdmin ? 'ADMIN MIỀN' : 'SUPER ADMIN'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Underline Tabs */}
+          <View style={styles.underlineTabBar}>
+            <Pressable
+              style={[styles.underlineTabBtn, mainTab === 'MEMBERS' && styles.underlineTabBtnActive]}
               onPress={() => setMainTab('MEMBERS')}
             >
-              <MaterialCommunityIcons
-                name="account-multiple-outline"
-                size={18}
-                color={mainTab === 'MEMBERS' ? '#111827' : '#6B7280'}
-              />
-              <Text style={[styles.topMainTabText, mainTab === 'MEMBERS' && styles.topMainTabTextActive]}>
+              <Text style={[styles.underlineTabText, mainTab === 'MEMBERS' && styles.underlineTabTextActive]}>
                 Cấp điểm & Quyền ví
               </Text>
+              {mainTab === 'MEMBERS' && <View style={styles.activeUnderline} />}
             </Pressable>
 
             <Pressable
-              style={[styles.topMainTabBtn, mainTab === 'WITHDRAWALS' && styles.topMainTabBtnActive]}
+              style={[styles.underlineTabBtn, mainTab === 'WITHDRAWALS' && styles.underlineTabBtnActive]}
               onPress={() => setMainTab('WITHDRAWALS')}
             >
-              <MaterialCommunityIcons
-                name="cash-check"
-                size={18}
-                color={mainTab === 'WITHDRAWALS' ? '#111827' : '#6B7280'}
-              />
-              <Text style={[styles.topMainTabText, mainTab === 'WITHDRAWALS' && styles.topMainTabTextActive]}>
-                Duyệt chi trả
-              </Text>
-              {pendingAdminCount > 0 && (
-                <View style={styles.topMainTabBadge}>
-                  <Text style={styles.topMainTabBadgeText}>{pendingAdminCount}</Text>
-                </View>
-              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.underlineTabText, mainTab === 'WITHDRAWALS' && styles.underlineTabTextActive]}>
+                  Duyệt chi trả
+                </Text>
+                {pendingAdminCount > 0 && (
+                  <View style={styles.pendingBadgeCircle}>
+                    <Text style={styles.pendingBadgeCircleText}>{pendingAdminCount}</Text>
+                  </View>
+                )}
+              </View>
+              {mainTab === 'WITHDRAWALS' && <View style={styles.activeUnderline} />}
             </Pressable>
           </View>
 
-        {mainTab === 'WITHDRAWALS' ? (
-          <WithdrawalRequestsManager />
-        ) : (
-          <>
-            {/* Live Statistics Cards */}
-            <View style={styles.statsCardWrapper}>
-              <View style={styles.statBox}>
-                <View style={[styles.statIconBadge, { backgroundColor: '#EEF2FF' }]}>
-                  <MaterialCommunityIcons name="account-group" size={18} color="#4F46E5" />
+          {mainTab === 'WITHDRAWALS' ? (
+            <WithdrawalRequestsManager />
+          ) : (
+            <>
+              {/* Solid Primary Banner matching Screen 1 */}
+              <View style={styles.solidHeroBanner}>
+                <View style={styles.heroColumn}>
+                  <Text style={styles.heroColumnNumber}>{totalEmployees}</Text>
+                  <Text style={styles.heroColumnLabel}>Nhân sự</Text>
                 </View>
-                <Text style={styles.statValue}>{totalEmployees}</Text>
-                <Text style={styles.statLabel}>Tổng nhân sự</Text>
-              </View>
-
-              <View style={styles.statBox}>
-                <View style={[styles.statIconBadge, { backgroundColor: '#ECFDF5' }]}>
-                  <MaterialCommunityIcons name="shield-check" size={18} color="#059669" />
+                <View style={styles.heroVerticalDivider} />
+                <View style={styles.heroColumn}>
+                  <Text style={styles.heroColumnNumber}>{enabledCount}</Text>
+                  <Text style={styles.heroColumnLabel}>Đã cấp quyền</Text>
                 </View>
-                <Text style={[styles.statValue, { color: '#059669' }]}>{enabledCount}</Text>
-                <Text style={styles.statLabel}>Đã cấp quyền</Text>
-              </View>
-
-              <View style={styles.statBox}>
-                <View style={[styles.statIconBadge, { backgroundColor: '#FEF3C7' }]}>
-                  <MaterialCommunityIcons name="star-shooting" size={18} color="#D97706" />
+                <View style={styles.heroVerticalDivider} />
+                <View style={styles.heroColumn}>
+                  <Text style={styles.heroColumnNumber}>
+                    {totalPointsGranted >= 1000000
+                      ? `${(totalPointsGranted / 1000000).toFixed(1)}M`
+                      : totalPointsGranted.toLocaleString('vi-VN')}
+                  </Text>
+                  <Text style={styles.heroColumnLabel}>Điểm đã trao</Text>
                 </View>
-                <Text style={[styles.statValue, { color: '#D97706' }]} numberOfLines={1}>
-                  {totalPointsGranted >= 1000000
-                    ? `${(totalPointsGranted / 1000000).toFixed(1)}M`
-                    : totalPointsGranted.toLocaleString('vi-VN')}
-                </Text>
-                <Text style={styles.statLabel}>Tổng điểm trao</Text>
               </View>
-            </View>
 
         {/* View Mode Selector Tabs */}
         <View style={styles.segmentedWrapper}>
@@ -673,29 +635,39 @@ export function AdminTetWalletScreen() {
                         onPress={() => toggleDepartment(dept.id)}
                       >
                         <View style={styles.deptIconBox}>
-                          <MaterialCommunityIcons name="domain" size={22} color="#2563EB" />
+                          <MaterialCommunityIcons name="domain" size={22} color="#0563bb" />
                         </View>
 
                         <View style={styles.deptInfo}>
                           <Text style={styles.deptName}>{dept.name}</Text>
                           <Text style={styles.deptCode}>
-                            Mã: {dept.code} • Đã cấp: <Text style={{ fontWeight: '700', color: deptEnabledCount > 0 ? '#059669' : '#64748B' }}>{deptEnabledCount}/{totalDeptMembers}</Text>
+                            <Text style={{ fontWeight: '700', color: deptEnabledCount > 0 ? '#0563bb' : '#64748B' }}>
+                              {deptEnabledCount}/{totalDeptMembers} Đã cấp quyền
+                            </Text>
                             {deptTotalPoints > 0 && (
-                              <Text style={{ color: '#D97706', fontWeight: '700' }}> • {deptTotalPoints.toLocaleString('vi-VN')} đ</Text>
+                              <Text style={{ color: '#0563bb', fontWeight: '700' }}> • {deptTotalPoints.toLocaleString('vi-VN')} đ</Text>
                             )}
                           </Text>
                         </View>
 
-                        <View style={styles.memberBadge}>
-                          <MaterialCommunityIcons name="account-outline" size={14} color="#4B5563" />
-                          <Text style={styles.memberBadgeText}>{deptMembers.length} NV</Text>
-                        </View>
+                        {canManageTetWallet && (
+                          <Pressable
+                            style={styles.deptGrantQuickBtn}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              openGrantForDepartment(dept);
+                            }}
+                          >
+                            <MaterialCommunityIcons name="gift-outline" size={13} color="#0563bb" />
+                            <Text style={styles.deptGrantQuickBtnText}>Trao điểm</Text>
+                          </Pressable>
+                        )}
 
                         <MaterialCommunityIcons
                           name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                          size={22}
+                          size={20}
                           color="#64748B"
-                          style={{ marginLeft: 8 }}
+                          style={{ marginLeft: 6 }}
                         />
                       </Pressable>
 
@@ -706,8 +678,8 @@ export function AdminTetWalletScreen() {
                             style={styles.deptActionToolBtn}
                             onPress={() => openGrantForDepartment(dept)}
                           >
-                            <MaterialCommunityIcons name="gift-outline" size={16} color="#D97706" />
-                            <Text style={[styles.deptActionToolText, { color: '#D97706' }]}>Trao điểm Tết cả phòng</Text>
+                            <MaterialCommunityIcons name="gift-outline" size={16} color="#0563bb" />
+                            <Text style={[styles.deptActionToolText, { color: '#0563bb' }]}>Trao điểm cả phòng</Text>
                           </Pressable>
 
                           <View style={styles.deptActionDivider} />
@@ -1035,7 +1007,7 @@ function EmployeeRowItem({
       style={[styles.employeeRow, isLast && { borderBottomWidth: 0 }]}
       onPress={onPress}
     >
-      {/* Avatar */}
+      {/* Avatar matching Screen 1 */}
       <View style={styles.avatarContainer}>
         {avatarUrl ? (
           <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
@@ -1072,24 +1044,14 @@ function EmployeeRowItem({
           </View>
         )}
 
-        {/* Granted Points Badge */}
+        {/* Granted Points Badge matching Screen 1 */}
         <View style={styles.pointsBadgeRow}>
           {totalPoints > 0 ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-              <View style={styles.grantedPointTag}>
-                <MaterialCommunityIcons name="star" size={12} color="#D97706" />
-                <Text style={styles.grantedPointText}>
-                  {totalPoints.toLocaleString('vi-VN')} đ ({(totalPoints * 1000).toLocaleString('vi-VN')} VNĐ)
-                </Text>
-              </View>
-              {instantPoints > 0 && (
-                <View style={[styles.grantedPointTag, { backgroundColor: '#ECFDF5' }]}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={12} color="#059669" />
-                  <Text style={[styles.grantedPointText, { color: '#065F46' }]}>
-                    +{instantPoints.toLocaleString('vi-VN')} nóng
-                  </Text>
-                </View>
-              )}
+            <View style={styles.grantedPointTag}>
+              <MaterialCommunityIcons name="star-shooting" size={11} color="#0563bb" />
+              <Text style={styles.grantedPointText}>
+                ✦ {totalPoints.toLocaleString('vi-VN')} điểm = {(totalPoints * 1000).toLocaleString('vi-VN')} VNĐ
+              </Text>
             </View>
           ) : (
             <Text style={styles.noPointsText}>Chưa cấp điểm</Text>
@@ -1108,40 +1070,26 @@ function EmployeeRowItem({
               onGrantPoints?.();
             }}
           >
-            <MaterialCommunityIcons name="gift-outline" size={14} color="#B45309" />
-            <Text style={styles.rowGrantBtnText}>Trao điểm Tết</Text>
+            <MaterialCommunityIcons name="gift-outline" size={13} color="#0563bb" />
+            <Text style={styles.rowGrantBtnText}>Trao điểm</Text>
           </Pressable>
         )}
 
-        {/* Permission Switch & Status */}
+        {/* Permission Switch & Status matching Screen 1 */}
         <View style={styles.switchRow}>
+          <Text style={styles.switchLabelText}>Quyền ví</Text>
           {isToggling ? (
-            <ActivityIndicator size="small" color="#D97706" style={{ marginHorizontal: 4 }} />
+            <ActivityIndicator size="small" color="#0563bb" style={{ marginHorizontal: 2 }} />
           ) : (
             <Switch
               value={isVaultEnabled}
               disabled={!canManage || isToggling}
               onValueChange={onToggle}
-              trackColor={{ false: '#E5E7EB', true: '#FDE68A' }}
-              thumbColor={isVaultEnabled ? '#D97706' : '#9CA3AF'}
+              trackColor={{ false: '#E2E8F0', true: 'rgba(5, 99, 187, 0.35)' }}
+              thumbColor={isVaultEnabled ? '#0563bb' : '#94A3B8'}
               style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] } : undefined}
             />
           )}
-          <View
-            style={[
-              styles.walletBadge,
-              isVaultEnabled ? styles.walletBadgeActive : styles.walletBadgeInactive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.walletBadgeText,
-                isVaultEnabled ? styles.walletBadgeTextActive : styles.walletBadgeTextInactive,
-              ]}
-            >
-              {isVaultEnabled ? 'Đã cấp' : 'Tắt'}
-            </Text>
-          </View>
         </View>
       </View>
     </Pressable>
@@ -1155,98 +1103,184 @@ const styles = StyleSheet.create({
     paddingBottom: 140,
     backgroundColor: '#F8FAFC',
   },
-  headerIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FEF3C7',
+  /* Custom Header matching Screen 1 */
+  customHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  headerBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  statsCardWrapper: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
-  statIconBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: '#64748B',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  topMainTabWrapper: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 12,
-    gap: 4,
-  },
-  topMainTabBtn: {
+  headerTitleContainer: {
     flex: 1,
+  },
+  screenMainTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  screenSubTitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+
+  /* Compact Scope Row */
+  compactScopeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  scopeSelectorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
-  },
-  topMainTabBtnActive: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
-  topMainTabText: {
-    fontSize: 13,
+  scopeSelectorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  scopeBadgePill: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  scopeBadgePillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0563bb',
+  },
+
+  /* Underline Tabs */
+  underlineTabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    marginBottom: 16,
+  },
+  underlineTabBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    position: 'relative',
+  },
+  underlineTabBtnActive: {},
+  underlineTabText: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#64748B',
   },
-  topMainTabTextActive: {
-    color: '#0F172A',
-    fontWeight: '800',
+  underlineTabTextActive: {
+    color: '#0563bb',
+    fontWeight: '700',
   },
-  topMainTabBadge: {
+  activeUnderline: {
+    position: 'absolute',
+    bottom: -1,
+    left: 12,
+    right: 12,
+    height: 3,
+    backgroundColor: '#0563bb',
+    borderRadius: 2,
+  },
+  pendingBadgeCircle: {
     backgroundColor: '#EF4444',
     borderRadius: 10,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 1.5,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  topMainTabBadgeText: {
+  pendingBadgeCircleText: {
     fontSize: 10,
-    color: '#FFFFFF',
     fontWeight: '800',
+    color: '#FFFFFF',
   },
+
+  /* Solid Hero Banner matching Screen 1 */
+  solidHeroBanner: {
+    backgroundColor: '#0563bb',
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    marginBottom: 16,
+    shadowColor: '#0563bb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  heroColumn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroColumnNumber: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  heroColumnLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.88)',
+  },
+  heroVerticalDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+
+  /* Dept Quick Grant */
+  deptGrantQuickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: 'rgba(5, 99, 187, 0.3)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginRight: 4,
+  },
+  deptGrantQuickBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0563bb',
+  },
+  switchLabelText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginRight: 4,
+  },
+
   segmentedWrapper: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
@@ -1295,8 +1329,8 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
   },
   filterChipActive: {
-    backgroundColor: '#1E293B',
-    borderColor: '#1E293B',
+    backgroundColor: '#0563bb',
+    borderColor: '#0563bb',
   },
   filterChipActiveSuccess: {
     backgroundColor: '#059669',
@@ -1481,14 +1515,16 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#E0E7FF',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarFallbackText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#4338CA',
+    color: '#0563bb',
   },
   empInfo: {
     flex: 1,
@@ -1547,17 +1583,17 @@ const styles = StyleSheet.create({
   grantedPointTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 6,
     alignSelf: 'flex-start',
-    gap: 3,
+    gap: 4,
   },
   grantedPointText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#0563bb',
   },
   noPointsText: {
     fontSize: 10,
@@ -1571,9 +1607,9 @@ const styles = StyleSheet.create({
   rowGrantBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: 'rgba(5, 99, 187, 0.35)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1582,7 +1618,7 @@ const styles = StyleSheet.create({
   rowGrantBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#B45309',
+    color: '#0563bb',
   },
   switchRow: {
     flexDirection: 'row',

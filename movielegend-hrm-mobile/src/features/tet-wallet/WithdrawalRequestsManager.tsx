@@ -238,6 +238,24 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
 
   return (
     <View style={styles.container}>
+      {/* 3-Column Summary Metrics Card matching Screen 2 */}
+      <View style={styles.metricsSummaryCard}>
+        <View style={styles.metricItem}>
+          <Text style={[styles.metricCount, { color: '#D97706' }]}>{counts.PENDING_ADMIN || 0}</Text>
+          <Text style={styles.metricLabel}>Chờ duyệt</Text>
+        </View>
+        <View style={styles.metricDivider} />
+        <View style={styles.metricItem}>
+          <Text style={[styles.metricCount, { color: '#0563bb' }]}>{counts.PENDING_ACCOUNTANT || 0}</Text>
+          <Text style={styles.metricLabel}>Chờ chi</Text>
+        </View>
+        <View style={styles.metricDivider} />
+        <View style={styles.metricItem}>
+          <Text style={[styles.metricCount, { color: '#059669' }]}>{counts.PAID || 0}</Text>
+          <Text style={styles.metricLabel}>Đã chi</Text>
+        </View>
+      </View>
+
       {/* Modern Filter Pill Tabs */}
       <ScrollView
         horizontal
@@ -340,7 +358,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
         <SearchInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Tìm theo tên hoặc mã nhân viên..."
+          placeholder="Tìm kiếm nhân viên, mã NV..."
         />
       </View>
 
@@ -348,16 +366,22 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
       {isLoading ? (
         <LoadingState label="Đang tải danh sách yêu cầu rút tiền..." />
       ) : requests.length === 0 ? (
-        <EmptyState
-          title={
-            activeTab === 'PENDING_ADMIN'
-              ? 'Không có yêu cầu nào chờ Admin duyệt'
-              : activeTab === 'PENDING_ACCOUNTANT'
-              ? 'Không có yêu cầu nào chờ Kế toán chi'
-              : 'Không tìm thấy yêu cầu rút tiền nào'
-          }
-          message="Các yêu cầu rút điểm từ Ví Điểm Thưởng sẽ hiển thị tại đây."
-        />
+        <View style={styles.customEmptyContainer}>
+          <View style={styles.emptyDocCircle}>
+            <MaterialCommunityIcons
+              name="file-document-check-outline"
+              size={36}
+              color="#0563bb"
+            />
+          </View>
+          <Text style={styles.customEmptyTitle}>Chưa có yêu cầu chờ duyệt</Text>
+          <Text style={styles.customEmptySubtitle}>
+            Yêu cầu rút điểm thưởng sẽ hiển thị tại đây.
+          </Text>
+          <Text style={styles.customEmptyNote}>
+            Bạn đã xử lý hết các yêu cầu hiện tại.
+          </Text>
+        </View>
       ) : (
         <View style={styles.ticketList}>
           {requests.map((ticket) => {
@@ -838,6 +862,81 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
+  /* Metrics Summary Card (Screen 2) */
+  metricsSummaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  metricItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metricCount: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  metricDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: '#E2E8F0',
+  },
+
+  /* Empty State matching Screen 2 */
+  customEmptyContainer: {
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyDocCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  customEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  customEmptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  customEmptyNote: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+  },
+
   /* Filter Pills */
   unifiedTabsWrapper: {
     flexDirection: 'row',
@@ -855,7 +954,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   filterPillActive: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0563bb',
   },
   filterPillText: {
     fontSize: 12,

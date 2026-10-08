@@ -8,21 +8,14 @@ import {
   Image,
   ActivityIndicator,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   Modal,
   BackHandler,
-  PanResponder,
-  Animated,
   Dimensions,
-  Easing} from 'react-native';
+} from 'react-native';
 import { Stack } from 'expo-router';
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
-import { PageHeader } from '../../components/PageHeader';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
 import type { Department } from '../../types/department.types';
 import type { EmployeeUser } from '../../types/employee.types';
 import {
@@ -46,1182 +39,1194 @@ interface AdminGrantPointsScreenProps {
   onSuccess?: () => void;
 }
 
-const PRESET_POINTS = [
-  { label: '10.000', value: 10000, desc: '10 triệu' },
-  { label: '20.000', value: 20000, desc: '20 triệu' },
-  { label: '50.000', value: 50000, desc: '50 triệu' },
-  { label: '100.000', value: 100000, desc: '100 triệu' },
-  { label: '200.000', value: 200000, desc: '200 triệu' },
-  { label: '500.000', value: 500000, desc: '500 triệu' },
-];
+const PRESET_POINTS = [10000, 20000, 50000, 100000, 200000, 500000];
 
-const DURATION_OPTIONS = [
-  { label: '3 tháng', value: 3 },
-  { label: '6 tháng', value: 6 },
-  { label: '9 tháng', value: 9 },
-  { label: '12 tháng (1 năm)', value: 12 },
-  { label: '18 tháng (1.5 năm)', value: 18 },
-  { label: '24 tháng (2 năm)', value: 24 },
-  { label: '36 tháng (3 năm)', value: 36 },
-];
+const DURATION_OPTIONS = [3, 6, 9, 12, 18, 24, 36];
 
 const INTERVAL_OPTIONS = [
   { label: 'Mỗi 1 tháng', value: 1 },
   { label: 'Mỗi 2 tháng', value: 2 },
   { label: 'Mỗi 3 tháng (Quý)', value: 3 },
-  { label: 'Mỗi 4 tháng', value: 4 },
-  { label: 'Mỗi 6 tháng', value: 6 },
-  { label: 'Mỗi 12 tháng', value: 12 },
+  { label: 'Mỗi 6 tháng (Nửa năm)', value: 6 },
+  { label: 'Mỗi 12 tháng (Hàng năm)', value: 12 },
 ];
-
-const WEEKDAYS_VI = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
 export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrantPointsScreenProps) {
   const { user } = useAuth();
   const isRegionAdmin = Boolean(
     user?.roles?.includes('ADMIN') &&
-    user?.scopes?.some((s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION')
+      user?.scopes?.some(
+        (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION'
+      )
   );
   const isGlobalAdmin = Boolean(
-    user?.roles?.includes('SUPER_ADMIN') ||
-    (user?.roles?.includes('ADMIN') && !isRegionAdmin)
+    user?.roles?.includes('SUPER_ADMIN') || (user?.roles?.includes('ADMIN') && !isRegionAdmin)
   );
   const canGrant = isGlobalAdmin || isRegionAdmin;
 
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
 
-  const [grantTitle, setGrantTitle] = useState<string>(
-    target.type === 'DEPARTMENT' && target.department
-      ? `Thưởng Cuối Năm ${currentYear} - Phòng ${target.department.name}`
-      : `Thưởng Cuối Năm ${currentYear}`
-  );
+  // Wizard Step: 1 = Số điểm (Screen 3) | 2 = Lịch mở khóa (Screen 4)
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+
+  // Form states
+  const [selectedPoints, setSelectedPoints] = useState<number>(50000);
+  const [isCustomPoints, setIsCustomPoints] = useState<boolean>(false);
   const [customPointsInput, setCustomPointsInput] = useState<string>('50000');
   const [durationMonths, setDurationMonths] = useState<number>(12);
   const [intervalMonths, setIntervalMonths] = useState<number>(3);
   const [startDateStr, setStartDateStr] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-  const [grantNote, setGrantNote] = useState<string>('');
+  const [activeDatePreset, setActiveDatePreset] = useState<'today' | 'firstMonth' | 'firstYear'>('today');
+  const [showIntervalModal, setShowIntervalModal] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const screenWidth = Dimensions.get('window').width;
-  const translateX = useRef(new Animated.Value(screenWidth)).current;
+  // Recipient info
+  const recipientName =
+    target.type === 'SINGLE' && target.employee
+      ? target.employee.profile?.fullName || target.employee.userCode || 'Nhân sự'
+      : target.department?.name || 'Phòng ban';
 
-  // Slide in smoothly on screen mount
-  useEffect(() => {
-    Animated.timing(translateX, {
-      toValue: 0,
-      duration: 260,
-      easing: Easing.out(Easing.poly(4)),
-      useNativeDriver: true,
-    }).start();
-  }, [translateX]);
+  const recipientCode =
+    target.type === 'SINGLE' && target.employee
+      ? target.employee.userCode || ''
+      : target.department?.code || '';
 
-  // Smooth slide-out exit animation to return to Quyền Ví Tết
-  const smoothExit = useCallback(() => {
-    Animated.timing(translateX, {
-      toValue: screenWidth,
-      duration: 220,
-      easing: Easing.in(Easing.poly(4)),
-      useNativeDriver: true,
-    }).start(() => {
-      onBack();
-    });
-  }, [translateX, screenWidth, onBack]);
+  const recipientDept =
+    target.type === 'SINGLE' && target.employee
+      ? target.employee.departmentLinks?.[0]?.department?.name || 'MOVIELEGEND'
+      : `${target.memberCount || 0} nhân sự`;
 
-  // Handle hardware back on Android with smooth transition
-  useEffect(() => {
-    const onBackPress = () => {
-      smoothExit();
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => sub.remove();
-  }, [smoothExit]);
+  const recipientPosition =
+    target.type === 'SINGLE' && target.employee
+      ? target.employee.departmentLinks?.[0]?.position?.name || 'Nhân viên'
+      : '';
 
-  // Real-time finger-following swipe gesture from left edge
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (evt, gestureState) => {
-          // Starts near left edge (x <= 55) and moving horizontally right
-          return (
-            evt.nativeEvent.pageX <= 55 &&
-            gestureState.dx > 8 &&
-            Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.3
-          );
-        },
-        onPanResponderMove: (evt, gestureState) => {
-          // Track finger in real time
-          if (gestureState.dx > 0) {
-            translateX.setValue(gestureState.dx);
-          }
-        },
-        onPanResponderRelease: (evt, gestureState) => {
-          // If swiped past 28% of screen width or swiped with horizontal velocity
-          if (gestureState.dx > screenWidth * 0.28 || gestureState.vx > 0.35) {
-            Animated.timing(translateX, {
-              toValue: screenWidth,
-              duration: 180,
-              easing: Easing.out(Easing.poly(4)),
-              useNativeDriver: true,
-            }).start(() => {
-              onBack();
-            });
-          } else {
-            // Spring back into position smoothly
-            Animated.spring(translateX, {
-              toValue: 0,
-              bounciness: 0,
-              speed: 18,
-              useNativeDriver: true,
-            }).start();
-          }
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(translateX, {
-            toValue: 0,
-            bounciness: 0,
-            speed: 18,
-            useNativeDriver: true,
-          }).start();
-        },
-      }),
-    [onBack, screenWidth, translateX]
-  );
+  const grantedPointsCurrent =
+    target.type === 'SINGLE' && target.employee
+      ? target.employee.retentionVaults?.[0]?.grantedPoints || 0
+      : 0;
 
-  const currentDateObj = useMemo(() => {
-    if (!startDateStr) return new Date();
-    const parts = startDateStr.split('-').map((v) => parseInt(v, 10));
-    const [y, m, d] = parts;
-    if (y !== undefined && m !== undefined && d !== undefined && !isNaN(y) && !isNaN(m) && !isNaN(d)) {
-      return new Date(y, m - 1, d);
-    }
-    const parsedDate = new Date(startDateStr);
-    return isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
-  }, [startDateStr]);
+  const getInitials = (name: string) => {
+    if (!name) return 'NV';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'NV';
+    const first = parts[0] ?? '';
+    if (parts.length === 1) return first.substring(0, 2).toUpperCase();
+    const last = parts[parts.length - 1] ?? '';
+    return ((first.charAt(0) || '') + (last.charAt(0) || '')).toUpperCase() || 'NV';
+  };
 
-  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    if (selectedDate && event.type !== 'dismissed') {
-      const y = selectedDate.getFullYear();
-      const m = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-      const d = selectedDate.getDate().toString().padStart(2, '0');
-      setStartDateStr(`${y}-${m}-${d}`);
+  // Sync selectedPoints with input
+  const pointsToGrant = isCustomPoints
+    ? parseInt(customPointsInput.replace(/\D/g, ''), 10) || 0
+    : selectedPoints;
+
+  // Preset date pickers
+  const handleSelectDatePreset = (preset: 'today' | 'firstMonth' | 'firstYear') => {
+    setActiveDatePreset(preset);
+    const now = new Date();
+    if (preset === 'today') {
+      setStartDateStr(now.toISOString().slice(0, 10));
+    } else if (preset === 'firstMonth') {
+      const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      setStartDateStr(firstOfMonth.toISOString().slice(0, 10));
+    } else if (preset === 'firstYear') {
+      const firstOfYear = new Date(now.getFullYear(), 0, 1);
+      setStartDateStr(firstOfYear.toISOString().slice(0, 10));
     }
   };
 
-  // Full Vietnamese formatted date: "Thứ Bảy, ngày 05/09/2026"
-  const formattedSelectedDate = useMemo(() => {
-    if (!startDateStr) return '';
-    const d = currentDateObj;
-    const day = d.getDate().toString().padStart(2, '0');
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    const year = d.getFullYear();
-    const weekday = WEEKDAYS_VI[d.getDay()] || '';
-    return `${weekday}, ngày ${day}/${month}/${year}`;
-  }, [startDateStr, currentDateObj]);
+  // Format Date DD/MM/YYYY
+  const formatDateDisplay = (dateString: string) => {
+    if (!dateString) return '';
+    const [y, m, d] = dateString.split('-');
+    if (!y || !m || !d) return dateString;
+    return `${d}/${m}/${y}`;
+  };
 
-  const shortSelectedDate = useMemo(() => {
-    if (!startDateStr) return '';
-    const d = currentDateObj;
-    const day = d.getDate().toString().padStart(2, '0');
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }, [startDateStr, currentDateObj]);
-
-  // Live calculation of milestones
+  // Calculate milestones
   const calculatedMilestones = useMemo(() => {
-    const pts = parseInt(customPointsInput, 10) || 0;
-    const dur = durationMonths > 0 ? durationMonths : 12;
-    const intv = intervalMonths > 0 ? intervalMonths : 3;
-    const N = Math.max(1, Math.floor(dur / intv));
-    const ptsPerMilestone = Math.floor(pts / N);
-    const start = startDateStr ? new Date(startDateStr) : new Date();
-    const now = new Date();
-    const list = [];
+    const totalPts = pointsToGrant;
+    const dur = durationMonths || 12;
+    const intv = intervalMonths || 3;
+    const count = Math.max(1, Math.floor(dur / intv));
+    const mPts = Math.floor(totalPts / count);
 
-    for (let i = 1; i <= N; i++) {
-      const mPts = i === N ? pts - ptsPerMilestone * (N - 1) : ptsPerMilestone;
-      const unlock = new Date(start);
+    const base = new Date(startDateStr);
+    const list: Array<{ index: number; dateStr: string; points: number }> = [];
+
+    for (let i = 1; i <= count; i++) {
+      const unlock = new Date(base);
       unlock.setMonth(unlock.getMonth() + i * intv);
-      const isUnlocked = unlock <= now;
-      const day = unlock.getDate().toString().padStart(2, '0');
-      const month = (unlock.getMonth() + 1).toString().padStart(2, '0');
-      const year = unlock.getFullYear();
-      const weekday = WEEKDAYS_VI[unlock.getDay()] || '';
+      const d = unlock.getDate().toString().padStart(2, '0');
+      const m = (unlock.getMonth() + 1).toString().padStart(2, '0');
+      const y = unlock.getFullYear();
 
       list.push({
         index: i,
-        title: `Đợt ${i} (Sau ${i * intv} tháng)`,
-        unlockDate: unlock,
-        dateFormatted: `${day}/${month}/${year}`,
-        dateFullFormatted: `${weekday}, ngày ${day}/${month}/${year}`,
-        points: mPts,
-        cash: mPts * 1000,
-        isUnlocked,
+        dateStr: `${d}/${m}/${y}`,
+        points: i === count ? totalPts - mPts * (count - 1) : mPts,
       });
     }
     return list;
-  }, [customPointsInput, durationMonths, intervalMonths, startDateStr]);
+  }, [pointsToGrant, durationMonths, intervalMonths, startDateStr]);
 
+  // Handle Submit
   const handleConfirmGrant = async () => {
     if (!canGrant) {
-      CustomAlert.alert(
-        'Không có quyền trao điểm',
-        'Tài khoản của bạn không có quyền trao điểm thưởng Ví Tết.'
-      );
+      CustomAlert.alert('Không có quyền trao điểm', 'Tài khoản của bạn không có quyền trao điểm thưởng Ví Tết.');
       return;
     }
 
-    const pts = parseInt(customPointsInput, 10);
-    if (isNaN(pts) || pts <= 0) {
-      CustomAlert.alert('Số điểm không hợp lệ', 'Vui lòng nhập số điểm lớn hơn 0.');
+    if (pointsToGrant <= 0) {
+      CustomAlert.alert('Số điểm không hợp lệ', 'Vui lòng chọn hoặc nhập số điểm lớn hơn 0.');
       return;
     }
-    const title = grantTitle.trim() || `Thưởng Cuối Năm ${currentYear}`;
+
+    const title =
+      target.type === 'DEPARTMENT' && target.department
+        ? `Thưởng Cuối Năm ${currentYear} - Phòng ${target.department.name}`
+        : `Thưởng Cuối Năm ${currentYear}`;
 
     try {
       setIsSubmitting(true);
-
       if (target.type === 'SINGLE' && target.employee) {
         await apiGrantProjectPackage({
           userId: target.employee.id,
           title,
-          points: pts,
+          points: pointsToGrant,
           year: currentYear,
           cashValuePerPoint: 1000,
           startDate: new Date(startDateStr).toISOString(),
           durationMonths,
           intervalMonths,
-          note: grantNote.trim() || undefined,
         });
         CustomAlert.alert(
-          'Trao điểm thưởng thành công 🎉',
-          `Đã trao ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ) thưởng cuối năm chia thành ${calculatedMilestones.length} đợt trong ${durationMonths} tháng cho ${target.employee.profile?.fullName || target.employee.userCode}.`,
-          [{ text: 'Hoàn tất', onPress: () => { onSuccess ? onSuccess() : onBack(); } }]
+          'Trao điểm thành công 🎉',
+          `Đã trao ${pointsToGrant.toLocaleString('vi-VN')} điểm (${(pointsToGrant * 1000).toLocaleString('vi-VN')} VNĐ) cho ${recipientName}.`,
+          [{ text: 'Hoàn tất', onPress: () => (onSuccess ? onSuccess() : onBack()) }]
         );
       } else if (target.type === 'DEPARTMENT' && target.department) {
         await apiBulkGrantProjectPackage({
           departmentId: target.department.id,
           title,
-          points: pts,
+          points: pointsToGrant,
           year: currentYear,
           cashValuePerPoint: 1000,
           startDate: new Date(startDateStr).toISOString(),
           durationMonths,
           intervalMonths,
-          note: grantNote.trim() || undefined,
         });
         CustomAlert.alert(
-          'Trao điểm thưởng thành công 🎉',
-          `Đã trao ${pts.toLocaleString('vi-VN')} điểm (${(pts * 1000).toLocaleString('vi-VN')} VNĐ/nhân sự) thưởng cuối năm cho toàn bộ phòng ban "${target.department.name}".`,
-          [{ text: 'Hoàn tất', onPress: () => { onSuccess ? onSuccess() : onBack(); } }]
+          'Trao điểm thành công 🎉',
+          `Đã trao ${pointsToGrant.toLocaleString('vi-VN')} điểm (${(pointsToGrant * 1000).toLocaleString('vi-VN')} VNĐ/nhân sự) cho toàn bộ phòng ${target.department.name}.`,
+          [{ text: 'Hoàn tất', onPress: () => (onSuccess ? onSuccess() : onBack()) }]
         );
       }
-
       await queryClient.invalidateQueries({ queryKey: ['employees'] });
     } catch (err: any) {
-      const isForbidden = err?.response?.status === 403 || err?.response?.data?.code === 'FORBIDDEN_GLOBAL_ADMIN';
-      if (isForbidden) {
-        CustomAlert.alert(
-          'Không có quyền trao điểm',
-          'Tài khoản Admin Miền không có quyền trao điểm thưởng Ví Tết. Chức năng này chỉ dành riêng cho Super Admin (Admin Tổng).'
-        );
-      } else {
-        CustomAlert.alert('Lỗi trao điểm', err?.response?.data?.message || err?.message || 'Không thể trao điểm lúc này.');
-      }
+      CustomAlert.alert('Lỗi trao điểm', err?.response?.data?.message || err?.message || 'Không thể trao điểm lúc này.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Screen backgroundColor="#F8FAFC">
-      <Stack.Screen options={{ gestureEnabled: false }} />
-      <Animated.View
-        style={[
-          styles.animatedContainer,
-          {
-            transform: [{ translateX }],
-          },
-        ]}
-        {...panResponder.panHandlers}
-      >
-        <ScrollView
-          style={{ flex: 1, backgroundColor: '#F8FAFC' }}
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-        >
-            {/* Header */}
-            <PageHeader
-              title="Trao Điểm Thưởng"
-              subtitle="Cấu hình hạn mức tích lũy & trao thưởng"
-              showBack={false}
-              right={
-                <View style={styles.headerIconBox}>
-                  <MaterialCommunityIcons name="wallet-giftcard" size={26} color="#D97706" />
-                </View>
+    <Screen backgroundColor="#FFFFFF">
+      {/* ── Top Header: Back button + Title on the same line ── */}
+      <View style={styles.header}>
+        <View style={styles.headerTitleGroup}>
+          <Pressable
+            onPress={() => {
+              if (currentStep === 2) {
+                setCurrentStep(1);
+              } else {
+                onBack();
               }
-            />
+            }}
+            style={styles.backBtn}
+            hitSlop={10}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="arrow-back" size={22} color="#0F172A" />
+          </Pressable>
+          <View style={styles.titleTextWrap}>
+            <Text style={styles.screenTitle}>
+              {currentStep === 1 ? 'Trao điểm thưởng' : 'Lịch mở khóa'}
+            </Text>
+          </View>
+        </View>
+      </View>
 
-
-
-            {/* 1. Target Card */}
-            {target.type === 'SINGLE' && target.employee && (
-              <View style={styles.targetBannerCard}>
-                <View style={styles.avatarContainer}>
-                  {target.employee.profile?.avatarUrl ? (
-                    <Image source={{ uri: target.employee.profile.avatarUrl }} style={styles.avatarImg} />
-                  ) : (
-                    <View style={styles.avatarFallback}>
-                      <Text style={styles.avatarFallbackText}>
-                        {(target.employee.profile?.fullName || 'NV').slice(0, 2).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.targetName}>
-                    {target.employee.profile?.fullName || 'Chưa cập nhật tên'}
-                  </Text>
-                  <Text style={styles.targetMeta}>
-                    Mã: <Text style={{ fontWeight: '700', color: '#1E293B' }}>{target.employee.userCode}</Text> •{' '}
-                    {target.employee.departmentLinks?.[0]?.position?.name || 'Nhân viên'} •{' '}
-                    {target.employee.departmentLinks?.[0]?.department?.name || 'Chưa phân phòng'}
-                  </Text>
-                  <View style={styles.currentVaultStatsRow}>
-                    <Text style={styles.currentVaultStat}>
-                      Đã cấp: <Text style={{ fontWeight: '700', color: '#B45309' }}>
-                        {(target.employee.retentionVaults?.[0]?.grantedPoints || 0).toLocaleString('vi-VN')} đ
-                      </Text>
-                    </Text>
-                    {(target.employee.retentionVaults?.[0]?.instantBonusPoints || 0) > 0 && (
-                      <Text style={[styles.currentVaultStat, { color: '#059669' }]}>
-                        {' '}• Thưởng nóng: {target.employee.retentionVaults?.[0]?.instantBonusPoints?.toLocaleString('vi-VN')} đ
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              </View>
+      {/* ── Stepper Indicator (Screens 3 & 4) ── */}
+      <View style={styles.stepperContainer}>
+        {/* Step 1 Node */}
+        <View style={styles.stepNode}>
+          <View style={[styles.stepCircle, styles.stepCircleActive]}>
+            {currentStep === 2 ? (
+              <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+            ) : (
+              <Text style={styles.stepCircleTextActive}>1</Text>
             )}
+          </View>
+          <Text style={[styles.stepLabel, currentStep === 1 && styles.stepLabelActive]}>
+            Số điểm
+          </Text>
+        </View>
 
-            {target.type === 'DEPARTMENT' && target.department && (
-              <View style={[styles.targetBannerCard, styles.targetDeptCard]}>
-                <View style={styles.deptIconBox}>
-                  <MaterialCommunityIcons name="domain" size={28} color="#1D4ED8" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.targetName, { color: '#1E3A8A' }]}>
-                    {target.department.name}
-                  </Text>
-                  <Text style={[styles.targetMeta, { color: '#3B82F6' }]}>
-                    Mã phòng: {target.department.code} • Áp dụng cho toàn bộ {target.memberCount} nhân sự
-                  </Text>
-                </View>
+        {/* Connecting Line */}
+        <View style={[styles.stepLine, currentStep === 2 && styles.stepLineActive]} />
+
+        {/* Step 2 Node */}
+        <View style={styles.stepNode}>
+          <View style={[styles.stepCircle, currentStep === 2 && styles.stepCircleActive]}>
+            <Text style={[styles.stepCircleText, currentStep === 2 && styles.stepCircleTextActive]}>
+              2
+            </Text>
+          </View>
+          <Text style={[styles.stepLabel, currentStep === 2 && styles.stepLabelActive]}>
+            Lịch mở khóa
+          </Text>
+        </View>
+      </View>
+
+      {/* ── Step Content ── */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {currentStep === 1 ? (
+          /* ======================================================== */
+          /* BƯỚC 1: SỐ ĐIỂM (Screen 3)                                */
+          /* ======================================================== */
+          <View>
+            {/* Recipient Card */}
+            <View style={styles.recipientCard}>
+              <View style={styles.recipientAvatar}>
+                <Text style={styles.recipientAvatarText}>{getInitials(recipientName)}</Text>
               </View>
-            )}
-
-            {/* 1. Form Card: Points & Cash Amount */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionTitleRow}>
-                <MaterialCommunityIcons name="star-shooting-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>1. Số Điểm Thưởng Trao Tặng</Text>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.recipientNameText}>{recipientName}</Text>
+                <Text style={styles.recipientSubText}>
+                  {recipientCode ? `${recipientCode} · ` : ''}
+                  {recipientDept}
+                  {recipientPosition ? ` · ${recipientPosition}` : ''}
+                </Text>
               </View>
-
-              <Text style={styles.inputFieldLabel}>Chọn nhanh số điểm:</Text>
-              <View style={styles.presetChipsWrap}>
-                {PRESET_POINTS.map((preset) => {
-                  const isSelected = parseInt(customPointsInput, 10) === preset.value;
-                  return (
-                    <Pressable
-                      key={preset.value}
-                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                      onPress={() => setCustomPointsInput(preset.value.toString())}
-                    >
-                      <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                        {preset.label} đ
-                      </Text>
-                      <Text style={[styles.presetChipDesc, isSelected && styles.presetChipDescActive]}>
-                        ~ {preset.desc}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.inputFieldLabel}>Hoặc nhập số điểm tùy chỉnh:</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={[styles.textInput, { fontSize: 16, fontWeight: '700', color: '#0F172A' }]}
-                  keyboardType="numeric"
-                  value={customPointsInput}
-                  onChangeText={(val) => setCustomPointsInput(val.replace(/[^0-9]/g, ''))}
-                  placeholder="VD: 50000"
-                  placeholderTextColor="#94A3B8"
-                />
-                <Text style={styles.inputUnitText}>điểm</Text>
-              </View>
-
-              {/* Cash conversion card */}
-              {Boolean(parseInt(customPointsInput, 10)) && (
-                <View style={styles.cashConversionBanner}>
-                  <View style={styles.conversionIconBox}>
-                    <MaterialCommunityIcons name="cash-multiple" size={24} color="#B45309" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.conversionLabel}>Tỷ giá quy đổi: 1 điểm = 1.000 VNĐ tiền thưởng</Text>
-                    <Text style={styles.conversionAmount}>
-                      {(parseInt(customPointsInput, 10) * 1000).toLocaleString('vi-VN')} VNĐ
-                    </Text>
-                  </View>
-                </View>
+              {target.type === 'SINGLE' && (
+                <Text style={styles.recipientGrantedText}>
+                  Đã cấp: {grantedPointsCurrent.toLocaleString('vi-VN')} điểm
+                </Text>
               )}
             </View>
 
-            {/* 2. Form Card: Duration & Interval Configuration */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionTitleRow}>
-                <MaterialCommunityIcons name="calendar-clock-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>2. Cấu Hình Chu Kỳ Tích Lũy & Mở Khóa Rút</Text>
-              </View>
-
-              <Text style={styles.inputFieldLabel}>Thời hạn tích lũy (Số tháng - Mặc định 12 tháng):</Text>
-              <View style={styles.presetChipsWrap}>
-                {DURATION_OPTIONS.map((opt) => {
-                  const isSelected = durationMonths === opt.value;
-                  return (
-                    <Pressable
-                      key={opt.value}
-                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                      onPress={() => setDurationMonths(opt.value)}
-                    >
-                      <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                        {opt.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.inputFieldLabel}>Chu kỳ mở khóa rút (Khoảng cách giữa các đợt):</Text>
-              <View style={styles.presetChipsWrap}>
-                {INTERVAL_OPTIONS.map((opt) => {
-                  const isSelected = intervalMonths === opt.value;
-                  return (
-                    <Pressable
-                      key={opt.value}
-                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                      onPress={() => setIntervalMonths(opt.value)}
-                    >
-                      <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                        {opt.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.inputFieldLabel}>Ngày bắt đầu tính hạn mức:</Text>
-              
-              {/* Direct date picker tap card */}
-              <Pressable
-                style={styles.datePickerBtnCard}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <View style={styles.datePickerBtnLeft}>
-                  <View style={styles.calendarIconBox}>
-                    <MaterialCommunityIcons name="calendar-month-outline" size={22} color="#D97706" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.datePickerBtnLabel}>Ngày bắt đầu áp dụng:</Text>
-                    <Text style={styles.datePickerBtnVal}>{formattedSelectedDate}</Text>
-                  </View>
+            {/* Big Points Display */}
+            <View style={styles.bigPointsSection}>
+              <Text style={styles.fieldSectionTitle}>Số điểm trao tặng</Text>
+              <View style={styles.bigPointsCenter}>
+                <Text style={styles.bigPointsNumber}>
+                  {pointsToGrant.toLocaleString('vi-VN')}{' '}
+                  <Text style={styles.bigPointsUnit}>điểm</Text>
+                </Text>
+                <View style={styles.cashEquivalentPill}>
+                  <Text style={styles.cashEquivalentText}>
+                    = {(pointsToGrant * 1000).toLocaleString('vi-VN')} VNĐ
+                  </Text>
                 </View>
-                <View style={styles.datePickerChangeChip}>
-                  <MaterialCommunityIcons name="calendar-edit" size={15} color="#92400E" />
-                  <Text style={styles.datePickerChangeChipText}>Đổi ngày</Text>
-                </View>
-              </Pressable>
-
-              {/* Quick preset chips */}
-              <Text style={[styles.inputFieldLabel, { marginTop: 10, fontSize: 11, color: '#64748B' }]}>
-                Hoặc chọn nhanh mốc thời gian:
-              </Text>
-              <View style={styles.presetChipsWrap}>
-                {[
-                  { label: 'Hôm nay', value: new Date().toISOString().slice(0, 10) },
-                  {
-                    label: 'Đầu tháng này',
-                    value: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
-                  },
-                  {
-                    label: 'Đầu năm nay',
-                    value: new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10),
-                  },
-                ].map((preset) => {
-                  const isSelected = startDateStr === preset.value;
-                  return (
-                    <Pressable
-                      key={preset.label}
-                      style={[styles.presetChip, isSelected && styles.presetChipActive]}
-                      onPress={() => setStartDateStr(preset.value)}
-                    >
-                      <Text style={[styles.presetChipPoints, isSelected && styles.presetChipPointsActive]}>
-                        {preset.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
               </View>
             </View>
 
-            {/* 3. Live Calculated Milestones Table */}
-            {calculatedMilestones.length > 0 && (
-              <View style={[styles.sectionCard, styles.milestonePreviewCard]}>
-                <View style={styles.previewHeaderRow}>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <MaterialCommunityIcons name="timeline-check" size={20} color="#D97706" />
-                      <Text style={styles.previewTitle}>3. Lộ Trình Tích Lũy & Giải Ngân Cuối Năm</Text>
-                    </View>
-                    <Text style={styles.previewSubtitle}>
-                      Tự động chia thành {calculatedMilestones.length} đợt trong thời hạn {durationMonths} tháng
-                    </Text>
-                  </View>
-                  <View style={styles.previewTotalPill}>
-                    <Text style={styles.previewTotalPillText}>{calculatedMilestones.length} đợt</Text>
-                  </View>
-                </View>
-
-                <View style={styles.milestoneTable}>
-                  {calculatedMilestones.map((m) => (
-                    <View
-                      key={m.index}
-                      style={[
-                        styles.milestoneTableRow,
-                        m.isUnlocked && styles.milestoneTableRowUnlocked,
-                      ]}
+            {/* Preset Points Grid (2 rows x 3 cols) */}
+            <View style={styles.presetGrid}>
+              {PRESET_POINTS.map((val) => {
+                const isSelected = !isCustomPoints && selectedPoints === val;
+                return (
+                  <Pressable
+                    key={val}
+                    style={[styles.presetGridBtn, isSelected && styles.presetGridBtnActive]}
+                    onPress={() => {
+                      setIsCustomPoints(false);
+                      setSelectedPoints(val);
+                      setCustomPointsInput(val.toString());
+                    }}
+                  >
+                    <Text
+                      style={[styles.presetGridBtnText, isSelected && styles.presetGridBtnTextActive]}
                     >
-                      <View style={styles.milestoneTableLeft}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <MaterialCommunityIcons
-                            name={m.isUnlocked ? 'lock-open-variant' : 'lock-clock'}
-                            size={16}
-                            color={m.isUnlocked ? '#059669' : '#D97706'}
-                          />
-                          <Text style={[styles.milestoneTableTitle, m.isUnlocked && { color: '#065F46' }]}>
-                            {m.title}
-                          </Text>
-                        </View>
-                        <Text style={styles.milestoneTableDate}>
-                          Ngày mở khóa: {m.dateFullFormatted || m.dateFormatted}
-                        </Text>
-                      </View>
+                      {val.toLocaleString('vi-VN')}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-                      <View style={styles.milestoneTableRight}>
-                        <Text style={styles.milestoneTablePoints}>
-                          {m.points.toLocaleString('vi-VN')} đ
-                        </Text>
-                        <View
-                          style={[
-                            styles.milestoneStatusTag,
-                            m.isUnlocked ? styles.tagUnlocked : styles.tagLocked,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.milestoneStatusTagText,
-                              m.isUnlocked ? styles.tagTextUnlocked : styles.tagTextLocked,
-                            ]}
-                          >
-                            {m.isUnlocked ? 'Mở khóa ngay' : `Khóa đến ${m.dateFormatted}`}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
+            {/* Custom Input Trigger */}
+            <Pressable
+              style={styles.customPointsHintRow}
+              onPress={() => setIsCustomPoints(true)}
+            >
+              <Text style={styles.customPointsHintText}>
+                Hoặc chạm số điểm để nhập tùy chỉnh
+              </Text>
+            </Pressable>
 
-            {/* 4. Form Card: Note */}
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionTitleRow}>
-                <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#D97706" />
-                <Text style={styles.sectionTitle}>4. Ghi Chú / Quyết Định Khen Thưởng (Tùy chọn)</Text>
-              </View>
-
-              <View style={[styles.inputWrapper, { height: 72, alignItems: 'flex-start', paddingTop: 8 }]}>
+            {isCustomPoints && (
+              <View style={styles.customInputBox}>
+                <Text style={styles.customInputLabel}>Nhập số điểm tùy chỉnh:</Text>
                 <TextInput
-                  style={[styles.textInput, { height: 56, textAlignVertical: 'top' }]}
-                  value={grantNote}
-                  onChangeText={setGrantNote}
-                  multiline
-                  placeholder="VD: Trao thưởng theo cam kết hoàn thành kế hoạch năm xuất sắc..."
+                  style={styles.customTextInput}
+                  value={customPointsInput}
+                  onChangeText={(val) => {
+                    const clean = val.replace(/\D/g, '');
+                    setCustomPointsInput(clean);
+                  }}
+                  keyboardType="numeric"
+                  placeholder="Ví dụ: 75000"
                   placeholderTextColor="#94A3B8"
                 />
               </View>
+            )}
+
+            {/* Thời hạn tích lũy */}
+            <View style={styles.durationSection}>
+              <Text style={styles.fieldSectionTitle}>Thời hạn tích lũy</Text>
+              <Text style={styles.fieldSectionSubtitle}>
+                Chọn thời gian phân bổ điểm thưởng
+              </Text>
+
+              {/* Row 1: 3, 6, 9, 12 tháng */}
+              <View style={styles.durationRow}>
+                {[3, 6, 9, 12].map((m) => {
+                  const isSelected = durationMonths === m;
+                  return (
+                    <Pressable
+                      key={m}
+                      style={[styles.durationPill, isSelected && styles.durationPillActive]}
+                      onPress={() => setDurationMonths(m)}
+                    >
+                      <Text
+                        style={[styles.durationPillText, isSelected && styles.durationPillTextActive]}
+                      >
+                        {m} tháng
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Row 2: 18, 24, 36 tháng */}
+              <View style={[styles.durationRow, { marginTop: 8 }]}>
+                {[18, 24, 36].map((m) => {
+                  const isSelected = durationMonths === m;
+                  return (
+                    <Pressable
+                      key={m}
+                      style={[styles.durationPill, isSelected && styles.durationPillActive]}
+                      onPress={() => setDurationMonths(m)}
+                    >
+                      <Text
+                        style={[styles.durationPillText, isSelected && styles.durationPillTextActive]}
+                      >
+                        {m} tháng
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
 
-            {/* Spacer for bottom CTA */}
-            <View style={{ height: 20 }} />
-          </ScrollView>
+            {/* Bottom conversion note */}
+            <View style={styles.conversionNoteRow}>
+              <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+              <Text style={styles.conversionNoteText}>1 điểm = 1.000 VNĐ</Text>
+            </View>
+          </View>
+        ) : (
+          /* ======================================================== */
+          /* BƯỚC 2: LỊCH MỞ KHÓA (Screen 4)                          */
+          /* ======================================================== */
+          <View>
+            {/* Summary Box */}
+            <View style={styles.stepTwoSummaryBox}>
+              <View style={styles.summaryBoxCol}>
+                <MaterialCommunityIcons name="gift-outline" size={20} color="#0563bb" />
+                <Text style={styles.summaryBoxValue}>
+                  {pointsToGrant.toLocaleString('vi-VN')} điểm
+                </Text>
+              </View>
+              <View style={styles.summaryBoxDivider} />
+              <View style={styles.summaryBoxCol}>
+                <Ionicons name="time-outline" size={20} color="#0563bb" />
+                <Text style={styles.summaryBoxValue}>{durationMonths} tháng</Text>
+              </View>
+            </View>
 
-          {/* Bottom Sticky Action Bar */}
-          <View style={styles.stickyBottomBar}>
-            <Pressable style={styles.backButton} onPress={smoothExit} disabled={isSubmitting}>
-              <Text style={styles.backButtonText}>Quay lại</Text>
+            {/* Chu kỳ mở khóa Dropdown */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Chu kỳ mở khóa</Text>
+              <Pressable
+                style={styles.dropdownBtn}
+                onPress={() => setShowIntervalModal(true)}
+              >
+                <Text style={styles.dropdownBtnText}>
+                  {INTERVAL_OPTIONS.find((i) => i.value === intervalMonths)?.label ||
+                    `Mỗi ${intervalMonths} tháng`}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#64748B" />
+              </Pressable>
+            </View>
+
+            {/* Ngày bắt đầu */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Ngày bắt đầu</Text>
+              <View style={styles.dateInputBox}>
+                <Text style={styles.dateInputText}>{formatDateDisplay(startDateStr)}</Text>
+                <Ionicons name="calendar-outline" size={18} color="#64748B" />
+              </View>
+
+              {/* Quick Date Presets */}
+              <View style={styles.datePresetRow}>
+                <Pressable
+                  style={[
+                    styles.datePresetBtn,
+                    activeDatePreset === 'today' && styles.datePresetBtnActive,
+                  ]}
+                  onPress={() => handleSelectDatePreset('today')}
+                >
+                  <Text
+                    style={[
+                      styles.datePresetBtnText,
+                      activeDatePreset === 'today' && styles.datePresetBtnTextActive,
+                    ]}
+                  >
+                    Hôm nay
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.datePresetBtn,
+                    activeDatePreset === 'firstMonth' && styles.datePresetBtnActive,
+                  ]}
+                  onPress={() => handleSelectDatePreset('firstMonth')}
+                >
+                  <Text
+                    style={[
+                      styles.datePresetBtnText,
+                      activeDatePreset === 'firstMonth' && styles.datePresetBtnTextActive,
+                    ]}
+                  >
+                    Đầu tháng
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.datePresetBtn,
+                    activeDatePreset === 'firstYear' && styles.datePresetBtnActive,
+                  ]}
+                  onPress={() => handleSelectDatePreset('firstYear')}
+                >
+                  <Text
+                    style={[
+                      styles.datePresetBtnText,
+                      activeDatePreset === 'firstYear' && styles.datePresetBtnTextActive,
+                    ]}
+                  >
+                    Đầu năm
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Timeline: Lộ trình nhận thưởng */}
+            <View style={styles.timelineSection}>
+              <View style={styles.timelineHeaderRow}>
+                <Text style={styles.fieldSectionTitle}>Lộ trình nhận thưởng</Text>
+                <Text style={styles.timelineCountText}>
+                  {calculatedMilestones.length} đợt
+                </Text>
+              </View>
+
+              <View style={styles.timelineList}>
+                {calculatedMilestones.map((m, idx) => (
+                  <View key={m.index} style={styles.timelineItemRow}>
+                    {/* Node Circle */}
+                    <View style={styles.timelineNodeCircle}>
+                      <Text style={styles.timelineNodeText}>{m.index}</Text>
+                    </View>
+
+                    {/* Dotted vertical connector (if not last) */}
+                    {idx < calculatedMilestones.length - 1 && (
+                      <View style={styles.timelineDottedLine} />
+                    )}
+
+                    {/* Milestone Details */}
+                    <View style={styles.timelineDetailCol}>
+                      <Text style={styles.milestoneBatchTitle}>
+                        Đợt {m.index} · {m.dateStr}
+                      </Text>
+                      <Text style={styles.milestonePointsText}>
+                        {m.points.toLocaleString('vi-VN')} điểm
+                      </Text>
+                    </View>
+
+                    {/* Status Badge */}
+                    <View style={styles.lockedBadge}>
+                      <Ionicons name="lock-closed-outline" size={12} color="#64748B" />
+                      <Text style={styles.lockedBadgeText}>Chưa mở khóa</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* ── Bottom Action Footer ── */}
+      <View style={styles.footerBar}>
+        {currentStep === 1 ? (
+          <View style={styles.stepOneFooterRow}>
+            <Text style={styles.stepCounterText}>Bước 1 / 2</Text>
+            <Pressable
+              style={styles.continueBtn}
+              onPress={() => {
+                if (pointsToGrant <= 0) {
+                  CustomAlert.alert('Chưa chọn số điểm', 'Vui lòng chọn số điểm trao tặng.');
+                  return;
+                }
+                setCurrentStep(2);
+              }}
+            >
+              <Text style={styles.continueBtnText}>Tiếp tục</Text>
+              <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
             </Pressable>
+          </View>
+        ) : (
+          <View style={styles.stepTwoFooterCol}>
+            <View style={styles.totalGrantRow}>
+              <Text style={styles.totalGrantLabel}>Tổng trao tặng</Text>
+              <Text style={styles.totalGrantValue}>
+                {pointsToGrant.toLocaleString('vi-VN')} điểm
+              </Text>
+            </View>
 
             <Pressable
-              style={[
-                styles.submitButton,
-                !canGrant && styles.submitButtonDisabled,
-                isSubmitting && { opacity: 0.7 },
-              ]}
+              style={styles.confirmGrantBtn}
               onPress={handleConfirmGrant}
-              disabled={isSubmitting || !canGrant}
+              disabled={isSubmitting}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <>
-                  <MaterialCommunityIcons
-                    name={!canGrant ? 'shield-lock-outline' : 'check-decagram'}
-                    size={20}
-                    color="#FFFFFF"
-                  />
-                  <Text style={styles.submitButtonText}>
-                    {!canGrant ? 'BẠN KHÔNG CÓ QUYỀN' : 'XÁC NHẬN TRAO ĐIỂM THƯỞNG'}
-                  </Text>
-                </>
+                <Text style={styles.confirmGrantBtnText}>Xác nhận trao điểm</Text>
               )}
             </Pressable>
           </View>
-      </Animated.View>
+        )}
+      </View>
 
-      {/* Date Picker Component / Modal */}
-      {showDatePicker && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={currentDateObj}
-          mode="date"
-          display="default"
-          locale="vi-VN"
-          positiveButton={{ label: 'Xác nhận', textColor: '#D97706' }}
-          negativeButton={{ label: 'Hủy bỏ', textColor: '#64748B' }}
-          onChange={handleDateChange}
-        />
-      )}
-
-      {Platform.OS === 'ios' && (
-        <Modal visible={showDatePicker} transparent animationType="slide">
-          <View style={styles.datePickerModalOverlay}>
-            <View style={styles.datePickerModalContent}>
-              <View style={styles.datePickerModalHeader}>
-                <Pressable onPress={() => setShowDatePicker(false)}>
-                  <Text style={styles.datePickerCancelText}>Hủy bỏ</Text>
-                </Pressable>
-                <Text style={styles.datePickerModalTitle}>Chọn Ngày Bắt Đầu</Text>
-                <Pressable onPress={() => setShowDatePicker(false)}>
-                  <Text style={styles.datePickerDoneText}>Xác nhận</Text>
-                </Pressable>
-              </View>
-              <DateTimePicker
-                value={currentDateObj}
-                mode="date"
-                display="spinner"
-                locale="vi-VN"
-                onChange={handleDateChange}
-                style={styles.iosDatePicker}
-              />
-            </View>
+      {/* Modal Chọn Chu Kỳ Mở Khóa */}
+      <Modal
+        visible={showIntervalModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowIntervalModal(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setShowIntervalModal(false)}
+        >
+          <View style={styles.modalBox}>
+            <Text style={styles.modalBoxTitle}>Chọn chu kỳ mở khóa</Text>
+            {INTERVAL_OPTIONS.map((opt) => (
+              <Pressable
+                key={opt.value}
+                style={[
+                  styles.modalOptionRow,
+                  intervalMonths === opt.value && styles.modalOptionRowActive,
+                ]}
+                onPress={() => {
+                  setIntervalMonths(opt.value);
+                  setShowIntervalModal(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.modalOptionText,
+                    intervalMonths === opt.value && styles.modalOptionTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+                {intervalMonths === opt.value && (
+                  <Ionicons name="checkmark" size={18} color="#0563bb" />
+                )}
+              </Pressable>
+            ))}
           </View>
-        </Modal>
-      )}
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    padding: spacing.md,
-    paddingBottom: 40,
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
   },
-  headerIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  targetBannerCard: {
+  headerTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#FDE68A',
-    marginBottom: 16,
     gap: 12,
-    shadowColor: '#D97706',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
   },
-  targetDeptCard: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-  },
-  avatarContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: '#D97706',
-  },
-  avatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarFallback: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#FEF3C7',
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarFallbackText: {
-    fontSize: 18,
+  titleTextWrap: {
+    flex: 1,
+  },
+  screenTitle: {
+    fontSize: 20,
     fontWeight: '800',
-    color: '#B45309',
-  },
-  deptIconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#DBEAFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  targetName: {
-    fontSize: 16,
-    fontWeight: '700',
     color: '#0F172A',
   },
-  targetMeta: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  currentVaultStatsRow: {
+
+  /* Stepper */
+  stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
-  },
-  currentVaultStat: {
-    fontSize: 11,
-    color: '#475569',
-  },
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingBottom: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  inputFieldLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  inputWrapper: {
+  stepNode: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 46,
-    marginBottom: 8,
+    gap: 6,
   },
-  textInput: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#0F172A',
-  },
-  inputUnitText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  presetChipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 10,
-  },
-  presetChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-  },
-  presetChipActive: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#D97706',
-  },
-  presetChipPoints: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  presetChipPointsActive: {
-    color: '#92400E',
-  },
-  presetChipDesc: {
-    fontSize: 10,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  presetChipDescActive: {
-    color: '#B45309',
-    fontWeight: '600',
-  },
-  cashConversionBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFBEB',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    gap: 12,
-    marginTop: 4,
-  },
-  conversionIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  conversionLabel: {
-    fontSize: 11,
-    color: '#92400E',
-    fontWeight: '500',
-  },
-  conversionAmount: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#B45309',
-    marginTop: 1,
-  },
-  milestonePreviewCard: {
-    borderColor: '#FDE68A',
-    backgroundColor: '#FFFDF5',
-  },
-  previewHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FEF3C7',
-    marginBottom: 10,
-  },
-  previewTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#92400E',
-  },
-  previewSubtitle: {
-    fontSize: 11,
-    color: '#78350F',
-    marginTop: 2,
-  },
-  previewTotalPill: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  previewTotalPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#B45309',
-  },
-  milestoneTable: {
-    gap: 8,
-  },
-  milestoneTableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  milestoneTableRowUnlocked: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  milestoneTableLeft: {
-    flex: 1,
-    gap: 2,
-  },
-  milestoneTableRight: {
-    alignItems: 'flex-end',
-    gap: 3,
-  },
-  milestoneTableTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  milestoneTableDate: {
-    fontSize: 10,
-    color: '#64748B',
-    marginLeft: 22,
-  },
-  milestoneTablePoints: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  milestoneStatusTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  tagUnlocked: {
-    backgroundColor: '#D1FAE5',
-  },
-  tagLocked: {
-    backgroundColor: '#FEF3C7',
-  },
-  milestoneStatusTagText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  tagTextUnlocked: {
-    color: '#065F46',
-  },
-  tagTextLocked: {
-    color: '#92400E',
-  },
-  stickyBottomBar: {
-    flexDirection: 'row',
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  backButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  stepCircle: {
+    width: 24,
+    height: 24,
     borderRadius: 12,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
+  stepCircleActive: {
+    backgroundColor: '#0563bb',
   },
-  submitButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#D97706',
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
-    shadowColor: '#D97706',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  submitButtonDisabled: {
-    backgroundColor: '#94A3B8',
-    shadowColor: '#64748B',
-    shadowOpacity: 0.1,
-    elevation: 1,
-  },
-  permissionWarningCard: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1.5,
-    borderColor: '#FCA5A5',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 16,
-  },
-  permissionWarningHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  permissionWarningTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#B91C1C',
-  },
-  permissionWarningDesc: {
-    fontSize: 13,
-    color: '#7F1D1D',
-    lineHeight: 19,
-  },
-  datePickerBtnCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1.5,
-    borderColor: '#FDE68A',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-  },
-  datePickerBtnLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  calendarIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  datePickerBtnLabel: {
-    fontSize: 11,
-    color: '#92400E',
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  datePickerBtnVal: {
-    fontSize: 15,
-    color: '#78350F',
-    fontWeight: '800',
-  },
-  datePickerChangeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FCD34D',
-  },
-  datePickerChangeChipText: {
+  stepCircleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#64748B',
   },
-  datePickerModalOverlay: {
+  stepCircleTextActive: {
+    color: '#FFFFFF',
+  },
+  stepLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  stepLabelActive: {
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  stepLine: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    height: 2,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 12,
   },
-  datePickerModalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 30,
+  stepLineActive: {
+    backgroundColor: '#0563bb',
   },
-  datePickerModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingTop: 16,
+    paddingBottom: 40,
   },
-  datePickerModalTitle: {
+
+  /* Recipient Card */
+  recipientCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 20,
+  },
+  recipientAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recipientAvatarText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0563bb',
+  },
+  recipientNameText: {
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
   },
-  datePickerCancelText: {
+  recipientSubText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  recipientGrantedText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+
+  /* Big Points Section */
+  bigPointsSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  fieldSectionTitle: {
     fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  fieldSectionSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  bigPointsCenter: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  bigPointsNumber: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  bigPointsUnit: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  cashEquivalentPill: {
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginTop: 6,
+  },
+  cashEquivalentText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0563bb',
+  },
+
+  /* Preset Grid */
+  presetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  presetGridBtn: {
+    width: '31%',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  presetGridBtnActive: {
+    backgroundColor: '#0563bb',
+    borderColor: '#0563bb',
+  },
+  presetGridBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  presetGridBtnTextActive: {
+    color: '#FFFFFF',
+  },
+
+  customPointsHintRow: {
+    alignItems: 'center',
+    paddingVertical: 6,
+    marginBottom: 14,
+  },
+  customPointsHintText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+
+  customInputBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 16,
+  },
+  customInputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  customTextInput: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+
+  /* Duration Section */
+  durationSection: {
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  durationPill: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  durationPillActive: {
+    backgroundColor: '#0563bb',
+    borderColor: '#0563bb',
+  },
+  durationPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  durationPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  conversionNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 4,
+  },
+  conversionNoteText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+
+  /* Step 2 Elements (Screen 4) */
+  stepTwoSummaryBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 18,
+  },
+  summaryBoxCol: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  summaryBoxDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E2E8F0',
+  },
+  summaryBoxValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+
+  fieldGroup: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  dropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    height: 44,
+  },
+  dropdownBtnText: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+
+  dateInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    height: 44,
+    marginBottom: 8,
+  },
+  dateInputText: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  datePresetRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  datePresetBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  datePresetBtnActive: {
+    backgroundColor: '#0563bb',
+  },
+  datePresetBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  datePresetBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  /* Timeline */
+  timelineSection: {
+    marginTop: 10,
+  },
+  timelineHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  timelineCountText: {
+    fontSize: 13,
     color: '#64748B',
     fontWeight: '600',
   },
-  datePickerDoneText: {
-    fontSize: 15,
-    color: '#D97706',
-    fontWeight: '700',
+  timelineList: {
+    paddingLeft: 4,
   },
-  iosDatePicker: {
-    height: 200,
-    marginTop: 8,
+  timelineItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+    paddingBottom: 22,
   },
-  animatedContainer: {
+  timelineNodeCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  timelineNodeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0563bb',
+  },
+  timelineDottedLine: {
+    position: 'absolute',
+    top: 28,
+    left: 13,
+    width: 2,
+    bottom: 0,
+    backgroundColor: '#CBD5E1',
+    zIndex: 1,
+  },
+  timelineDetailCol: {
     flex: 1,
+    marginLeft: 14,
+  },
+  milestoneBatchTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  milestonePointsText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0563bb',
+    marginTop: 1,
+  },
+  lockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  lockedBadgeText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+
+  /* Footer */
+  footerBar: {
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  stepOneFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  stepCounterText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  continueBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#0563bb',
+    borderRadius: 10,
+    height: 46,
+    paddingHorizontal: 24,
+  },
+  continueBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  stepTwoFooterCol: {
+    gap: 10,
+  },
+  totalGrantRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalGrantLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  totalGrantValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0563bb',
+  },
+  confirmGrantBtn: {
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#0563bb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmGrantBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* Interval Modal */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 18,
+  },
+  modalBoxTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  modalOptionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalOptionRowActive: {
     backgroundColor: '#F8FAFC',
+  },
+  modalOptionText: {
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  modalOptionTextActive: {
+    color: '#0563bb',
+    fontWeight: '700',
   },
 });
