@@ -68,7 +68,6 @@ export function AdminFeedbackListScreen() {
 
       {/* Header Container */}
       <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-        <Text style={styles.brandText}>MOVIE LEGEND</Text>
         <Text style={styles.headerTitle}>Quản lý góp ý</Text>
         <Text style={styles.headerSubtitle}>Lắng nghe & phản hồi nhân viên</Text>
 
@@ -193,7 +192,6 @@ export function AdminFeedbackDetailScreen() {
         <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
           <Pressable style={styles.backRow} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={24} color="#FFF" />
-            <Text style={styles.brandText}>MOVIE LEGEND</Text>
           </Pressable>
           <Text style={styles.headerTitle}>Chi tiết góp ý</Text>
         </View>
@@ -244,7 +242,6 @@ export function AdminFeedbackDetailScreen() {
           <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={10}>
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.brandText}>MOVIE LEGEND</Text>
         </View>
         <Text style={styles.headerTitle}>Chi tiết góp ý</Text>
         <Text style={styles.headerSubtitle}>Xem nội dung & cập nhật trạng thái</Text>

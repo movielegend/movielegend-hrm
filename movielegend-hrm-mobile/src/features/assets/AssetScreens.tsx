@@ -253,7 +253,6 @@ export function AssetListScreen({ area }: { area: AssetArea }) {
       
       {/* Header Container */}
       <View style={[adminAssetStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-        <Text style={adminAssetStyles.brandText}>MOVIE LEGEND</Text>
         <Text style={adminAssetStyles.title}>Quản lý tài sản</Text>
         <Text style={adminAssetStyles.subtitle}>Theo dõi tài sản & thiết bị.</Text>
       </View>
@@ -730,7 +729,6 @@ export function AssetCreateScreen() {
           <Pressable style={adminAssetStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
             <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
           </Pressable>
-          <Text style={adminAssetStyles.brandText}>MOVIE LEGEND</Text>
         </View>
         <Text style={adminAssetStyles.title}>Thêm thiết bị</Text>
         <Text style={adminAssetStyles.subtitle}>Tạo mới vật tư, thiết bị cho phòng ban.</Text>
