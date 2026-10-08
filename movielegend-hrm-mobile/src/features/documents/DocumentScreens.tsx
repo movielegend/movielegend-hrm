@@ -10,8 +10,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppAlert } from '../../contexts/AlertContext';
@@ -22,8 +24,6 @@ import {
 } from '../../api/department-documents.api';
 import { getDepartments } from '../../api/departments.api';
 import { useQuery } from '@tanstack/react-query';
-import { Screen } from '../../components/Screen';
-import { PageHeader } from '../../components/PageHeader';
 import { SearchInput } from '../../components/SearchInput';
 import { FilterChip } from '../../components/FilterChip';
 import { EmptyState } from '../../components/EmptyState';
@@ -33,6 +33,7 @@ import { SelectModal, SelectOption } from '../../components/SelectModal';
 import { UploadDocumentModal } from './UploadDocumentModal';
 import { DocumentDetailModal } from './DocumentDetailModal';
 import { resolveFileUrl } from '../../utils/url';
+import { roleBase } from '../../utils/notification-routing';
 import { CATEGORIES, getCategoryColor, getFileIcon } from './document.utils';
 
 export function DocumentListScreen() {
@@ -122,9 +123,6 @@ export function DocumentListScreen() {
       return;
     }
 
-    // Đối với các tệp văn phòng (Word, Excel, PowerPoint,...):
-    // Trình duyệt không thể đọc trực tiếp .docx / .xlsx trong thẻ như PDF
-    // Tải tệp về máy qua blob để gán đúng tên file gốc và tránh bị Chrome chặn "Insecure download"
     if (Platform.OS === 'web') {
       try {
         const res = await fetch(fullUrl);
@@ -187,6 +185,7 @@ export function DocumentListScreen() {
         ? `Tài liệu "${doc.title}" được áp dụng cho toàn miền (${relatedIds!.length} phòng ban). Bạn có chắc chắn muốn xóa khỏi toàn bộ các phòng ban không?`
         : `Bạn có chắc chắn muốn xóa tài liệu "${doc.title}" không?`,
       confirmLabel: 'Xóa',
+      confirmTone: 'danger',
       onConfirm: async () => {
         try {
           if (isMultiple && relatedIds) {
@@ -234,15 +233,15 @@ export function DocumentListScreen() {
           onPress={() => setSelectedDocDetail(item)}
         >
           {/* File Icon */}
-          <View style={[styles.iconWrap, { backgroundColor: `${icon.color}15` }]}>
-            <MaterialCommunityIcons name={icon.name} size={28} color={icon.color} />
+          <View style={[styles.iconWrap, { backgroundColor: '#FEE2E2' }]}>
+            <MaterialCommunityIcons name="file-pdf-box" size={28} color="#DC2626" />
           </View>
 
           {/* Title & Info */}
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <View style={[styles.catBadge, { backgroundColor: catColor.bg }]}>
-                <Text style={[styles.catBadgeText, { color: catColor.text }]}>{catLabel}</Text>
+              <View style={[styles.catBadge, { backgroundColor: '#F1F5F9' }]}>
+                <Text style={[styles.catBadgeText, { color: '#475569' }]}>{catLabel}</Text>
               </View>
               {item.department ? (
                 <View style={[styles.deptBadge, isRegionWide && { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
@@ -251,8 +250,8 @@ export function DocumentListScreen() {
                   </Text>
                 </View>
               ) : (
-                <View style={[styles.deptBadge, { backgroundColor: '#EFF6FF' }]}>
-                  <Text style={[styles.deptBadgeText, { color: '#2563EB' }]}>Toàn công ty</Text>
+                <View style={[styles.deptBadge, { backgroundColor: '#D9E4DD' }]}>
+                  <Text style={[styles.deptBadgeText, { color: '#1E3E2F', fontWeight: '700' }]}>Toàn công ty</Text>
                 </View>
               )}
             </View>
@@ -302,7 +301,7 @@ export function DocumentListScreen() {
                   <MaterialCommunityIcons
                     name={isPdfOrImg ? 'eye-outline' : 'download-outline'}
                     size={16}
-                    color="#2563EB"
+                    color="#1E3E2F"
                   />
                   <Text style={styles.viewBtnText}>{isPdfOrImg ? 'Xem tệp' : 'Tải về'}</Text>
                 </Pressable>
@@ -321,21 +320,31 @@ export function DocumentListScreen() {
   };
 
   return (
-    <Screen>
-      <View style={styles.headerSection}>
-        <PageHeader
-          title="Tài liệu nội bộ"
-          subtitle="Quy chế, biểu mẫu, tài liệu ca làm"
-          showBack={false}
-          right={
-            canUpload ? (
-              <Pressable style={styles.addHeaderBtn} onPress={() => setShowUploadModal(true)}>
-                <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
-                <Text style={styles.addHeaderBtnText}>Thêm mới</Text>
-              </Pressable>
-            ) : undefined
-          }
-        />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      {/* Header: Back button + Title on same row */}
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTitleGroup}>
+            <Pressable
+              onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/(tabs)` as any))}
+              style={styles.backBtn}
+              hitSlop={10}
+            >
+              <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            </Pressable>
+            <View>
+              <Text style={styles.screenTitle}>Tài liệu nội bộ</Text>
+              <Text style={styles.screenSubtitle}>Quy chế, biểu mẫu, tài liệu ca làm</Text>
+            </View>
+          </View>
+
+          {canUpload && (
+            <Pressable style={styles.addHeaderBtn} onPress={() => setShowUploadModal(true)}>
+              <Ionicons name="add" size={18} color="#FFFFFF" />
+              <Text style={styles.addHeaderBtnText}>Thêm mới</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       <View style={styles.searchSection}>
@@ -360,17 +369,17 @@ export function DocumentListScreen() {
       {(canManageAll || isRegionAdmin) && (
         <View style={styles.deptFilterRow}>
           <Pressable style={styles.deptFilterBtn} onPress={() => setShowDeptModal(true)}>
-            <MaterialCommunityIcons name="filter-variant" size={16} color="#2563EB" />
+            <MaterialCommunityIcons name="filter-variant" size={16} color="#1E3E2F" />
             <Text style={styles.deptFilterBtnText} numberOfLines={1}>
               {selectedDeptId
                 ? deptOptions.find((d) => d.value === selectedDeptId)?.label || 'Phòng ban'
                 : (isRegionAdmin && !canManageAll ? 'Toàn miền' : 'Tất cả phòng ban')}
             </Text>
-            <MaterialCommunityIcons name="chevron-down" size={16} color="#6B7280" />
+            <MaterialCommunityIcons name="chevron-down" size={16} color="#64748B" />
           </Pressable>
           {selectedDeptId && (
             <Pressable style={styles.clearDeptBtn} onPress={() => setSelectedDeptId(null)}>
-              <MaterialCommunityIcons name="close-circle" size={18} color="#9CA3AF" />
+              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
             </Pressable>
           )}
         </View>
@@ -438,11 +447,47 @@ export function DocumentListScreen() {
         onDelete={handleDelete}
         canDelete={canUpload}
       />
-    </Screen>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  backBtn: {
+    padding: 4,
+    marginLeft: -4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  screenSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
   headerSection: {
     paddingHorizontal: 16,
     paddingTop: 6,
@@ -485,16 +530,16 @@ const styles = StyleSheet.create({
   addHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    gap: 6,
+    backgroundColor: '#1E3E2F',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
   addHeaderBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   listContent: {
     paddingHorizontal: 16,
@@ -615,7 +660,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#D9E4DD',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -623,7 +668,7 @@ const styles = StyleSheet.create({
   viewBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2563EB',
+    color: '#1E3E2F',
   },
   deleteBtn: {
     padding: 6,

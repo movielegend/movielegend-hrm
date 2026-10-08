@@ -265,14 +265,19 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
+          {/* Drag Handle */}
+          <View style={styles.dragHandleContainer}>
+            <View style={styles.dragHandle} />
+          </View>
+
           {/* Header */}
           <View style={styles.headerRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <MaterialCommunityIcons name="file-upload-outline" size={24} color="#2563EB" />
-              <Text style={styles.headerTitle}>Tải lên Tài liệu</Text>
+              <MaterialCommunityIcons name="file-upload-outline" size={24} color="#1E3E2F" />
+              <Text style={styles.headerTitle}>Tải lên tài liệu</Text>
             </View>
             <Pressable onPress={onClose} disabled={isUploading} style={styles.closeBtn}>
-              <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
+              <MaterialCommunityIcons name="close" size={20} color="#64748B" />
             </Pressable>
           </View>
 
@@ -284,7 +289,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
                   <MaterialCommunityIcons
                     name={selectedFile.name.endsWith('.pdf') ? 'file-pdf-box' : 'file-document-outline'}
                     size={36}
-                    color={selectedFile.name.endsWith('.pdf') ? '#EF4444' : '#2563EB'}
+                    color={selectedFile.name.endsWith('.pdf') ? '#DC2626' : '#1E3E2F'}
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.pickedFileName} numberOfLines={1}>
@@ -298,7 +303,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
                 </View>
               ) : (
                 <View style={styles.emptyPickerWrap}>
-                  <MaterialCommunityIcons name="cloud-upload-outline" size={40} color="#9CA3AF" />
+                  <MaterialCommunityIcons name="cloud-upload-outline" size={40} color="#1E3E2F" />
                   <Text style={styles.emptyPickerTitle}>Nhấn để chọn file tài liệu</Text>
                   <Text style={styles.emptyPickerSub}>Hỗ trợ PDF, Word, Excel, Hình ảnh (Tối đa 10MB)</Text>
                 </View>
@@ -442,6 +447,17 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     paddingBottom: 24,
   },
+  dragHandleContainer: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  dragHandle: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -508,7 +524,7 @@ const styles = StyleSheet.create({
   changeFileText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2563EB',
+    color: '#1E3E2F',
   },
   inputGroup: {
     marginBottom: 14,
@@ -574,7 +590,7 @@ const styles = StyleSheet.create({
     flex: 2,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#1E3E2F',
     alignItems: 'center',
     justifyContent: 'center',
   },

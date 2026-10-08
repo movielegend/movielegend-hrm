@@ -96,19 +96,19 @@ export function DocumentDetailModal({
                 <View
                   style={[
                     styles.deptBadge,
-                    !document.department && !isRegionWide && { backgroundColor: '#EFF6FF' },
+                    !document.department && !isRegionWide && { backgroundColor: '#D9E4DD' },
                     isRegionWide && { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' },
                   ]}
                 >
                   <MaterialCommunityIcons
                     name={isRegionWide ? 'earth' : (document.department ? 'domain' : 'earth')}
                     size={14}
-                    color={isRegionWide ? '#B45309' : (document.department ? '#4B5563' : '#2563EB')}
+                    color={isRegionWide ? '#B45309' : (document.department ? '#4B5563' : '#1E3E2F')}
                   />
                   <Text
                     style={[
                       styles.deptBadgeText,
-                      !document.department && !isRegionWide && { color: '#2563EB' },
+                      !document.department && !isRegionWide && { color: '#1E3E2F', fontWeight: '700' },
                       isRegionWide && { color: '#B45309', fontWeight: '700' },
                     ]}
                     numberOfLines={1}
@@ -140,7 +140,7 @@ export function DocumentDetailModal({
             {document.description ? (
               <View style={styles.descCard}>
                 <View style={styles.descHeader}>
-                  <MaterialCommunityIcons name="text-box-outline" size={16} color="#3B82F6" />
+                  <MaterialCommunityIcons name="text-box-outline" size={16} color="#1E3E2F" />
                   <Text style={styles.descLabel}>Mô tả & Hướng dẫn</Text>
                 </View>
                 <Text style={styles.descContent}>{document.description}</Text>
@@ -244,7 +244,7 @@ export function DocumentDetailModal({
             {/* Secondary Actions */}
             <View style={styles.secondaryRow}>
               <Pressable style={styles.copyBtn} onPress={handleCopyLink}>
-                <MaterialCommunityIcons name="content-copy" size={18} color="#2563EB" />
+                <MaterialCommunityIcons name="content-copy" size={18} color="#1E3E2F" />
                 <Text style={styles.copyBtnText}>Sao chép liên kết</Text>
               </Pressable>
 
@@ -381,11 +381,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   descCard: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#F8FAFC',
     borderRadius: 16,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
+    borderLeftColor: '#1E3E2F',
     marginBottom: 16,
   },
   descHeader: {
@@ -397,12 +397,12 @@ const styles = StyleSheet.create({
   descLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1D4ED8',
+    color: '#1E3E2F',
   },
   descContent: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#1E3A8A',
+    color: '#334155',
   },
   infoCard: {
     backgroundColor: '#FFFFFF',
@@ -465,11 +465,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#1E3E2F',
     paddingVertical: 14,
     borderRadius: 14,
     gap: 8,
-    shadowColor: '#2563EB',
+    shadowColor: '#1E3E2F',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -490,15 +490,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#F1F5F9',
     paddingVertical: 12,
     borderRadius: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: '#E2E8F0',
   },
   copyBtnText: {
-    color: '#2563EB',
+    color: '#1E3E2F',
     fontSize: 14,
     fontWeight: '600',
   },
