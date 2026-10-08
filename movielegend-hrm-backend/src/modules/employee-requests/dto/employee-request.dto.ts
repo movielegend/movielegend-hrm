@@ -86,8 +86,84 @@ export class ApproveEmployeeRequestDto {
 }
 
 export class RejectEmployeeRequestDto {
-  @ApiPropertyOptional()
+  @ApiProperty({ description: 'Lý do từ chối yêu cầu (bắt buộc)' })
+  @IsString({ message: 'Lý do từ chối phải là chuỗi ký tự' })
+  @MinLength(3, { message: 'Vui lòng nhập lý do từ chối cụ thể (tối thiểu 3 ký tự)' })
+  reason!: string;
+}
+
+export class ExportTransactionsQueryDto {
+  @ApiPropertyOptional({ description: 'Ngày cần xuất giao dịch (YYYY-MM-DD)' })
   @IsOptional()
   @IsString()
-  reason?: string;
+  date?: string;
+
+  @ApiPropertyOptional({ description: 'Từ ngày (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  fromDate?: string;
+
+  @ApiPropertyOptional({ description: 'Đến ngày (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  toDate?: string;
+
+  @ApiPropertyOptional({ description: 'Trạng thái duyệt: ALL, PENDING, APPROVED, REJECTED' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Loại đơn: EXPENSE, ADVANCE, ALL' })
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @ApiPropertyOptional({ description: 'Phòng ban ID' })
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+
+  @ApiPropertyOptional({ description: 'Lọc VAT: ALL, WITH_VAT, NO_VAT' })
+  @IsOptional()
+  @IsString()
+  vatOption?: string;
 }
+
+export class ImportPaymentItemDto {
+  @ApiPropertyOptional({ description: 'Mã yêu cầu (Request ID hoặc một phần mã)' })
+  @IsOptional()
+  @IsString()
+  requestId?: string;
+
+  @ApiPropertyOptional({ description: 'Số tiền thanh toán thực tế' })
+  @IsOptional()
+  @IsNumber()
+  amount?: number;
+
+  @ApiPropertyOptional({ description: 'Trạng thái chuyển khoản: SUCCESS, FAILED' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Mã tham chiếu ngân hàng (FT number, Ref code)' })
+  @IsOptional()
+  @IsString()
+  bankRefCode?: string;
+
+  @ApiPropertyOptional({ description: 'Ghi chú giao dịch' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class ImportPaymentBatchDto {
+  @ApiPropertyOptional({ type: [ImportPaymentItemDto] })
+  @IsOptional()
+  items?: ImportPaymentItemDto[];
+
+  @ApiPropertyOptional({ description: 'Ghi chú đợt thanh toán' })
+  @IsOptional()
+  @IsString()
+  batchNote?: string;
+}
+

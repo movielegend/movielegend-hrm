@@ -18,7 +18,15 @@ export class AttendanceReportService {
     const start = moment(query.startDate).startOf('day').toDate();
     const end = moment(query.endDate).endOf('day').toDate();
 
-    const parseArray = (val: any) => typeof val === 'string' ? val.split(',').filter(Boolean) : undefined;
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const parseArray = (val: any): string[] | undefined => {
+      if (!val || typeof val !== 'string' || val === 'undefined' || val === 'null' || val === 'all') return undefined;
+      const arr = val
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => UUID_REGEX.test(s));
+      return arr.length > 0 ? arr : undefined;
+    };
     let deptIds = parseArray(query.departmentId);
     const uIds = parseArray(query.userId);
 
@@ -26,13 +34,14 @@ export class AttendanceReportService {
     if (actor) {
       const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
       if (visibleDepts !== null) {
+        const validVisibleDepts = visibleDepts.filter(id => UUID_REGEX.test(id));
         if (deptIds && deptIds.length > 0) {
-          deptIds = deptIds.filter((id) => visibleDepts.includes(id));
+          deptIds = deptIds.filter((id) => validVisibleDepts.includes(id));
           if (deptIds.length === 0) {
             deptIds = ['00000000-0000-0000-0000-000000000000'];
           }
         } else {
-          deptIds = visibleDepts.length > 0 ? visibleDepts : ['00000000-0000-0000-0000-000000000000'];
+          deptIds = validVisibleDepts.length > 0 ? validVisibleDepts : ['00000000-0000-0000-0000-000000000000'];
         }
       }
     }
@@ -71,6 +80,14 @@ export class AttendanceReportService {
 
     const userIds = users.map(u => u.id);
 
+    if (userIds.length === 0) {
+      return {
+        startDate: start,
+        endDate: end,
+        userGroups: [],
+      };
+    }
+
     const records = await this.prisma.attendanceRecord.findMany({
       where: {
         workDate: { gte: start, lte: end },
@@ -82,13 +99,16 @@ export class AttendanceReportService {
     });
 
     // Fetch Overtimes from OvertimeRequest table, EmployeeRequest, and OtReport (Live), and AttendanceAdjustments
-    const [overtimesDb, overtimesRaw, leavesDb, lateRequestsRaw, otReportsDb, adjustmentsDb] = await Promise.all([
+    const [overtimesDb, overtimesRaw, leavesDb, lateRequestsRaw, otReportsDb, adjustmentsDb, businessTripsRaw] = await Promise.all([
       this.prisma.overtimeRequest.findMany({
         where: {
           status: 'APPROVED',
           userId: { in: userIds },
           workDate: { gte: start, lte: end },
         },
+      }).catch(err => {
+        console.warn('overtimeRequest query failed, falling back to empty list:', err?.message || err);
+        return [];
       }),
       this.prisma.employeeRequest.findMany({
         where: {
@@ -96,7 +116,7 @@ export class AttendanceReportService {
           status: 'APPROVED',
           userId: { in: userIds },
         },
-      }),
+      }).catch(() => []),
       this.prisma.leaveRequest.findMany({
         where: {
           status: 'APPROVED',
@@ -104,20 +124,23 @@ export class AttendanceReportService {
           startDate: { lte: end },
           endDate: { gte: start },
         },
-      }),
+      }).catch(() => []),
       this.prisma.employeeRequest.findMany({
         where: {
           type: { in: ['LATE_ARRIVAL', 'ATTENDANCE_ADJUSTMENT', 'LEAVE'] },
           status: 'APPROVED',
           userId: { in: userIds },
         },
-      }),
+      }).catch(() => []),
       this.prisma.otReport.findMany({
         where: {
           status: 'APPROVED',
           userId: { in: userIds },
           otDate: { gte: start, lte: end },
         },
+      }).catch(err => {
+        console.warn('otReport table query skipped (table might not exist in database):', err?.message || err);
+        return [];
       }),
       this.prisma.attendanceAdjustment.findMany({
         where: {
@@ -125,7 +148,14 @@ export class AttendanceReportService {
           userId: { in: userIds },
         },
         include: { attendanceRecord: true },
-      }),
+      }).catch(() => []),
+      this.prisma.employeeRequest.findMany({
+        where: {
+          type: 'BUSINESS_TRIP',
+          status: 'APPROVED',
+          userId: { in: userIds },
+        },
+      }).catch(() => []),
     ]);
 
     const overtimes = [
@@ -246,6 +276,15 @@ export class AttendanceReportService {
           moment(o.otDate).format('YYYY-MM-DD') === dateStr ||
           moment.utc(o.otDate).format('YYYY-MM-DD') === dateStr
         ));
+
+        const businessTrip = businessTripsRaw.find(b => {
+          if (b.userId !== user.id) return false;
+          const meta: any = b.attachmentMetadata;
+          if (!meta || !meta.fromDate) return false;
+          const from = moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').startOf('day');
+          const to = moment.tz(meta.toDate || meta.fromDate, 'Asia/Ho_Chi_Minh').endOf('day');
+          return currDate.isSameOrAfter(from, 'day') && currDate.isSameOrBefore(to, 'day');
+        });
 
         let checkIn = null;
         let checkOut = null;
@@ -411,8 +450,53 @@ export class AttendanceReportService {
           }
         }
 
+        let checkInDisplay = checkIn ? checkIn.format('HH:mm') : '';
+        let checkOutDisplay = checkOut ? checkOut.format('HH:mm') : '';
+
+        if (businessTrip) {
+          const tripMeta: any = businessTrip.attachmentMetadata || {};
+          const parseTripTime = (timeVal: any, fallback: string) => {
+            if (!timeVal) return fallback;
+            if (typeof timeVal === 'string') {
+              if (timeVal.includes('T') || timeVal.includes('Z')) {
+                const m = moment(timeVal).tz('Asia/Ho_Chi_Minh');
+                if (m.isValid()) return m.format('HH:mm');
+              }
+              if (timeVal.includes(':')) {
+                const parts = timeVal.split(':');
+                return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+              }
+            }
+            return fallback;
+          };
+
+          const tripStart = parseTripTime(tripMeta.startTime, '08:00');
+          const tripEnd = parseTripTime(tripMeta.endTime, '17:20');
+
+          checkInDisplay = tripStart;
+          checkOutDisplay = tripEnd;
+
+          // Calculate trip working minutes
+          const [sh, sm] = tripStart.split(':').map(Number);
+          const [eh, em] = tripEnd.split(':').map(Number);
+          let tripMins = (eh * 60 + em) - (sh * 60 + sm);
+          if (tripMins > 300) {
+            tripMins = Math.max(480, tripMins - 60);
+          }
+          if (tripMins <= 0) tripMins = 480;
+
+          totalMinutes = tripMins;
+          attendance = 1;
+          lateDeduction = 0;
+          lateMins = 0;
+          earlyMins = 0;
+        }
+
         const isPastDate = currDate.isBefore(moment().tz('Asia/Ho_Chi_Minh'), 'day');
-        const isStandardMissCheckout = !isLiveDepartment && Boolean(checkIn && !checkOut && isPastDate);
+        const isStandardMissCheckout = !isLiveDepartment && !businessTrip && Boolean(checkIn && !checkOut && isPastDate);
+        if (!checkOutDisplay && isStandardMissCheckout) {
+          checkOutDisplay = 'Miss checkout';
+        }
 
         const row = {
           employeeCode: user.userCode || '',
@@ -421,9 +505,9 @@ export class AttendanceReportService {
           position: '',
           date: currDate.format('DD/MM/YYYY'),
           dayOfWeek,
-          checkIn: checkIn ? checkIn.format('HH:mm') : '',
-          checkOut: checkOut ? checkOut.format('HH:mm') : isStandardMissCheckout ? 'Miss checkout' : '',
-          attendance: dayRecords.length > 0 ? attendance : 0,
+          checkIn: checkInDisplay,
+          checkOut: checkOutDisplay,
+          attendance: (dayRecords.length > 0 || businessTrip) ? attendance : 0,
           totalHours: formatHrs(totalMinutes),
           overtime100: formatHrs(ot100),
           overtime150: formatHrs(ot150),

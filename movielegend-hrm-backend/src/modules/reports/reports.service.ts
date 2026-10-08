@@ -6,6 +6,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { DateRangeReportQueryDto, EmployeeReportQueryDto, KpiReportQueryDto } from './dto/report-query.dto';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 @Injectable()
 export class ReportScopeService {
   constructor(
@@ -14,15 +16,17 @@ export class ReportScopeService {
   ) {}
 
   async scopedUserIds(actor: AuthenticatedUser, departmentId?: string): Promise<string[] | undefined> {
+    const validDeptId = departmentId && UUID_REGEX.test(departmentId) ? departmentId : undefined;
     if (this.departmentScope.isGlobalAdmin(actor)) return undefined;
-    if (departmentId) await this.departmentScope.assertDepartmentAccessAsync(actor, departmentId);
-    const visible = departmentId ? [departmentId] : await this.departmentScope.getVisibleDepartmentIds(actor);
+    if (validDeptId) await this.departmentScope.assertDepartmentAccessAsync(actor, validDeptId);
+    const visible = validDeptId ? [validDeptId] : await this.departmentScope.getVisibleDepartmentIds(actor);
     if (visible === null) return undefined;
-    if (!visible?.length) {
+    const sanitizedVisible = visible.filter(id => UUID_REGEX.test(id));
+    if (!sanitizedVisible?.length) {
       if (this.departmentScope.isRegionAdmin(actor)) return [];
       return [actor.userId];
     }
-    const members = await this.prisma.departmentMember.findMany({ where: { departmentId: { in: visible }, leftAt: null }, select: { userId: true } });
+    const members = await this.prisma.departmentMember.findMany({ where: { departmentId: { in: sanitizedVisible }, leftAt: null }, select: { userId: true } });
     return members.map((member) => member.userId);
   }
 }

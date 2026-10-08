@@ -1,10 +1,16 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { CreateEmployeeRequestDto, EmployeeRequestQueryDto, ApproveEmployeeRequestDto, RejectEmployeeRequestDto } from './dto/employee-request.dto';
+import {
+  CreateEmployeeRequestDto,
+  EmployeeRequestQueryDto,
+  ApproveEmployeeRequestDto,
+  RejectEmployeeRequestDto,
+  ExportTransactionsQueryDto,
+} from './dto/employee-request.dto';
 import { EmployeeRequestsService } from './employee-requests.service';
 
 @ApiTags('Employee Requests')
@@ -23,6 +29,37 @@ export class EmployeeRequestsController {
   @Get()
   findAll(@CurrentUser() actor: AuthenticatedUser, @Query('departmentId') departmentId?: string) {
     return this.employeeRequestsService.findAll(actor, departmentId);
+  }
+
+  @Permissions('employee.request.approve')
+  @Get('export/daily-transactions')
+  async exportDailyTransactions(
+    @Query() query: ExportTransactionsQueryDto,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Res() res: any,
+  ) {
+    const result = await this.employeeRequestsService.exportDailyTransactions(query, actor);
+    res.setHeader('Content-Type', result.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result.filename)}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    res.send(result.buffer);
+  }
+
+  @Permissions('employee.request.approve')
+  @Post('import/payment-file')
+  async importPaymentFile(
+    @Body() body: { items?: any[]; fileBase64?: string; batchNote?: string },
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    let fileBuffer: Buffer | null = null;
+    if (body.fileBase64) {
+      fileBuffer = Buffer.from(body.fileBase64, 'base64');
+    }
+    return this.employeeRequestsService.importPaymentFile(
+      fileBuffer,
+      body.items ? { items: body.items, batchNote: body.batchNote } : null,
+      actor,
+    );
   }
 
   @Permissions('employee.request')

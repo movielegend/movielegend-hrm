@@ -9,6 +9,7 @@ import { AdminService } from './admin.service';
 import { AssignRoleDto } from './dto/role-assignment.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
+import { AccountantAssignmentDto } from './dto/accountant-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 
@@ -52,6 +53,18 @@ export class AdminController {
   @Delete('leader-assignments/:id')
   revokeLeader(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.adminService.revokeLeader(id, actor);
+  }
+
+  @Permissions('role.assign')
+  @Post('accountant-assignments')
+  assignAccountant(@Body() dto: AccountantAssignmentDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.assignAccountant(dto, actor);
+  }
+
+  @Permissions('role.assign')
+  @Delete('accountant-assignments/:userId')
+  revokeAccountant(@Param('userId') userId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.adminService.revokeAccountant(userId, actor);
   }
 
   @Permissions('user.read')

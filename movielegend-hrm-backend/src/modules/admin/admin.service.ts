@@ -8,6 +8,7 @@ import { DepartmentScopeService } from '../phase2-policy/department-scope.servic
 import { AssignRoleDto } from './dto/role-assignment.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LeaderAssignmentDto } from './dto/leader-assignment.dto';
+import { AccountantAssignmentDto, AccountantRoleType } from './dto/accountant-assignment.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 import {
@@ -346,6 +347,264 @@ export class AdminService {
         if (notif) this.notifications.emitCreated(notif);
         this.realtimeEvents.emitToRoom('company', 'department:updated', { departmentId: assignment.scopeId });
       }
+
+      return { revoked: true };
+    });
+  }
+
+  async assignAccountant(dto: AccountantAssignmentDto, actor: AuthenticatedUser) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: dto.userId },
+        include: { profile: true }
+      });
+      if (!user || user.accountStatus !== AccountStatus.ACTIVE || !user.isActive) {
+        throw badRequest('USER_NOT_ACTIVE', 'Nhân sự không tồn tại hoặc tài khoản chưa kích hoạt');
+      }
+
+      // 1. Ensure all accountant roles exist in DB
+      const allAccountantRoleConfigs = [
+        { code: 'ACCOUNTANT', name: 'Kế toán', description: 'Vai trò Kế toán chung hệ thống' },
+        { code: 'ACCOUNTANT_LEAD', name: 'Kế toán trưởng', description: 'Kế toán trưởng - Toàn quyền quản trị tài chính, phê duyệt lương, thưởng và chi tiêu' },
+        { code: 'ACCOUNTANT_PAYROLL', name: 'Kế toán lương', description: 'Kế toán lương - Chuyên trách tính lương, phụ cấp, bảo hiểm, thưởng phạt và báo cáo OT' },
+        { code: 'ACCOUNTANT_TAX', name: 'Kế toán thuế', description: 'Kế toán thuế - Chuyên trách báo cáo thuế, hóa đơn chứng từ và hợp đồng lao động' },
+        { code: 'ACCOUNTANT_GENERAL', name: 'Kế toán viên', description: 'Kế toán viên - Thực hiện các nghiệp vụ thanh toán chi trả và giải ngân tiền thưởng' },
+      ];
+
+      for (const r of allAccountantRoleConfigs) {
+        await tx.role.upsert({
+          where: { code: r.code },
+          create: { code: r.code, name: r.name, description: r.description, isSystem: true },
+          update: { name: r.name, description: r.description }
+        });
+      }
+
+      const rolesInDb = await tx.role.findMany({
+        where: { code: { in: allAccountantRoleConfigs.map(r => r.code) } }
+      });
+      const roleMap = new Map(rolesInDb.map(r => [r.code, r]));
+
+      const targetSubRole = roleMap.get(dto.accountantRole);
+      if (!targetSubRole) {
+        throw notFound('ROLE_NOT_FOUND', `Không tìm thấy vai trò ${dto.accountantRole}`);
+      }
+      const baseAccountantRole = roleMap.get('ACCOUNTANT');
+
+      // 2. Remove previous accountant sub-roles from the user
+      const accountantRoleIds = rolesInDb.map(r => r.id);
+      await tx.userRole.deleteMany({
+        where: {
+          userId: dto.userId,
+          roleId: { in: accountantRoleIds }
+        }
+      });
+
+      // 3. Assign base ACCOUNTANT role (Global)
+      if (baseAccountantRole) {
+        await tx.userRole.create({
+          data: {
+            userId: dto.userId,
+            roleId: baseAccountantRole.id,
+            scopeType: RoleScopeType.GLOBAL,
+            scopeId: null,
+          }
+        });
+      }
+
+      // 4. Assign target sub-role (Global)
+      const subRoleAssignment = await tx.userRole.create({
+        data: {
+          userId: dto.userId,
+          roleId: targetSubRole.id,
+          scopeType: RoleScopeType.GLOBAL,
+          scopeId: null,
+        }
+      });
+
+      // 5. Update Position
+      const positionMap: Record<string, { code: string; name: string }> = {
+        ACCOUNTANT_LEAD: { code: 'POS_ACCOUNTANT_LEAD', name: 'Kế toán trưởng' },
+        ACCOUNTANT_PAYROLL: { code: 'POS_ACCOUNTANT_PAYROLL', name: 'Kế toán lương' },
+        ACCOUNTANT_TAX: { code: 'POS_ACCOUNTANT_TAX', name: 'Kế toán thuế' },
+        ACCOUNTANT_GENERAL: { code: 'POS_ACCOUNTANT_GENERAL', name: 'Kế toán viên' },
+      };
+
+      const roleTitles: Record<string, string> = {
+        ACCOUNTANT_LEAD: 'Kế toán trưởng',
+        ACCOUNTANT_PAYROLL: 'Kế toán lương',
+        ACCOUNTANT_TAX: 'Kế toán thuế',
+        ACCOUNTANT_GENERAL: 'Kế toán viên',
+      };
+      const titleName = roleTitles[dto.accountantRole] || 'Kế toán';
+
+      let accountingDept = null;
+      if (dto.departmentId) {
+        accountingDept = await tx.department.findUnique({ where: { id: dto.departmentId } });
+      }
+      if (!accountingDept) {
+        accountingDept = await tx.department.findFirst({
+          where: { name: { contains: 'KẾ TOÁN', mode: 'insensitive' }, deletedAt: null }
+        });
+      }
+
+      const targetPosInfo = positionMap[dto.accountantRole];
+      if (targetPosInfo) {
+        let posInDb = await tx.position.findUnique({ where: { code: targetPosInfo.code } });
+        if (!posInDb) {
+          posInDb = await tx.position.create({
+            data: {
+              code: targetPosInfo.code,
+              name: targetPosInfo.name,
+              departmentId: accountingDept?.id || null,
+              isActive: true,
+            }
+          });
+        }
+
+        if (user.profile) {
+          await tx.employeeProfile.update({
+            where: { id: user.profile.id },
+            data: { positionId: posInDb.id }
+          });
+        }
+
+        await tx.departmentMember.updateMany({
+          where: { userId: dto.userId },
+          data: { positionId: posInDb.id }
+        });
+      }
+
+      // 6. Handle ACCOUNTANT_LEAD specifics
+      if (dto.accountantRole === 'ACCOUNTANT_LEAD' && accountingDept) {
+        const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
+        if (leaderRole) {
+          // Remove previous leader role if different user
+          if (accountingDept.leaderUserId && accountingDept.leaderUserId !== dto.userId) {
+            await tx.userRole.deleteMany({
+              where: {
+                userId: accountingDept.leaderUserId,
+                roleId: leaderRole.id,
+                scopeType: RoleScopeType.DEPARTMENT,
+                scopeId: accountingDept.id,
+              }
+            });
+          }
+
+          // Assign LEADER role to new leader
+          const existingLeaderRole = await tx.userRole.findFirst({
+            where: {
+              userId: dto.userId,
+              roleId: leaderRole.id,
+              scopeType: RoleScopeType.DEPARTMENT,
+              scopeId: accountingDept.id,
+            }
+          });
+          if (!existingLeaderRole) {
+            await tx.userRole.create({
+              data: {
+                userId: dto.userId,
+                roleId: leaderRole.id,
+                scopeType: RoleScopeType.DEPARTMENT,
+                scopeId: accountingDept.id,
+              }
+            });
+          }
+
+          await tx.department.update({
+            where: { id: accountingDept.id },
+            data: { leaderUserId: dto.userId }
+          });
+        }
+      }
+
+      // 7. Audit Log
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'admin.accountant.assign',
+          entityType: 'UserRole',
+          entityId: subRoleAssignment.id,
+          metadata: {
+            userId: dto.userId,
+            accountantRole: dto.accountantRole,
+            title: titleName,
+            departmentId: accountingDept?.id || null
+          }
+        }
+      });
+
+      // 8. Notification
+      const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
+        type: 'SYSTEM' as NotificationType,
+        title: 'Bổ nhiệm chức vụ Kế toán',
+        body: `Bạn vừa được bổ nhiệm làm ${titleName} phòng Kế toán.`,
+      });
+      if (notif) this.notifications.emitCreated(notif);
+
+      if (accountingDept) {
+        this.realtimeEvents.emitToRoom('company', 'department:updated', { departmentId: accountingDept.id });
+      }
+
+      return {
+        success: true,
+        accountantRole: dto.accountantRole,
+        title: titleName,
+        user: { id: user.id, userCode: user.userCode, fullName: user.profile?.fullName }
+      };
+    });
+  }
+
+  async revokeAccountant(userId: string, actor: AuthenticatedUser) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId }, include: { profile: true } });
+      if (!user) throw notFound('USER_NOT_FOUND', 'Không tìm thấy người dùng');
+
+      const accountantRoles = await tx.role.findMany({
+        where: { code: { in: ['ACCOUNTANT', 'ACCOUNTANT_LEAD', 'ACCOUNTANT_PAYROLL', 'ACCOUNTANT_TAX', 'ACCOUNTANT_GENERAL'] } }
+      });
+      const accountantRoleIds = accountantRoles.map(r => r.id);
+
+      await tx.userRole.deleteMany({
+        where: {
+          userId,
+          roleId: { in: accountantRoleIds }
+        }
+      });
+
+      // Check if user was leader of accounting dept
+      const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
+      const ledDepts = await tx.department.findMany({
+        where: { leaderUserId: userId, name: { contains: 'KẾ TOÁN', mode: 'insensitive' } }
+      });
+
+      for (const d of ledDepts) {
+        await tx.department.update({
+          where: { id: d.id },
+          data: { leaderUserId: null }
+        });
+        if (leaderRole) {
+          await tx.userRole.deleteMany({
+            where: { userId, roleId: leaderRole.id, scopeType: RoleScopeType.DEPARTMENT, scopeId: d.id }
+          });
+        }
+      }
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId: actor.userId,
+          action: 'admin.accountant.revoke',
+          entityType: 'UserRole',
+          entityId: userId,
+          metadata: { userId }
+        }
+      });
+
+      const notif = await this.notifications.createForUsers(tx as any, [userId], {
+        type: 'SYSTEM' as NotificationType,
+        title: 'Thu hồi chức vụ Kế toán',
+        body: 'Chức vụ Kế toán của bạn đã được thu hồi.',
+      });
+      if (notif) this.notifications.emitCreated(notif);
 
       return { revoked: true };
     });
