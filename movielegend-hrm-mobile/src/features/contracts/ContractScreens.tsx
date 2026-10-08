@@ -504,28 +504,31 @@ export function ContractListScreen() {
 
   return (
     <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
-      {/* Top Bar: Back button, movielegend PEOPLE, placeholder */}
-      <View style={cStyles.topBar}>
-        <Pressable onPress={() => router.back()} style={cStyles.backBtn} hitSlop={10}>
-          <Ionicons name="chevron-back" size={24} color="#0F172A" />
-        </Pressable>
-        <Text style={cStyles.brandTitle}>movielegend PEOPLE</Text>
-        <View style={cStyles.topRightPlaceholder} />
-      </View>
+      {/* Header: Back button + Title + "Mẫu HĐ" on same line */}
+      <View style={cStyles.header}>
+        <View style={cStyles.headerRow}>
+          <View style={cStyles.headerTitleGroup}>
+            <Pressable
+              onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/(tabs)` as any))}
+              style={cStyles.backBtn}
+              hitSlop={10}
+            >
+              <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            </Pressable>
+            <View>
+              <Text style={cStyles.screenTitle}>Hợp đồng</Text>
+              <Text style={cStyles.screenSubtitle}>Quản lý hợp đồng lao động</Text>
+            </View>
+          </View>
 
-      {/* Screen Title & "Mẫu HĐ" button */}
-      <View style={cStyles.headerTitleRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={cStyles.screenTitle}>Hợp đồng</Text>
-          <Text style={cStyles.screenSubtitle}>Quản lý hợp đồng lao động</Text>
+          <Pressable
+            style={cStyles.templateBtn}
+            onPress={() => router.push(`${roleBase(user)}/contracts/templates` as any)}
+          >
+            <MaterialCommunityIcons name="file-document-outline" size={16} color="#1E3E2F" />
+            <Text style={cStyles.templateBtnText}>Mẫu HĐ</Text>
+          </Pressable>
         </View>
-        <Pressable
-          style={cStyles.templateBtn}
-          onPress={() => router.push(`${roleBase(user)}/contracts/templates` as any)}
-        >
-          <MaterialCommunityIcons name="file-document-outline" size={16} color="#1E3E2F" />
-          <Text style={cStyles.templateBtnText}>Mẫu HĐ</Text>
-        </Pressable>
       </View>
 
       {/* Search Input & Filter Dropdown */}
@@ -928,12 +931,20 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
   if (!data && !contract.isLoading) {
     return (
       <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
-        <View style={cStyles.topBar}>
-          <Pressable onPress={() => router.back()} style={cStyles.backBtn} hitSlop={10}>
-            <Ionicons name="chevron-back" size={24} color="#0F172A" />
-          </Pressable>
-          <Text style={cStyles.brandTitle}>movielegend PEOPLE</Text>
-          <View style={cStyles.topRightPlaceholder} />
+        <View style={cStyles.header}>
+          <View style={cStyles.headerRow}>
+            <View style={cStyles.headerTitleGroup}>
+              <Pressable
+                onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/contracts` as any))}
+                style={cStyles.backBtn}
+                hitSlop={10}
+              >
+                <Ionicons name="chevron-back" size={24} color="#0F172A" />
+              </Pressable>
+              <Text style={cStyles.detailScreenTitle}>Chi tiết hợp đồng</Text>
+            </View>
+            <View style={{ width: 40 }} />
+          </View>
         </View>
         <EmptyState title="Không tìm thấy hợp đồng" />
       </SafeAreaView>
@@ -1001,26 +1012,33 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
 
   return (
     <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
-      {/* Top Bar: Back, brand title, 3-dots */}
-      <View style={cStyles.topBar}>
-        <Pressable onPress={() => router.back()} style={cStyles.backBtn} hitSlop={10}>
-          <Ionicons name="chevron-back" size={24} color="#0F172A" />
-        </Pressable>
-        <Text style={cStyles.brandTitle}>movielegend PEOPLE</Text>
-        <Pressable
-          onPress={() => setDetailMenuVisible(true)}
-          style={cStyles.topRightBtn}
-          hitSlop={10}
-        >
-          <Ionicons name="ellipsis-horizontal" size={20} color="#0F172A" />
-        </Pressable>
+      {/* Header: Back button + Title + 3-dots on same line */}
+      <View style={cStyles.header}>
+        <View style={cStyles.headerRow}>
+          <View style={cStyles.headerTitleGroup}>
+            <Pressable
+              onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/contracts` as any))}
+              style={cStyles.backBtn}
+              hitSlop={10}
+            >
+              <Ionicons name="chevron-back" size={24} color="#0F172A" />
+            </Pressable>
+            <Text style={cStyles.detailScreenTitle}>Chi tiết hợp đồng</Text>
+          </View>
+          <Pressable
+            onPress={() => setDetailMenuVisible(true)}
+            style={cStyles.topRightBtn}
+            hitSlop={10}
+          >
+            <Ionicons name="ellipsis-horizontal" size={20} color="#0F172A" />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
         contentContainerStyle={cStyles.detailScrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={cStyles.detailScreenTitle}>Chi tiết hợp đồng</Text>
 
         {/* Card 1: Employee & Contract Header */}
         <View style={cStyles.detailSectionCard}>
@@ -2407,6 +2425,22 @@ const cStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2416,10 +2450,10 @@ const cStyles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    padding: 4,
+    marginLeft: -4,
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   brandTitle: {
     fontSize: 14,
@@ -2446,14 +2480,14 @@ const cStyles = StyleSheet.create({
     marginBottom: 14,
   },
   screenTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#0F172A',
   },
   screenSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 1,
   },
   templateBtn: {
     flexDirection: 'row',
