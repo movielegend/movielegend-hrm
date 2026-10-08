@@ -200,7 +200,7 @@ export function MonthlyTimesheetScreen() {
               return;
             }
             const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              mediaTypes: ['images'],
               quality: 0.85,
             });
             if (!result.canceled && result.assets?.[0]?.uri) {
@@ -217,7 +217,7 @@ export function MonthlyTimesheetScreen() {
               return;
             }
             const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              mediaTypes: ['images'],
               quality: 0.85,
             });
             if (!result.canceled && result.assets?.[0]?.uri) {

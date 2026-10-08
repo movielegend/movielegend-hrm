@@ -28,7 +28,7 @@ export function ContractScannerModal({ visible, onClose, onScanComplete }: Props
     if (!hasPermission) return;
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       quality: 0.8,
       base64: true,

@@ -526,7 +526,7 @@ export function AssetCreateScreen() {
       const hasPermission = await requestMediaLibraryPermissionWithFallback();
       if (!hasPermission) return;
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
       });
@@ -543,7 +543,7 @@ export function AssetCreateScreen() {
       const hasPermission = await requestCameraPermissionWithFallback();
       if (!hasPermission) return;
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
       });
