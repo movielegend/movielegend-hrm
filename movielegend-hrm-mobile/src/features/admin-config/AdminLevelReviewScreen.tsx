@@ -196,11 +196,6 @@ export function AdminLevelReviewScreen() {
 
   return (
     <Screen>
-      {/* ── Brand Label Top Bar ── */}
-      <View style={styles.topBrandingBar}>
-        <Text style={styles.topBrandingText}>MOVIE LEGEND</Text>
-      </View>
-
       {/* ── Top Header: Back button and Title on the same row ── */}
       <View style={styles.header}>
         <View style={styles.headerTitleGroup}>
