@@ -505,7 +505,16 @@ export function ContractListScreen() {
       // 1. Lọc theo Phòng ban
       if (departmentFilter !== "ALL") {
         const u = contract.user;
+        const deptSnap = Array.isArray(contract.departmentSnapshot)
+          ? contract.departmentSnapshot
+          : typeof contract.departmentSnapshot === "string"
+            ? JSON.parse(contract.departmentSnapshot || "[]")
+            : [];
+        const matchesSnapshot = Array.isArray(deptSnap) && deptSnap.some(
+          (d: any) => d.id === departmentFilter || d.departmentId === departmentFilter
+        );
         const matchesDept =
+          matchesSnapshot ||
           u?.departmentId === departmentFilter ||
           u?.department?.id === departmentFilter ||
           contract.departmentId === departmentFilter ||

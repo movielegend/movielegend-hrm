@@ -941,7 +941,20 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   }
 
   private include() {
-    return { user: { include: { profile: true } }, contractTemplate: true, contractTemplateVersion: true, signatures: true } as const;
+    return {
+      user: {
+        include: {
+          profile: true,
+          departmentLinks: {
+            where: { leftAt: null },
+            include: { department: true },
+          },
+        },
+      },
+      contractTemplate: true,
+      contractTemplateVersion: true,
+      signatures: true,
+    } as const;
   }
 
   private has(actor: AuthenticatedUser, permission: string) {
