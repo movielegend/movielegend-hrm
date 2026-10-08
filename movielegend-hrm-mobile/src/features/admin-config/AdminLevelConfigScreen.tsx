@@ -34,7 +34,7 @@ export function AdminLevelConfigScreen() {
   const { showAlert, showConfirm } = useAppAlert();
 
   // Active top tab: 'ranks' (Danh xưng) | 'projects' (Dự án)
-  const [activeTab, setActiveTab] = useState<'ranks' | 'projects'>('ranks');
+  const [activeTab, setActiveTab] = useState<'ranks' | 'projects'>('projects');
 
   // Department selector state
   const { data: deptData, isLoading: isDeptsLoading } = useDepartments({ limit: 100 });
@@ -57,8 +57,8 @@ export function AdminLevelConfigScreen() {
   }, [departments, selectedDeptId]);
 
   const activeDept = departments.find((d: any) => d.id === selectedDeptId) || departments[0];
-  const activeDeptName = activeDept?.name || 'Kinh Doanh';
-  const activeBranchName = activeDept?.branchName || 'MOVIELEGEND-HÀ NỘI';
+  const activeDeptName = activeDept?.name || 'Kinh doanh';
+  const activeBranchName = activeDept?.branchName || 'MOVIELEGEND · HÀ NỘI';
 
   const deptSelectOptions: SelectOption[] = useMemo(() => {
     return departments.map((d: any) => ({
@@ -83,7 +83,7 @@ export function AdminLevelConfigScreen() {
         customLevelName: defName,
         displayName: defName,
         badgeTitle: defName,
-        colorHex: '#2563EB',
+        colorHex: '#0563bb',
         minTenureMonths: lvl * 3,
         targetShiftsCount: lvl * 15,
         rewardType: 'HYBRID',
@@ -141,23 +141,10 @@ export function AdminLevelConfigScreen() {
     );
   };
 
-  const handlePhysicalItemChange = (lvlNum: number, val: string) => {
+  const handlePhysicalItemChange = (lvlNum: number, text: string) => {
     setLevels((prev) =>
-      prev.map((l) => (l.levelNumber === lvlNum ? { ...l, physicalItemName: val } : l))
+      prev.map((l) => (l.levelNumber === lvlNum ? { ...l, physicalItemName: text } : l))
     );
-  };
-
-  const handleRemoveLevel = (lvlNum: number) => {
-    if (lvlNum === 1) return;
-    showConfirm({
-      title: 'Xóa cấp bậc',
-      message: `Bạn có chắc muốn xóa Level ${lvlNum} khỏi danh sách cấp bậc của phòng ban này không?`,
-      confirmLabel: 'Xóa',
-      confirmTone: 'danger',
-      onConfirm: () => {
-        setLevels((prev) => prev.filter((l) => l.levelNumber !== lvlNum));
-      },
-    });
   };
 
   const handleAddLevel = () => {
@@ -170,58 +157,69 @@ export function AdminLevelConfigScreen() {
       customLevelName: defName,
       displayName: defName,
       badgeTitle: defName,
-      colorHex: '#2563EB',
+      colorHex: '#0563bb',
       minTenureMonths: nextNum * 3,
       targetShiftsCount: nextNum * 15,
       rewardType: 'HYBRID',
-      promotionBonusAmount: 1000000,
+      promotionBonusAmount: (nextNum - 1) * 500000,
       physicalItemName: '',
     };
     setLevels((prev) => [...prev, newLvl]);
   };
 
-  const handleSaveLevelsConfig = async () => {
-    if (!selectedDeptId) return;
+  const handleRemoveLevel = (lvlNum: number) => {
+    if (lvlNum === 1) {
+      showAlert('Thông báo', 'Không thể xóa cấp bậc khởi đầu (Level 1).');
+      return;
+    }
+    showConfirm('Xác nhận xóa', `Bạn có chắc muốn xóa cấp bậc Level ${lvlNum}?`, () => {
+      setLevels((prev) => prev.filter((l) => l.levelNumber !== lvlNum));
+    });
+  };
+
+  const handleSaveLevels = async () => {
+    if (!selectedDeptId) {
+      showAlert('Lỗi', 'Vui lòng chọn phòng ban.');
+      return;
+    }
     try {
       setIsSavingLevels(true);
-      await levelingApi.saveDepartmentLevelConfigs(
-        selectedDeptId,
-        levels.map((l) => ({
-          levelNumber: l.levelNumber,
-          customLevelName: l.customLevelName || l.defaultName,
-          badgeTitle: l.customLevelName || l.defaultName,
-          rewardType: l.rewardType || 'HYBRID',
-          promotionBonusAmount: l.promotionBonusAmount || 0,
-          physicalItemName: l.physicalItemName || '',
-          allowanceAmount: l.allowanceAmount || 0,
-          retentionMultiplier: l.retentionMultiplier || 1.0,
-          perks: l.perks || [],
-        }))
-      );
-      showAlert('Thành công', `Đã lưu cấu hình danh xưng & phần thưởng cho phòng ${activeDeptName}!`);
+      const payload = levels.map((lvl) => ({
+        levelNumber: lvl.levelNumber,
+        customLevelName: lvl.customLevelName?.trim() || lvl.displayName || lvl.defaultName,
+        displayName: lvl.customLevelName?.trim() || lvl.displayName || lvl.defaultName,
+        colorHex: lvl.colorHex || '#0563bb',
+        minTenureMonths: lvl.minTenureMonths || lvl.levelNumber * 3,
+        targetShiftsCount: lvl.targetShiftsCount || lvl.levelNumber * 15,
+        rewardType: lvl.rewardType || 'HYBRID',
+        promotionBonusAmount: lvl.levelNumber === 1 ? 0 : lvl.promotionBonusAmount || 0,
+        physicalItemName: lvl.levelNumber === 1 ? '' : (lvl.physicalItemName || '').trim(),
+      }));
+
+      await levelingApi.saveDepartmentLevelConfigs(selectedDeptId, payload);
+      showAlert('Thành công', 'Đã lưu cấu hình danh xưng & phần thưởng.');
     } catch (err: any) {
-      showAlert('Lỗi', err?.message || 'Không thể lưu cấu hình');
+      showAlert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể lưu cấu hình cấp bậc.');
     } finally {
       setIsSavingLevels(false);
     }
   };
 
   // ── Tab 2: Dự án phòng ban state ──
-  const [projectSubTab, setProjectSubTab] = useState<'active' | 'completed'>('active');
   const [projects, setProjects] = useState<AdminProjectItem[]>([]);
+  const [projectFilter, setProjectFilter] = useState<'IN_PROGRESS' | 'COMPLETED'>('IN_PROGRESS');
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
 
-  // Modal thêm/sửa dự án
+  // Modal thêm / sửa dự án
   const [isProjectModalVisible, setIsProjectModalVisible] = useState(false);
   const [editingProject, setEditingProject] = useState<AdminProjectItem | null>(null);
-  const [projNameInput, setProjNameInput] = useState('');
-  const [projRewardType, setProjRewardType] = useState<'CASH' | 'PHYSICAL_ITEM' | 'HYBRID'>('CASH');
-  const [projBonusInput, setProjBonusInput] = useState('');
-  const [projPhysicalInput, setProjPhysicalInput] = useState('');
-  const [subTasksList, setSubTasksList] = useState<string[]>([]);
-  const [newSubTaskText, setNewSubTaskText] = useState('');
+  const [modalProjectName, setModalProjectName] = useState('');
+  const [modalSubTasks, setModalSubTasks] = useState<string[]>(['']);
+  const [modalRewardType, setModalRewardType] = useState<'CASH' | 'PHYSICAL_ITEM' | 'HYBRID'>('CASH');
+  const [modalBonusAmount, setModalBonusAmount] = useState('0');
+  const [modalPhysicalItem, setModalPhysicalItem] = useState('');
 
-  // Load Projects from backend
+  // Fetch Projects for Department
   useEffect(() => {
     if (!selectedDeptId) return;
     let isMounted = true;
@@ -231,17 +229,17 @@ export function AdminLevelConfigScreen() {
       .getProjects(selectedDeptId, activeDeptName)
       .then((data) => {
         if (!isMounted) return;
-        if (Array.isArray(data)) {
-          const converted: AdminProjectItem[] = data.map((p) => ({
-            id: p.id,
-            projectName: p.projectName,
-            rewardType: (p.rewardType as any) || 'HYBRID',
-            promotionBonusAmount: p.cashAmount || 0,
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped: AdminProjectItem[] = data.map((p: any, idx: number) => ({
+            id: p.id || `proj_${idx}`,
+            projectName: p.projectName || p.name || `Dự án ${idx + 1}`,
+            rewardType: p.rewardType || 'CASH',
+            promotionBonusAmount: p.promotionBonusAmount || p.cashAmount || 0,
             physicalItemName: p.physicalItemName || p.rewardItem || '',
             status: p.status === 'ADMIN_APPROVED' ? 'ADMIN_APPROVED' : 'IN_PROGRESS',
-            subTasks: (p.subTasks || []).map((st) => st.title),
+            subTasks: (p.subTasks || []).map((t: any) => (typeof t === 'string' ? t : t.title || t.name)),
           }));
-          setProjects(converted);
+          setProjects(mapped);
         } else {
           setProjects([]);
         }
@@ -258,75 +256,116 @@ export function AdminLevelConfigScreen() {
     };
   }, [selectedDeptId, activeDeptName]);
 
-  const activeProjects = useMemo(
-    () => projects.filter((p) => p.status === 'IN_PROGRESS'),
-    [projects]
-  );
-  const completedProjects = useMemo(
-    () => projects.filter((p) => p.status === 'ADMIN_APPROVED'),
-    [projects]
-  );
+  const inProgressProjects = useMemo(() => {
+    return projects.filter((p) => p.status === 'IN_PROGRESS');
+  }, [projects]);
 
-  const handleOpenAddProject = () => {
+  const completedProjects = useMemo(() => {
+    return projects.filter((p) => p.status === 'ADMIN_APPROVED');
+  }, [projects]);
+
+  const currentFilteredProjects = projectFilter === 'IN_PROGRESS' ? inProgressProjects : completedProjects;
+
+  const handleOpenCreateProject = () => {
     setEditingProject(null);
-    setProjNameInput('');
-    setProjRewardType('CASH');
-    setProjBonusInput('');
-    setProjPhysicalInput('');
-    setSubTasksList([]);
-    setNewSubTaskText('');
+    setModalProjectName('');
+    setModalSubTasks(['']);
+    setModalRewardType('CASH');
+    setModalBonusAmount('0');
+    setModalPhysicalItem('');
     setIsProjectModalVisible(true);
   };
 
-  const handleAddSubTask = () => {
-    const trimmed = newSubTaskText.trim();
-    if (!trimmed) return;
-    setSubTasksList((prev) => [...prev, trimmed]);
-    setNewSubTaskText('');
+  const handleOpenEditProject = (item: AdminProjectItem) => {
+    setEditingProject(item);
+    setModalProjectName(item.projectName);
+    setModalSubTasks(item.subTasks.length > 0 ? [...item.subTasks] : ['']);
+    setModalRewardType(item.rewardType);
+    setModalBonusAmount(String(item.promotionBonusAmount || 0));
+    setModalPhysicalItem(item.physicalItemName || '');
+    setIsProjectModalVisible(true);
   };
 
-  const handleRemoveSubTask = (idx: number) => {
-    setSubTasksList((prev) => prev.filter((_, i) => i !== idx));
+  const handleAddSubTaskInput = () => {
+    setModalSubTasks((prev) => [...prev, '']);
   };
 
-  const handleSaveProjectModal = async () => {
-    if (!projNameInput.trim()) {
-      showAlert('Lỗi', 'Vui lòng nhập tên dự án!');
+  const handleRemoveSubTaskInput = (index: number) => {
+    if (modalSubTasks.length <= 1) return;
+    setModalSubTasks((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubTaskTextChange = (index: number, text: string) => {
+    setModalSubTasks((prev) => {
+      const copy = [...prev];
+      copy[index] = text;
+      return copy;
+    });
+  };
+
+  const handleSaveProjectModal = () => {
+    if (!modalProjectName.trim()) {
+      showAlert('Lỗi', 'Vui lòng nhập tên dự án.');
       return;
     }
-    const bonusNum = parseInt(projBonusInput.replace(/\D/g, ''), 10) || 0;
-
-    const newProjectItem: AdminProjectItem = {
-      id: editingProject ? editingProject.id : `proj-${Date.now()}`,
-      projectName: projNameInput.trim(),
-      rewardType: projRewardType,
-      promotionBonusAmount: bonusNum,
-      physicalItemName: projPhysicalInput.trim(),
-      status: editingProject ? editingProject.status : 'IN_PROGRESS',
-      subTasks: subTasksList,
-    };
-
-    let updatedProjects: AdminProjectItem[];
-    if (editingProject) {
-      updatedProjects = projects.map((p) => (p.id === editingProject.id ? newProjectItem : p));
-    } else {
-      updatedProjects = [...projects, newProjectItem];
+    const filteredTasks = modalSubTasks.map((t) => t.trim()).filter(Boolean);
+    if (filteredTasks.length === 0) {
+      showAlert('Lỗi', 'Vui lòng thêm ít nhất một đầu việc con cho dự án.');
+      return;
     }
 
-    setProjects(updatedProjects);
-    setIsProjectModalVisible(false);
+    const parsedBonus = parseInt(modalBonusAmount.replace(/\D/g, ''), 10) || 0;
 
-    // Sync to backend via saveAdminDepartmentConfig
+    if (editingProject) {
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === editingProject.id
+            ? {
+                ...p,
+                projectName: modalProjectName.trim(),
+                subTasks: filteredTasks,
+                rewardType: modalRewardType,
+                promotionBonusAmount: parsedBonus,
+                physicalItemName: modalPhysicalItem.trim(),
+              }
+            : p
+        )
+      );
+    } else {
+      const newProj: AdminProjectItem = {
+        id: `proj_${Date.now()}`,
+        projectName: modalProjectName.trim(),
+        rewardType: modalRewardType,
+        promotionBonusAmount: parsedBonus,
+        physicalItemName: modalPhysicalItem.trim(),
+        status: 'IN_PROGRESS',
+        subTasks: filteredTasks,
+      };
+      setProjects((prev) => [newProj, ...prev]);
+    }
+
+    setIsProjectModalVisible(false);
+    saveProjectsToApi();
+  };
+
+  const handleDeleteProject = (projId: string) => {
+    showConfirm('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa dự án này?', () => {
+      setProjects((prev) => prev.filter((p) => p.id !== projId));
+      saveProjectsToApi();
+    });
+  };
+
+  const saveProjectsToApi = async () => {
+    if (!selectedDeptId) return;
     try {
       await levelingApi.saveAdminDepartmentConfig({
         departmentId: selectedDeptId,
-        departmentName: activeDeptName,
         year: 2026,
-        levels: updatedProjects.map((p, idx) => ({
-          id: p.id,
+        departmentName: activeDeptName,
+        levels: projects.map((p, idx) => ({
           levelNumber: idx + 1,
-          levelName: p.projectName,
-          colorHex: '#2563EB',
+          customLevelName: p.projectName,
+          colorHex: '#0563bb',
           rewardType: p.rewardType,
           promotionBonusAmount: p.promotionBonusAmount,
           physicalItemName: p.physicalItemName,
@@ -337,13 +376,22 @@ export function AdminLevelConfigScreen() {
         })),
       });
       showAlert('Thành công', 'Đã lưu thông tin dự án!');
-    } catch (err: any) {
+    } catch {
       showAlert('Lưu dự án', 'Đã lưu dự án trên thiết bị.');
     }
   };
 
+  const formatCurrency = (val: number) => {
+    return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
   return (
     <Screen>
+      {/* ── Brand Label Top Bar ── */}
+      <View style={styles.topBrandingBar}>
+        <Text style={styles.topBrandingText}>MOVIE LEGEND</Text>
+      </View>
+
       {/* ── Top Header: Back button and Title on the same row ── */}
       <View style={styles.header}>
         <View style={styles.headerTitleGroup}>
@@ -357,56 +405,49 @@ export function AdminLevelConfigScreen() {
           </Pressable>
           <View style={styles.titleTextWrap}>
             <Text style={styles.screenTitle}>Cấp bậc & Dự án</Text>
-            <Text style={styles.screenSubtitle}>Quản lý danh xưng, phần thưởng và dự án.</Text>
+            <Text style={styles.screenSubtitle}>Thiết lập lộ trình phát triển</Text>
           </View>
         </View>
       </View>
 
-      {/* ── Segmented Tabs: Danh xưng & Dự án ── */}
-      <View style={styles.tabContainer}>
+      {/* ── Underline Tabs: Danh xưng & Dự án (Template Match) ── */}
+      <View style={styles.tabUnderlineBar}>
         <Pressable
-          style={[styles.tabBtn, activeTab === 'ranks' && styles.tabBtnActive]}
+          style={styles.tabUnderlineBtn}
           onPress={() => setActiveTab('ranks')}
         >
-          <MaterialCommunityIcons
-            name="tune-variant"
-            size={18}
-            color={activeTab === 'ranks' ? '#FFFFFF' : '#64748B'}
-          />
-          <Text style={[styles.tabBtnText, activeTab === 'ranks' && styles.tabBtnTextActive]}>
+          <Text style={[styles.tabUnderlineText, activeTab === 'ranks' && styles.tabUnderlineTextActive]}>
             Danh xưng
           </Text>
+          {activeTab === 'ranks' && <View style={styles.tabIndicator} />}
         </Pressable>
 
         <Pressable
-          style={[styles.tabBtn, activeTab === 'projects' && styles.tabBtnActive]}
+          style={styles.tabUnderlineBtn}
           onPress={() => setActiveTab('projects')}
         >
-          <MaterialCommunityIcons
-            name="briefcase-outline"
-            size={18}
-            color={activeTab === 'projects' ? '#FFFFFF' : '#64748B'}
-          />
-          <Text style={[styles.tabBtnText, activeTab === 'projects' && styles.tabBtnTextActive]}>
+          <Text style={[styles.tabUnderlineText, activeTab === 'projects' && styles.tabUnderlineTextActive]}>
             Dự án
           </Text>
+          {activeTab === 'projects' && <View style={styles.tabIndicator} />}
         </Pressable>
       </View>
 
       {/* ── Dropdown: Phòng ban quản trị ── */}
       <View style={styles.deptSection}>
-        <Text style={styles.deptLabel}>Phòng ban quản trị</Text>
         <Pressable style={styles.deptSelectCard} onPress={() => setShowDeptModal(true)}>
           <View style={styles.deptCardLeft}>
             <View style={styles.deptIconBox}>
-              <MaterialCommunityIcons name="account-group-outline" size={20} color="#64748B" />
+              <MaterialCommunityIcons name="office-building-outline" size={20} color="#0563bb" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.deptNameText}>{activeDeptName}</Text>
-              <Text style={styles.deptBranchText}>{activeBranchName}</Text>
+              <Text style={styles.deptBranchText}>
+                {activeBranchName.toUpperCase().replace('-', ' · ')}
+              </Text>
             </View>
           </View>
-          <Ionicons name="chevron-down" size={20} color="#64748B" />
+          <Ionicons name="chevron-down" size={18} color="#64748B" />
         </Pressable>
       </View>
 
@@ -418,213 +459,149 @@ export function AdminLevelConfigScreen() {
       >
         {activeTab === 'ranks' ? (
           /* ======================================================== */
-          /* TAB 1: DANH XƯNG CẤP BẬC                                 */
+          /* TAB 1: DANH XƯNG & PHẦN THƯỞNG (Screen 2)                */
           /* ======================================================== */
           <View>
-            {/* Section Header */}
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Danh xưng cấp bậc</Text>
+              <Text style={styles.sectionTitle}>Danh xưng & Phần thưởng</Text>
               <Text style={styles.sectionSubtitle}>
-                Tùy chỉnh tên gọi và phần thưởng theo cấp bậc.
+                Tùy chỉnh cấp bậc của phòng ban.
               </Text>
             </View>
 
             {isLoadingLevels ? (
               <View style={styles.loadingBox}>
-                <ActivityIndicator size="small" color="#0055D4" />
+                <ActivityIndicator size="small" color="#0563bb" />
                 <Text style={styles.loadingText}>Đang tải cấu hình cấp bậc...</Text>
               </View>
             ) : (
               <>
                 {levels.map((lvl) => {
                   const isLevelOne = lvl.levelNumber === 1;
-                  const padNum = String(lvl.levelNumber).padStart(2, '0');
-                  const rType = lvl.rewardType || 'HYBRID';
 
                   return (
                     <View key={lvl.levelNumber} style={styles.levelCard}>
-                      {/* Top Row: Badge + Title + Subtitle + (Trash if lvl > 1) */}
-                      <View style={styles.cardHeaderRow}>
-                        <View style={styles.cardBadge}>
-                          <Text style={styles.cardBadgeText}>{padNum}</Text>
+                      {/* Card Header */}
+                      <View style={styles.levelCardHeader}>
+                        <View style={styles.levelBadgePill}>
+                          <Text style={styles.levelBadgePillText}>LEVEL {lvl.levelNumber}</Text>
                         </View>
-                        <View style={styles.cardTitleCol}>
-                          <Text style={styles.cardTitle}>Level {lvl.levelNumber}</Text>
-                          <Text style={styles.cardSubtitle}>
-                            Mặc định: {lvl.defaultName || LEVEL_DEFAULT_NAMES[lvl.levelNumber] || 'Cấp bậc'}
-                          </Text>
-                        </View>
+                        <Text style={styles.levelDefaultNameText}>
+                          {isLevelOne ? 'Cấp khởi đầu' : (lvl.displayName || lvl.defaultName || 'Chính thức')}
+                        </Text>
+                        <View style={{ flex: 1 }} />
                         {!isLevelOne && (
                           <Pressable
                             onPress={() => handleRemoveLevel(lvl.levelNumber)}
-                            hitSlop={8}
                             style={styles.trashBtn}
+                            hitSlop={8}
                           >
-                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                            <Ionicons name="trash-outline" size={18} color="#94A3B8" />
                           </Pressable>
                         )}
                       </View>
 
-                      {/* Field: Tên danh xưng */}
+                      {/* Input Tên danh xưng */}
                       <View style={styles.fieldGroup}>
                         <Text style={styles.fieldLabel}>Tên danh xưng</Text>
                         <TextInput
                           style={styles.textInput}
-                          value={lvl.customLevelName}
-                          onChangeText={(txt) => handleLevelNameChange(lvl.levelNumber, txt)}
-                          placeholder={`Nhập tên gọi cho Level ${lvl.levelNumber}...`}
+                          value={lvl.customLevelName || ''}
+                          onChangeText={(text) => handleLevelNameChange(lvl.levelNumber, text)}
+                          placeholder="Nhập tên danh xưng"
                           placeholderTextColor="#94A3B8"
                         />
                       </View>
 
-                      {/* Level 1: Green Info Banner */}
                       {isLevelOne ? (
-                        <View style={styles.levelOneAlert}>
-                          <Ionicons name="information-circle-outline" size={18} color="#059669" />
-                          <Text style={styles.levelOneAlertText}>
-                            Cấp bậc khởi đầu • Không áp dụng thưởng thăng cấp.
+                        <View style={styles.levelOneNoteRow}>
+                          <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+                          <Text style={styles.levelOneNoteText}>
+                            Không áp dụng thưởng thăng cấp.
                           </Text>
                         </View>
                       ) : (
-                        /* Level 2+: Phần thưởng thăng cấp */
                         <View style={styles.rewardSection}>
-                          <View style={styles.rewardTitleRow}>
-                            <MaterialCommunityIcons name="gift-outline" size={18} color="#0055D4" />
-                            <Text style={styles.rewardTitle}>Phần thưởng thăng cấp</Text>
-                          </View>
-
-                          {/* Hình thức thưởng */}
-                          <Text style={styles.fieldLabel}>Hình thức thưởng</Text>
+                          <Text style={styles.fieldLabel}>Phần thưởng thăng cấp</Text>
                           <View style={styles.rewardPillsRow}>
-                            <Pressable
-                              style={[
-                                styles.rewardPill,
-                                rType === 'CASH' && styles.rewardPillActive,
-                              ]}
-                              onPress={() => handleRewardTypeChange(lvl.levelNumber, 'CASH')}
-                            >
-                              <MaterialCommunityIcons
-                                name="cash"
-                                size={16}
-                                color={rType === 'CASH' ? '#0055D4' : '#64748B'}
-                              />
-                              <Text
-                                style={[
-                                  styles.rewardPillText,
-                                  rType === 'CASH' && styles.rewardPillTextActive,
-                                ]}
-                              >
-                                Tiền mặt
-                              </Text>
-                            </Pressable>
-
-                            <Pressable
-                              style={[
-                                styles.rewardPill,
-                                rType === 'PHYSICAL_ITEM' && styles.rewardPillActive,
-                              ]}
-                              onPress={() => handleRewardTypeChange(lvl.levelNumber, 'PHYSICAL_ITEM')}
-                            >
-                              <MaterialCommunityIcons
-                                name="package-variant-closed"
-                                size={16}
-                                color={rType === 'PHYSICAL_ITEM' ? '#0055D4' : '#64748B'}
-                              />
-                              <Text
-                                style={[
-                                  styles.rewardPillText,
-                                  rType === 'PHYSICAL_ITEM' && styles.rewardPillTextActive,
-                                ]}
-                              >
-                                Hiện vật
-                              </Text>
-                            </Pressable>
-
-                            <Pressable
-                              style={[
-                                styles.rewardPill,
-                                rType === 'HYBRID' && styles.rewardPillActive,
-                              ]}
-                              onPress={() => handleRewardTypeChange(lvl.levelNumber, 'HYBRID')}
-                            >
-                              <MaterialCommunityIcons
-                                name="layers-outline"
-                                size={16}
-                                color={rType === 'HYBRID' ? '#0055D4' : '#64748B'}
-                              />
-                              <Text
-                                style={[
-                                  styles.rewardPillText,
-                                  rType === 'HYBRID' && styles.rewardPillTextActive,
-                                ]}
-                              >
-                                Kết hợp
-                              </Text>
-                            </Pressable>
+                            {(['CASH', 'PHYSICAL_ITEM', 'HYBRID'] as const).map((rType) => {
+                              const isPillActive = (lvl.rewardType || 'HYBRID') === rType;
+                              return (
+                                <Pressable
+                                  key={rType}
+                                  style={[styles.rewardPill, isPillActive && styles.rewardPillActive]}
+                                  onPress={() => handleRewardTypeChange(lvl.levelNumber, rType)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.rewardPillText,
+                                      isPillActive && styles.rewardPillTextActive,
+                                    ]}
+                                  >
+                                    {rType === 'CASH'
+                                      ? 'Tiền mặt'
+                                      : rType === 'PHYSICAL_ITEM'
+                                      ? 'Hiện vật'
+                                      : 'Kết hợp'}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
                           </View>
 
-                          {/* Tiền thưởng nóng thăng cấp (VND) */}
-                          {(rType === 'CASH' || rType === 'HYBRID') && (
-                            <View style={styles.fieldGroup}>
-                              <Text style={styles.fieldLabel}>Tiền thưởng nóng thăng cấp (VND)</Text>
-                              <View style={styles.suffixInputContainer}>
+                          {/* 2 Cột cạnh nhau: Tiền thưởng (VNĐ) & Hiện vật */}
+                          <View style={styles.twoColRow}>
+                            {((lvl.rewardType || 'HYBRID') === 'CASH' ||
+                              (lvl.rewardType || 'HYBRID') === 'HYBRID') && (
+                              <View style={styles.colField}>
+                                <Text style={styles.fieldLabel}>Tiền thưởng (VNĐ)</Text>
                                 <TextInput
-                                  style={styles.suffixTextInput}
-                                  keyboardType="number-pad"
+                                  style={styles.textInput}
+                                  value={formatCurrency(lvl.promotionBonusAmount || 0)}
+                                  onChangeText={(val) => handleBonusAmountChange(lvl.levelNumber, val)}
                                   placeholder="Nhập số tiền"
                                   placeholderTextColor="#94A3B8"
-                                  value={
-                                    lvl.promotionBonusAmount
-                                      ? lvl.promotionBonusAmount.toLocaleString('vi-VN')
-                                      : ''
-                                  }
-                                  onChangeText={(txt) => handleBonusAmountChange(lvl.levelNumber, txt)}
+                                  keyboardType="numeric"
                                 />
-                                <View style={styles.suffixBox}>
-                                  <Text style={styles.suffixText}>VND</Text>
-                                </View>
                               </View>
-                            </View>
-                          )}
+                            )}
 
-                          {/* Hiện vật thưởng */}
-                          {(rType === 'PHYSICAL_ITEM' || rType === 'HYBRID') && (
-                            <View style={styles.fieldGroup}>
-                              <Text style={styles.fieldLabel}>Tên hiện vật thưởng thăng cấp</Text>
-                              <TextInput
-                                style={styles.textInput}
-                                placeholder="VD: Đồng hồ thông minh, Bằng khen..."
-                                placeholderTextColor="#94A3B8"
-                                value={lvl.physicalItemName || ''}
-                                onChangeText={(txt) => handlePhysicalItemChange(lvl.levelNumber, txt)}
-                              />
-                            </View>
-                          )}
+                            {((lvl.rewardType || 'HYBRID') === 'PHYSICAL_ITEM' ||
+                              (lvl.rewardType || 'HYBRID') === 'HYBRID') && (
+                              <View style={styles.colField}>
+                                <Text style={styles.fieldLabel}>Hiện vật</Text>
+                                <TextInput
+                                  style={styles.textInput}
+                                  value={lvl.physicalItemName || ''}
+                                  onChangeText={(val) => handlePhysicalItemChange(lvl.levelNumber, val)}
+                                  placeholder="Nhập phần thưởng"
+                                  placeholderTextColor="#94A3B8"
+                                />
+                              </View>
+                            )}
+                          </View>
                         </View>
                       )}
                     </View>
                   );
                 })}
 
-                {/* Add Level & Save Button Actions */}
+                {/* Bottom Actions */}
                 <View style={styles.bottomActions}>
                   <Pressable style={styles.addLevelBtn} onPress={handleAddLevel}>
-                    <Ionicons name="add-circle-outline" size={20} color="#0055D4" />
-                    <Text style={styles.addLevelBtnText}>Thêm cấp bậc mới</Text>
+                    <Ionicons name="add" size={18} color="#0563bb" />
+                    <Text style={styles.addLevelBtnText}>Thêm cấp bậc</Text>
                   </Pressable>
 
                   <Pressable
-                    style={[styles.saveBtn, isSavingLevels && { opacity: 0.7 }]}
-                    onPress={handleSaveLevelsConfig}
+                    style={styles.saveLevelsBtn}
+                    onPress={handleSaveLevels}
                     disabled={isSavingLevels}
                   >
                     {isSavingLevels ? (
                       <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
-                      <>
-                        <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-                        <Text style={styles.saveBtnText}>Lưu cấu hình cấp bậc</Text>
-                      </>
+                      <Text style={styles.saveLevelsBtnText}>Lưu cấu hình</Text>
                     )}
                   </Pressable>
                 </View>
@@ -633,57 +610,46 @@ export function AdminLevelConfigScreen() {
           </View>
         ) : (
           /* ======================================================== */
-          /* TAB 2: DỰ ÁN PHÒNG BAN                                   */
+          /* TAB 2: DỰ ÁN PHÒNG BAN (Screen 1)                        */
           /* ======================================================== */
           <View>
-            {/* Section Header */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Dự án phòng ban</Text>
+              <Text style={styles.sectionSubtitle}>
+                Tạo dự án để Leader phân công cho nhân sự.
+              </Text>
             </View>
 
-            {/* Blue Info Banner */}
-            <View style={styles.bannerCard}>
-              <View style={styles.bannerIconBox}>
-                <MaterialCommunityIcons name="briefcase-outline" size={22} color="#0055D4" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.bannerTitle}>Thiết lập dự án và đầu việc.</Text>
-                <Text style={styles.bannerSubtitle}>
-                  Dữ liệu được chuyển đến Leader để phân công cho nhân sự.
-                </Text>
-              </View>
-            </View>
-
-            {/* Sub-filter tabs: Đang chạy vs Hoàn thành */}
+            {/* Sub-filters: Đang chạy & Hoàn thành */}
             <View style={styles.subFilterRow}>
               <Pressable
                 style={[
-                  styles.subFilterBtn,
-                  projectSubTab === 'active' && styles.subFilterBtnActive,
+                  styles.subFilterPill,
+                  projectFilter === 'IN_PROGRESS' && styles.subFilterPillActive,
                 ]}
-                onPress={() => setProjectSubTab('active')}
+                onPress={() => setProjectFilter('IN_PROGRESS')}
               >
                 <Text
                   style={[
-                    styles.subFilterBtnText,
-                    projectSubTab === 'active' && styles.subFilterBtnTextActive,
+                    styles.subFilterText,
+                    projectFilter === 'IN_PROGRESS' && styles.subFilterTextActive,
                   ]}
                 >
-                  Đang chạy ({activeProjects.length})
+                  Đang chạy ({inProgressProjects.length})
                 </Text>
               </Pressable>
 
               <Pressable
                 style={[
-                  styles.subFilterBtn,
-                  projectSubTab === 'completed' && styles.subFilterBtnActive,
+                  styles.subFilterPill,
+                  projectFilter === 'COMPLETED' && styles.subFilterPillActive,
                 ]}
-                onPress={() => setProjectSubTab('completed')}
+                onPress={() => setProjectFilter('COMPLETED')}
               >
                 <Text
                   style={[
-                    styles.subFilterBtnText,
-                    projectSubTab === 'completed' && styles.subFilterBtnTextActive,
+                    styles.subFilterText,
+                    projectFilter === 'COMPLETED' && styles.subFilterTextActive,
                   ]}
                 >
                   Hoàn thành ({completedProjects.length})
@@ -691,259 +657,162 @@ export function AdminLevelConfigScreen() {
               </Pressable>
             </View>
 
-            {/* Content List or Empty State */}
             {isLoadingProjects ? (
               <View style={styles.loadingBox}>
-                <ActivityIndicator size="small" color="#0055D4" />
-                <Text style={styles.loadingText}>Đang tải dự án phòng ban...</Text>
+                <ActivityIndicator size="small" color="#0563bb" />
+                <Text style={styles.loadingText}>Đang tải dự án...</Text>
               </View>
-            ) : projectSubTab === 'active' ? (
-              activeProjects.length === 0 ? (
-                /* Empty State Card */
-                <View style={styles.emptyCard}>
-                  <MaterialCommunityIcons name="folder-outline" size={56} color="#94A3B8" />
-                  <Text style={styles.emptyTitle}>Chưa có dự án</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Phòng {activeDeptName} chưa có dự án nào.{'\n'}
-                    Tạo dự án và các đầu việc để Leader phân công cho nhân sự.
-                  </Text>
-                  <Pressable style={styles.primaryAddBtn} onPress={handleOpenAddProject}>
-                    <Ionicons name="add" size={20} color="#FFFFFF" />
-                    <Text style={styles.primaryAddBtnText}>Thêm dự án mới</Text>
-                  </Pressable>
+            ) : currentFilteredProjects.length === 0 ? (
+              /* Empty state matching Screen 1 */
+              <View style={styles.emptyProjWrapper}>
+                <View style={styles.emptyFolderCircle}>
+                  <MaterialCommunityIcons name="folder-plus-outline" size={36} color="#0563bb" />
                 </View>
-              ) : (
-                /* Active Projects List */
-                <View style={styles.projectsList}>
-                  {activeProjects.map((proj) => (
-                    <View key={proj.id} style={styles.projectCard}>
-                      <View style={styles.projHeader}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.projTitle}>{proj.projectName}</Text>
-                          {proj.promotionBonusAmount > 0 && (
-                            <Text style={styles.projRewardText}>
-                              Thưởng: {proj.promotionBonusAmount.toLocaleString('vi-VN')} VND
-                            </Text>
-                          )}
-                          {proj.physicalItemName ? (
-                            <Text style={styles.projRewardText}>Quà: {proj.physicalItemName}</Text>
-                          ) : null}
-                        </View>
-                        <View style={styles.statusPill}>
-                          <Text style={styles.statusPillText}>Đang chạy</Text>
-                        </View>
-                      </View>
-
-                      {/* Subtasks summary */}
-                      <View style={styles.subtasksBox}>
-                        <Text style={styles.subtasksCountText}>
-                          Đầu việc con ({proj.subTasks.length}):
-                        </Text>
-                        {proj.subTasks.map((st, sIdx) => (
-                          <View key={sIdx} style={styles.subtaskItemRow}>
-                            <Ionicons name="checkmark-circle-outline" size={15} color="#0055D4" />
-                            <Text style={styles.subtaskItemText} numberOfLines={1}>
-                              {st}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  ))}
-
-                  <Pressable style={styles.primaryAddBtn} onPress={handleOpenAddProject}>
-                    <Ionicons name="add" size={20} color="#FFFFFF" />
-                    <Text style={styles.primaryAddBtnText}>Thêm dự án mới</Text>
-                  </Pressable>
-                </View>
-              )
-            ) : completedProjects.length === 0 ? (
-              /* Completed Empty State */
-              <View style={styles.emptyCard}>
-                <MaterialCommunityIcons name="trophy-outline" size={56} color="#94A3B8" />
-                <Text style={styles.emptyTitle}>Chưa có dự án hoàn thành</Text>
-                <Text style={styles.emptySubtitle}>
-                  Các dự án sau khi được nghiệm thu sẽ hiển thị tại đây.
+                <Text style={styles.emptyProjTitle}>Chưa có dự án</Text>
+                <Text style={styles.emptyProjSubtitle}>
+                  Thêm dự án đầu tiên cho phòng {activeDeptName}.
                 </Text>
+
+                <Pressable style={styles.primaryAddBtn} onPress={handleOpenCreateProject}>
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                  <Text style={styles.primaryAddBtnText}>Thêm dự án mới</Text>
+                </Pressable>
               </View>
             ) : (
-              /* Completed Projects List */
               <View style={styles.projectsList}>
-                {completedProjects.map((proj) => (
+                {currentFilteredProjects.map((proj) => (
                   <View key={proj.id} style={styles.projectCard}>
                     <View style={styles.projHeader}>
-                      <Text style={styles.projTitle}>{proj.projectName}</Text>
-                      <View style={[styles.statusPill, { backgroundColor: '#ECFDF5' }]}>
-                        <Text style={[styles.statusPillText, { color: '#059669' }]}>Đã hoàn thành</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.projTitle}>{proj.projectName}</Text>
+                        <Text style={styles.projSubtasksCount}>
+                          {proj.subTasks.length} đầu việc con
+                        </Text>
                       </View>
+                      <View style={styles.projHeaderActions}>
+                        <Pressable
+                          style={styles.projActionIconBtn}
+                          onPress={() => handleOpenEditProject(proj)}
+                        >
+                          <Ionicons name="pencil-outline" size={16} color="#64748B" />
+                        </Pressable>
+                        <Pressable
+                          style={styles.projActionIconBtn}
+                          onPress={() => handleDeleteProject(proj.id)}
+                        >
+                          <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    {/* Subtasks snippet */}
+                    <View style={styles.projSubtasksList}>
+                      {proj.subTasks.slice(0, 3).map((st, idx) => (
+                        <View key={idx} style={styles.subtaskSnippetRow}>
+                          <Ionicons name="checkmark-circle-outline" size={14} color="#0563bb" />
+                          <Text style={styles.subtaskSnippetText} numberOfLines={1}>
+                            {st}
+                          </Text>
+                        </View>
+                      ))}
+                      {proj.subTasks.length > 3 && (
+                        <Text style={styles.moreSubtasksText}>
+                          +{proj.subTasks.length - 3} đầu việc khác...
+                        </Text>
+                      )}
                     </View>
                   </View>
                 ))}
+
+                <Pressable style={styles.primaryAddBtn} onPress={handleOpenCreateProject}>
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                  <Text style={styles.primaryAddBtnText}>Thêm dự án mới</Text>
+                </Pressable>
               </View>
             )}
           </View>
         )}
       </ScrollView>
 
-      {/* ── Select Department Modal ── */}
+      {/* ── Modal: Chọn phòng ban ── */}
       <SelectModal
         visible={showDeptModal}
         title="Chọn phòng ban quản trị"
         options={deptSelectOptions}
         selectedValue={selectedDeptId}
         onSelect={(opt: any) => {
-          const val = typeof opt === 'string' ? opt : opt.value ?? opt.id;
+          const val = typeof opt === 'string' ? opt : (opt.value ?? opt.id);
           setSelectedDeptId(val);
           setShowDeptModal(false);
         }}
         onClose={() => setShowDeptModal(false)}
       />
 
-      {/* ── Add / Edit Project Modal ── */}
+      {/* ── Modal: Thêm / Sửa dự án ── */}
       <Modal
         visible={isProjectModalVisible}
-        transparent
+        transparent={true}
         animationType="slide"
         onRequestClose={() => setIsProjectModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalDragHandleContainer}>
-              <View style={styles.modalDragHandle} />
-            </View>
-
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {editingProject ? 'Sửa dự án' : 'Thêm dự án mới'}
+                {editingProject ? 'Chỉnh sửa dự án' : 'Thêm dự án phòng ban'}
               </Text>
               <Pressable
                 onPress={() => setIsProjectModalVisible(false)}
+                hitSlop={8}
                 style={styles.modalCloseBtn}
               >
-                <Ionicons name="close" size={20} color="#64748B" />
+                <Ionicons name="close" size={22} color="#64748B" />
               </Pressable>
             </View>
 
-            <ScrollView style={{ paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>
-                  Tên dự án <Text style={{ color: '#EF4444' }}>*</Text>
-                </Text>
+            <ScrollView
+              style={{ maxHeight: 420 }}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.modalField}>
+                <Text style={styles.modalLabel}>Tên dự án *</Text>
                 <TextInput
-                  style={styles.textInput}
-                  placeholder="VD: Dự án Phát Triển Doanh Số Q2"
+                  style={styles.modalInput}
+                  value={modalProjectName}
+                  onChangeText={setModalProjectName}
+                  placeholder="Ví dụ: Triển khai chiến dịch Quý 3"
                   placeholderTextColor="#94A3B8"
-                  value={projNameInput}
-                  onChangeText={setProjNameInput}
                 />
               </View>
 
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Hình thức thưởng</Text>
-                <View style={styles.rewardPillsRow}>
-                  <Pressable
-                    style={[
-                      styles.rewardPill,
-                      projRewardType === 'CASH' && styles.rewardPillActive,
-                    ]}
-                    onPress={() => setProjRewardType('CASH')}
-                  >
-                    <Text
-                      style={[
-                        styles.rewardPillText,
-                        projRewardType === 'CASH' && styles.rewardPillTextActive,
-                      ]}
-                    >
-                      Tiền mặt
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.rewardPill,
-                      projRewardType === 'PHYSICAL_ITEM' && styles.rewardPillActive,
-                    ]}
-                    onPress={() => setProjRewardType('PHYSICAL_ITEM')}
-                  >
-                    <Text
-                      style={[
-                        styles.rewardPillText,
-                        projRewardType === 'PHYSICAL_ITEM' && styles.rewardPillTextActive,
-                      ]}
-                    >
-                      Hiện vật
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.rewardPill,
-                      projRewardType === 'HYBRID' && styles.rewardPillActive,
-                    ]}
-                    onPress={() => setProjRewardType('HYBRID')}
-                  >
-                    <Text
-                      style={[
-                        styles.rewardPillText,
-                        projRewardType === 'HYBRID' && styles.rewardPillTextActive,
-                      ]}
-                    >
-                      Kết hợp
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              {(projRewardType === 'CASH' || projRewardType === 'HYBRID') && (
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Tiền thưởng hoàn thành (VND)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    keyboardType="number-pad"
-                    placeholder="VD: 5000000"
-                    placeholderTextColor="#94A3B8"
-                    value={projBonusInput}
-                    onChangeText={setProjBonusInput}
-                  />
-                </View>
-              )}
-
-              {(projRewardType === 'PHYSICAL_ITEM' || projRewardType === 'HYBRID') && (
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Tên quà tặng / hiện vật</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="VD: Cúp vinh danh, Khóa học..."
-                    placeholderTextColor="#94A3B8"
-                    value={projPhysicalInput}
-                    onChangeText={setProjPhysicalInput}
-                  />
-                </View>
-              )}
-
-              {/* Subtasks Builder */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Đầu việc con (Leader sẽ phân công)</Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-                  <TextInput
-                    style={[styles.textInput, { flex: 1 }]}
-                    placeholder="Nhập đầu việc con..."
-                    placeholderTextColor="#94A3B8"
-                    value={newSubTaskText}
-                    onChangeText={setNewSubTaskText}
-                  />
-                  <Pressable
-                    style={[styles.primaryAddBtn, { paddingHorizontal: 16 }]}
-                    onPress={handleAddSubTask}
-                  >
-                    <Text style={styles.primaryAddBtnText}>Thêm</Text>
+              <View style={styles.modalField}>
+                <View style={styles.subtasksHeaderRow}>
+                  <Text style={styles.modalLabel}>Danh sách đầu việc con (Subtasks) *</Text>
+                  <Pressable style={styles.addSubtaskTextBtn} onPress={handleAddSubTaskInput}>
+                    <Ionicons name="add" size={14} color="#0563bb" />
+                    <Text style={styles.addSubtaskText}>Thêm việc</Text>
                   </Pressable>
                 </View>
 
-                {subTasksList.map((st, idx) => (
+                {modalSubTasks.map((taskText, idx) => (
                   <View key={idx} style={styles.modalSubtaskRow}>
-                    <Text style={{ flex: 1, fontSize: 14, color: '#0F172A' }}>• {st}</Text>
-                    <Pressable onPress={() => handleRemoveSubTask(idx)} hitSlop={8}>
-                      <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                    </Pressable>
+                    <Text style={styles.subtaskIndex}>{idx + 1}.</Text>
+                    <TextInput
+                      style={styles.modalSubtaskInput}
+                      value={taskText}
+                      onChangeText={(t) => handleSubTaskTextChange(idx, t)}
+                      placeholder={`Đầu việc ${idx + 1}...`}
+                      placeholderTextColor="#94A3B8"
+                    />
+                    {modalSubTasks.length > 1 && (
+                      <Pressable
+                        style={styles.removeSubtaskBtn}
+                        onPress={() => handleRemoveSubTaskInput(idx)}
+                      >
+                        <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                      </Pressable>
+                    )}
                   </View>
                 ))}
               </View>
@@ -969,10 +838,21 @@ export function AdminLevelConfigScreen() {
 }
 
 const styles = StyleSheet.create({
+  topBrandingBar: {
+    alignItems: 'center',
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
+  topBrandingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 1.5,
+  },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   headerTitleGroup: {
     flexDirection: 'row',
@@ -980,9 +860,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1001,66 +881,54 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
-  tabContainer: {
+
+  /* Underline Tabs (Template Match) */
+  tabUnderlineBar: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
     marginHorizontal: 16,
-    borderRadius: 14,
-    padding: 4,
-    gap: 6,
     marginBottom: 14,
   },
-  tabBtn: {
+  tabUnderlineBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 10,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    paddingVertical: 10,
+    position: 'relative',
   },
-  tabBtnActive: {
-    backgroundColor: '#0055D4',
-    shadowColor: '#0055D4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  tabBtnText: {
+  tabUnderlineText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#64748B',
   },
-  tabBtnTextActive: {
-    color: '#FFFFFF',
+  tabUnderlineTextActive: {
+    color: '#0563bb',
     fontWeight: '700',
   },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: -1,
+    left: '20%',
+    right: '20%',
+    height: 3,
+    backgroundColor: '#0563bb',
+    borderRadius: 2,
+  },
+
   deptSection: {
     paddingHorizontal: 16,
     marginBottom: 14,
-  },
-  deptLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 6,
   },
   deptSelectCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    paddingVertical: 10,
   },
   deptCardLeft: {
     flexDirection: 'row',
@@ -1069,10 +937,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   deptIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#F8FAFC',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1082,9 +950,11 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   deptBranchText: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '600',
     color: '#64748B',
     marginTop: 1,
+    letterSpacing: 0.5,
   },
   scrollBody: {
     flex: 1,
@@ -1097,7 +967,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -1115,131 +985,92 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748B',
   },
+
+  /* Level Cards */
   levelCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 16,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    padding: 14,
     marginBottom: 12,
   },
-  cardBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#EFF6FF',
+  levelCardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 10,
   },
-  cardBadgeText: {
-    fontSize: 15,
+  levelBadgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+  },
+  levelBadgePillText: {
+    fontSize: 11,
     fontWeight: '800',
-    color: '#0055D4',
+    color: '#0563bb',
   },
-  cardTitleCol: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  cardTitle: {
-    fontSize: 16,
+  levelDefaultNameText: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
-  cardSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
   trashBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#FEF2F2',
+    padding: 4,
   },
   fieldGroup: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   fieldLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: '#64748B',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   textInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     fontSize: 14,
     color: '#0F172A',
   },
-  levelOneAlert: {
+  levelOneNoteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginTop: 4,
+    gap: 6,
+    marginTop: 2,
   },
-  levelOneAlertText: {
+  levelOneNoteText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#059669',
-    flex: 1,
+    color: '#64748B',
+    fontStyle: 'italic',
   },
   rewardSection: {
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    paddingTop: 12,
-    marginTop: 6,
-  },
-  rewardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
-  },
-  rewardTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
+    paddingTop: 10,
+    marginTop: 4,
   },
   rewardPillsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   rewardPill: {
     flex: 1,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    flexDirection: 'row',
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
   },
   rewardPillActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#0055D4',
-    borderWidth: 1.5,
+    backgroundColor: '#0563bb',
   },
   rewardPillText: {
     fontSize: 12,
@@ -1247,36 +1078,15 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   rewardPillTextActive: {
-    color: '#0055D4',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
-  suffixInputContainer: {
+  twoColRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    overflow: 'hidden',
+    gap: 10,
   },
-  suffixTextInput: {
+  colField: {
     flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#0F172A',
-  },
-  suffixBox: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderLeftWidth: 1,
-    borderLeftColor: '#E2E8F0',
-    backgroundColor: '#F1F5F9',
-  },
-  suffixText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
   },
   bottomActions: {
     gap: 10,
@@ -1289,129 +1099,90 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#0055D4',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     borderStyle: 'dashed',
-    height: 46,
-    borderRadius: 12,
+    height: 44,
+    borderRadius: 10,
   },
   addLevelBtnText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#0055D4',
+    fontWeight: '600',
+    color: '#0563bb',
   },
-  saveBtn: {
-    flexDirection: 'row',
+  saveLevelsBtn: {
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#0563bb',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#0055D4',
-    height: 48,
-    borderRadius: 12,
-    shadowColor: '#0055D4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
   },
-  saveBtnText: {
-    fontSize: 15,
+  saveLevelsBtnText: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  bannerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-    padding: 14,
-    marginBottom: 14,
-  },
-  bannerIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: '#DBEAFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  bannerSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-    lineHeight: 16,
-  },
+
+  /* Projects tab (Screen 1) */
   subFilterRow: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    padding: 3,
-    gap: 4,
-    marginBottom: 14,
+    gap: 8,
+    marginBottom: 16,
   },
-  subFilterBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
+  subFilterPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 8,
+    backgroundColor: '#F1F5F9',
   },
-  subFilterBtnActive: {
-    backgroundColor: '#1E293B',
+  subFilterPillActive: {
+    backgroundColor: 'rgba(5, 99, 187, 0.12)',
   },
-  subFilterBtnText: {
-    fontSize: 13,
+  subFilterText: {
+    fontSize: 12,
     fontWeight: '600',
     color: '#64748B',
   },
-  subFilterBtnTextActive: {
-    color: '#FFFFFF',
+  subFilterTextActive: {
+    color: '#0563bb',
     fontWeight: '700',
   },
-  emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingVertical: 36,
-    paddingHorizontal: 20,
+  emptyProjWrapper: {
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+  emptyFolderCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyProjTitle: {
+    fontSize: 17,
+    fontWeight: '800',
     color: '#0F172A',
-    marginTop: 12,
+    marginBottom: 6,
   },
-  emptySubtitle: {
+  emptyProjSubtitle: {
     fontSize: 13,
     color: '#64748B',
     textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 6,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   primaryAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#0055D4',
-    paddingHorizontal: 20,
-    height: 44,
+    backgroundColor: '#0563bb',
+    height: 48,
+    width: '100%',
     borderRadius: 10,
+    marginTop: 10,
   },
   primaryAddBtnText: {
     fontSize: 14,
@@ -1423,127 +1194,152 @@ const styles = StyleSheet.create({
   },
   projectCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    padding: 14,
   },
   projHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   projTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
   },
-  projRewardText: {
+  projSubtasksCount: {
     fontSize: 12,
-    color: '#0055D4',
-    fontWeight: '600',
+    color: '#64748B',
     marginTop: 2,
   },
-  statusPill: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  statusPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0055D4',
-  },
-  subtasksBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 10,
+  projHeaderActions: {
+    flexDirection: 'row',
     gap: 6,
   },
-  subtasksCountText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
+  projActionIconBtn: {
+    padding: 6,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 6,
   },
-  subtaskItemRow: {
+  projSubtasksList: {
+    gap: 4,
+    marginTop: 4,
+  },
+  subtaskSnippetRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  subtaskItemText: {
-    fontSize: 13,
-    color: '#334155',
+  subtaskSnippetText: {
+    fontSize: 12,
+    color: '#475569',
+    flex: 1,
   },
+  moreSubtasksText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+
+  /* Modals */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
-  modalContainer: {
+  modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    paddingBottom: 16,
-  },
-  modalDragHandleContainer: {
-    alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 4,
-  },
-  modalDragHandle: {
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#CBD5E1',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
   },
   modalHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   modalTitle: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
   },
   modalCloseBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    padding: 4,
+  },
+  modalField: {
+    marginBottom: 14,
+  },
+  modalLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  modalInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  subtasksHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  addSubtaskTextBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  addSubtaskText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0563bb',
   },
   modalSubtaskRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 8,
+  },
+  subtaskIndex: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+    width: 20,
+  },
+  modalSubtaskInput: {
+    flex: 1,
     backgroundColor: '#F8FAFC',
-    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     borderRadius: 8,
-    marginBottom: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  removeSubtaskBtn: {
+    padding: 6,
   },
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    marginTop: 14,
   },
   modalCancelBtn: {
     flex: 1,
-    height: 46,
+    height: 44,
     borderRadius: 10,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
@@ -1552,13 +1348,13 @@ const styles = StyleSheet.create({
   modalCancelBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#475569',
+    color: '#64748B',
   },
   modalSubmitBtn: {
-    flex: 2,
-    height: 46,
+    flex: 1,
+    height: 44,
     borderRadius: 10,
-    backgroundColor: '#0055D4',
+    backgroundColor: '#0563bb',
     alignItems: 'center',
     justifyContent: 'center',
   },

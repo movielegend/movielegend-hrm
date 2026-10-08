@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -31,8 +32,11 @@ export function AdminLevelReviewScreen() {
   const router = useRouter();
   const { showAlert } = useAppAlert();
 
-  // Active tab: 'projects' | 'evidence' | 'members'
-  const [activeTab, setActiveTab] = useState<'projects' | 'evidence' | 'members'>('evidence');
+  // Active tab: 'projects' | 'evidence' | 'members' (Default to 'members' as in Screen 3)
+  const [activeTab, setActiveTab] = useState<'projects' | 'evidence' | 'members'>('members');
+
+  // Search query in 'members' tab
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Department selector state
   const { data: deptData, isLoading: isDeptsLoading } = useDepartments({ limit: 100 });
@@ -58,8 +62,8 @@ export function AdminLevelReviewScreen() {
   }, [departments, selectedDeptId]);
 
   const activeDept = departments.find((d: any) => d.id === selectedDeptId) || departments[0];
-  const activeDeptName = activeDept?.name || 'Phòng ban';
-  const activeBranchName = activeDept?.branchName || 'MOVIELEGEND';
+  const activeDeptName = activeDept?.name || 'Kinh doanh';
+  const activeBranchName = activeDept?.branchName || 'MOVIELEGEND · HÀ NỘI';
 
   // Level projects store
   const {
@@ -96,26 +100,29 @@ export function AdminLevelReviewScreen() {
     useState<LevelDepartmentProject | null>(null);
 
   // Load data for selected department
-  const loadDepartmentData = useCallback(async (isSilent = false) => {
-    if (!selectedDeptId) return;
-    try {
-      if (!isSilent) setIsLoading(true);
-      const [membersRes, requestsRes, configsRes] = await Promise.all([
-        fetchEmployees({ departmentId: selectedDeptId, limit: 100 }).catch(() => ({ data: [] })),
-        levelingApi.getDepartmentPromotionRequests(selectedDeptId).catch(() => []),
-        levelingApi.getDepartmentLevelConfigs(selectedDeptId).catch(() => []),
-      ]);
+  const loadDepartmentData = useCallback(
+    async (isSilent = false) => {
+      if (!selectedDeptId) return;
+      try {
+        if (!isSilent) setIsLoading(true);
+        const [membersRes, requestsRes, configsRes] = await Promise.all([
+          fetchEmployees({ departmentId: selectedDeptId, limit: 100 }).catch(() => ({ data: [] })),
+          levelingApi.getDepartmentPromotionRequests(selectedDeptId).catch(() => []),
+          levelingApi.getDepartmentLevelConfigs(selectedDeptId).catch(() => []),
+        ]);
 
-      setMembers(Array.isArray((membersRes as any)?.data) ? (membersRes as any).data : []);
-      setPromotionRequests(Array.isArray(requestsRes) ? requestsRes : []);
-      setLevelConfigs(Array.isArray(configsRes) ? configsRes : []);
-    } catch (err: any) {
-      // silently handle
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [selectedDeptId]);
+        setMembers(Array.isArray((membersRes as any)?.data) ? (membersRes as any).data : []);
+        setPromotionRequests(Array.isArray(requestsRes) ? requestsRes : []);
+        setLevelConfigs(Array.isArray(configsRes) ? configsRes : []);
+      } catch {
+        // silently handle
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [selectedDeptId]
+  );
 
   useEffect(() => {
     if (selectedDeptId) {
@@ -144,10 +151,10 @@ export function AdminLevelReviewScreen() {
 
   // Helper to get initials
   const getInitials = (name?: string) => {
-    if (!name) return 'N';
+    if (!name) return 'VT';
     const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-    return parts[parts.length - 1].charAt(0).toUpperCase();
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   };
 
   // Helper to get configured level title for a member
@@ -167,6 +174,17 @@ export function AdminLevelReviewScreen() {
     return promotionRequests.filter((r) => r.status === 'PENDING').length;
   }, [promotionRequests]);
 
+  // Filtered members by search
+  const filteredMembers = useMemo(() => {
+    if (!searchQuery.trim()) return members;
+    const q = searchQuery.toLowerCase().trim();
+    return members.filter((m: any) => {
+      const name = (m.fullName || m.profile?.fullName || '').toLowerCase();
+      const code = (m.userCode || '').toLowerCase();
+      return name.includes(q) || code.includes(q);
+    });
+  }, [members, searchQuery]);
+
   // Dept options for SelectModal
   const deptOptions: SelectOption[] = useMemo(() => {
     return departments.map((d: any) => ({
@@ -178,7 +196,12 @@ export function AdminLevelReviewScreen() {
 
   return (
     <Screen>
-      {/* ── Top Header: Nút quay lại cùng dòng với tiêu đề ── */}
+      {/* ── Brand Label Top Bar ── */}
+      <View style={styles.topBrandingBar}>
+        <Text style={styles.topBrandingText}>MOVIE LEGEND</Text>
+      </View>
+
+      {/* ── Top Header: Back button and Title on the same row ── */}
       <View style={styles.header}>
         <View style={styles.headerTitleGroup}>
           <Pressable
@@ -190,103 +213,92 @@ export function AdminLevelReviewScreen() {
             <Ionicons name="arrow-back" size={22} color="#0F172A" />
           </Pressable>
           <View style={styles.titleTextWrap}>
-            <Text style={styles.screenTitle}>Duyệt cấp bậc & nhân sự</Text>
-            <Text style={styles.screenSubtitle}>Quản trị duyệt thăng cấp.</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* ── Metrics Summary Card (Image 1) ── */}
-      <View style={styles.summaryCardWrapper}>
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryCol}>
-            <MaterialCommunityIcons name="account-group-outline" size={24} color="#64748B" />
-            <View style={styles.summaryTextGroup}>
-              <Text style={styles.summaryNumber}>{members.length}</Text>
-              <Text style={styles.summaryLabel}>Nhân sự</Text>
-            </View>
-          </View>
-
-          <View style={styles.summaryDivider} />
-
-          <View style={styles.summaryCol}>
-            <MaterialCommunityIcons name="file-document-outline" size={24} color="#64748B" />
-            <View style={styles.summaryTextGroup}>
-              <Text style={styles.summaryNumber}>{pendingRequestsCount}</Text>
-              <Text style={styles.summaryLabel}>Đề xuất chờ duyệt</Text>
-            </View>
+            <Text style={styles.screenTitle}>Duyệt thăng cấp</Text>
+            <Text style={styles.screenSubtitle}>Quản lý cấp bậc & nhân sự</Text>
           </View>
         </View>
       </View>
 
       {/* ── Dropdown: Phòng ban quản trị ── */}
       <View style={styles.deptSection}>
-        <Text style={styles.deptLabel}>Phòng ban quản trị</Text>
         <Pressable style={styles.deptSelectCard} onPress={() => setShowDeptModal(true)}>
           <View style={styles.deptCardLeft}>
             <View style={styles.deptIconBox}>
-              <MaterialCommunityIcons name="account-group-outline" size={20} color="#64748B" />
+              <MaterialCommunityIcons name="office-building-outline" size={20} color="#0563bb" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.deptNameText}>{activeDeptName}</Text>
-              <Text style={styles.deptBranchText}>{activeBranchName}</Text>
+              <Text style={styles.deptBranchText}>
+                {activeBranchName.toUpperCase().replace('-', ' · ')}
+              </Text>
             </View>
           </View>
-          <Ionicons name="chevron-down" size={20} color="#64748B" />
+          <Ionicons name="chevron-down" size={18} color="#64748B" />
         </Pressable>
       </View>
 
-      {/* ── Segmented 3-Tab Pill Switcher ── */}
-      <View style={styles.tabContainer}>
+      {/* ── Solid Stats Banner Card (#0563bb - Template Match) ── */}
+      <View style={styles.statsCardWrapper}>
+        <View style={styles.statsCardSolid}>
+          <View style={styles.statsCol}>
+            <MaterialCommunityIcons name="account-group-outline" size={26} color="#FFFFFF" />
+            <View style={styles.statsTextWrap}>
+              <Text style={styles.statsNumber}>{members.length}</Text>
+              <Text style={styles.statsLabel}>Nhân sự</Text>
+            </View>
+          </View>
+
+          <View style={styles.statsDivider} />
+
+          <View style={styles.statsCol}>
+            <MaterialCommunityIcons name="clipboard-check-outline" size={26} color="#FFFFFF" />
+            <View style={styles.statsTextWrap}>
+              <Text style={styles.statsNumber}>{pendingRequestsCount}</Text>
+              <Text style={styles.statsLabel}>Chờ duyệt</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* ── Underline 3-Tab Bar (Template Match) ── */}
+      <View style={styles.tabUnderlineBar}>
         <Pressable
-          style={[styles.tabBtn, activeTab === 'projects' && styles.tabBtnActive]}
+          style={styles.tabUnderlineBtn}
           onPress={() => setActiveTab('projects')}
         >
-          <MaterialCommunityIcons
-            name="briefcase-outline"
-            size={16}
-            color={activeTab === 'projects' ? '#FFFFFF' : '#64748B'}
-          />
           <Text
-            style={[styles.tabBtnText, activeTab === 'projects' && styles.tabBtnTextActive]}
+            style={[styles.tabUnderlineText, activeTab === 'projects' && styles.tabUnderlineTextActive]}
             numberOfLines={1}
           >
             Dự án ({submittedDeptProjects.length})
           </Text>
+          {activeTab === 'projects' && <View style={styles.tabIndicator} />}
         </Pressable>
 
         <Pressable
-          style={[styles.tabBtn, activeTab === 'evidence' && styles.tabBtnActive]}
+          style={styles.tabUnderlineBtn}
           onPress={() => setActiveTab('evidence')}
         >
-          <Ionicons
-            name="checkmark-circle-outline"
-            size={16}
-            color={activeTab === 'evidence' ? '#FFFFFF' : '#64748B'}
-          />
           <Text
-            style={[styles.tabBtnText, activeTab === 'evidence' && styles.tabBtnTextActive]}
+            style={[styles.tabUnderlineText, activeTab === 'evidence' && styles.tabUnderlineTextActive]}
             numberOfLines={1}
           >
             Minh chứng ({promotionRequests.length})
           </Text>
+          {activeTab === 'evidence' && <View style={styles.tabIndicator} />}
         </Pressable>
 
         <Pressable
-          style={[styles.tabBtn, activeTab === 'members' && styles.tabBtnActive]}
+          style={styles.tabUnderlineBtn}
           onPress={() => setActiveTab('members')}
         >
-          <MaterialCommunityIcons
-            name="account-group-outline"
-            size={16}
-            color={activeTab === 'members' ? '#FFFFFF' : '#64748B'}
-          />
           <Text
-            style={[styles.tabBtnText, activeTab === 'members' && styles.tabBtnTextActive]}
+            style={[styles.tabUnderlineText, activeTab === 'members' && styles.tabUnderlineTextActive]}
             numberOfLines={1}
           >
             Nhân sự ({members.length})
           </Text>
+          {activeTab === 'members' && <View style={styles.tabIndicator} />}
         </Pressable>
       </View>
 
@@ -299,7 +311,7 @@ export function AdminLevelReviewScreen() {
       >
         {isLoading && !isRefreshing ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator size="small" color="#0055D4" />
+            <ActivityIndicator size="small" color="#0563bb" />
             <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
           </View>
         ) : (
@@ -317,7 +329,9 @@ export function AdminLevelReviewScreen() {
 
                 {submittedDeptProjects.length === 0 ? (
                   <View style={styles.emptyCard}>
-                    <Ionicons name="folder-open-outline" size={48} color="#94A3B8" />
+                    <View style={styles.emptyIconCircle}>
+                      <Ionicons name="folder-open-outline" size={34} color="#0563bb" />
+                    </View>
                     <Text style={styles.emptyTitle}>Chưa có dự án cần nghiệm thu</Text>
                     <Text style={styles.emptySubtitle}>
                       Phòng {activeDeptName} chưa có dự án nào được gửi lên từ Leader.
@@ -336,25 +350,25 @@ export function AdminLevelReviewScreen() {
                         totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
                       const isSubmitted = proj.status === 'SUBMITTED_TO_ADMIN';
                       const isApproved = proj.status === 'ADMIN_APPROVED';
-                      const lvlColor = LEVEL_COLORS[proj.levelNumber] || '#0055D4';
+                      const lvlColor = LEVEL_COLORS[proj.levelNumber] || '#0563bb';
 
                       return (
                         <View key={proj.id || proj.levelNumber} style={styles.projectCard}>
-                          {/* Top: Badge Level & Status */}
+                          {/* Header row */}
                           <View style={styles.projectCardHeader}>
                             <View
                               style={[
                                 styles.projectLevelBadge,
-                                { backgroundColor: `${lvlColor}15`, borderColor: lvlColor },
+                                { backgroundColor: 'rgba(5, 99, 187, 0.08)' },
                               ]}
                             >
                               <Ionicons
                                 name="trophy-outline"
                                 size={12}
-                                color={lvlColor}
+                                color="#0563bb"
                                 style={{ marginRight: 4 }}
                               />
-                              <Text style={[styles.projectLevelBadgeText, { color: lvlColor }]}>
+                              <Text style={[styles.projectLevelBadgeText, { color: '#0563bb' }]}>
                                 Level {proj.levelNumber} - {proj.levelName}
                               </Text>
                             </View>
@@ -379,7 +393,7 @@ export function AdminLevelReviewScreen() {
                                 }
                                 size={12}
                                 color={
-                                  isApproved ? '#059669' : isSubmitted ? '#D97706' : '#2563EB'
+                                  isApproved ? '#059669' : isSubmitted ? '#D97706' : '#0563bb'
                                 }
                               />
                               <Text
@@ -390,7 +404,7 @@ export function AdminLevelReviewScreen() {
                                       ? '#059669'
                                       : isSubmitted
                                       ? '#D97706'
-                                      : '#2563EB',
+                                      : '#0563bb',
                                   },
                                 ]}
                               >
@@ -403,7 +417,6 @@ export function AdminLevelReviewScreen() {
                             </View>
                           </View>
 
-                          {/* Title */}
                           <Text style={styles.projectNameText}>{proj.projectName}</Text>
 
                           {/* Progress */}
@@ -424,17 +437,16 @@ export function AdminLevelReviewScreen() {
                                       ? '#059669'
                                       : isSubmitted
                                       ? '#D97706'
-                                      : lvlColor,
+                                      : '#0563bb',
                                   },
                                 ]}
                               />
                             </View>
                           </View>
 
-                          {/* Leader Note */}
                           {proj.leaderReportNote ? (
                             <View style={styles.projectLeaderNoteBox}>
-                              <Ionicons name="chatbubble-ellipses-outline" size={13} color="#0055D4" />
+                              <Ionicons name="chatbubble-ellipses-outline" size={13} color="#0563bb" />
                               <Text style={styles.projectLeaderNoteText} numberOfLines={2}>
                                 <Text style={{ fontWeight: '700' }}>Báo cáo Leader: </Text>
                                 {proj.leaderReportNote}
@@ -442,7 +454,6 @@ export function AdminLevelReviewScreen() {
                             </View>
                           ) : null}
 
-                          {/* Action Button */}
                           <Pressable
                             style={[
                               styles.projectActionBtn,
@@ -455,7 +466,7 @@ export function AdminLevelReviewScreen() {
                             <Ionicons
                               name={isSubmitted ? 'shield-checkmark-outline' : 'eye-outline'}
                               size={15}
-                              color={isSubmitted ? '#FFFFFF' : '#0055D4'}
+                              color={isSubmitted ? '#FFFFFF' : '#0563bb'}
                               style={{ marginRight: 6 }}
                             />
                             <Text
@@ -480,33 +491,32 @@ export function AdminLevelReviewScreen() {
             )}
 
             {/* ======================================================== */}
-            {/* TAB 2: MINH CHỨNG (Image 1)                              */}
+            {/* TAB 2: MINH CHỨNG (Screen 4)                             */}
             {/* ======================================================== */}
             {activeTab === 'evidence' && (
               <View>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Minh chứng chờ duyệt</Text>
-                </View>
-
                 {promotionRequests.length === 0 ? (
-                  /* Empty state matching Image 1 exactly */
+                  /* Empty state matching Screen 4 */
                   <View style={styles.emptyEvidenceCard}>
-                    <View style={styles.emptyCheckCircle}>
-                      <Ionicons name="checkmark" size={28} color="#10B981" />
+                    <View style={styles.emptyDocCircle}>
+                      <MaterialCommunityIcons
+                        name="file-document-check-outline"
+                        size={36}
+                        color="#0563bb"
+                      />
                     </View>
                     <Text style={styles.emptyEvidenceTitle}>Không có đề xuất chờ duyệt</Text>
                     <Text style={styles.emptyEvidenceSubtitle}>
-                      Hiện chưa có minh chứng nào cần bạn xử lý.
+                      Minh chứng thăng cấp của nhân sự sẽ hiển thị tại đây.
                     </Text>
                   </View>
                 ) : (
                   <View style={styles.requestsList}>
                     {promotionRequests.map((req) => {
-                      const reqColor = LEVEL_COLORS[req.toLevelNumber] || '#10B981';
+                      const reqColor = LEVEL_COLORS[req.toLevelNumber] || '#0563bb';
                       const memberName =
                         req.user?.profile?.fullName || req.user?.userCode || 'Nhân sự';
                       const memberCode = req.user?.userCode || '';
-                      const isPending = req.status === 'PENDING';
 
                       return (
                         <View key={req.id} style={styles.requestCard}>
@@ -575,7 +585,7 @@ export function AdminLevelReviewScreen() {
 
                           <View style={styles.requestCardFooter}>
                             <View style={styles.evidenceCountBadge}>
-                              <Ionicons name="images-outline" size={13} color="#0055D4" />
+                              <Ionicons name="images-outline" size={13} color="#0563bb" />
                               <Text style={styles.evidenceCountText}>
                                 {req.evidenceImages?.length || 0} ảnh bằng chứng
                               </Text>
@@ -596,7 +606,7 @@ export function AdminLevelReviewScreen() {
                               }}
                             >
                               <Text style={styles.reviewBtnText}>Xem & Thẩm định</Text>
-                              <Ionicons name="chevron-forward" size={14} color="#0055D4" />
+                              <Ionicons name="chevron-forward" size={14} color="#0563bb" />
                             </Pressable>
                           </View>
                         </View>
@@ -608,25 +618,48 @@ export function AdminLevelReviewScreen() {
             )}
 
             {/* ======================================================== */}
-            {/* TAB 3: NHÂN SỰ (Image 2)                                 */}
+            {/* TAB 3: NHÂN SỰ (Screen 3)                                */}
             {/* ======================================================== */}
             {activeTab === 'members' && (
               <View>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Nhân sự phòng ban ({members.length})</Text>
+                {/* Search Bar */}
+                <View style={styles.searchBar}>
+                  <Ionicons name="search-outline" size={18} color="#94A3B8" />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Tìm nhân sự"
+                    placeholderTextColor="#94A3B8"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {searchQuery ? (
+                    <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                      <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                    </Pressable>
+                  ) : null}
                 </View>
 
-                {members.length === 0 ? (
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>
+                    Nhân sự phòng ban
+                  </Text>
+                </View>
+
+                {filteredMembers.length === 0 ? (
                   <View style={styles.emptyCard}>
-                    <MaterialCommunityIcons name="account-group-outline" size={48} color="#94A3B8" />
+                    <View style={styles.emptyIconCircle}>
+                      <MaterialCommunityIcons name="account-group-outline" size={34} color="#0563bb" />
+                    </View>
                     <Text style={styles.emptyTitle}>Chưa có nhân sự</Text>
                     <Text style={styles.emptySubtitle}>
-                      Phòng {activeDeptName} hiện chưa có nhân sự nào trong hệ thống.
+                      {searchQuery
+                        ? 'Không tìm thấy nhân sự nào phù hợp với từ khóa.'
+                        : `Phòng ${activeDeptName} hiện chưa có nhân sự nào trong hệ thống.`}
                     </Text>
                   </View>
                 ) : (
                   <View style={styles.membersList}>
-                    {members.map((m, idx) => {
+                    {filteredMembers.map((m, idx) => {
                       const memberName =
                         m.fullName || m.profile?.fullName || m.userCode || 'Nhân sự';
                       const memberCode = m.userCode || `NV${String(idx + 1).padStart(5, '0')}`;
@@ -635,37 +668,36 @@ export function AdminLevelReviewScreen() {
                       const memberLevel =
                         m.currentLevelNumber || m.profile?.currentLevelNumber || 1;
                       const levelTitle = getLevelTitle(memberLevel);
-                      const rawAvatar = m.avatarUrl || m.profile?.avatarUrl;
-                      const avatarUri = getAbsoluteImageUrl(rawAvatar);
 
                       return (
                         <View key={m.id || idx} style={styles.memberCard}>
-                          {/* Member Top Row: Avatar + Name + Code */}
+                          {/* Top Row: Avatar + Name + Code + Level Pill */}
                           <View style={styles.memberTopRow}>
                             <View style={styles.memberAvatarCircle}>
-                              {avatarUri ? (
-                                <Image source={{ uri: avatarUri }} style={styles.memberAvatarImg} />
-                              ) : (
-                                <Text style={styles.memberAvatarInitial}>
-                                  {getInitials(memberName)}
-                                </Text>
-                              )}
+                              <Text style={styles.memberAvatarText}>
+                                {getInitials(memberName)}
+                              </Text>
                             </View>
-                            <View style={styles.memberTextCol}>
-                              <Text style={styles.memberNameText} numberOfLines={1}>
+                            <View style={styles.memberMetaCol}>
+                              <Text style={styles.memberName} numberOfLines={1}>
                                 {memberName}
                               </Text>
-                              <Text style={styles.memberSubText}>
-                                Mã: {memberCode} • {memberPosition}
+                              <Text style={styles.memberCodeSub}>
+                                {memberCode} · {memberPosition}
                               </Text>
+                              <View style={styles.memberLevelPill}>
+                                <Text style={styles.memberLevelPillText}>
+                                  Level {memberLevel} - {levelTitle}
+                                </Text>
+                              </View>
                             </View>
                           </View>
 
-                          {/* Member Bottom Row: Level Title Badge + Button "⚡ Đổi Level" */}
+                          <View style={styles.memberDivider} />
+
+                          {/* Bottom Row: Cấp bậc hiện tại + Nút "↑ Đổi cấp bậc" */}
                           <View style={styles.memberBottomRow}>
-                            <View style={styles.memberLevelBadge}>
-                              <Text style={styles.memberLevelBadgeText}>{levelTitle}</Text>
-                            </View>
+                            <Text style={styles.currentLevelLabel}>Cấp bậc hiện tại</Text>
 
                             <Pressable
                               style={styles.changeLevelBtn}
@@ -678,8 +710,8 @@ export function AdminLevelReviewScreen() {
                                 });
                               }}
                             >
-                              <Ionicons name="flash" size={13} color="#FFFFFF" />
-                              <Text style={styles.changeLevelBtnText}>Đổi Level</Text>
+                              <Ionicons name="arrow-up" size={14} color="#FFFFFF" />
+                              <Text style={styles.changeLevelBtnText}>Đổi cấp bậc</Text>
                             </Pressable>
                           </View>
                         </View>
@@ -714,7 +746,7 @@ export function AdminLevelReviewScreen() {
         isAdmin={true}
         onClose={() => setDirectChangeUser(null)}
         onSuccess={() => {
-          loadDepartmentData();
+          loadDepartmentData(true);
           showAlert('Thành công', 'Đã cập nhật cấp bậc nhân sự.');
         }}
       />
@@ -728,13 +760,13 @@ export function AdminLevelReviewScreen() {
         onApprove={async (lvlNum, feedback) => {
           await adminApproveProject(lvlNum, feedback);
           setSelectedProjectForReview(null);
-          loadDepartmentData();
+          loadDepartmentData(true);
           showAlert('Nghiệm thu thành công', 'Đã duyệt dự án cho phòng ban.');
         }}
         onReject={async (lvlNum, feedback) => {
           await adminRejectProject(lvlNum, feedback);
           setSelectedProjectForReview(null);
-          loadDepartmentData();
+          loadDepartmentData(true);
           showAlert('Yêu cầu sửa đổi', 'Đã chuyển phản hồi đến Leader.');
         }}
       />
@@ -743,10 +775,21 @@ export function AdminLevelReviewScreen() {
 }
 
 const styles = StyleSheet.create({
+  topBrandingBar: {
+    alignItems: 'center',
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
+  topBrandingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 1.5,
+  },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   headerTitleGroup: {
     flexDirection: 'row',
@@ -754,9 +797,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -775,77 +818,21 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 2,
   },
-  summaryCardWrapper: {
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  summaryCol: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  summaryTextGroup: {
-    justifyContent: 'center',
-  },
-  summaryNumber: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-    lineHeight: 24,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#64748B',
-    marginTop: 1,
-  },
-  summaryDivider: {
-    width: 1,
-    height: 36,
-    backgroundColor: '#E2E8F0',
-    marginHorizontal: 12,
-  },
+
   deptSection: {
     paddingHorizontal: 16,
-    marginBottom: 14,
-  },
-  deptLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 6,
+    marginBottom: 12,
   },
   deptSelectCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    paddingVertical: 10,
   },
   deptCardLeft: {
     flexDirection: 'row',
@@ -854,10 +841,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   deptIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#F8FAFC',
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -867,43 +854,87 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   deptBranchText: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '600',
     color: '#64748B',
     marginTop: 1,
+    letterSpacing: 0.5,
   },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 4,
-    gap: 4,
-    marginBottom: 14,
+
+  /* Solid Stats Banner (#0563bb) */
+  statsCardWrapper: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
-  tabBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: 8,
+  statsCardSolid: {
+    backgroundColor: '#0563bb',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  statsCol: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  statsTextWrap: {
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 4,
   },
-  tabBtnActive: {
-    backgroundColor: '#0055D4',
-  },
-  tabBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  tabBtnTextActive: {
+  statsNumber: {
+    fontSize: 22,
+    fontWeight: '800',
     color: '#FFFFFF',
+    lineHeight: 26,
+  },
+  statsLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#E2E8F0',
+    marginTop: 1,
+  },
+  statsDivider: {
+    width: 1,
+    height: 34,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    marginHorizontal: 12,
+  },
+
+  /* Underline Tabs */
+  tabUnderlineBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    marginHorizontal: 16,
+    marginBottom: 14,
+  },
+  tabUnderlineBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    position: 'relative',
+  },
+  tabUnderlineText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  tabUnderlineTextActive: {
+    color: '#0563bb',
     fontWeight: '700',
   },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: -1,
+    left: '15%',
+    right: '15%',
+    height: 3,
+    backgroundColor: '#0563bb',
+    borderRadius: 2,
+  },
+
   scrollBody: {
     flex: 1,
   },
@@ -924,66 +955,137 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
   },
-  emptyCard: {
+
+  /* Search Bar (Screen 3) */
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingVertical: 36,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    paddingHorizontal: 12,
+    height: 42,
+    marginBottom: 14,
+    gap: 8,
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginTop: 12,
-  },
-  emptySubtitle: {
+  searchInput: {
+    flex: 1,
     fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 6,
+    color: '#0F172A',
   },
 
-  /* Empty Evidence (Image 1) */
+  /* Member Cards (Screen 3) */
+  membersList: {
+    gap: 12,
+  },
+  memberCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+  },
+  memberTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  memberAvatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberAvatarText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0563bb',
+  },
+  memberMetaCol: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  memberName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  memberCodeSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  memberLevelPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 6,
+  },
+  memberLevelPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0563bb',
+  },
+  memberDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  memberBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  currentLevelLabel: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  changeLevelBtn: {
+    backgroundColor: '#0563bb',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    height: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  changeLevelBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* Empty Evidence (Screen 4) */
   emptyEvidenceCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingVertical: 44,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
   },
-  emptyCheckCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#D1FAE5',
+  emptyDocCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   emptyEvidenceTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: '#0F172A',
     marginBottom: 6,
   },
@@ -993,21 +1095,47 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  emptyIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 6,
+  },
+
   /* Projects tab */
   projectsList: {
     gap: 12,
   },
   projectCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    padding: 14,
   },
   projectCardHeader: {
     flexDirection: 'row',
@@ -1021,10 +1149,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    borderWidth: 1,
   },
   projectLevelBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   projectStatusBadge: {
@@ -1042,7 +1169,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
   },
   statusInProgress: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
   },
   projectStatusText: {
     fontSize: 11,
@@ -1101,16 +1228,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 40,
-    borderRadius: 10,
+    height: 38,
+    borderRadius: 8,
   },
   projectActionBtnActive: {
-    backgroundColor: '#0055D4',
+    backgroundColor: '#0563bb',
   },
   projectActionBtnNormal: {
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
   },
   projectActionBtnText: {
     fontSize: 13,
@@ -1120,7 +1245,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   projectActionBtnTextNormal: {
-    color: '#0055D4',
+    color: '#0563bb',
   },
 
   /* Requests tab */
@@ -1129,15 +1254,10 @@ const styles = StyleSheet.create({
   },
   requestCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    padding: 14,
   },
   requestCardHeader: {
     flexDirection: 'row',
@@ -1151,17 +1271,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EFF6FF',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(5, 99, 187, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitialText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#0055D4',
+    color: '#0563bb',
   },
   requestUserName: {
     fontSize: 14,
@@ -1241,7 +1361,7 @@ const styles = StyleSheet.create({
   },
   evidenceCountText: {
     fontSize: 12,
-    color: '#0055D4',
+    color: '#0563bb',
     fontWeight: '600',
   },
   reviewBtn: {
@@ -1252,92 +1372,6 @@ const styles = StyleSheet.create({
   reviewBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0055D4',
-  },
-
-  /* Members tab (Image 2) */
-  membersList: {
-    gap: 12,
-  },
-  memberCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  memberTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  memberAvatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  memberAvatarImg: {
-    width: '100%',
-    height: '100%',
-  },
-  memberAvatarInitial: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0055D4',
-  },
-  memberTextCol: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  memberNameText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  memberSubText: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 3,
-  },
-  memberBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  memberLevelBadge: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  memberLevelBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  changeLevelBtn: {
-    backgroundColor: '#0055D4',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  changeLevelBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0563bb',
   },
 });
