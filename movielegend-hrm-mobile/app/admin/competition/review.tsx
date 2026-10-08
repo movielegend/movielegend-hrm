@@ -1,6 +1,6 @@
 import React from 'react';
-import { UnifiedLevelingScreen } from '../../../src/features/leveling/UnifiedLevelingScreen';
+import { AdminLevelReviewScreen } from '../../../src/features/admin-config/AdminLevelReviewScreen';
 
 export default function AdminMonthlyReviewRoute() {
-  return <UnifiedLevelingScreen mode="review_only" initialTab="members" initialLeaderSubTab="pending_requests" />;
+  return <AdminLevelReviewScreen />;
 }
