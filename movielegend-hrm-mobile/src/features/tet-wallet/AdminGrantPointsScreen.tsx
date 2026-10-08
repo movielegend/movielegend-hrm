@@ -233,30 +233,36 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   };
 
   return (
-    <Screen backgroundColor="#FFFFFF">
-      {/* ── Top Header: Back button + Title on the same line ── */}
-      <View style={styles.header}>
-        <View style={styles.headerTitleGroup}>
-          <Pressable
-            onPress={() => {
-              if (currentStep === 2) {
-                setCurrentStep(1);
-              } else {
-                onBack();
-              }
-            }}
-            style={styles.backBtn}
-            hitSlop={10}
-            accessibilityLabel="Quay lại"
-          >
-            <Ionicons name="arrow-back" size={22} color="#0F172A" />
-          </Pressable>
-          <View style={styles.titleTextWrap}>
-            <Text style={styles.screenTitle}>
-              {currentStep === 1 ? 'Trao điểm thưởng' : 'Lịch mở khóa'}
-            </Text>
-          </View>
+    <Screen backgroundColor="#F8FAFC">
+      {/* ── Top Bar: Back button + MOVIE LEGEND center matching Screens 3 & 4 ── */}
+      <View style={styles.topNavBar}>
+        <Pressable
+          onPress={() => {
+            if (currentStep === 2) {
+              setCurrentStep(1);
+            } else {
+              onBack();
+            }
+          }}
+          style={styles.navBackBtn}
+          hitSlop={10}
+          accessibilityLabel="Quay lại"
+        >
+          <Ionicons name="arrow-back" size={22} color="#0F172A" />
+        </Pressable>
+        <View style={styles.navLogoCenter}>
+          <Text style={styles.navLogoText}>
+            MOVIE <MaterialCommunityIcons name="filmstrip" size={13} color="#0563bb" /> LEGEND
+          </Text>
         </View>
+        <View style={{ width: 38 }} />
+      </View>
+
+      {/* ── Screen Title Row ── */}
+      <View style={styles.titleSection}>
+        <Text style={styles.screenTitle}>
+          {currentStep === 1 ? 'Trao điểm thưởng' : 'Lịch mở khóa'}
+        </Text>
       </View>
 
       {/* ── Stepper Indicator (Screens 3 & 4) ── */}
@@ -675,29 +681,39 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
-  },
-  headerTitleGroup: {
+  topNavBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+    backgroundColor: '#FFFFFF',
   },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+  navBackBtn: {
+    width: 38,
+    height: 38,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  navLogoCenter: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  titleTextWrap: {
-    flex: 1,
+  navLogoText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: '#0F172A',
+  },
+  titleSection: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
   screenTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -764,8 +780,8 @@ const styles = StyleSheet.create({
   recipientCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     padding: 12,
@@ -823,7 +839,7 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   bigPointsNumber: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -833,7 +849,9 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   cashEquivalentPill: {
-    backgroundColor: 'rgba(5, 99, 187, 0.08)',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 8,
@@ -842,7 +860,7 @@ const styles = StyleSheet.create({
   cashEquivalentText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0563bb',
+    color: '#92400E',
   },
 
   /* Preset Grid */
@@ -1032,14 +1050,17 @@ const styles = StyleSheet.create({
   },
   datePresetBtn: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     borderRadius: 8,
-    height: 34,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
   datePresetBtnActive: {
     backgroundColor: '#0563bb',
+    borderColor: '#0563bb',
   },
   datePresetBtnText: {
     fontSize: 12,
@@ -1151,7 +1172,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#0563bb',
-    borderRadius: 10,
+    borderRadius: 12,
     height: 46,
     paddingHorizontal: 24,
   },
@@ -1168,6 +1189,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   totalGrantLabel: {
     fontSize: 13,
@@ -1175,13 +1200,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   totalGrantValue: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#0563bb',
+    color: '#0F172A',
   },
   confirmGrantBtn: {
     height: 48,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: '#0563bb',
     alignItems: 'center',
     justifyContent: 'center',

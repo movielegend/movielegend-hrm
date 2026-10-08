@@ -17,9 +17,10 @@ import {
   KeyboardAvoidingView,
   PanResponder,
   Dimensions,
-  BackHandler} from 'react-native';
+  BackHandler,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Screen } from '../../components/Screen';
 import { PageHeader } from '../../components/PageHeader';
 import { SearchInput } from '../../components/SearchInput';
@@ -42,6 +43,16 @@ import { useAuth } from '../../providers/AuthProvider';
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+
+const getInitials = (name: string) => {
+  if (!name) return 'NV';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'NV';
+  const first = parts[0] ?? '';
+  if (parts.length === 1) return first.substring(0, 2).toUpperCase();
+  const last = parts[parts.length - 1] ?? '';
+  return ((first.charAt(0) || '') + (last.charAt(0) || '')).toUpperCase() || 'NV';
+};
 
 type MainTab = 'MEMBERS' | 'WITHDRAWALS';
 type ViewMode = 'BY_DEPARTMENT' | 'ALL_EMPLOYEES';
@@ -427,37 +438,71 @@ export function AdminTetWalletScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefresh} />}
         >
-          {/* Header matching template: Back button and Title on same row */}
-          <View style={styles.customHeaderBar}>
+          {/* ── Top Bar: Back button + MOVIE LEGEND center logo (matching Screen 1 & 2) ── */}
+          <View style={styles.topNavBar}>
             <Pressable
-              style={styles.headerBackBtn}
               onPress={() => router.back()}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.navBackBtn}
+              hitSlop={10}
             >
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#1E293B" />
+              <Ionicons name="arrow-back" size={22} color="#0F172A" />
             </Pressable>
-            <View style={styles.headerTitleContainer}>
-              <Text style={styles.screenMainTitle}>Ví thưởng</Text>
-              <Text style={styles.screenSubTitle}>Quản lý điểm thưởng & quyền ví</Text>
+            <View style={styles.navLogoCenter}>
+              <Text style={styles.navLogoText}>
+                MOVIE <MaterialCommunityIcons name="filmstrip" size={13} color="#0563bb" /> LEGEND
+              </Text>
             </View>
+            <View style={{ width: 38 }} />
           </View>
 
-          {/* Compact Scope Selector */}
-          <View style={styles.compactScopeRow}>
-            <View style={styles.scopeSelectorPill}>
-              <Text style={styles.scopeSelectorText}>
+          {/* ── Title & Subtitle ── */}
+          <View style={styles.titleSection}>
+            <Text style={styles.screenTitleText}>Ví thưởng</Text>
+            <Text style={styles.screenSubtitleText}>Quản lý điểm thưởng & quyền ví</Text>
+          </View>
+
+          {/* ── Scope Row: Toàn hệ thống ⌄ | SUPER ADMIN ── */}
+          <View style={styles.scopeRow}>
+            <View style={styles.scopeDropdownBtn}>
+              <MaterialCommunityIcons name="account-group-outline" size={16} color="#475569" />
+              <Text style={styles.scopeDropdownText}>
                 {isRegionAdmin && !isGlobalAdmin ? (managedRegion?.name || 'Miền quản lý') : 'Toàn hệ thống'}
               </Text>
               <MaterialCommunityIcons name="chevron-down" size={16} color="#64748B" />
             </View>
-            <View style={styles.scopeBadgePill}>
-              <Text style={styles.scopeBadgePillText}>
+
+            <View style={styles.superAdminBadge}>
+              <Text style={styles.superAdminBadgeText}>
                 {isRegionAdmin && !isGlobalAdmin ? 'ADMIN MIỀN' : 'SUPER ADMIN'}
               </Text>
             </View>
           </View>
 
-          {/* Underline Tabs */}
+          {/* ── Solid Primary Banner (Screen 1): shown above tabs when in MEMBERS ── */}
+          {mainTab === 'MEMBERS' && (
+            <View style={styles.solidHeroBanner}>
+              <View style={styles.heroColumn}>
+                <Text style={styles.heroColumnNumber}>{totalEmployees}</Text>
+                <Text style={styles.heroColumnLabel}>Nhân sự</Text>
+              </View>
+              <View style={styles.heroVerticalDivider} />
+              <View style={styles.heroColumn}>
+                <Text style={styles.heroColumnNumber}>{enabledCount}</Text>
+                <Text style={styles.heroColumnLabel}>Đã cấp quyền</Text>
+              </View>
+              <View style={styles.heroVerticalDivider} />
+              <View style={styles.heroColumn}>
+                <Text style={styles.heroColumnNumber}>
+                  {totalPointsGranted >= 1000000
+                    ? `${(totalPointsGranted / 1000000).toFixed(1)}M`
+                    : totalPointsGranted.toLocaleString('vi-VN')}
+                </Text>
+                <Text style={styles.heroColumnLabel}>Điểm đã trao</Text>
+              </View>
+            </View>
+          )}
+
+          {/* ── Underline Tabs: Cấp điểm & Quyền ví | Duyệt chi trả ── */}
           <View style={styles.underlineTabBar}>
             <Pressable
               style={[styles.underlineTabBtn, mainTab === 'MEMBERS' && styles.underlineTabBtnActive]}
@@ -491,329 +536,190 @@ export function AdminTetWalletScreen() {
             <WithdrawalRequestsManager />
           ) : (
             <>
-              {/* Solid Primary Banner matching Screen 1 */}
-              <View style={styles.solidHeroBanner}>
-                <View style={styles.heroColumn}>
-                  <Text style={styles.heroColumnNumber}>{totalEmployees}</Text>
-                  <Text style={styles.heroColumnLabel}>Nhân sự</Text>
-                </View>
-                <View style={styles.heroVerticalDivider} />
-                <View style={styles.heroColumn}>
-                  <Text style={styles.heroColumnNumber}>{enabledCount}</Text>
-                  <Text style={styles.heroColumnLabel}>Đã cấp quyền</Text>
-                </View>
-                <View style={styles.heroVerticalDivider} />
-                <View style={styles.heroColumn}>
-                  <Text style={styles.heroColumnNumber}>
-                    {totalPointsGranted >= 1000000
-                      ? `${(totalPointsGranted / 1000000).toFixed(1)}M`
-                      : totalPointsGranted.toLocaleString('vi-VN')}
+              {/* ── Search Bar: Tìm nhân sự, phòng ban ── */}
+              <View style={styles.templateSearchBox}>
+                <Ionicons name="search" size={18} color="#94A3B8" />
+                <TextInput
+                  style={styles.templateSearchInput}
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Tìm nhân sự, phòng ban"
+                  placeholderTextColor="#94A3B8"
+                />
+                {search.length > 0 && (
+                  <Pressable onPress={() => setSearch('')}>
+                    <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                  </Pressable>
+                )}
+              </View>
+
+              {/* ── Filter Row: Phòng ban ⌄ | Tất cả (42) ⌄ | 🎛️ ── */}
+              <View style={styles.filterPillsRow}>
+                <Pressable style={styles.filterDropdownPill}>
+                  <Text style={styles.filterDropdownText}>Phòng ban</Text>
+                  <MaterialCommunityIcons name="chevron-down" size={16} color="#64748B" />
+                </Pressable>
+
+                <Pressable
+                  style={styles.filterDropdownPill}
+                  onPress={() => {
+                    setFilterStatus((prev) => (prev === 'ALL' ? 'ENABLED' : prev === 'ENABLED' ? 'DISABLED' : 'ALL'));
+                  }}
+                >
+                  <Text style={styles.filterDropdownText}>
+                    {filterStatus === 'ALL'
+                      ? `Tất cả (${totalEmployees})`
+                      : filterStatus === 'ENABLED'
+                      ? `Đã cấp (${enabledCount})`
+                      : `Chưa cấp (${disabledCount})`}
                   </Text>
-                  <Text style={styles.heroColumnLabel}>Điểm đã trao</Text>
-                </View>
-              </View>
-
-        {/* View Mode Selector Tabs */}
-        <View style={styles.segmentedWrapper}>
-          <Pressable
-            style={[styles.segmentBtn, viewMode === 'BY_DEPARTMENT' && styles.segmentBtnActive]}
-            onPress={() => setViewMode('BY_DEPARTMENT')}
-          >
-            <MaterialCommunityIcons
-              name="office-building"
-              size={18}
-              color={viewMode === 'BY_DEPARTMENT' ? '#111827' : colors.muted}
-            />
-            <Text style={[styles.segmentText, viewMode === 'BY_DEPARTMENT' && styles.segmentTextActive]}>
-              Theo phòng ban
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.segmentBtn, viewMode === 'ALL_EMPLOYEES' && styles.segmentBtnActive]}
-            onPress={() => setViewMode('ALL_EMPLOYEES')}
-          >
-            <MaterialCommunityIcons
-              name="account-group"
-              size={18}
-              color={viewMode === 'ALL_EMPLOYEES' ? '#111827' : colors.muted}
-            />
-            <Text style={[styles.segmentText, viewMode === 'ALL_EMPLOYEES' && styles.segmentTextActive]}>
-              Tất cả nhân sự ({employees.length})
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Status Filter Chips */}
-        <View style={styles.filterChipRow}>
-          <Pressable
-            style={[styles.filterChip, filterStatus === 'ALL' && styles.filterChipActive]}
-            onPress={() => setFilterStatus('ALL')}
-          >
-            <Text style={[styles.filterChipText, filterStatus === 'ALL' && styles.filterChipTextActive]}>
-              Tất cả ({totalEmployees})
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.filterChip, filterStatus === 'ENABLED' && styles.filterChipActiveSuccess]}
-            onPress={() => setFilterStatus('ENABLED')}
-          >
-            <Text style={[styles.filterChipText, filterStatus === 'ENABLED' && styles.filterChipTextActiveSuccess]}>
-              ✓ Đã cấp quyền ({enabledCount})
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.filterChip, filterStatus === 'DISABLED' && styles.filterChipActiveMuted]}
-            onPress={() => setFilterStatus('DISABLED')}
-          >
-            <Text style={[styles.filterChipText, filterStatus === 'DISABLED' && styles.filterChipTextActiveMuted]}>
-              Chưa cấp ({disabledCount})
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Search Bar */}
-        <View style={{ marginBottom: 16 }}>
-          <SearchInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder={
-              viewMode === 'BY_DEPARTMENT'
-                ? 'Tìm phòng ban hoặc nhân viên...'
-                : 'Tìm theo tên, mã NV hoặc số điện thoại...'
-            }
-          />
-        </View>
-
-        {isLoading ? (
-          <LoadingState label="Đang tải dữ liệu nhân sự & phòng ban thực tế..." />
-        ) : viewMode === 'BY_DEPARTMENT' ? (
-          /* ==================================================== */
-          /* 1. CHẾ ĐỘ XEM THEO PHÒNG BAN                         */
-          /* ==================================================== */
-          <View style={styles.deptSection}>
-            <View style={styles.deptHeaderSummary}>
-              <Text style={styles.sectionTitle}>
-                Danh sách phòng ban ({filteredDepartments.length})
-              </Text>
-              <View style={styles.quickExpandRow}>
-                <Pressable onPress={() => toggleAllDepartments(true)} style={styles.quickActionBtn}>
-                  <Text style={styles.quickActionText}>Mở tất cả</Text>
+                  <MaterialCommunityIcons name="chevron-down" size={16} color="#64748B" />
                 </Pressable>
-                <Text style={styles.quickActionDivider}>•</Text>
-                <Pressable onPress={() => toggleAllDepartments(false)} style={styles.quickActionBtn}>
-                  <Text style={styles.quickActionText}>Thu gọn</Text>
+
+                <Pressable
+                  style={styles.filterTuneBtn}
+                  onPress={() => {
+                    const anyCollapsed = departments.some((d) => expandedDeptIds[d.id] === false);
+                    toggleAllDepartments(anyCollapsed);
+                  }}
+                >
+                  <MaterialCommunityIcons name="tune-variant" size={18} color="#475569" />
                 </Pressable>
               </View>
-            </View>
 
-            {filteredDepartments.length === 0 ? (
-              <EmptyState title="Không tìm thấy phòng ban nào" message="Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm" />
-            ) : (
-              <>
-                {filteredDepartments.map((dept) => {
-                  const deptMembers = (employeesByDept[dept.id] || []).filter(filterByStatus);
-                  const totalDeptMembers = (employeesByDept[dept.id] || []).length;
-                  const deptEnabledCount = (employeesByDept[dept.id] || []).filter((e) => Boolean(e.isRewardVaultEnabled)).length;
-                  const isExpanded = expandedDeptIds[dept.id] !== undefined ? expandedDeptIds[dept.id] : true;
+              {/* ── Section Header: Phòng ban | 13 ⌄ ── */}
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionHeaderTitle}>Phòng ban</Text>
+                <Pressable
+                  style={styles.sectionHeaderCountWrap}
+                  onPress={() => {
+                    const anyCollapsed = departments.some((d) => expandedDeptIds[d.id] === false);
+                    toggleAllDepartments(anyCollapsed);
+                  }}
+                >
+                  <Text style={styles.sectionHeaderCountText}>{filteredDepartments.length}</Text>
+                  <MaterialCommunityIcons name="chevron-down" size={16} color="#64748B" />
+                </Pressable>
+              </View>
 
-                  // Total points granted in department
-                  const deptTotalPoints = (employeesByDept[dept.id] || []).reduce((sum, emp) => {
-                    const v = emp.retentionVaults?.[0];
-                    const ann = v ? Number(v.grantedPoints || 0) : 0;
-                    const inst = v ? Number(v.instantBonusPoints || 0) : 0;
-                    return sum + ann + inst;
-                  }, 0);
+              {/* ── Department Cards matching Screen 1 ── */}
+              {isLoading ? (
+                <LoadingState label="Đang tải dữ liệu nhân sự & phòng ban..." />
+              ) : filteredDepartments.length === 0 ? (
+                <EmptyState title="Không tìm thấy phòng ban nào" message="Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm" />
+              ) : (
+                <View style={styles.departmentsCardList}>
+                  {filteredDepartments.map((dept, index) => {
+                    const deptMembers = (employeesByDept[dept.id] || []).filter(filterByStatus);
+                    const totalDeptMembers = (employeesByDept[dept.id] || []).length;
+                    const deptEnabledCount = (employeesByDept[dept.id] || []).filter((e) => Boolean(e.isRewardVaultEnabled)).length;
+                    const isExpanded = expandedDeptIds[dept.id] !== undefined ? expandedDeptIds[dept.id] : index === 0;
+                    const branchName = dept.branch?.name ? `MOVIELEGEND · ${dept.branch.name.toUpperCase()}` : 'MOVIELEGEND · HÀ NỘI';
 
-                  return (
-                    <View key={dept.id} style={styles.deptCard}>
-                      {/* Department Header Row - Click to Toggle */}
-                      <Pressable
-                        style={styles.deptCardHeader}
-                        onPress={() => toggleDepartment(dept.id)}
-                      >
-                        <View style={styles.deptIconBox}>
-                          <MaterialCommunityIcons name="domain" size={22} color="#0563bb" />
-                        </View>
+                    return (
+                      <View key={dept.id} style={styles.templateDeptCard}>
+                        {/* Department Header Inside Card */}
+                        <Pressable
+                          style={styles.templateDeptHeader}
+                          onPress={() => toggleDepartment(dept.id)}
+                        >
+                          <View style={styles.deptIconCircle}>
+                            <MaterialCommunityIcons name="account-group" size={20} color="#0563bb" />
+                          </View>
 
-                        <View style={styles.deptInfo}>
-                          <Text style={styles.deptName}>{dept.name}</Text>
-                          <Text style={styles.deptCode}>
-                            <Text style={{ fontWeight: '700', color: deptEnabledCount > 0 ? '#0563bb' : '#64748B' }}>
-                              {deptEnabledCount}/{totalDeptMembers} Đã cấp quyền
+                          <View style={styles.deptInfoCol}>
+                            <Text style={styles.deptCardName}>{dept.name}</Text>
+                            <Text style={styles.deptCardBranch}>{branchName}</Text>
+                            <Text style={styles.deptCardMeta}>
+                              {totalDeptMembers} nhân sự · {deptEnabledCount} đã cấp quyền
                             </Text>
-                            {deptTotalPoints > 0 && (
-                              <Text style={{ color: '#0563bb', fontWeight: '700' }}> • {deptTotalPoints.toLocaleString('vi-VN')} đ</Text>
-                            )}
-                          </Text>
-                        </View>
+                          </View>
 
-                        {canManageTetWallet && (
-                          <Pressable
-                            style={styles.deptGrantQuickBtn}
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              openGrantForDepartment(dept);
-                            }}
-                          >
-                            <MaterialCommunityIcons name="gift-outline" size={13} color="#0563bb" />
-                            <Text style={styles.deptGrantQuickBtnText}>Trao điểm</Text>
-                          </Pressable>
-                        )}
-
-                        <MaterialCommunityIcons
-                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                          size={20}
-                          color="#64748B"
-                          style={{ marginLeft: 6 }}
-                        />
-                      </Pressable>
-
-                      {/* Department Actions Toolbar */}
-                      {canManageTetWallet && isExpanded && deptMembers.length > 0 && (
-                        <View style={styles.deptToolbar}>
-                          <Pressable
-                            style={styles.deptActionToolBtn}
-                            onPress={() => openGrantForDepartment(dept)}
-                          >
-                            <MaterialCommunityIcons name="gift-outline" size={16} color="#0563bb" />
-                            <Text style={[styles.deptActionToolText, { color: '#0563bb' }]}>Trao điểm cả phòng</Text>
-                          </Pressable>
-
-                          <View style={styles.deptActionDivider} />
-
-                          <Pressable
-                            style={styles.deptActionToolBtn}
-                            onPress={() => handleBulkDeptToggle(dept, true)}
-                          >
-                            <MaterialCommunityIcons name="check-all" size={16} color="#059669" />
-                            <Text style={[styles.deptActionToolText, { color: '#059669' }]}>Cấp quyền tất cả</Text>
-                          </Pressable>
-
-                          <View style={styles.deptActionDivider} />
-
-                          <Pressable
-                            style={styles.deptActionToolBtn}
-                            onPress={() => handleBulkDeptToggle(dept, false)}
-                          >
-                            <MaterialCommunityIcons name="close-circle-outline" size={16} color="#DC2626" />
-                            <Text style={[styles.deptActionToolText, { color: '#DC2626' }]}>Thu hồi quyền</Text>
-                          </Pressable>
-                        </View>
-                      )}
-
-                      {/* Expandable Employee List */}
-                      {isExpanded && (
-                        <View style={styles.employeeListContainer}>
-                          {deptMembers.length === 0 ? (
-                            <View style={styles.emptyMembersBox}>
-                              <Text style={styles.emptyMembersText}>
-                                {totalDeptMembers === 0 ? 'Phòng ban này hiện chưa có nhân sự' : 'Không có nhân sự nào phù hợp bộ lọc'}
-                              </Text>
+                          {isExpanded ? (
+                            <View style={styles.deptHeaderRightActions}>
+                              {canManageTetWallet && (
+                                <Pressable
+                                  style={styles.deptGrantBtn}
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    openGrantForDepartment(dept);
+                                  }}
+                                >
+                                  <Text style={styles.deptGrantBtnText}>Trao điểm cả phòng</Text>
+                                </Pressable>
+                              )}
+                              <Pressable
+                                style={styles.deptMoreDotsBtn}
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  toggleDepartment(dept.id);
+                                }}
+                              >
+                                <MaterialCommunityIcons name="dots-horizontal" size={20} color="#64748B" />
+                              </Pressable>
                             </View>
                           ) : (
-                            deptMembers.map((emp, index) => (
-                              <EmployeeRowItem
-                                key={emp.id}
-                                employee={emp}
-                                canManage={canManageTetWallet}
-                                isToggling={togglingEmpId === emp.id}
-                                onToggle={(val) => handleToggleVault(emp, val)}
-                                onGrantPoints={() => openGrantForEmployee(emp)}
-                                onPress={() => setSelectedEmployee(emp)}
-                                isLast={index === deptMembers.length - 1}
-                              />
-                            ))
+                            <View style={styles.deptCollapsedRight}>
+                              <Text style={styles.deptCollapsedCount}>{totalDeptMembers}</Text>
+                              <MaterialCommunityIcons name="chevron-right" size={18} color="#94A3B8" />
+                            </View>
                           )}
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
+                        </Pressable>
 
-                {/* Unassigned Employees Section if any */}
-                {((employeesByDept['UNASSIGNED'] || []).filter(filterByStatus)).length > 0 && (
-                  <View style={[styles.deptCard, { borderColor: '#CBD5E1' }]}>
-                    <Pressable
-                      style={styles.deptCardHeader}
-                      onPress={() => toggleDepartment('UNASSIGNED')}
-                    >
-                      <View style={[styles.deptIconBox, { backgroundColor: '#F1F5F9' }]}>
-                        <MaterialCommunityIcons name="account-question-outline" size={22} color="#64748B" />
-                      </View>
-                      <View style={styles.deptInfo}>
-                        <Text style={styles.deptName}>Chưa xếp phòng ban</Text>
-                        <Text style={styles.deptCode}>Nhân sự tự do / tài khoản hệ thống</Text>
-                      </View>
-                      <View style={styles.memberBadge}>
-                        <MaterialCommunityIcons name="account-outline" size={14} color="#4B5563" />
-                        <Text style={styles.memberBadgeText}>
-                          {(employeesByDept['UNASSIGNED'] || []).filter(filterByStatus).length} NV
-                        </Text>
-                      </View>
-                      <MaterialCommunityIcons
-                        name={expandedDeptIds['UNASSIGNED'] !== false ? 'chevron-up' : 'chevron-down'}
-                        size={22}
-                        color="#64748B"
-                        style={{ marginLeft: 8 }}
-                      />
-                    </Pressable>
+                        {/* Members inside the same card */}
+                        {isExpanded &&
+                          deptMembers.map((emp) => {
+                            const fullName = emp.profile?.fullName || 'Chưa cập nhật tên';
+                            const initials = getInitials(fullName);
+                            const isVaultEnabled = Boolean(emp.isRewardVaultEnabled);
+                            const isToggling = togglingEmpId === emp.id;
 
-                    {expandedDeptIds['UNASSIGNED'] !== false && (
-                      <View style={styles.employeeListContainer}>
-                        {(employeesByDept['UNASSIGNED'] || []).filter(filterByStatus).map((emp, index, arr) => (
-                          <EmployeeRowItem
-                            key={emp.id}
-                            employee={emp}
-                            canManage={canManageTetWallet}
-                            isToggling={togglingEmpId === emp.id}
-                            onToggle={(val) => handleToggleVault(emp, val)}
-                            onGrantPoints={() => openGrantForEmployee(emp)}
-                            onPress={() => setSelectedEmployee(emp)}
-                            isLast={index === arr.length - 1}
-                          />
-                        ))}
+                            return (
+                              <View key={emp.id} style={styles.templateMemberRow}>
+                                <View style={styles.memberAvatarCircle}>
+                                  <Text style={styles.memberAvatarText}>{initials}</Text>
+                                </View>
+                                <View style={styles.memberInfoCol}>
+                                  <Text style={styles.memberFullName} numberOfLines={1}>
+                                    {fullName}
+                                  </Text>
+                                  <Text style={styles.memberUserCode}>{emp.userCode || 'NV00000'}</Text>
+                                </View>
+                                <View style={styles.memberRightControls}>
+                                  {canManageTetWallet && (
+                                    <Pressable
+                                      style={styles.memberGrantBtn}
+                                      onPress={() => openGrantForEmployee(emp)}
+                                    >
+                                      <Text style={styles.memberGrantBtnText}>Trao điểm</Text>
+                                    </Pressable>
+                                  )}
+                                  <View style={styles.memberSwitchRow}>
+                                    <Text style={styles.memberSwitchLabel}>Quyền ví</Text>
+                                    {isToggling ? (
+                                      <ActivityIndicator size="small" color="#0563bb" style={{ marginHorizontal: 2 }} />
+                                    ) : (
+                                      <Switch
+                                        value={isVaultEnabled}
+                                        disabled={!canManageTetWallet || isToggling}
+                                        onValueChange={(val) => handleToggleVault(emp, val)}
+                                        trackColor={{ false: '#E2E8F0', true: 'rgba(5, 99, 187, 0.4)' }}
+                                        thumbColor={isVaultEnabled ? '#0563bb' : '#94A3B8'}
+                                        style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }] } : undefined}
+                                      />
+                                    )}
+                                  </View>
+                                </View>
+                              </View>
+                            );
+                          })}
                       </View>
-                    )}
-                  </View>
-                )}
-              </>
-            )}
-          </View>
-        ) : (
-          /* ==================================================== */
-          /* 2. CHẾ ĐỘ XEM TẤT CẢ NHÂN SỰ                         */
-          /* ==================================================== */
-          <View style={styles.allEmployeesSection}>
-            <Text style={styles.sectionTitle}>
-              Toàn bộ nhân sự ({filteredEmployees.length})
-            </Text>
-
-            {filteredEmployees.length === 0 ? (
-              <EmptyState title="Không tìm thấy nhân viên" message="Vui lòng thử lại với từ khóa hoặc bộ lọc khác" />
-            ) : (
-              <View style={styles.flatListCard}>
-                {filteredEmployees.map((emp, index) => (
-                  <EmployeeRowItem
-                    key={emp.id}
-                    employee={emp}
-                    showDeptTag={true}
-                    canManage={canManageTetWallet}
-                    isToggling={togglingEmpId === emp.id}
-                    onToggle={(val) => handleToggleVault(emp, val)}
-                    onGrantPoints={() => openGrantForEmployee(emp)}
-                    onPress={() => setSelectedEmployee(emp)}
-                    isLast={index === filteredEmployees.length - 1}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-        </>
-      )}
+                    );
+                  })}
+                </View>
+              )}
+            </>
+          )}
       </ScrollView>
 
       {/* Employee Detail & Permission Modal */}
@@ -1098,51 +1004,64 @@ function EmployeeRowItem({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
     paddingTop: 4,
     paddingBottom: 140,
     backgroundColor: '#F8FAFC',
   },
-  /* Custom Header matching Screen 1 */
-  customHeaderBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-    marginTop: 4,
-  },
-  headerBackBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  headerTitleContainer: {
-    flex: 1,
-  },
-  screenMainTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  screenSubTitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
-  },
 
-  /* Compact Scope Row */
-  compactScopeRow: {
+  /* Top Navigation Bar: Back button + MOVIE LEGEND center */
+  topNavBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  navBackBtn: {
+    width: 38,
+    height: 38,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  navLogoCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navLogoText: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: '#0F172A',
+  },
+
+  /* Title & Subtitle */
+  titleSection: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 10,
+  },
+  screenTitleText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  screenSubtitleText: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* Scope Row */
+  scopeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     marginBottom: 14,
   },
-  scopeSelectorPill: {
+  scopeDropdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -1153,23 +1072,59 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 20,
   },
-  scopeSelectorText: {
-    fontSize: 12,
+  scopeDropdownText: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#334155',
   },
-  scopeBadgePill: {
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
+  superAdminBadge: {
+    backgroundColor: '#FEF3C7',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  scopeBadgePillText: {
+  superAdminBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#0563bb',
+    color: '#92400E',
+  },
+
+  /* Solid Hero Banner matching Screen 1 */
+  solidHeroBanner: {
+    backgroundColor: '#0563bb',
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    shadowColor: '#0563bb',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  heroColumn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroColumnNumber: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  heroColumnLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  heroVerticalDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
 
   /* Underline Tabs */
@@ -1177,7 +1132,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
-    marginBottom: 16,
+    marginHorizontal: 16,
+    marginBottom: 14,
   },
   underlineTabBtn: {
     flex: 1,
@@ -1198,8 +1154,8 @@ const styles = StyleSheet.create({
   activeUnderline: {
     position: 'absolute',
     bottom: -1,
-    left: 12,
-    right: 12,
+    left: 16,
+    right: 16,
     height: 3,
     backgroundColor: '#0563bb',
     borderRadius: 2,
@@ -1219,229 +1175,237 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  /* Solid Hero Banner matching Screen 1 */
-  solidHeroBanner: {
-    backgroundColor: '#0563bb',
-    borderRadius: 14,
+  /* Search Box matching Screen 1 */
+  templateSearchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    marginBottom: 16,
-    shadowColor: '#0563bb',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    gap: 8,
   },
-  heroColumn: {
+  templateSearchInput: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroColumnNumber: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  heroColumnLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.88)',
-  },
-  heroVerticalDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    fontSize: 13,
+    color: '#0F172A',
+    padding: 0,
   },
 
-  /* Dept Quick Grant */
-  deptGrantQuickBtn: {
+  /* Filter Row: Phòng ban ⌄ | Tất cả (42) ⌄ | 🎛️ */
+  filterPillsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: 'rgba(5, 99, 187, 0.3)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    marginRight: 4,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    gap: 8,
   },
-  deptGrantQuickBtnText: {
+  filterDropdownPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    gap: 4,
+  },
+  filterDropdownText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  filterTuneBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 'auto',
+  },
+
+  /* Section Header: Phòng ban | 13 ⌄ */
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  sectionHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  sectionHeaderCountWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  sectionHeaderCountText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+
+  /* Department Cards matching Screen 1 */
+  departmentsCardList: {
+    paddingHorizontal: 16,
+    gap: 12,
+    paddingBottom: 40,
+  },
+  templateDeptCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  templateDeptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+  },
+  deptIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  deptInfoCol: {
+    flex: 1,
+    marginRight: 8,
+  },
+  deptCardName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  deptCardBranch: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 1,
+  },
+  deptCardMeta: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  deptHeaderRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  deptGrantBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#0563bb',
+    backgroundColor: '#FFFFFF',
+  },
+  deptGrantBtnText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#0563bb',
   },
-  switchLabelText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-    marginRight: 4,
-  },
-
-  segmentedWrapper: {
-    flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
-    borderRadius: 12,
+  deptMoreDotsBtn: {
     padding: 4,
-    marginBottom: 12,
+  },
+  deptCollapsedRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
-  segmentBtn: {
-    flex: 1,
+  deptCollapsedCount: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+
+  /* Member Row inside Card */
+  templateMemberRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  memberAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
+    marginRight: 10,
   },
-  segmentBtnActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  segmentText: {
+  memberAvatarText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.muted,
-  },
-  segmentTextActive: {
-    color: '#0F172A',
     fontWeight: '700',
+    color: '#0563bb',
   },
-  filterChipRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
+  memberInfoCol: {
+    flex: 1,
+    marginRight: 8,
   },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  filterChipActive: {
-    backgroundColor: '#0563bb',
-    borderColor: '#0563bb',
-  },
-  filterChipActiveSuccess: {
-    backgroundColor: '#059669',
-    borderColor: '#059669',
-  },
-  filterChipActiveMuted: {
-    backgroundColor: '#64748B',
-    borderColor: '#64748B',
-  },
-  filterChipText: {
-    fontSize: 12,
-    color: '#475569',
-    fontWeight: '600',
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
-  },
-  filterChipTextActiveSuccess: {
-    color: '#FFFFFF',
-  },
-  filterChipTextActiveMuted: {
-    color: '#FFFFFF',
-  },
-  deptSection: {
-    gap: 12,
-  },
-  deptHeaderSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  sectionTitle: {
+  memberFullName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#334155',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  quickExpandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  quickActionBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-  },
-  quickActionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  quickActionDivider: {
-    fontSize: 12,
-    color: colors.border,
-  },
-  deptCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  deptCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-  },
-  deptIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  deptInfo: {
-    flex: 1,
-  },
-  deptName: {
-    fontSize: 15,
-    fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 2,
   },
-  deptCode: {
+  memberUserCode: {
     fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  memberRightControls: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  memberGrantBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#0563bb',
+    backgroundColor: '#FFFFFF',
+  },
+  memberGrantBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0563bb',
+  },
+  memberSwitchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  memberSwitchLabel: {
+    fontSize: 11,
     color: '#64748B',
     fontWeight: '500',
   },
-  memberBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-  },
-  memberBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#334155',
+  switchLabelText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+    marginRight: 4,
   },
   deptToolbar: {
     flexDirection: 'row',

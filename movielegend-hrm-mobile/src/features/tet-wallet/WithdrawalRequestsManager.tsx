@@ -11,7 +11,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
@@ -241,126 +241,136 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
       {/* 3-Column Summary Metrics Card matching Screen 2 */}
       <View style={styles.metricsSummaryCard}>
         <View style={styles.metricItem}>
-          <Text style={[styles.metricCount, { color: '#D97706' }]}>{counts.PENDING_ADMIN || 0}</Text>
+          <Text style={styles.metricCount}>{counts.PENDING_ADMIN || 0}</Text>
           <Text style={styles.metricLabel}>Chờ duyệt</Text>
         </View>
         <View style={styles.metricDivider} />
         <View style={styles.metricItem}>
-          <Text style={[styles.metricCount, { color: '#0563bb' }]}>{counts.PENDING_ACCOUNTANT || 0}</Text>
+          <Text style={styles.metricCount}>{counts.PENDING_ACCOUNTANT || 0}</Text>
           <Text style={styles.metricLabel}>Chờ chi</Text>
         </View>
         <View style={styles.metricDivider} />
         <View style={styles.metricItem}>
-          <Text style={[styles.metricCount, { color: '#059669' }]}>{counts.PAID || 0}</Text>
+          <Text style={styles.metricCount}>{counts.PAID || 0}</Text>
           <Text style={styles.metricLabel}>Đã chi</Text>
         </View>
       </View>
 
-      {/* Modern Filter Pill Tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.unifiedTabsWrapper}
-      >
-        {/* Tab 1: Pending Admin */}
-        <Pressable
-          style={[
-            styles.filterPill,
-            activeTab === 'PENDING_ADMIN' && styles.filterPillActive,
-          ]}
-          onPress={() => setActiveTab('PENDING_ADMIN')}
-        >
-          <Text style={[styles.filterPillText, activeTab === 'PENDING_ADMIN' && styles.filterPillTextActive]}>
-            Chờ Admin duyệt
-          </Text>
-          <View style={[styles.filterPillBadge, activeTab === 'PENDING_ADMIN' && styles.filterPillBadgeActive]}>
-            <Text style={[styles.filterPillBadgeText, activeTab === 'PENDING_ADMIN' && styles.filterPillBadgeTextActive]}>
-              {counts.PENDING_ADMIN}
-            </Text>
-          </View>
-        </Pressable>
-
-        {/* Tab 2: Pending Accountant */}
-        <Pressable
-          style={[
-            styles.filterPill,
-            activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillActive,
-          ]}
-          onPress={() => setActiveTab('PENDING_ACCOUNTANT')}
-        >
-          <Text style={[styles.filterPillText, activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillTextActive]}>
-            Chờ Kế toán chi
-          </Text>
-          <View style={[styles.filterPillBadge, activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillBadgeActive]}>
-            <Text style={[styles.filterPillBadgeText, activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillBadgeTextActive]}>
-              {counts.PENDING_ACCOUNTANT}
-            </Text>
-          </View>
-        </Pressable>
-
-        {/* Tab 3: Paid */}
-        <Pressable
-          style={[
-            styles.filterPill,
-            activeTab === 'PAID' && styles.filterPillActive,
-          ]}
-          onPress={() => setActiveTab('PAID')}
-        >
-          <Text style={[styles.filterPillText, activeTab === 'PAID' && styles.filterPillTextActive]}>
-            Đã chi tiền
-          </Text>
-          <View style={[styles.filterPillBadge, activeTab === 'PAID' && styles.filterPillBadgeActive]}>
-            <Text style={[styles.filterPillBadgeText, activeTab === 'PAID' && styles.filterPillBadgeTextActive]}>
-              {counts.PAID}
-            </Text>
-          </View>
-        </Pressable>
-
-        {/* Tab 4: Rejected */}
-        <Pressable
-          style={[
-            styles.filterPill,
-            activeTab === 'REJECTED' && styles.filterPillActive,
-          ]}
-          onPress={() => setActiveTab('REJECTED')}
-        >
-          <Text style={[styles.filterPillText, activeTab === 'REJECTED' && styles.filterPillTextActive]}>
-            Đã từ chối
-          </Text>
-          <View style={[styles.filterPillBadge, activeTab === 'REJECTED' && styles.filterPillBadgeActive]}>
-            <Text style={[styles.filterPillBadgeText, activeTab === 'REJECTED' && styles.filterPillBadgeTextActive]}>
-              {counts.REJECTED}
-            </Text>
-          </View>
-        </Pressable>
-
-        {/* Tab 5: All */}
-        <Pressable
-          style={[
-            styles.filterPill,
-            activeTab === 'ALL' && styles.filterPillActive,
-          ]}
-          onPress={() => setActiveTab('ALL')}
-        >
-          <Text style={[styles.filterPillText, activeTab === 'ALL' && styles.filterPillTextActive]}>
-            Tất cả
-          </Text>
-          <View style={[styles.filterPillBadge, activeTab === 'ALL' && styles.filterPillBadgeActive]}>
-            <Text style={[styles.filterPillBadgeText, activeTab === 'ALL' && styles.filterPillBadgeTextActive]}>
-              {counts.TOTAL}
-            </Text>
-          </View>
-        </Pressable>
-      </ScrollView>
-
-      {/* Search Input */}
-      <View style={{ marginBottom: 14 }}>
-        <SearchInput
+      {/* Search Input matching Screen 2 template */}
+      <View style={styles.templateSearchBox}>
+        <Ionicons name="search" size={18} color="#94A3B8" />
+        <TextInput
+          style={styles.templateSearchInput}
           value={search}
           onChangeText={setSearch}
-          placeholder="Tìm kiếm nhân viên, mã NV..."
+          placeholder="Tìm tên hoặc mã nhân viên"
+          placeholderTextColor="#94A3B8"
         />
+        {search.length > 0 && (
+          <Pressable onPress={() => setSearch('')}>
+            <Ionicons name="close-circle" size={16} color="#94A3B8" />
+          </Pressable>
+        )}
       </View>
+
+      {/* Modern Filter Pill Tabs (when requests exist) */}
+      {counts.TOTAL > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.unifiedTabsWrapper}
+        >
+          {/* Tab 1: Pending Admin */}
+          <Pressable
+            style={[
+              styles.filterPill,
+              activeTab === 'PENDING_ADMIN' && styles.filterPillActive,
+            ]}
+            onPress={() => setActiveTab('PENDING_ADMIN')}
+          >
+            <Text style={[styles.filterPillText, activeTab === 'PENDING_ADMIN' && styles.filterPillTextActive]}>
+              Chờ Admin duyệt
+            </Text>
+            <View style={[styles.filterPillBadge, activeTab === 'PENDING_ADMIN' && styles.filterPillBadgeActive]}>
+              <Text style={[styles.filterPillBadgeText, activeTab === 'PENDING_ADMIN' && styles.filterPillBadgeTextActive]}>
+                {counts.PENDING_ADMIN}
+              </Text>
+            </View>
+          </Pressable>
+
+          {/* Tab 2: Pending Accountant */}
+          <Pressable
+            style={[
+              styles.filterPill,
+              activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillActive,
+            ]}
+            onPress={() => setActiveTab('PENDING_ACCOUNTANT')}
+          >
+            <Text style={[styles.filterPillText, activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillTextActive]}>
+              Chờ Kế toán chi
+            </Text>
+            <View style={[styles.filterPillBadge, activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillBadgeActive]}>
+              <Text style={[styles.filterPillBadgeText, activeTab === 'PENDING_ACCOUNTANT' && styles.filterPillBadgeTextActive]}>
+                {counts.PENDING_ACCOUNTANT}
+              </Text>
+            </View>
+          </Pressable>
+
+          {/* Tab 3: Paid */}
+          <Pressable
+            style={[
+              styles.filterPill,
+              activeTab === 'PAID' && styles.filterPillActive,
+            ]}
+            onPress={() => setActiveTab('PAID')}
+          >
+            <Text style={[styles.filterPillText, activeTab === 'PAID' && styles.filterPillTextActive]}>
+              Đã chi tiền
+            </Text>
+            <View style={[styles.filterPillBadge, activeTab === 'PAID' && styles.filterPillBadgeActive]}>
+              <Text style={[styles.filterPillBadgeText, activeTab === 'PAID' && styles.filterPillBadgeTextActive]}>
+                {counts.PAID}
+              </Text>
+            </View>
+          </Pressable>
+
+          {/* Tab 4: Rejected */}
+          <Pressable
+            style={[
+              styles.filterPill,
+              activeTab === 'REJECTED' && styles.filterPillActive,
+            ]}
+            onPress={() => setActiveTab('REJECTED')}
+          >
+            <Text style={[styles.filterPillText, activeTab === 'REJECTED' && styles.filterPillTextActive]}>
+              Đã từ chối
+            </Text>
+            <View style={[styles.filterPillBadge, activeTab === 'REJECTED' && styles.filterPillBadgeActive]}>
+              <Text style={[styles.filterPillBadgeText, activeTab === 'REJECTED' && styles.filterPillBadgeTextActive]}>
+                {counts.REJECTED}
+              </Text>
+            </View>
+          </Pressable>
+
+          {/* Tab 5: All */}
+          <Pressable
+            style={[
+              styles.filterPill,
+              activeTab === 'ALL' && styles.filterPillActive,
+            ]}
+            onPress={() => setActiveTab('ALL')}
+          >
+            <Text style={[styles.filterPillText, activeTab === 'ALL' && styles.filterPillTextActive]}>
+              Tất cả
+            </Text>
+            <View style={[styles.filterPillBadge, activeTab === 'ALL' && styles.filterPillBadgeActive]}>
+              <Text style={[styles.filterPillBadgeText, activeTab === 'ALL' && styles.filterPillBadgeTextActive]}>
+                {counts.TOTAL}
+              </Text>
+            </View>
+          </Pressable>
+        </ScrollView>
+      )}
 
       {/* Tickets List */}
       {isLoading ? (
@@ -860,6 +870,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    paddingHorizontal: 16,
   },
 
   /* Metrics Summary Card (Screen 2) */
@@ -867,10 +878,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 8,
     marginBottom: 14,
     shadowColor: '#000',
@@ -885,9 +896,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   metricCount: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
-    marginBottom: 2,
+    color: '#0F172A',
+    marginBottom: 3,
   },
   metricLabel: {
     fontSize: 12,
@@ -896,32 +908,52 @@ const styles = StyleSheet.create({
   },
   metricDivider: {
     width: 1,
-    height: 28,
+    height: 32,
     backgroundColor: '#E2E8F0',
+  },
+
+  /* Search Box matching Screen 2 */
+  templateSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 16,
+    gap: 8,
+  },
+  templateSearchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0F172A',
+    padding: 0,
   },
 
   /* Empty State matching Screen 2 */
   customEmptyContainer: {
-    paddingVertical: 48,
+    paddingVertical: 50,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyDocCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 18,
     borderWidth: 1,
     borderColor: '#DBEAFE',
   },
   customEmptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
     marginBottom: 6,
     textAlign: 'center',
   },
@@ -935,6 +967,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94A3B8',
     textAlign: 'center',
+    marginTop: 36,
   },
 
   /* Filter Pills */
