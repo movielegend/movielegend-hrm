@@ -42,6 +42,7 @@ const ASSESSMENT_LABELS = [
 export function AdminDailyReportsScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const router = useRouter();
 
   // Date selection (default today YYYY-MM-DD)
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -49,6 +50,49 @@ export function AdminDailyReportsScreen() {
   const [selectedDeptId, setSelectedDeptId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all'); // all | pending | reviewed | draft
   const [isDeptModalVisible, setIsDeptModalVisible] = useState<boolean>(false);
+
+  // Week days calculation matching Screen 2 template
+  const weekDays = useMemo(() => {
+    const current = new Date(selectedDate);
+    const day = current.getDay(); // 0 is Sunday, 1 is Monday...
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const monday = new Date(current);
+    monday.setDate(current.getDate() + diffToMonday);
+
+    const days = [];
+    const dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dateNum = String(d.getDate()).padStart(2, '0');
+      days.push({
+        label: dayLabels[i],
+        dateNum,
+        dateStr,
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDate,
+      });
+    }
+    return days;
+  }, [selectedDate, todayStr]);
+
+  const monthLabel = useMemo(() => {
+    const d = new Date(selectedDate);
+    return `Tháng ${d.getMonth() + 1}, ${d.getFullYear()}`;
+  }, [selectedDate]);
+
+  const handlePrevWeek = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() - 7);
+    setSelectedDate(d.toISOString().split('T')[0]);
+  };
+
+  const handleNextWeek = () => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + 7);
+    setSelectedDate(d.toISOString().split('T')[0]);
+  };
 
   // Active report for Detail View (if non-null, shows Detail View; if null, shows List View)
   const [activeReport, setActiveReport] = useState<DailyReport | null>(null);
@@ -708,130 +752,163 @@ export function AdminDailyReportsScreen() {
   // RENDER LIST VIEW
   // -------------------------------------------------------------
   return (
-    <Screen backgroundColor="#F6F7FB">
-      <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
-        {/* Main Header */}
-        <View style={styles.listHeaderContainer}>
-          <View style={styles.headerTopRow}>
-            <Text style={styles.headerEyebrow}>WORKSPACE / QUẢN LÝ</Text>
-            <Text style={styles.headerSubBadge}>Quản trị</Text>
-          </View>
-          <Text style={styles.headerMainTitle}>Báo cáo cuối ngày</Text>
-          <Text style={styles.headerMainSubtitle}>Theo dõi kết quả. Phản hồi kịp thời.</Text>
+    <Screen backgroundColor="#F8FAFC">
+      {/* ── Solid Forest Green Hero Banner matching Screen 2 ── */}
+      <View style={styles.greenBannerContainer}>
+        <View style={styles.greenBannerTopNav}>
+          <Pressable onPress={() => router.back()} style={styles.greenBannerBackBtn} hitSlop={10}>
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.greenBannerLogoText}>MOVIE LEGEND</Text>
+          <View style={{ width: 36 }} />
         </View>
 
-        {/* Date Selector Bar */}
-        <View style={styles.dateBarContainer}>
-          <Pressable style={styles.dateBarNavBtn} onPress={handlePrevDay}>
-            <MaterialCommunityIcons name="chevron-left" size={22} color="#192232" />
-          </Pressable>
+        <View style={styles.greenBannerTitleSection}>
+          <Text style={styles.greenBannerMainTitle}>Báo cáo cuối ngày</Text>
+          <Text style={styles.greenBannerSubtitle}>Theo dõi kết quả. Phản hồi kịp thời.</Text>
+        </View>
 
-          <View style={styles.dateBarCenter}>
-            <Text style={styles.dateBarCenterText}>
-              {new Date(selectedDate).toLocaleDateString('vi-VN', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-              })}
-            </Text>
-            {selectedDate !== todayStr && (
-              <Pressable style={styles.dateBarTodayBadge} onPress={() => todayStr && setSelectedDate(todayStr)}>
-                <Text style={styles.dateBarTodayBadgeText}>Hôm nay</Text>
+        {/* Month Selector Row */}
+        <View style={styles.calendarNavRow}>
+          <Pressable onPress={handlePrevWeek} hitSlop={10} style={styles.calendarNavArrow}>
+            <MaterialCommunityIcons name="chevron-left" size={22} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.calendarMonthText}>{monthLabel}</Text>
+          <Pressable onPress={handleNextWeek} hitSlop={10} style={styles.calendarNavArrow}>
+            <MaterialCommunityIcons name="chevron-right" size={22} color="#FFFFFF" />
+          </Pressable>
+        </View>
+
+        {/* 7 Days of the Week */}
+        <View style={styles.weekDaysRow}>
+          {weekDays.map((dayItem) => {
+            const active = dayItem.isSelected;
+            return (
+              <Pressable
+                key={dayItem.dateStr}
+                style={[styles.weekDayPill, active && styles.weekDayPillActive]}
+                onPress={() => setSelectedDate(dayItem.dateStr)}
+              >
+                <Text style={[styles.weekDayLabel, active && styles.weekDayLabelActive]}>
+                  {dayItem.label}
+                </Text>
+                <Text style={[styles.weekDayNum, active && styles.weekDayNumActive]}>
+                  {dayItem.dateNum}
+                </Text>
               </Pressable>
-            )}
-          </View>
-
-          <Pressable style={styles.dateBarNavBtn} onPress={handleNextDay}>
-            <MaterialCommunityIcons name="chevron-right" size={22} color="#192232" />
-          </Pressable>
+            );
+          })}
         </View>
+      </View>
 
-        {/* Department Select Dropdown Card (Matches <label>Phòng ban<select>) */}
-        <View style={styles.deptDropdownContainer}>
-          <Text style={styles.deptDropdownLabel}>Phòng ban</Text>
+      <ScreenContainer style={{ paddingTop: 14, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
+        {/* Department Select Dropdown Card */}
+        <View style={styles.deptCardWrapper}>
           <Pressable
-            style={styles.deptSelectCard}
+            style={styles.templateDeptSelectCard}
             onPress={() => setIsDeptModalVisible(true)}
           >
-            <Text style={styles.deptSelectCardText} numberOfLines={1}>
-              {selectedDeptName}
-            </Text>
-            <MaterialCommunityIcons name="chevron-down" size={20} color="#707C8D" />
+            <View style={styles.deptSelectLeft}>
+              <MaterialCommunityIcons name="domain" size={20} color="#204E3B" />
+              <Text style={styles.deptSelectText} numberOfLines={1}>
+                {selectedDeptName}
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
           </Pressable>
         </View>
 
-        {/* 2x2 Status Filters Grid (Matches .filters) */}
-        <View style={styles.statusFiltersGrid}>
+        {/* 4 Metric Underline Tabs */}
+        <View style={styles.metricUnderlineTabBar}>
           <Pressable
-            style={[styles.filterBtn, statusFilter === 'all' && styles.filterBtnActive]}
+            style={styles.metricUnderlineTab}
             onPress={() => setStatusFilter('all')}
           >
-            <Text style={[styles.filterBtnLabel, statusFilter === 'all' && styles.filterBtnLabelActive]}>
-              Tất cả
-            </Text>
-            <Text style={[styles.filterBtnCount, statusFilter === 'all' && styles.filterBtnCountActive]}>
+            <Text style={[styles.metricTabCount, statusFilter === 'all' && styles.metricTabCountActive]}>
               {stats.total}
             </Text>
+            <Text style={[styles.metricTabLabel, statusFilter === 'all' && styles.metricTabLabelActive]}>
+              Tất cả
+            </Text>
+            {statusFilter === 'all' && <View style={styles.metricTabActiveUnderline} />}
           </Pressable>
 
           <Pressable
-            style={[styles.filterBtn, statusFilter === 'pending' && styles.filterBtnActive]}
+            style={styles.metricUnderlineTab}
             onPress={() => setStatusFilter('pending')}
           >
-            <Text style={[styles.filterBtnLabel, statusFilter === 'pending' && styles.filterBtnLabelActive]}>
-              Chờ duyệt
-            </Text>
-            <Text style={[styles.filterBtnCount, statusFilter === 'pending' && styles.filterBtnCountActive]}>
+            <Text style={[styles.metricTabCount, statusFilter === 'pending' && styles.metricTabCountActive]}>
               {stats.pending}
             </Text>
+            <Text style={[styles.metricTabLabel, statusFilter === 'pending' && styles.metricTabLabelActive]}>
+              Chờ duyệt
+            </Text>
+            {statusFilter === 'pending' && <View style={styles.metricTabActiveUnderline} />}
           </Pressable>
 
           <Pressable
-            style={[styles.filterBtn, statusFilter === 'reviewed' && styles.filterBtnActive]}
+            style={styles.metricUnderlineTab}
             onPress={() => setStatusFilter('reviewed')}
           >
-            <Text style={[styles.filterBtnLabel, statusFilter === 'reviewed' && styles.filterBtnLabelActive]}>
-              Đã đánh giá
-            </Text>
-            <Text style={[styles.filterBtnCount, statusFilter === 'reviewed' && styles.filterBtnCountActive]}>
+            <Text style={[styles.metricTabCount, statusFilter === 'reviewed' && styles.metricTabCountActive]}>
               {stats.reviewed}
             </Text>
+            <Text style={[styles.metricTabLabel, statusFilter === 'reviewed' && styles.metricTabLabelActive]}>
+              Đã đánh giá
+            </Text>
+            {statusFilter === 'reviewed' && <View style={styles.metricTabActiveUnderline} />}
           </Pressable>
 
           <Pressable
-            style={[styles.filterBtn, statusFilter === 'draft' && styles.filterBtnActive]}
+            style={styles.metricUnderlineTab}
             onPress={() => setStatusFilter('draft')}
           >
-            <Text style={[styles.filterBtnLabel, statusFilter === 'draft' && styles.filterBtnLabelActive]}>
-              Bản nháp
-            </Text>
-            <Text style={[styles.filterBtnCount, statusFilter === 'draft' && styles.filterBtnCountActive]}>
+            <Text style={[styles.metricTabCount, statusFilter === 'draft' && styles.metricTabCountActive]}>
               {stats.draft}
             </Text>
+            <Text style={[styles.metricTabLabel, statusFilter === 'draft' && styles.metricTabLabelActive]}>
+              Bản nháp
+            </Text>
+            {statusFilter === 'draft' && <View style={styles.metricTabActiveUnderline} />}
           </Pressable>
         </View>
 
         {/* Reports List Header Title */}
         <View style={styles.listHeaderRow}>
           <Text style={styles.listHeaderTitleText}>Danh sách báo cáo</Text>
-          <Text style={styles.listHeaderCountText}>{reports.length} báo cáo</Text>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.listHeaderDateText}>
+              {new Date(selectedDate).toLocaleDateString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              })}
+            </Text>
+            <Text style={styles.listHeaderCountText}>{reports.length} báo cáo</Text>
+          </View>
         </View>
 
         {/* Report Cards List */}
         {reportsQuery.isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#345FDF" />
+            <ActivityIndicator size="small" color="#204E3B" />
             <Text style={styles.loadingPromptText}>Đang tải danh sách báo cáo...</Text>
           </View>
         ) : reports.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <MaterialCommunityIcons name="file-document-outline" size={44} color="#CBD5E1" />
-            <Text style={styles.emptyCardTitle}>Không có báo cáo phù hợp</Text>
-            <Text style={styles.emptyCardSub}>
-              Thử chọn ngày, phòng ban hoặc trạng thái khác.
+          <View style={styles.templateEmptyContainer}>
+            <View style={styles.templateEmptyIconCircle}>
+              <MaterialCommunityIcons name="file-document-outline" size={38} color="#204E3B" />
+              <View style={styles.templateMagnifyIconBadge}>
+                <Ionicons name="search" size={14} color="#204E3B" />
+              </View>
+            </View>
+            <Text style={styles.templateEmptyTitle}>Chưa có báo cáo phù hợp</Text>
+            <Text style={styles.templateEmptySubtitle}>
+              Thử đổi ngày, phòng ban hoặc trạng thái.
             </Text>
-            <Pressable style={styles.resetFilterBtn} onPress={handleResetFilters}>
-              <Text style={styles.resetFilterBtnText}>Đặt lại bộ lọc</Text>
+            <Pressable style={styles.templateResetBtn} onPress={handleResetFilters}>
+              <Ionicons name="reload" size={16} color="#111827" />
+              <Text style={styles.templateResetBtnText}>Đặt lại bộ lọc</Text>
             </Pressable>
           </View>
         ) : (
@@ -1809,5 +1886,218 @@ const styles = StyleSheet.create({
   fullscreenImage: {
     width: '100%',
     height: '100%',
+  },
+
+  /* Green Hero Banner & Calendar (Screen 2) */
+  greenBannerContainer: {
+    backgroundColor: '#204E3B',
+    paddingTop: 12,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  greenBannerTopNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  greenBannerBackBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  greenBannerLogoText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  greenBannerTitleSection: {
+    marginBottom: 14,
+  },
+  greenBannerMainTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  greenBannerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
+  },
+  calendarNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  calendarNavArrow: {
+    padding: 4,
+  },
+  calendarMonthText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  weekDaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  weekDayPill: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  weekDayPillActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  weekDayLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.75)',
+    marginBottom: 4,
+  },
+  weekDayLabelActive: {
+    color: '#334155',
+  },
+  weekDayNum: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  weekDayNumActive: {
+    color: '#111827',
+    fontWeight: '800',
+  },
+
+  /* Department Dropdown Card */
+  deptCardWrapper: {
+    marginBottom: 14,
+  },
+  templateDeptSelectCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  deptSelectLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginRight: 8,
+  },
+  deptSelectText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+
+  /* 4 Metric Underline Tabs */
+  metricUnderlineTabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    marginBottom: 16,
+  },
+  metricUnderlineTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    position: 'relative',
+  },
+  metricTabCount: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  metricTabCountActive: {
+    color: '#204E3B',
+  },
+  metricTabLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  metricTabLabelActive: {
+    color: '#204E3B',
+    fontWeight: '700',
+  },
+  metricTabActiveUnderline: {
+    position: 'absolute',
+    bottom: -1,
+    left: 8,
+    right: 8,
+    height: 3,
+    backgroundColor: '#204E3B',
+    borderRadius: 2,
+  },
+
+  listHeaderDateText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+
+  /* Empty State matching Screen 2 */
+  templateEmptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+  },
+  templateEmptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#E2EBE5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  templateMagnifyIconBadge: {
+    position: 'absolute',
+    bottom: 22,
+    right: 22,
+  },
+  templateEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  templateEmptySubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  templateResetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#E2EBE5',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  templateResetBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
   },
 });

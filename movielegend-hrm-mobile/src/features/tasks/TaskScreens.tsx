@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSyncSubtasksResults } from '../../hooks/useTasks';
 import { useMemo, useState, useEffect } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch, Image } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch, Image, TextInput } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -95,6 +95,9 @@ const TASK_STATUS_TABS = [
 ];
 
 export function TaskListScreen({ area }: { area: TaskArea }) {
+  if (area === 'admin') {
+    return <AdminTaskListScreen />;
+  }
   const router = useRouter();
   const { user } = useAuth();
   const [search, setSearch] = useState('');
@@ -251,6 +254,9 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   if (id === 'create') {
     return <CreateTaskScreen area={area === 'employee' ? 'leader' : (area as any)} />;
   }
+  if (area === 'admin') {
+    return <AdminTaskDetailScreen id={id} />;
+  }
   const { user } = useAuth();
   const task = useTask(id);
   const timeline = useTaskTimeline(id);
@@ -395,7 +401,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
               <Text style={styles.warning}>Review note: {assignment.reviewNote}</Text>
             </View>
           ) : null}
-          {((area === 'admin' && hasAnyPermission(user, ['task.assign_any'])) || isCreator) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' ? (
+          {(((area as any) === 'admin' && hasAnyPermission(user, ['task.assign_any'])) || isCreator) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' ? (
             <View style={{ marginTop: spacing.md }}>
               <SecondaryButton
                 loading={cancel.isPending}
@@ -802,7 +808,1299 @@ export function ActionDatePicker({
   );
 }
 
+function formatOverdueText(dueAt?: string | null): string {
+  if (!dueAt) return 'Đã quá hạn';
+  const diffMs = Date.now() - new Date(dueAt).getTime();
+  if (diffMs <= 0) return '';
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (diffHours >= 24) {
+    const days = Math.floor(diffHours / 24);
+    const remainHours = diffHours % 24;
+    return `Quá hạn ${days} ngày ${remainHours > 0 ? `${remainHours} giờ` : ''}`.trim();
+  }
+  if (diffHours > 0) {
+    return `Quá hạn ${diffHours} giờ ${diffMins > 0 ? `${diffMins} phút` : ''}`.trim();
+  }
+  return `Quá hạn ${diffMins} phút`;
+}
+
+function formatShortDate(dateStr?: string | null): string {
+  if (!dateStr) return '--';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '--';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${day}/${month} ${hours}:${mins}`;
+}
+
+function formatDateOnly(dateStr?: string | null): string {
+  if (!dateStr) return '--';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '--';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function formatTimeOnly(dateStr?: string | null): string {
+  if (!dateStr) return '--';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '--';
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${mins}`;
+}
+
+function getInitials(name?: string | null): string {
+  if (!name) return 'ML';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1 && parts[0]) return parts[0].slice(0, 2).toUpperCase();
+  const first = parts[0]?.[0] || 'M';
+  const last = parts[parts.length - 1]?.[0] || 'L';
+  return (first + last).toUpperCase();
+}
+
+function AdminTaskCard({ task, onPress }: { task: TaskDto; onPress: () => void }) {
+  const isOverdue = Boolean(task.dueAt && new Date(task.dueAt).getTime() < Date.now() && task.status !== 'COMPLETED' && task.status !== 'CANCELLED');
+  const isCompleted = task.status === 'COMPLETED';
+  const progress = averageProgress(task);
+  const primaryAssignee = task.assignments?.[0]?.user;
+  const assigneeName = primaryAssignee?.profile?.fullName || primaryAssignee?.fullName || task.targets?.[0]?.displayName || 'Bộ phận / Nhân sự';
+  const isDeptTarget = Boolean(task.targets && task.targets.length > 0 && task.targets[0]?.targetType === 'DEPARTMENT');
+  const assigneeRole = (primaryAssignee as any)?.position?.name || (primaryAssignee as any)?.profile?.position?.name || (isDeptTarget ? 'Phòng ban' : 'Người thực hiện');
+  const initials = getInitials(assigneeName);
+
+  const getStatusBadge = () => {
+    switch (task.status) {
+      case 'WAITING_REVIEW':
+        return { label: 'Chờ duyệt', bg: '#FEF3C7', color: '#D97706' };
+      case 'IN_PROGRESS':
+        return { label: 'Đang làm', bg: '#E0F2FE', color: '#0284C7' };
+      case 'NEW':
+        return { label: 'Chờ nhận', bg: '#EDE9FE', color: '#7C3AED' };
+      case 'COMPLETED':
+        return { label: 'Hoàn thành', bg: '#DCFCE7', color: '#16A34A' };
+      case 'REJECTED':
+        return { label: 'Làm lại', bg: '#FEE2E2', color: '#DC2626' };
+      case 'CANCELLED':
+        return { label: 'Đã hủy', bg: '#F1F5F9', color: '#64748B' };
+      default:
+        return { label: task.status, bg: '#F1F5F9', color: '#64748B' };
+    }
+  };
+
+  const statusBadge = getStatusBadge();
+
+  return (
+    <Pressable style={adminStyles.taskCard} onPress={onPress}>
+      <View style={adminStyles.taskCardTopRow}>
+        <Text style={adminStyles.taskCardCode}>{task.taskCode || ('CV' + task.id.slice(0, 6).toUpperCase())}</Text>
+        <View style={adminStyles.taskCardBadgesRow}>
+          <View style={[adminStyles.badgePill, { backgroundColor: statusBadge.bg }]}>
+            <Text style={[adminStyles.badgePillText, { color: statusBadge.color }]}>{statusBadge.label}</Text>
+          </View>
+          <View style={[adminStyles.badgePill, { backgroundColor: '#E2EBE5' }]}>
+            <Text style={[adminStyles.badgePillText, { color: '#204E3B' }]}>
+              {PRIORITY_LABELS[task.priority] || 'Bình thường'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <Text style={adminStyles.taskCardTitle}>{task.title}</Text>
+
+      {isOverdue ? (
+        <View style={adminStyles.overdueAlertBox}>
+          <MaterialCommunityIcons name="alert-circle" size={15} color="#DC2626" />
+          <Text style={adminStyles.overdueAlertText}>{formatOverdueText(task.dueAt)}</Text>
+        </View>
+      ) : null}
+
+      {isCompleted ? (
+        <View style={adminStyles.completedAlertBox}>
+          <MaterialCommunityIcons name="check-circle" size={15} color="#16A34A" />
+          <Text style={adminStyles.completedAlertText}>Đã hoàn thành đúng hạn</Text>
+        </View>
+      ) : null}
+
+      <View style={adminStyles.taskCardProgressSection}>
+        <View style={adminStyles.taskCardProgressHeader}>
+          <Text style={adminStyles.taskCardProgressLabel}>Tiến độ</Text>
+          <Text style={adminStyles.taskCardProgressValue}>{Math.round(progress)}%</Text>
+        </View>
+        <View style={adminStyles.taskCardProgressBarTrack}>
+          <View style={[adminStyles.taskCardProgressBarFill, { width: `${Math.min(Math.max(progress, 0), 100)}%` }]} />
+        </View>
+      </View>
+
+      <View style={adminStyles.taskCardFooter}>
+        <View style={adminStyles.taskCardAssigneeLeft}>
+          <View style={adminStyles.taskCardAvatarCircle}>
+            <Text style={adminStyles.taskCardAvatarText}>{initials}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={adminStyles.taskCardAssigneeName} numberOfLines={1}>{assigneeName}</Text>
+            <Text style={adminStyles.taskCardAssigneeRole}>{assigneeRole}</Text>
+          </View>
+        </View>
+        <Text style={adminStyles.taskCardDueDateText}>Hạn: {formatShortDate(task.dueAt)}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function AdminTaskListScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
+
+  const filters: TaskListFilters = useMemo(() => ({
+    page: 1,
+    limit: 50,
+    ...(search ? { search } : {}),
+    ...(status === 'OVERDUE' ? { overdue: true } : status ? { status: status as never } : {}),
+  }), [search, status]);
+
+  const tasksQuery = useTasks(filters);
+  const reviewQueue = useTaskReviewQueue({ page: 1, limit: 100 });
+  const queueCount = (reviewQueue.data as any)?.meta?.total ?? reviewQueue.data?.items?.length ?? 0;
+
+  const rawTasks = tasksQuery.data?.items ?? [];
+
+  const overdueCount = useMemo(() => {
+    return rawTasks.filter(t => t.dueAt && new Date(t.dueAt).getTime() < Date.now() && t.status !== 'COMPLETED' && t.status !== 'CANCELLED').length;
+  }, [rawTasks]);
+
+  const attentionTasks = useMemo(() => {
+    return rawTasks.filter(t => 
+      (t.status === 'WAITING_REVIEW') || 
+      (t.dueAt && new Date(t.dueAt).getTime() < Date.now() && t.status !== 'COMPLETED' && t.status !== 'CANCELLED')
+    );
+  }, [rawTasks]);
+
+  const normalTasks = useMemo(() => {
+    if (status === 'OVERDUE') return attentionTasks;
+    if (status === 'WAITING_REVIEW') return attentionTasks;
+    return rawTasks.filter(t => !attentionTasks.some(att => att.id === t.id));
+  }, [rawTasks, attentionTasks, status]);
+
+  const adminTabs = [
+    { label: 'Tất cả', value: '' },
+    { label: 'Chờ nhận', value: 'NEW' },
+    { label: 'Đang làm', value: 'IN_PROGRESS' },
+    { label: 'Chờ duyệt', value: 'WAITING_REVIEW' },
+  ];
+
+  return (
+    <View style={adminStyles.screen}>
+      <View style={[adminStyles.bannerHeader, { paddingTop: Math.max(insets.top, 16) }]}>
+        <View style={adminStyles.bannerTopRow}>
+          <View>
+            <Text style={adminStyles.bannerSubText}>CÔNG VIỆC ĐÃ GIAO</Text>
+            <Text style={adminStyles.bannerBrandText}>MOVIE LEGEND</Text>
+          </View>
+          <Pressable 
+            style={adminStyles.reportHeaderBtn} 
+            onPress={() => router.push('/admin/daily-reports' as any)}
+          >
+            <MaterialCommunityIcons name="file-document-outline" size={16} color="#204E3B" />
+            <Text style={adminStyles.reportHeaderBtnText}>Báo cáo</Text>
+          </Pressable>
+        </View>
+
+        <View style={adminStyles.searchBarBox}>
+          <MaterialCommunityIcons name="magnify" size={20} color="#64748B" />
+          <TextInput
+            style={adminStyles.searchInput}
+            placeholder="Tìm theo tên, mã công việc..."
+            placeholderTextColor="#94A3B8"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search ? (
+            <Pressable onPress={() => setSearch('')}>
+              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      <View style={adminStyles.subBarRow}>
+        <Pressable 
+          style={adminStyles.reviewQueueBtn} 
+          onPress={() => router.push('/admin/tasks/review' as any)}
+        >
+          <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#204E3B" />
+          <Text style={adminStyles.reviewQueueBtnText}>
+            Hàng đợi duyệt {queueCount > 0 ? `(${queueCount})` : ''}
+          </Text>
+        </Pressable>
+        <Pressable 
+          style={[adminStyles.filterBtn, status === 'OVERDUE' && adminStyles.filterBtnActive]} 
+          onPress={() => setStatus(status === 'OVERDUE' ? '' : 'OVERDUE')}
+        >
+          <MaterialCommunityIcons 
+            name="filter-variant" 
+            size={18} 
+            color={status === 'OVERDUE' ? '#204E3B' : '#475569'} 
+          />
+          <Text style={[adminStyles.filterBtnText, status === 'OVERDUE' && { color: '#204E3B', fontWeight: '700' }]}>
+            Bộ lọc
+          </Text>
+        </Pressable>
+      </View>
+
+      <View style={adminStyles.tabsRow}>
+        {adminTabs.map(tab => {
+          const isActive = status === tab.value;
+          return (
+            <Pressable 
+              key={tab.value} 
+              style={[adminStyles.underlineTab, isActive && adminStyles.underlineTabActive]} 
+              onPress={() => setStatus(tab.value)}
+            >
+              <Text style={[adminStyles.underlineTabText, isActive && adminStyles.underlineTabTextActive]}>
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={adminStyles.overduePillRow}>
+        <Pressable 
+          style={[adminStyles.overduePill, status === 'OVERDUE' && adminStyles.overduePillActive]} 
+          onPress={() => setStatus(status === 'OVERDUE' ? '' : 'OVERDUE')}
+        >
+          <MaterialCommunityIcons name="alert-circle-outline" size={14} color="#DC2626" />
+          <Text style={adminStyles.overduePillText}>Quá hạn ({overdueCount})</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView 
+        contentContainerStyle={[adminStyles.listScroll, { paddingBottom: Math.max(insets.bottom + 80, 96) }]}
+        refreshControl={
+          <RefreshControl 
+            refreshing={tasksQuery.isRefetching} 
+            onRefresh={() => { void tasksQuery.refetch(); void reviewQueue.refetch(); }} 
+          />
+        }
+      >
+        {tasksQuery.isLoading ? <LoadingState label="Đang tải danh sách công việc" /> : null}
+        {tasksQuery.isError ? <ErrorState error={tasksQuery.error} onRetry={() => void tasksQuery.refetch()} /> : null}
+
+        {!tasksQuery.isLoading && !rawTasks.length ? (
+          <EmptyState
+            title="Chưa có công việc nào"
+            message="Bấm nút 'Thêm công việc' bên dưới để giao việc mới cho các phòng ban hoặc nhân viên."
+          />
+        ) : null}
+
+        {attentionTasks.length > 0 && status !== 'COMPLETED' ? (
+          <View style={{ marginBottom: 16 }}>
+            <Text style={adminStyles.sectionHeaderTitle}>CẦN THEO DÕI ({attentionTasks.length})</Text>
+            {attentionTasks.map(task => (
+              <AdminTaskCard 
+                key={task.id} 
+                task={task} 
+                onPress={() => router.push(`/admin/tasks/${task.id}` as any)} 
+              />
+            ))}
+          </View>
+        ) : null}
+
+        {normalTasks.length > 0 ? (
+          <View>
+            {attentionTasks.length > 0 && (
+              <Text style={adminStyles.sectionHeaderTitle}>CÔNG VIỆC KHÁC ({normalTasks.length})</Text>
+            )}
+            {normalTasks.map(task => (
+              <AdminTaskCard 
+                key={task.id} 
+                task={task} 
+                onPress={() => router.push(`/admin/tasks/${task.id}` as any)} 
+              />
+            ))}
+          </View>
+        ) : null}
+      </ScrollView>
+
+      <View style={[adminStyles.bottomBarContainer, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+        <Pressable 
+          style={adminStyles.addTaskFloatingBtn} 
+          onPress={() => router.push('/admin/tasks/create' as any)}
+        >
+          <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
+          <Text style={adminStyles.addTaskFloatingBtnText}>Thêm công việc</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function AdminCreateTaskScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { showAlert } = useAppAlert();
+  const mutation = useCreateTask();
+
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState<TaskPriority>('NORMAL');
+  const [startAt, setStartAt] = useState<Date | null>(new Date());
+  const [dueAt, setDueAt] = useState<Date | null>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    d.setHours(18, 0, 0, 0);
+    return d;
+  });
+
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+
+  const [attachments, setAttachments] = useState<import('../../types/task.types').CreateTaskAttachmentPayload[]>([]);
+
+  type AssigneeMode = 'DEPARTMENT' | 'USER' | 'GROUP';
+  const [assigneeMode, setAssigneeMode] = useState<AssigneeMode>('DEPARTMENT');
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [memberIds, setMemberIds] = useState<string[]>([]);
+  const [leaderId, setLeaderId] = useState<string>('');
+
+  const [deptModalVisible, setDeptModalVisible] = useState(false);
+  const [userModalVisible, setUserModalVisible] = useState(false);
+  const [memberModalVisible, setMemberModalVisible] = useState(false);
+
+  const departmentsQuery = useDepartments({ limit: 100 });
+  const usersQuery = useEmployees({ limit: 100 });
+
+  const allDepts = departmentsQuery.data?.items ?? [];
+  const selectedDept = useMemo(() => allDepts.find(d => d.id === selectedDeptId), [allDepts, selectedDeptId]);
+
+  useEffect(() => {
+    if (!selectedDeptId && allDepts.length > 0 && allDepts[0]?.id) {
+      setSelectedDeptId(allDepts[0].id);
+    }
+  }, [allDepts, selectedDeptId]);
+
+  const deptOptions: SelectOption[] = useMemo(() => {
+    return allDepts.map(d => ({
+      id: d.id,
+      label: d.name,
+      subtitle: d.branch?.name ? `Cơ sở: ${d.branch.name}` : undefined,
+    }));
+  }, [allDepts]);
+
+  const employeeOptions = useMemo(() => {
+    return (usersQuery.data?.items ?? []).map((u: any) => ({
+      id: u.id,
+      label: u.profile?.fullName ?? u.fullName ?? u.userCode ?? 'Nhân viên',
+      subtitle: u.department?.name,
+    }));
+  }, [usersQuery.data?.items]);
+
+  const selectedUser = useMemo(() => {
+    return (usersQuery.data?.items ?? []).find(u => u.id === selectedUserId);
+  }, [usersQuery.data?.items, selectedUserId]);
+
+  const handleNextStep = () => {
+    if (!title.trim()) {
+      showAlert('Thiếu thông tin', 'Vui lòng nhập tiêu đề công việc.');
+      return;
+    }
+    if (!dueAt) {
+      showAlert('Thiếu thông tin', 'Vui lòng chọn thời gian hết hạn.');
+      return;
+    }
+    if (startAt && dueAt && startAt.getTime() > dueAt.getTime()) {
+      showAlert('Thời gian không hợp lệ', 'Thời gian bắt đầu không được lớn hơn thời gian hết hạn.');
+      return;
+    }
+    setCurrentStep(2);
+  };
+
+  const submit = async () => {
+    if (assigneeMode === 'DEPARTMENT' && !selectedDeptId) {
+      showAlert('Thiếu thông tin', 'Vui lòng chọn phòng ban nhận việc.');
+      return;
+    }
+    if (assigneeMode === 'USER' && !selectedUserId) {
+      showAlert('Thiếu thông tin', 'Vui lòng chọn cá nhân nhận việc.');
+      return;
+    }
+    if (assigneeMode === 'GROUP' && (memberIds.length === 0 || !leaderId)) {
+      showAlert('Thiếu thông tin', 'Vui lòng chọn nhóm và nhóm trưởng.');
+      return;
+    }
+
+    const isGroup = assigneeMode === 'GROUP';
+    const isDept = assigneeMode === 'DEPARTMENT';
+
+    const payload: CreateTaskPayload = {
+      title: title.trim(),
+      description: description.trim(),
+      priority,
+      departmentContextId: isDept ? selectedDeptId : undefined,
+      startAt: startAt ? startAt.toISOString() : undefined,
+      dueAt: dueAt ? dueAt.toISOString() : undefined,
+      isAdhocGroup: isGroup,
+      ...(isGroup ? { memberIds, leaderId } : {
+        targets: isDept
+          ? [{ targetType: 'DEPARTMENT', targetId: selectedDeptId, targetName: selectedDept?.name }]
+          : [{ targetType: 'USER', targetId: selectedUserId, targetName: (selectedUser as any)?.profile?.fullName ?? (selectedUser as any)?.fullName }]
+      })
+    };
+
+    try {
+      const task = await mutation.mutateAsync(payload);
+      for (const attachment of attachments) {
+        try {
+          await createTaskAttachment(task.id, attachment);
+        } catch (e) {
+          console.error('Failed to attach file:', e);
+        }
+      }
+      showAlert('Thành công', 'Đã giao việc thành công!', () => router.back());
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
+    }
+  };
+
+  return (
+    <View style={adminStyles.screen}>
+      <View style={[adminStyles.pageHeaderBar, { paddingTop: Math.max(insets.top, 12) }]}>
+        <Pressable 
+          style={adminStyles.backBtn} 
+          onPress={() => {
+            if (currentStep === 2) {
+              setCurrentStep(1);
+            } else {
+              router.back();
+            }
+          }}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#1E293B" />
+        </Pressable>
+        <View style={adminStyles.pageHeaderTitleBox}>
+          <Text style={adminStyles.pageHeaderTitle}>
+            {currentStep === 1 ? 'Giao việc mới' : 'Phân công công việc'}
+          </Text>
+          <Text style={adminStyles.pageHeaderSubtitle}>
+            {currentStep === 1 ? 'Tạo và phân công công việc' : 'Chọn đối tượng nhận nhiệm vụ'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={adminStyles.stepperContainer}>
+        <View style={adminStyles.stepperItem}>
+          <View style={[adminStyles.stepperCircle, currentStep >= 1 && adminStyles.stepperCircleActive]}>
+            {currentStep > 1 ? (
+              <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
+            ) : (
+              <Text style={adminStyles.stepperCircleText}>1</Text>
+            )}
+          </View>
+          <Text style={[adminStyles.stepperLabel, currentStep === 1 && adminStyles.stepperLabelActive]}>
+            Thông tin
+          </Text>
+        </View>
+
+        <View style={[adminStyles.stepperLine, currentStep > 1 && adminStyles.stepperLineActive]} />
+
+        <View style={adminStyles.stepperItem}>
+          <View style={[adminStyles.stepperCircle, currentStep === 2 && adminStyles.stepperCircleActive]}>
+            <Text style={[adminStyles.stepperCircleText, currentStep < 2 && adminStyles.stepperCircleTextInactive]}>2</Text>
+          </View>
+          <Text style={[adminStyles.stepperLabel, currentStep === 2 && adminStyles.stepperLabelActive]}>
+            Phân công
+          </Text>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={[adminStyles.formScroll, { paddingBottom: Math.max(insets.bottom + 80, 96) }]}>
+        {currentStep === 1 ? (
+          <>
+            <View style={adminStyles.cardBox}>
+              <View style={adminStyles.cardHeaderRow}>
+                <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#204E3B" />
+                <Text style={adminStyles.cardTitle}>Thông tin công việc</Text>
+              </View>
+
+              <Text style={adminStyles.inputLabel}>Tiêu đề công việc *</Text>
+              <TextInput
+                style={adminStyles.textInput}
+                placeholder="Nhập tiêu đề công việc..."
+                placeholderTextColor="#94A3B8"
+                value={title}
+                onChangeText={setTitle}
+              />
+
+              <Text style={adminStyles.inputLabel}>Mô tả chi tiết</Text>
+              <TextInput
+                style={[adminStyles.textInput, adminStyles.textAreaInput]}
+                placeholder="Mô tả yêu cầu, mục tiêu, kết quả cần đạt..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={4}
+                value={description}
+                onChangeText={setDescription}
+              />
+
+              <Text style={adminStyles.inputLabel}>Tài liệu đính kèm (nếu có)</Text>
+              {attachments.length > 0 && (
+                <View style={{ marginBottom: 10, gap: 8 }}>
+                  {attachments.map((att, i) => (
+                    <View key={i} style={adminStyles.attachmentItemRow}>
+                      <MaterialCommunityIcons 
+                        name={att.type === 'IMAGE' ? 'image' : 'file-document'} 
+                        size={22} 
+                        color="#204E3B" 
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={adminStyles.attachmentItemName} numberOfLines={1}>{att.fileName}</Text>
+                        <Text style={adminStyles.attachmentItemMeta}>{att.mimeType || att.type}</Text>
+                      </View>
+                      <Pressable onPress={() => setAttachments(attachments.filter((_, idx) => idx !== i))}>
+                        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#DC2626" />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              )}
+              <AttachmentPicker
+                autoAttach
+                onAttach={async (payload) => {
+                  setAttachments(prev => [...prev, payload]);
+                }}
+                pending={mutation.isPending}
+              />
+            </View>
+
+            <View style={adminStyles.cardBox}>
+              <View style={adminStyles.cardHeaderRow}>
+                <MaterialCommunityIcons name="clock-outline" size={20} color="#204E3B" />
+                <Text style={adminStyles.cardTitle}>Ưu tiên & Thời hạn</Text>
+              </View>
+
+              <Text style={adminStyles.inputLabel}>Mức độ ưu tiên</Text>
+              <View style={adminStyles.priorityRow}>
+                {priorities.map(p => {
+                  const isActive = priority === p;
+                  return (
+                    <Pressable
+                      key={p}
+                      style={[adminStyles.priorityPillBtn, isActive && adminStyles.priorityPillBtnActive]}
+                      onPress={() => setPriority(p)}
+                    >
+                      <Text style={[adminStyles.priorityPillBtnText, isActive && adminStyles.priorityPillBtnTextActive]}>
+                        {PRIORITY_LABELS[p]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={adminStyles.inputLabel}>Bắt đầu</Text>
+              <View style={adminStyles.splitDateRow}>
+                <Pressable 
+                  style={adminStyles.splitDatePickerBtn} 
+                  onPress={() => { setShowDueDatePicker(false); setShowStartDatePicker(true); }}
+                >
+                  <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#204E3B" />
+                  <Text style={adminStyles.splitDateText}>
+                    {startAt ? formatDateOnly(startAt.toISOString()) : 'Chọn ngày'}
+                  </Text>
+                </Pressable>
+                <Pressable 
+                  style={adminStyles.splitDatePickerBtn} 
+                  onPress={() => { setShowDueDatePicker(false); setShowStartDatePicker(true); }}
+                >
+                  <MaterialCommunityIcons name="clock-outline" size={18} color="#204E3B" />
+                  <Text style={adminStyles.splitDateText}>
+                    {startAt ? formatTimeOnly(startAt.toISOString()) : 'Chọn giờ'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Text style={adminStyles.inputLabel}>Hạn chót *</Text>
+              <View style={adminStyles.splitDateRow}>
+                <Pressable 
+                  style={adminStyles.splitDatePickerBtn} 
+                  onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}
+                >
+                  <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#204E3B" />
+                  <Text style={adminStyles.splitDateText}>
+                    {dueAt ? formatDateOnly(dueAt.toISOString()) : 'Chọn ngày'}
+                  </Text>
+                </Pressable>
+                <Pressable 
+                  style={adminStyles.splitDatePickerBtn} 
+                  onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}
+                >
+                  <MaterialCommunityIcons name="clock-outline" size={18} color="#204E3B" />
+                  <Text style={adminStyles.splitDateText}>
+                    {dueAt ? formatTimeOnly(dueAt.toISOString()) : 'Chọn giờ'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <ActionDatePicker
+                visible={showStartDatePicker}
+                value={startAt}
+                title="Chọn thời gian bắt đầu"
+                onChange={d => setStartAt(d)}
+                onClose={() => setShowStartDatePicker(false)}
+              />
+              <ActionDatePicker
+                visible={showDueDatePicker}
+                value={dueAt}
+                title="Chọn thời gian kết thúc"
+                onChange={d => setDueAt(d)}
+                onClose={() => setShowDueDatePicker(false)}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={adminStyles.cardBox}>
+              <Text style={adminStyles.inputLabel}>Giao việc cho</Text>
+              <View style={adminStyles.assigneeModeRow}>
+                <Pressable
+                  style={[adminStyles.assigneeModeBtn, assigneeMode === 'DEPARTMENT' && adminStyles.assigneeModeBtnActive]}
+                  onPress={() => setAssigneeMode('DEPARTMENT')}
+                >
+                  <MaterialCommunityIcons 
+                    name="domain" 
+                    size={18} 
+                    color={assigneeMode === 'DEPARTMENT' ? '#FFFFFF' : '#475569'} 
+                  />
+                  <Text style={[adminStyles.assigneeModeBtnText, assigneeMode === 'DEPARTMENT' && adminStyles.assigneeModeBtnTextActive]}>
+                    Phòng ban
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[adminStyles.assigneeModeBtn, assigneeMode === 'USER' && adminStyles.assigneeModeBtnActive]}
+                  onPress={() => setAssigneeMode('USER')}
+                >
+                  <MaterialCommunityIcons 
+                    name="account-outline" 
+                    size={18} 
+                    color={assigneeMode === 'USER' ? '#FFFFFF' : '#475569'} 
+                  />
+                  <Text style={[adminStyles.assigneeModeBtnText, assigneeMode === 'USER' && adminStyles.assigneeModeBtnTextActive]}>
+                    Cá nhân
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[adminStyles.assigneeModeBtn, assigneeMode === 'GROUP' && adminStyles.assigneeModeBtnActive]}
+                  onPress={() => setAssigneeMode('GROUP')}
+                >
+                  <MaterialCommunityIcons 
+                    name="account-group-outline" 
+                    size={18} 
+                    color={assigneeMode === 'GROUP' ? '#FFFFFF' : '#475569'} 
+                  />
+                  <Text style={[adminStyles.assigneeModeBtnText, assigneeMode === 'GROUP' && adminStyles.assigneeModeBtnTextActive]}>
+                    Tổ / Nhóm
+                  </Text>
+                </Pressable>
+              </View>
+
+              {assigneeMode === 'DEPARTMENT' ? (
+                <>
+                  <View style={adminStyles.sageNoticeCard}>
+                    <MaterialCommunityIcons name="information" size={20} color="#204E3B" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={adminStyles.sageNoticeTitle}>Giao qua trưởng phòng</Text>
+                      <Text style={adminStyles.sageNoticeDesc}>
+                        Trưởng phòng sẽ nhận việc, chịu trách nhiệm và phân rã các công việc con cho nhân viên trong phòng ban.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={adminStyles.inputLabel}>Phòng ban nhận việc *</Text>
+                  <Pressable 
+                    style={adminStyles.dropdownSelectorBtn} 
+                    onPress={() => setDeptModalVisible(true)}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <MaterialCommunityIcons name="domain" size={20} color="#204E3B" />
+                      <Text style={adminStyles.dropdownSelectorText}>
+                        {selectedDept?.name || 'Chọn phòng ban'}
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+
+                  <View style={adminStyles.workflowGuideCard}>
+                    <Text style={adminStyles.workflowGuideTitle}>Quy trình bàn giao</Text>
+                    <View style={adminStyles.workflowStepRow}>
+                      <Text style={adminStyles.workflowStepNum}>1.</Text>
+                      <Text style={adminStyles.workflowStepText}>Trưởng phòng nhận việc & duyệt tiếp nhận</Text>
+                    </View>
+                    <View style={adminStyles.workflowStepRow}>
+                      <Text style={adminStyles.workflowStepNum}>2.</Text>
+                      <Text style={adminStyles.workflowStepText}>Phân rã đầu việc cho nhân viên</Text>
+                    </View>
+                    <View style={adminStyles.workflowStepRow}>
+                      <Text style={adminStyles.workflowStepNum}>3.</Text>
+                      <Text style={adminStyles.workflowStepText}>Báo cáo tiến độ và nghiệm thu kết quả</Text>
+                    </View>
+                  </View>
+                </>
+              ) : assigneeMode === 'USER' ? (
+                <>
+                  <Text style={adminStyles.inputLabel}>Chọn cá nhân nhận việc *</Text>
+                  <Pressable 
+                    style={adminStyles.dropdownSelectorBtn} 
+                    onPress={() => setUserModalVisible(true)}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <MaterialCommunityIcons name="account" size={20} color="#204E3B" />
+                      <Text style={adminStyles.dropdownSelectorText}>
+                        {(selectedUser as any)?.profile?.fullName || (selectedUser as any)?.fullName || 'Chọn nhân viên'}
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text style={adminStyles.inputLabel}>Chọn thành viên trong nhóm *</Text>
+                  <Pressable 
+                    style={adminStyles.dropdownSelectorBtn} 
+                    onPress={() => setMemberModalVisible(true)}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <MaterialCommunityIcons name="account-group" size={20} color="#204E3B" />
+                      <Text style={adminStyles.dropdownSelectorText}>
+                        {memberIds.length > 0 ? `Đã chọn ${memberIds.length} thành viên` : 'Chọn thành viên nhóm'}
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+                </>
+              )}
+            </View>
+
+            <SelectModal
+              visible={deptModalVisible}
+              title="Chọn phòng ban nhận việc"
+              options={deptOptions}
+              selectedValue={selectedDeptId}
+              onClose={() => setDeptModalVisible(false)}
+              onSelect={opt => {
+                if (opt.id) setSelectedDeptId(opt.id);
+                setDeptModalVisible(false);
+              }}
+            />
+
+            <SelectModal
+              visible={userModalVisible}
+              title="Chọn cá nhân nhận việc"
+              options={employeeOptions}
+              selectedValue={selectedUserId}
+              onClose={() => setUserModalVisible(false)}
+              onSelect={opt => {
+                if (opt.id) setSelectedUserId(opt.id);
+                setUserModalVisible(false);
+              }}
+            />
+
+            <MultiSelectModal
+              visible={memberModalVisible}
+              title="Chọn thành viên nhóm"
+              options={employeeOptions}
+              selectedValues={memberIds}
+              onClose={() => setMemberModalVisible(false)}
+              onSelect={ids => {
+                setMemberIds(ids);
+                if (ids.length > 0 && !leaderId && ids[0]) {
+                  setLeaderId(ids[0]);
+                }
+                setMemberModalVisible(false);
+              }}
+            />
+          </>
+        )}
+      </ScrollView>
+
+      <View style={[adminStyles.formFooterBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+        <Text style={adminStyles.stepCounterText}>Bước {currentStep}/2</Text>
+        {currentStep === 1 ? (
+          <Pressable style={adminStyles.footerNextBtn} onPress={handleNextStep}>
+            <Text style={adminStyles.footerNextBtnText}>Tiếp tục →</Text>
+          </Pressable>
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 10, flex: 1, justifyContent: 'flex-end' }}>
+            <Pressable 
+              style={adminStyles.footerBackBtn} 
+              onPress={() => setCurrentStep(1)}
+            >
+              <Text style={adminStyles.footerBackBtnText}>Quay lại</Text>
+            </Pressable>
+            <Pressable 
+              style={adminStyles.footerSubmitBtn} 
+              onPress={() => void submit()}
+              disabled={mutation.isPending}
+            >
+              <Text style={adminStyles.footerSubmitBtnText}>
+                {mutation.isPending ? 'Đang tạo...' : 'Giao việc ngay'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function AdminTaskDetailScreen({ id }: { id?: string }) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { showAlert, showConfirm } = useAppAlert();
+  const taskQuery = useTask(id);
+  const review = useReviewTaskAssignment(id);
+  const cancel = useCancelTask(id ?? '');
+
+  const [reviewNote, setReviewNote] = useState('');
+
+  if (taskQuery.isLoading) return <LoadingState label="Đang tải chi tiết công việc" />;
+  if (taskQuery.isError) return <ErrorState error={taskQuery.error} onRetry={() => void taskQuery.refetch()} />;
+  if (!taskQuery.data) return <EmptyState title="Không tìm thấy công việc" />;
+
+  const item = taskQuery.data;
+  const progress = averageProgress(item);
+
+  const waitingAssignment = item.assignments?.find(a => a.status === 'WAITING_REVIEW') || item.assignments?.[0];
+  const primaryAssignee = waitingAssignment?.user || item.assignments?.[0]?.user;
+  const assigneeName = primaryAssignee?.profile?.fullName || primaryAssignee?.fullName || item.targets?.[0]?.displayName || 'Nhân sự đảm nhận';
+  const assigneeRole = (primaryAssignee as any)?.position?.name || (primaryAssignee as any)?.profile?.position?.name || 'Nhân viên';
+  const initials = getInitials(assigneeName);
+
+  const submissionAttachments = item.attachments?.filter(att => att.uploadedByUserId !== item.createdByUserId) ?? [];
+  const submittedNote = waitingAssignment?.completionNote || item.assignments?.find(a => Boolean(a.completionNote))?.completionNote;
+
+  const handleReviewAction = async (action: 'approve' | 'reject') => {
+    if (!waitingAssignment?.id) {
+      showAlert('Lỗi', 'Không tìm thấy lượt phân công cần duyệt.');
+      return;
+    }
+    if (action === 'reject' && !reviewNote.trim()) {
+      showAlert('Thiếu lý do', 'Vui lòng nhập ghi chú / lý do từ chối.');
+      return;
+    }
+    try {
+      await review.mutateAsync({
+        assignmentId: waitingAssignment.id,
+        action,
+        payload: action === 'reject' ? { note: reviewNote.trim() } : reviewNote.trim() ? { note: reviewNote.trim() } : {}
+      });
+      showAlert('Thành công', action === 'approve' ? 'Đã duyệt công việc thành công!' : 'Đã từ chối công việc.', () => {
+        void taskQuery.refetch();
+      });
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
+    }
+  };
+
+  const handleCancelTask = () => {
+    showConfirm({
+      title: 'Xác nhận hủy',
+      message: 'Bạn có chắc chắn muốn hủy công việc này?',
+      confirmLabel: 'Có, Hủy',
+      onConfirm: async () => {
+        try {
+          await cancel.mutateAsync();
+          showAlert('Thành công', 'Đã hủy công việc', () => router.back());
+        } catch (error) {
+          const normalized = normalizeApiError(error);
+          showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
+        }
+      }
+    });
+  };
+
+  const isWaitingReview = item.status === 'WAITING_REVIEW' || waitingAssignment?.status === 'WAITING_REVIEW';
+  const isCompleted = item.status === 'COMPLETED';
+
+  return (
+    <View style={adminStyles.screen}>
+      <View style={[adminStyles.pageHeaderBar, { paddingTop: Math.max(insets.top, 12) }]}>
+        <Pressable style={adminStyles.backBtn} onPress={() => router.back()}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#1E293B" />
+        </Pressable>
+        <View style={adminStyles.pageHeaderTitleBox}>
+          <Text style={adminStyles.pageHeaderTitle}>Chi tiết công việc</Text>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={[adminStyles.formScroll, { paddingBottom: Math.max(insets.bottom + 40, 60) }]}>
+        <View style={adminStyles.cardBox}>
+          <Text style={adminStyles.detailTaskCode}>{item.taskCode || ('TASK' + item.id.slice(0, 6).toUpperCase())}</Text>
+          <Text style={adminStyles.detailTaskTitle}>{item.title}</Text>
+          <View style={[adminStyles.taskCardBadgesRow, { marginTop: 6, marginBottom: 10 }]}>
+            <View style={[adminStyles.badgePill, { backgroundColor: isWaitingReview ? '#FEF3C7' : isCompleted ? '#DCFCE7' : '#E0F2FE' }]}>
+              <Text style={[adminStyles.badgePillText, { color: isWaitingReview ? '#D97706' : isCompleted ? '#16A34A' : '#0284C7' }]}>
+                {isWaitingReview ? 'Chờ duyệt' : isCompleted ? 'Hoàn thành' : item.status}
+              </Text>
+            </View>
+            <View style={[adminStyles.badgePill, { backgroundColor: '#E2EBE5' }]}>
+              <Text style={[adminStyles.badgePillText, { color: '#204E3B' }]}>
+                {PRIORITY_LABELS[item.priority] || 'Bình thường'}
+              </Text>
+            </View>
+          </View>
+          {item.description ? (
+            <Text style={adminStyles.detailTaskDesc}>{item.description}</Text>
+          ) : null}
+        </View>
+
+        <View style={adminStyles.cardBox}>
+          <View style={adminStyles.detailDateRow}>
+            <Text style={adminStyles.detailDateText}>Bắt đầu: {formatDateOnly(item.startAt)}</Text>
+            <Text style={adminStyles.detailDateText}>Hạn chót: {formatDateOnly(item.dueAt)}</Text>
+          </View>
+          <View style={[adminStyles.taskCardProgressSection, { marginTop: 12 }]}>
+            <View style={adminStyles.taskCardProgressHeader}>
+              <Text style={adminStyles.taskCardProgressLabel}>Tiến độ</Text>
+              <Text style={adminStyles.taskCardProgressValue}>{Math.round(progress)}%</Text>
+            </View>
+            <View style={adminStyles.taskCardProgressBarTrack}>
+              <View style={[adminStyles.taskCardProgressBarFill, { width: `${Math.min(Math.max(progress, 0), 100)}%` }]} />
+            </View>
+          </View>
+        </View>
+
+        <View style={adminStyles.cardBox}>
+          <Text style={adminStyles.detailSectionHeader}>Người thực hiện</Text>
+          <View style={adminStyles.detailAssigneeRow}>
+            <View style={adminStyles.detailAssigneeAvatar}>
+              <Text style={adminStyles.detailAssigneeAvatarText}>{initials}</Text>
+            </View>
+            <View>
+              <Text style={adminStyles.detailAssigneeName}>{assigneeName}</Text>
+              <Text style={adminStyles.detailAssigneeRole}>{assigneeRole}</Text>
+            </View>
+          </View>
+        </View>
+
+        {(submittedNote || submissionAttachments.length > 0) ? (
+          <View style={adminStyles.cardBox}>
+            <Text style={adminStyles.detailSectionHeader}>
+              Báo cáo đã nộp ({submissionAttachments.length > 0 ? submissionAttachments.length : 1})
+            </Text>
+            <Text style={adminStyles.detailSubmissionTime}>
+              Đã nộp lúc {formatShortDate(waitingAssignment?.updatedAt || item.updatedAt)}
+            </Text>
+            {submittedNote ? (
+              <Text style={adminStyles.detailSubmissionNote}>{submittedNote}</Text>
+            ) : null}
+            {submissionAttachments.length > 0 && (
+              <View style={{ marginTop: 10, gap: 8 }}>
+                {submissionAttachments.map((att, i) => {
+                  const resolvedUrl = resolveFileUrl(att.fileUrl) || att.fileUrl;
+                  const isImg = att.type === 'IMAGE' || att.mimeType?.startsWith('image/');
+                  return (
+                    <View key={i} style={adminStyles.submissionFileCard}>
+                      {isImg && resolvedUrl ? (
+                        <Image source={{ uri: resolvedUrl }} style={adminStyles.submissionFileThumb} />
+                      ) : (
+                        <View style={adminStyles.submissionFileIconBox}>
+                          <MaterialCommunityIcons name="file-document" size={24} color="#204E3B" />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={adminStyles.submissionFileName} numberOfLines={1}>{att.fileName}</Text>
+                        <Text style={adminStyles.submissionFileSize}>{att.sizeBytes ? `${(att.sizeBytes / 1024 / 1024).toFixed(1)} MB` : att.mimeType}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        ) : null}
+
+        {isWaitingReview && (
+          <View style={adminStyles.cardBox}>
+            <Text style={adminStyles.inputLabel}>Ghi chú duyệt</Text>
+            <TextInput
+              style={[adminStyles.textInput, adminStyles.textAreaInput, { minHeight: 70 }]}
+              placeholder="Nhập nhận xét hoặc lý do (bắt buộc nếu từ chối)..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              value={reviewNote}
+              onChangeText={setReviewNote}
+            />
+            <View style={adminStyles.reviewActionBtnRow}>
+              <Pressable 
+                style={adminStyles.rejectBtn} 
+                onPress={() => void handleReviewAction('reject')}
+                disabled={review.isPending}
+              >
+                <Text style={adminStyles.rejectBtnText}>✕ Từ chối</Text>
+              </Pressable>
+              <Pressable 
+                style={adminStyles.approveBtn} 
+                onPress={() => void handleReviewAction('approve')}
+                disabled={review.isPending}
+              >
+                <Text style={adminStyles.approveBtnText}>✓ Duyệt</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {item.status !== 'COMPLETED' && item.status !== 'CANCELLED' && (
+          <Pressable style={adminStyles.cancelTaskLinkBtn} onPress={handleCancelTask}>
+            <Text style={adminStyles.cancelTaskLinkText}>Hủy công việc</Text>
+          </Pressable>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+function AdminTaskReviewQueueScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { showAlert } = useAppAlert();
+  const queue = useTaskReviewQueue({ page: 1, limit: 30 });
+  const completedTasksQuery = useTasks({ page: 1, limit: 10, status: 'COMPLETED' as never });
+  const review = useReviewTaskAssignment();
+
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+
+  const setNoteForAssignment = (assignmentId: string, text: string) => {
+    setReviewNotes(prev => ({ ...prev, [assignmentId]: text }));
+  };
+
+  const handleReview = async (item: any, action: 'approve' | 'reject') => {
+    const note = reviewNotes[item.assignmentId] || '';
+    if (action === 'reject' && !note.trim()) {
+      showAlert('Thiếu lý do', 'Vui lòng nhập ghi chú / lý do từ chối.');
+      return;
+    }
+    try {
+      await review.mutateAsync({
+        assignmentId: item.assignmentId,
+        action,
+        payload: action === 'reject' ? { note: note.trim() } : note.trim() ? { note: note.trim() } : {}
+      });
+      showAlert('Thành công', action === 'approve' ? 'Đã duyệt công việc thành công!' : 'Đã từ chối công việc.', () => {
+        void queue.refetch();
+        void completedTasksQuery.refetch();
+      });
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      showAlert(normalized.code, mapTaskError(normalized.code, normalized.message));
+    }
+  };
+
+  const pendingItems = queue.data?.items ?? [];
+  const completedItems = completedTasksQuery.data?.items ?? [];
+
+  return (
+    <View style={adminStyles.screen}>
+      <View style={[adminStyles.pageHeaderBar, { paddingTop: Math.max(insets.top, 12) }]}>
+        <Pressable style={adminStyles.backBtn} onPress={() => router.back()}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#1E293B" />
+        </Pressable>
+        <View style={adminStyles.pageHeaderTitleBox}>
+          <Text style={adminStyles.pageHeaderTitle}>Duyệt công việc</Text>
+          <Text style={adminStyles.pageHeaderSubtitle}>Xem báo cáo & phản hồi kết quả</Text>
+        </View>
+      </View>
+
+      <ScrollView 
+        contentContainerStyle={[adminStyles.listScroll, { paddingBottom: Math.max(insets.bottom + 40, 60) }]}
+        refreshControl={
+          <RefreshControl 
+            refreshing={queue.isRefetching || completedTasksQuery.isRefetching} 
+            onRefresh={() => { void queue.refetch(); void completedTasksQuery.refetch(); }} 
+          />
+        }
+      >
+        {queue.isLoading ? <LoadingState label="Đang tải danh sách chờ duyệt" /> : null}
+
+        {pendingItems.map((item: any) => {
+          const initials = getInitials(item.employee?.fullName ?? item.employee?.userCode);
+          const atts = (item.attachments ?? []) as any[];
+          return (
+            <View key={item.assignmentId} style={adminStyles.reviewQueueCard}>
+              <View style={adminStyles.taskCardTopRow}>
+                <Text style={adminStyles.taskCardCode}>{item.taskCode || ('TASK' + (item.taskId?.slice(0, 6) ?? '').toUpperCase())}</Text>
+                <View style={[adminStyles.badgePill, { backgroundColor: '#FEF3C7' }]}>
+                  <Text style={[adminStyles.badgePillText, { color: '#D97706' }]}>Chờ duyệt</Text>
+                </View>
+              </View>
+
+              <Text style={adminStyles.reviewCardTitle}>{item.taskTitle}</Text>
+
+              <View style={[adminStyles.taskCardFooter, { marginTop: 4, marginBottom: 10 }]}>
+                <View style={adminStyles.taskCardAssigneeLeft}>
+                  <View style={adminStyles.taskCardAvatarCircle}>
+                    <Text style={adminStyles.taskCardAvatarText}>{initials}</Text>
+                  </View>
+                  <View>
+                    <Text style={adminStyles.taskCardAssigneeName}>{item.employee?.fullName ?? item.employee?.userCode}</Text>
+                    <Text style={adminStyles.taskCardAssigneeRole}>Nộp lúc {formatShortDate(item.submittedAt || new Date().toISOString())}</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={[adminStyles.taskCardProgressSection, { marginBottom: 10 }]}>
+                <View style={adminStyles.taskCardProgressHeader}>
+                  <Text style={adminStyles.taskCardProgressLabel}>Tiến độ</Text>
+                  <Text style={adminStyles.taskCardProgressValue}>{Math.round(item.progressPercent)}%</Text>
+                </View>
+                <View style={adminStyles.taskCardProgressBarTrack}>
+                  <View style={[adminStyles.taskCardProgressBarFill, { width: `${Math.min(Math.max(item.progressPercent, 0), 100)}%` }]} />
+                </View>
+              </View>
+
+              {item.completionNote ? (
+                <Text style={adminStyles.reviewCompletionNote}>{item.completionNote}</Text>
+              ) : null}
+
+              {atts.length > 0 && (
+                <View style={{ marginVertical: 8, gap: 6 }}>
+                  {atts.map((att: any, idx: number) => {
+                    const resolvedUrl = resolveFileUrl(att.fileUrl) || att.fileUrl;
+                    const isImg = att.type === 'IMAGE' || att.mimeType?.startsWith('image/');
+                    return (
+                      <View key={idx} style={adminStyles.submissionFileCard}>
+                        {isImg && resolvedUrl ? (
+                          <Image source={{ uri: resolvedUrl }} style={adminStyles.submissionFileThumb} />
+                        ) : (
+                          <View style={adminStyles.submissionFileIconBox}>
+                            <MaterialCommunityIcons name="file-document" size={24} color="#204E3B" />
+                          </View>
+                        )}
+                        <View style={{ flex: 1 }}>
+                          <Text style={adminStyles.submissionFileName} numberOfLines={1}>{att.fileName}</Text>
+                          <Text style={adminStyles.submissionFileSize}>{att.sizeBytes ? `${(att.sizeBytes / 1024 / 1024).toFixed(1)} MB` : att.mimeType}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              <TextInput
+                style={[adminStyles.textInput, { height: 42, marginVertical: 8 }]}
+                placeholder="Ghi chú duyệt..."
+                placeholderTextColor="#94A3B8"
+                value={reviewNotes[item.assignmentId] || ''}
+                onChangeText={(text) => setNoteForAssignment(item.assignmentId, text)}
+              />
+
+              <View style={adminStyles.reviewActionBtnRow}>
+                <Pressable 
+                  style={adminStyles.rejectBtn} 
+                  onPress={() => void handleReview(item, 'reject')}
+                  disabled={review.isPending}
+                >
+                  <Text style={adminStyles.rejectBtnText}>✕ Từ chối</Text>
+                </Pressable>
+                <Pressable 
+                  style={adminStyles.approveBtn} 
+                  onPress={() => void handleReview(item, 'approve')}
+                  disabled={review.isPending}
+                >
+                  <Text style={adminStyles.approveBtnText}>✓ Duyệt</Text>
+                </Pressable>
+              </View>
+
+              <Pressable 
+                style={adminStyles.openTaskLinkBtn} 
+                onPress={() => router.push(`/admin/tasks/${item.taskId}` as any)}
+              >
+                <Text style={adminStyles.openTaskLinkText}>Mở công việc →</Text>
+              </Pressable>
+            </View>
+          );
+        })}
+
+        {!queue.isLoading && !pendingItems.length ? (
+          <EmptyState
+            title="Không có công việc cần duyệt"
+            message="Các công việc được nhân viên nộp kết quả sẽ xuất hiện ở đây để Admin duyệt."
+          />
+        ) : null}
+
+        {completedItems.length > 0 && (
+          <View style={{ marginTop: 12 }}>
+            <Text style={adminStyles.sectionHeaderTitle}>ĐÃ DUYỆT GẦN ĐÂY</Text>
+            {completedItems.slice(0, 3).map((task: any) => {
+              const primaryAssignee = task.assignments?.[0]?.user;
+              const assigneeName = primaryAssignee?.profile?.fullName || primaryAssignee?.fullName || task.targets?.[0]?.displayName || 'Nhân sự';
+              const initials = getInitials(assigneeName);
+              return (
+                <View key={task.id} style={adminStyles.reviewQueueCard}>
+                  <View style={adminStyles.taskCardTopRow}>
+                    <Text style={adminStyles.taskCardCode}>{task.taskCode || ('TASK' + task.id.slice(0, 6).toUpperCase())}</Text>
+                    <View style={[adminStyles.badgePill, { backgroundColor: '#DCFCE7' }]}>
+                      <Text style={[adminStyles.badgePillText, { color: '#16A34A' }]}>Hoàn thành</Text>
+                    </View>
+                  </View>
+
+                  <Text style={adminStyles.reviewCardTitle}>{task.title}</Text>
+
+                  <View style={[adminStyles.taskCardFooter, { marginTop: 4, marginBottom: 10 }]}>
+                    <View style={adminStyles.taskCardAssigneeLeft}>
+                      <View style={adminStyles.taskCardAvatarCircle}>
+                        <Text style={adminStyles.taskCardAvatarText}>{initials}</Text>
+                      </View>
+                      <View>
+                        <Text style={adminStyles.taskCardAssigneeName}>{assigneeName}</Text>
+                        <Text style={adminStyles.taskCardAssigneeRole}>Hoàn thành {formatDateOnly(task.updatedAt)}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={[adminStyles.taskCardProgressSection, { marginBottom: 12 }]}>
+                    <View style={adminStyles.taskCardProgressHeader}>
+                      <Text style={adminStyles.taskCardProgressLabel}>Tiến độ</Text>
+                      <Text style={adminStyles.taskCardProgressValue}>100%</Text>
+                    </View>
+                    <View style={adminStyles.taskCardProgressBarTrack}>
+                      <View style={[adminStyles.taskCardProgressBarFill, { width: '100%' }]} />
+                    </View>
+                  </View>
+
+                  <Pressable 
+                    style={adminStyles.viewReportBtn} 
+                    onPress={() => router.push(`/admin/tasks/${task.id}` as any)}
+                  >
+                    <Text style={adminStyles.viewReportBtnText}>Xem báo cáo</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
 export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'> }) {
+  if (area === 'admin') {
+    return <AdminCreateTaskScreen />;
+  }
   const router = useRouter();
   const { parentTaskId } = useLocalSearchParams<{ parentTaskId?: string }>();
   const parentTaskQuery = useTask(parentTaskId);
@@ -1130,7 +2428,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader 
-          title={parentTaskId ? 'Chia nhỏ việc con (Subtask)' : area === 'admin' ? 'Giao việc (Admin)' : 'Giao việc cho nhân sự'} 
+          title={parentTaskId ? 'Chia nhỏ việc con (Subtask)' : (area as any) === 'admin' ? 'Giao việc (Admin)' : 'Giao việc cho nhân sự'} 
           subtitle={parentTaskId && parentTaskQuery.data ? `Thuộc dự án: ${parentTaskQuery.data.title}` : isLeaderArea ? `Phòng ban: ${user?.department?.name || 'Của bạn'}` : 'Tạo và phân công công việc mới'} 
         />
 
@@ -1353,7 +2651,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
             </View>
           ) : (
             <>
-              {!parentTaskId && area === 'admin' ? (
+              {!parentTaskId && (area as any) === 'admin' ? (
                 <View style={styles.modeSegmentContainer}>
                   <Pressable
                     style={[styles.modeSegmentBtn, assigneeMode === 'DEPARTMENT' && styles.modeSegmentBtnActive]}
@@ -1611,6 +2909,9 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
 }
 
 export function TaskReviewQueueScreen({ area }: { area: Exclude<TaskArea, 'employee'> }) {
+  if (area === 'admin') {
+    return <AdminTaskReviewQueueScreen />;
+  }
   const router = useRouter();
   const { showAlert } = useAppAlert();
   const queue = useTaskReviewQueue({ page: 1, limit: 20 });
@@ -3669,4 +4970,896 @@ const styles = StyleSheet.create({
     color: '#2563EB',
   },
 });
+
+const adminStyles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  bannerHeader: {
+    backgroundColor: '#204E3B',
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+  },
+  bannerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  bannerSubText: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  bannerBrandText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  reportHeaderBtn: {
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+  },
+  reportHeaderBtnText: {
+    color: '#204E3B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  searchBarBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    height: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1E293B',
+    paddingVertical: 0,
+  },
+  subBarRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+    backgroundColor: '#F8FAFC',
+  },
+  reviewQueueBtn: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  reviewQueueBtnText: {
+    color: '#1E293B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterBtnActive: {
+    borderColor: '#204E3B',
+    backgroundColor: '#E2EBE5',
+  },
+  filterBtnText: {
+    color: '#475569',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 16,
+  },
+  underlineTab: {
+    paddingVertical: 10,
+    marginRight: 20,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  underlineTabActive: {
+    borderBottomColor: '#204E3B',
+  },
+  underlineTabText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  underlineTabTextActive: {
+    color: '#204E3B',
+    fontWeight: '700',
+  },
+  overduePillRow: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  overduePill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    gap: 5,
+  },
+  overduePillActive: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#EF4444',
+  },
+  overduePillText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '700',
+  },
+  listScroll: {
+    padding: 16,
+    gap: 12,
+  },
+  sectionHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  taskCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 10,
+  },
+  taskCardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  taskCardCode: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  taskCardBadgesRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  badgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  badgePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  taskCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  overdueAlertBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  overdueAlertText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  completedAlertBox: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  completedAlertText: {
+    fontSize: 12,
+    color: '#16A34A',
+    fontWeight: '600',
+  },
+  taskCardProgressSection: {
+    marginBottom: 10,
+  },
+  taskCardProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  taskCardProgressLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  taskCardProgressValue: {
+    fontSize: 12,
+    color: '#204E3B',
+    fontWeight: '700',
+  },
+  taskCardProgressBarTrack: {
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  taskCardProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#204E3B',
+    borderRadius: 3,
+  },
+  taskCardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
+  },
+  taskCardAssigneeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  taskCardAvatarCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E2EBE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  taskCardAvatarText: {
+    color: '#204E3B',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  taskCardAssigneeName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  taskCardAssigneeRole: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  taskCardDueDateText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  bottomBarContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    backgroundColor: 'rgba(248, 250, 252, 0.95)',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  addTaskFloatingBtn: {
+    backgroundColor: '#204E3B',
+    height: 48,
+    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#204E3B',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  addTaskFloatingBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  /* Page Header Bar (Create, Detail, Review) */
+  pageHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    gap: 12,
+  },
+  backBtn: {
+    padding: 6,
+    marginLeft: -6,
+  },
+  pageHeaderTitleBox: {
+    flex: 1,
+  },
+  pageHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  pageHeaderSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+
+  /* Stepper */
+  stepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  stepperItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stepperCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepperCircleActive: {
+    backgroundColor: '#204E3B',
+  },
+  stepperCircleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  stepperCircleTextInactive: {
+    color: '#64748B',
+  },
+  stepperLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  stepperLabelActive: {
+    color: '#204E3B',
+    fontWeight: '700',
+  },
+  stepperLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 12,
+  },
+  stepperLineActive: {
+    backgroundColor: '#204E3B',
+  },
+
+  /* Forms & Cards */
+  formScroll: {
+    padding: 16,
+    gap: 14,
+  },
+  cardBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  textInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  textAreaInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  attachmentItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 8,
+    gap: 10,
+  },
+  attachmentItemName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  attachmentItemMeta: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  priorityRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  priorityPillBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  priorityPillBtnActive: {
+    backgroundColor: '#204E3B',
+    borderColor: '#204E3B',
+  },
+  priorityPillBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  priorityPillBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  splitDateRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 2,
+  },
+  splitDatePickerBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  splitDateText: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+
+  /* Step 2 Assignee */
+  assigneeModeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  assigneeModeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+  },
+  assigneeModeBtnActive: {
+    backgroundColor: '#204E3B',
+    borderColor: '#204E3B',
+  },
+  assigneeModeBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  assigneeModeBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  sageNoticeCard: {
+    backgroundColor: '#E2EBE5',
+    borderRadius: 10,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
+    marginVertical: 10,
+  },
+  sageNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#204E3B',
+    marginBottom: 2,
+  },
+  sageNoticeDesc: {
+    fontSize: 12,
+    color: '#2D3748',
+    lineHeight: 17,
+  },
+  dropdownSelectorBtn: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    backgroundColor: '#FFFFFF',
+    marginTop: 4,
+  },
+  dropdownSelectorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  workflowGuideCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginTop: 16,
+    gap: 8,
+  },
+  workflowGuideTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 2,
+  },
+  workflowStepRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  workflowStepNum: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#204E3B',
+  },
+  workflowStepText: {
+    fontSize: 12,
+    color: '#475569',
+    flex: 1,
+    lineHeight: 17,
+  },
+
+  /* Form Footer */
+  formFooterBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  stepCounterText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  footerNextBtn: {
+    backgroundColor: '#204E3B',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+  },
+  footerNextBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  footerBackBtn: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  footerBackBtnText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  footerSubmitBtn: {
+    backgroundColor: '#204E3B',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+  },
+  footerSubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  /* Detail Screen */
+  detailTaskCode: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  detailTaskTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  detailTaskDesc: {
+    fontSize: 14,
+    color: '#334155',
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  detailDateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  detailDateText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  detailSectionHeader: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 10,
+  },
+  detailAssigneeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  detailAssigneeAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E2EBE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailAssigneeAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#204E3B',
+  },
+  detailAssigneeName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  detailAssigneeRole: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  detailSubmissionTime: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  detailSubmissionNote: {
+    fontSize: 13,
+    color: '#1E293B',
+    lineHeight: 19,
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  submissionFileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 8,
+    gap: 10,
+  },
+  submissionFileThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+  },
+  submissionFileIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    backgroundColor: '#E2EBE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submissionFileName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  submissionFileSize: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  reviewActionBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  rejectBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  rejectBtnText: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  approveBtn: {
+    flex: 1,
+    backgroundColor: '#204E3B',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  approveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  cancelTaskLinkBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  cancelTaskLinkText: {
+    fontSize: 14,
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+
+  /* Review Queue Screen */
+  reviewQueueCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 10,
+  },
+  reviewCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  reviewCompletionNote: {
+    fontSize: 13,
+    color: '#334155',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 6,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 8,
+  },
+  openTaskLinkBtn: {
+    alignItems: 'center',
+    paddingTop: 10,
+  },
+  openTaskLinkText: {
+    fontSize: 13,
+    color: '#204E3B',
+    fontWeight: '700',
+  },
+  viewReportBtn: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  viewReportBtnText: {
+    fontSize: 13,
+    color: '#334155',
+    fontWeight: '600',
+  },
+});
+
 
