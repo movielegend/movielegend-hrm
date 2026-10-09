@@ -41,7 +41,8 @@ export function FinancialRequestsScreen() {
 
   // Modal export date selection
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [exportDate, setExportDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [exportDateMode, setExportDateMode] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'CUSTOM'>('ALL');
+  const [customDate, setCustomDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [exportVatOption, setExportVatOption] = useState<'ALL' | 'VAT_ONLY' | 'NO_VAT_ONLY'>('ALL');
 
   const { data: allRequests = [], isLoading, refetch, isRefetching } = useQuery({
@@ -94,10 +95,11 @@ export function FinancialRequestsScreen() {
   const handleQuickExportToday = async () => {
     setIsExporting(true);
     try {
-      const todayStr = new Date().toISOString().split('T')[0];
+      // Xuất toàn bộ danh sách đơn tài chính (hoặc theo loại đang chọn) để luôn đầy đủ dữ liệu
       await exportAndShareFinancialExcel({
-        date: todayStr,
+        date: 'ALL',
         vatOption: 'ALL',
+        type: selectedType !== 'ALL' ? selectedType : undefined,
       });
     } finally {
       setIsExporting(false);
@@ -107,9 +109,21 @@ export function FinancialRequestsScreen() {
   const handleCustomExport = async () => {
     setIsExporting(true);
     try {
+      let targetDate = 'ALL';
+      if (exportDateMode === 'TODAY') {
+        targetDate = new Date().toISOString().split('T')[0];
+      } else if (exportDateMode === 'YESTERDAY') {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        targetDate = d.toISOString().split('T')[0];
+      } else if (exportDateMode === 'CUSTOM') {
+        targetDate = customDate.trim() || 'ALL';
+      }
+
       await exportAndShareFinancialExcel({
-        date: exportDate,
+        date: targetDate,
         vatOption: exportVatOption,
+        type: selectedType !== 'ALL' ? selectedType : undefined,
       });
       setIsExportModalOpen(false);
     } finally {
@@ -400,20 +414,49 @@ export function FinancialRequestsScreen() {
             </Text>
 
             <View style={styles.modalForm}>
-              <Text style={styles.formLabel}>Ngày giao dịch (YYYY-MM-DD):</Text>
-              <TextInput
-                style={styles.formInput}
-                value={exportDate}
-                onChangeText={setExportDate}
-                placeholder="2026-10-09"
-              />
+              <Text style={styles.formLabel}>Khoảng thời gian xuất:</Text>
+              <View style={styles.vatOptionGroup}>
+                {[
+                  { key: 'ALL', label: 'Toàn bộ đơn (Tất cả ngày - Khuyên dùng)' },
+                  { key: 'TODAY', label: 'Chỉ đơn hôm nay (2026-10-09)' },
+                  { key: 'YESTERDAY', label: 'Đơn đợt hôm qua (2026-10-08)' },
+                  { key: 'CUSTOM', label: 'Tự nhập ngày cụ thể (YYYY-MM-DD)' },
+                ].map((opt) => (
+                  <Pressable
+                    key={opt.key}
+                    style={[styles.vatOptionBtn, exportDateMode === opt.key && styles.vatOptionBtnActive]}
+                    onPress={() => setExportDateMode(opt.key as any)}
+                  >
+                    <Text
+                      style={[
+                        styles.vatOptionText,
+                        exportDateMode === opt.key && styles.vatOptionTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {exportDateMode === 'CUSTOM' && (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={styles.formLabel}>Nhập ngày cần xuất (YYYY-MM-DD):</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={customDate}
+                    onChangeText={setCustomDate}
+                    placeholder="2026-10-08"
+                  />
+                </View>
+              )}
 
               <Text style={[styles.formLabel, { marginTop: 12 }]}>Phân loại VAT:</Text>
               <View style={styles.vatOptionGroup}>
                 {[
-                  { key: 'ALL', label: 'Tất cả' },
-                  { key: 'VAT_ONLY', label: 'Chỉ có VAT (Chị Tâm)' },
-                  { key: 'NO_VAT_ONLY', label: 'Không VAT' },
+                  { key: 'ALL', label: 'Tất cả (Có VAT & Không VAT)' },
+                  { key: 'VAT_ONLY', label: 'Chỉ đơn có VAT (Chị Tâm)' },
+                  { key: 'NO_VAT_ONLY', label: 'Chỉ đơn không VAT' },
                 ].map((opt) => (
                   <Pressable
                     key={opt.key}

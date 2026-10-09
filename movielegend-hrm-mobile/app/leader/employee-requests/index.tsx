@@ -151,7 +151,7 @@ export default function LeaderRequestsScreen() {
                 onPress={async () => {
                   setIsExporting(true);
                   try {
-                    await exportAndShareFinancialExcel({ date: new Date().toISOString().split('T')[0] });
+                    await exportAndShareFinancialExcel({ date: 'ALL' });
                   } finally {
                     setIsExporting(false);
                   }

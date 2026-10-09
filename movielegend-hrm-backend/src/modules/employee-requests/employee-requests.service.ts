@@ -1171,22 +1171,20 @@ export class EmployeeRequestsService {
     const isAccountant = await this.isAccountantActor(actor);
     const isGlobalAdmin = (actor.roles.includes('ADMIN') && !this.scope.isRegionAdmin(actor)) || this.scope.isGlobalAdmin(actor);
 
-    // Xử lý khoảng thời gian (theo ngày hoặc từ ngày - đến ngày)
-    let startOfDay: Date;
-    let endOfDay: Date;
-    if (query.date) {
-      startOfDay = new Date(`${query.date}T00:00:00.000+07:00`);
-      endOfDay = new Date(`${query.date}T23:59:59.999+07:00`);
+    // Xử lý khoảng thời gian (theo ngày hoặc từ ngày - đến ngày hoặc Tất cả)
+    let dateFilter: Prisma.DateTimeFilter | undefined = undefined;
+    if (query.date && query.date !== 'ALL') {
+      const startOfDay = new Date(`${query.date}T00:00:00.000+07:00`);
+      const endOfDay = new Date(`${query.date}T23:59:59.999+07:00`);
+      dateFilter = { gte: startOfDay, lte: endOfDay };
     } else if (query.fromDate && query.toDate) {
-      startOfDay = new Date(`${query.fromDate}T00:00:00.000+07:00`);
-      endOfDay = new Date(`${query.toDate}T23:59:59.999+07:00`);
-    } else {
-      const today = new Date();
-      const tzOffset = 7 * 60; // ICT +7
-      const localDate = new Date(today.getTime() + (today.getTimezoneOffset() + tzOffset) * 60000);
-      const dateStr = localDate.toISOString().split('T')[0];
-      startOfDay = new Date(`${dateStr}T00:00:00.000+07:00`);
-      endOfDay = new Date(`${dateStr}T23:59:59.999+07:00`);
+      const startOfDay = new Date(`${query.fromDate}T00:00:00.000+07:00`);
+      const endOfDay = new Date(`${query.toDate}T23:59:59.999+07:00`);
+      dateFilter = { gte: startOfDay, lte: endOfDay };
+    } else if (query.fromDate) {
+      dateFilter = { gte: new Date(`${query.fromDate}T00:00:00.000+07:00`) };
+    } else if (query.toDate) {
+      dateFilter = { lte: new Date(`${query.toDate}T23:59:59.999+07:00`) };
     }
 
     const financialTypes = [EmployeeRequestType.EXPENSE, EmployeeRequestType.ADVANCE, EmployeeRequestType.PURCHASE];
@@ -1196,10 +1194,7 @@ export class EmployeeRequestsService {
     }
 
     const where: Prisma.EmployeeRequestWhereInput = {
-      createdAt: {
-        gte: startOfDay,
-        lte: endOfDay,
-      },
+      ...(dateFilter ? { createdAt: dateFilter } : {}),
       type: typeFilter,
       ...(query.status && query.status !== 'ALL' ? { status: query.status as EmployeeRequestStatus } : {}),
       ...(query.departmentId ? { departmentId: query.departmentId } : {}),

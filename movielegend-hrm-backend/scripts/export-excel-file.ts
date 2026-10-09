@@ -44,12 +44,12 @@ async function exportExcel() {
     isDirector: true,
   };
 
-  // Xuất dữ liệu (tất cả ngày gần đây / hôm nay)
-  const result = await requestsService.exportDailyTransactions({}, actor as any);
+  // Xuất dữ liệu (tất cả đơn tài chính)
+  const result = await requestsService.exportDailyTransactions({ date: 'ALL' }, actor as any);
 
   // Lưu file ra ngoài thư mục dự án
   const outDir = path.resolve(__dirname, '../../..');
-  const targetPath = path.join(outDir, result.filename);
+  const targetPath = path.join(outDir, `De-xuat-mua-hang-HCNS-Ke-toan-${Date.now()}.xlsx`);
   fs.writeFileSync(targetPath, result.buffer);
 
   console.log(`✅ Xuất thành công file Excel!`);
