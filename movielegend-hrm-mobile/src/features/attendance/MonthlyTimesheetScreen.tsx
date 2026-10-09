@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
-import ImageViewing from 'react-native-image-viewing';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 import { useAuth } from '../../providers/AuthProvider';
 import {
   getCompanyMonthlyTimesheet,
@@ -627,7 +627,7 @@ export function MonthlyTimesheetScreen() {
       )}
 
       {viewerImages.length > 0 ? (
-        <ImageViewing
+        <ImageView
           images={viewerImages}
           imageIndex={0}
           visible={isImageViewerVisible}

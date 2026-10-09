@@ -11,7 +11,7 @@ import {
   TextInput,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import ImageViewing from 'react-native-image-viewing';
+import ImageView from '../../../components/ImageViewer/ImageViewer';
 import { CustomAlert } from '../../../components/CustomAlert';
 import {
   getDepartmentPayslipBatch,
@@ -378,10 +378,10 @@ export function DepartmentLabelingModal({
           )}
 
           {/* Image Fullscreen Viewer */}
-          {currentImage && (
-            <ImageViewing
-              images={[{ uri: currentImage.imageUrl }]}
-              imageIndex={0}
+          {allImages.length > 0 && (
+            <ImageView
+              images={allImages.map((img) => ({ uri: img.imageUrl }))}
+              imageIndex={selectedImageIndex}
               visible={isImageViewerVisible}
               onRequestClose={() => setIsImageViewerVisible(false)}
             />
