@@ -6,7 +6,9 @@ import { getAccessToken } from '../storage/secure-token.storage';
 import { CustomAlert } from '../components/CustomAlert';
 
 export interface ExportExcelOptions {
-  date?: string; // YYYY-MM-DD
+  date?: string; // YYYY-MM-DD hoặc 'ALL'
+  fromDate?: string; // YYYY-MM-DD
+  toDate?: string; // YYYY-MM-DD
   vatOption?: 'ALL' | 'VAT_ONLY' | 'NO_VAT_ONLY';
   type?: string;
   status?: string;
@@ -15,12 +17,20 @@ export interface ExportExcelOptions {
 export async function exportAndShareFinancialExcel(options: ExportExcelOptions = {}): Promise<boolean> {
   try {
     const token = await getAccessToken();
-    const dateStr = options.date || new Date().toISOString().split('T')[0];
+    const dateStr = options.date || (options.fromDate && options.toDate ? `${options.fromDate}-den-${options.toDate}` : new Date().toISOString().split('T')[0]);
     const vatOption = options.vatOption || 'ALL';
     const filename = `De-xuat-mua-hang-HCNS-Ke-toan-theo-doi-${dateStr}.xlsx`;
 
     const searchParams = new URLSearchParams();
-    searchParams.append('date', String(dateStr));
+    if (options.date) {
+      searchParams.append('date', String(options.date));
+    }
+    if (options.fromDate) {
+      searchParams.append('fromDate', String(options.fromDate));
+    }
+    if (options.toDate) {
+      searchParams.append('toDate', String(options.toDate));
+    }
     if (vatOption && vatOption !== 'ALL') {
       searchParams.append('vatOption', String(vatOption));
     }

@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, EmployeeRequestStatus, EmployeeRequestType, Prisma, NotificationType, RoleScopeType } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
 import moment from 'moment-timezone';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { badRequest, forbidden, notFound } from '../../common/utils/error.util';
@@ -1304,8 +1306,41 @@ export class EmployeeRequestsService {
       };
     });
 
+    const getImageBufferAndExt = async (rawUrl: string): Promise<{ buffer: Buffer; extension: 'jpeg' | 'png' | 'gif' } | null> => {
+      try {
+        if (!rawUrl || typeof rawUrl !== 'string') return null;
+        const clean = rawUrl.trim();
+
+        if (clean.includes('/uploads/') || clean.startsWith('uploads/') || clean.startsWith('/storage/') || clean.startsWith('storage/')) {
+          const relativePart = clean.replace(/^.*\/uploads\//, '').replace(/^.*\/storage\//, '').replace(/^\/+/, '');
+          const localPath = path.resolve(process.cwd(), 'storage', relativePart);
+          if (fs.existsSync(localPath)) {
+            const buf = fs.readFileSync(localPath);
+            const ext = relativePart.toLowerCase().endsWith('.png') ? 'png' : 'jpeg';
+            return { buffer: buf, extension: ext };
+          }
+        }
+
+        if (clean.startsWith('http://') || clean.startsWith('https://')) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 4000);
+          const response = await fetch(clean, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (response.ok) {
+            const arrayBuf = await response.arrayBuffer();
+            const buf = Buffer.from(arrayBuf);
+            const ext = clean.toLowerCase().includes('.png') ? 'png' : 'jpeg';
+            return { buffer: buf, extension: ext };
+          }
+        }
+      } catch {
+        // Fallback silently if image cannot be read/downloaded
+      }
+      return null;
+    };
+
     let totalAmount = 0;
-    filteredRequests.forEach((req) => {
+    for (const req of filteredRequests) {
       const meta = (typeof req.attachmentMetadata === 'object' && req.attachmentMetadata !== null)
         ? (req.attachmentMetadata as Record<string, any>)
         : {};
@@ -1360,7 +1395,47 @@ export class EmployeeRequestsService {
       const accountantCheck = req.status === EmployeeRequestStatus.APPROVED ? 'ok' : 'Chờ check';
 
       // 13. Chứng từ / Bill đính kèm
-      const billProofUrl = meta.disbursementProofUrl || (Array.isArray(meta.images) && meta.images.length > 0 ? meta.images[0] : null);
+      let rawBillUrl: string | null =
+        meta.disbursementProofUrl ||
+        (Array.isArray(meta.images) && meta.images.length > 0 ? meta.images[0] : null) ||
+        meta.image ||
+        meta.imageUrl ||
+        meta.billProofUrl ||
+        meta.proofUrl ||
+        meta.transferProofUrl ||
+        (Array.isArray(meta.files) && meta.files.length > 0 ? meta.files[0] : null) ||
+        null;
+
+      if (!rawBillUrl && Array.isArray(meta.approvalSteps)) {
+        for (const step of meta.approvalSteps) {
+          if (step.disbursementProofUrl) {
+            rawBillUrl = step.disbursementProofUrl;
+            break;
+          }
+          if (step.proofUrl) {
+            rawBillUrl = step.proofUrl;
+            break;
+          }
+        }
+      }
+
+      let billProofUrl: string | null = null;
+      if (rawBillUrl && typeof rawBillUrl === 'string' && rawBillUrl.trim().length > 0) {
+        const cleanUrl = rawBillUrl.trim();
+        if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+          billProofUrl = cleanUrl;
+        } else {
+          const rawBase =
+            process.env.PUBLIC_API_URL ||
+            process.env.API_URL ||
+            process.env.APP_URL ||
+            process.env.BACKEND_URL ||
+            'http://180.93.165.243:3000';
+          const baseUrl = rawBase.replace(/\/api\/v\d+\/?$/, '').replace(/\/+$/, '');
+          const normalizedPath = cleanUrl.startsWith('/') ? cleanUrl : `/${cleanUrl}`;
+          billProofUrl = `${baseUrl}${normalizedPath}`;
+        }
+      }
 
       const row = worksheet.addRow([
         formattedDate,
@@ -1375,7 +1450,7 @@ export class EmployeeRequestsService {
         noteText,
         companyName,
         accountantCheck,
-        billProofUrl ? 'Xem ảnh Bill' : 'Không có bill',
+        '',
       ]);
 
       row.font = { name: 'Arial', size: 9.5 };
@@ -1387,18 +1462,61 @@ export class EmployeeRequestsService {
       row.getCell(6).numFmt = '#,##0';
       row.getCell(6).alignment = { vertical: 'middle', horizontal: 'right' };
       row.getCell(7).alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell(7).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"Đang xử lý, Hoàn tất, Chưa về hóa đơn, Không có VAT"'],
+      };
+
       row.getCell(8).alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell(8).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"Đã thanh toán, Đang xử lý, Chờ thanh toán, Đã từ chối"'],
+      };
+
       row.getCell(9).alignment = { vertical: 'middle', horizontal: 'center' };
       row.getCell(11).alignment = { vertical: 'middle', horizontal: 'center' };
       row.getCell(12).alignment = { vertical: 'middle', horizontal: 'center' };
+      row.getCell(12).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: ['"ok, Chờ check"'],
+      };
       row.getCell(13).alignment = { vertical: 'middle', horizontal: 'center' };
 
-      if (billProofUrl) {
+      let billImageEmbedded = false;
+      if (rawBillUrl) {
+        const imgData = await getImageBufferAndExt(rawBillUrl);
+        if (imgData) {
+          try {
+            const imageId = workbook.addImage({
+              buffer: imgData.buffer as any,
+              extension: imgData.extension,
+            });
+            const cellRange = `M${row.number}:M${row.number}`;
+            worksheet.addImage(imageId, cellRange);
+            billImageEmbedded = true;
+            row.height = 95;
+          } catch {
+            // fallback
+          }
+        }
+      }
+
+      if (billImageEmbedded) {
+        // Ảnh đã hiển thị trực tiếp trong ô, không để text để tránh bị chữ đè lên ảnh
+        row.getCell(13).value = '';
+      } else if (billProofUrl) {
         row.getCell(13).value = {
           text: 'Xem ảnh Bill 🔗',
           hyperlink: billProofUrl,
+          tooltip: 'Bấm để xem ảnh chứng từ / Bill chuyển khoản',
         };
         row.getCell(13).font = { name: 'Arial', size: 9.5, color: { argb: 'FF0563C1' }, underline: true };
+      } else {
+        row.getCell(13).value = 'Không có bill';
+        row.getCell(13).font = { name: 'Arial', size: 9.5, color: { argb: 'FF7F7F7F' } };
       }
 
       // Badge style cho Trạng thái
@@ -1419,7 +1537,7 @@ export class EmployeeRequestsService {
           right: { style: 'thin', color: { argb: 'FFD9D9D9' } },
         };
       });
-    });
+    }
 
     // Dòng tổng cộng
     const totalRow = worksheet.addRow([
@@ -1471,7 +1589,7 @@ export class EmployeeRequestsService {
       { width: 24 }, // 10. Ghi chú
       { width: 16 }, // 11. Công ty
       { width: 14 }, // 12. Kế Toán Check
-      { width: 20 }, // 13. Chứng từ / Bill đính kèm
+      { width: 35 }, // 13. Chứng từ / Bill đính kèm
     ];
 
     const dateLabel = query.date || (query.fromDate && query.toDate ? `${query.fromDate}-den-${query.toDate}` : new Date().toISOString().split('T')[0]);
