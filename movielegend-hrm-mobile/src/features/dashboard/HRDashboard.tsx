@@ -11,6 +11,7 @@ import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useN
 import { useCurrentAttendance, useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { getMyVault } from '../../api/employees.api';
+import { getEmployeeRequests } from '../../api/employee-requests.api';
 import { getNextVaultMilestone } from '../vault/vault-utils';
 import { levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
@@ -93,6 +94,21 @@ export function HRDashboard() {
     setRefreshing(false);
   }, [queryClient]);
 
+  const isAccountant = Boolean(user?.roles?.includes('ACCOUNTANT'));
+  const isOnlyAccountant = isAccountant && !user?.roles?.includes('HR') && !user?.roles?.includes('ADMIN');
+
+  const { data: allFinancialRequests = [] } = useQuery({
+    queryKey: ['financial-employee-requests'],
+    queryFn: () => getEmployeeRequests(),
+    enabled: isAccountant || Boolean(user?.roles?.includes('HR')) || Boolean(user?.roles?.includes('ADMIN')),
+  });
+
+  const pendingFinancialCount = useMemo(() => {
+    return (allFinancialRequests || []).filter(
+      (r: any) => ['EXPENSE', 'PURCHASE', 'ADVANCE'].includes(r.type) && ['PENDING', 'PENDING_HR_MANAGER', 'PENDING_LEADER'].includes(r.status)
+    ).length;
+  }, [allFinancialRequests]);
+
   const dateString = new Date().toLocaleDateString('vi-VN', {
     weekday: 'long',
     day: '2-digit',
@@ -101,7 +117,7 @@ export function HRDashboard() {
   });
 
   const getInitials = (name?: string) => {
-    if (!name) return 'HR';
+    if (!name) return isOnlyAccountant ? 'KT' : 'HR';
     const words = name.trim().split(' ').filter(Boolean);
     const firstWord = words[0];
     const lastWord = words[words.length - 1];
@@ -157,8 +173,12 @@ export function HRDashboard() {
                   </Text>
                 </Pressable>
               </View>
-              <Text style={styles.userName} numberOfLines={1}>{user?.fullName || 'HR Manager'}</Text>
-              <Text style={styles.dateText}>{dateString}</Text>
+              <Text style={styles.userName} numberOfLines={1}>{user?.fullName || (isOnlyAccountant ? 'Kế toán viên' : 'HR Manager')}</Text>
+              {isOnlyAccountant ? (
+                <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600', marginTop: 1 }}>Kế toán & Tài chính</Text>
+              ) : (
+                <Text style={styles.dateText}>{dateString}</Text>
+              )}
             </View>
           </View>
           <View style={styles.headerRight}>
@@ -364,155 +384,308 @@ export function HRDashboard() {
 
         {/* Tiện ích thường dùng (Ma trận 4 cột hiện đại) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tiện ích thường dùng</Text>
+          <Text style={styles.sectionTitle}>
+            {isOnlyAccountant ? 'Nghiệp vụ Kế toán & Tài chính' : 'Tiện ích thường dùng'}
+          </Text>
           <View style={styles.grid4Container}>
-            {/* Nhóm 1: Chấm công & Ca làm (Xanh dương hoàng gia) */}
-            <GridItem4
-              icon="calendar-account-outline"
-              title="QL Chấm công"
-              color="#2563EB"
-              bgColor="#EFF6FF"
-              onPress={() => router.navigate('/hr/attendance-management' as any)}
-            />
-            <GridItem4
-              icon="view-grid-outline"
-              title="Phân ca"
-              color="#2563EB"
-              bgColor="#EFF6FF"
-              onPress={() => router.navigate('/hr/shifts' as any)}
-            />
-            <GridItem4
-              icon="calendar-clock-outline"
-              title="Lịch làm việc"
-              color="#2563EB"
-              bgColor="#EFF6FF"
-              onPress={() => router.navigate('/hr/schedule' as any)}
-            />
-            <GridItem4
-              icon="history"
-              title="Lịch sử công"
-              color="#2563EB"
-              bgColor="#EFF6FF"
-              onPress={() => router.navigate('/hr/attendance/history' as any)}
-            />
+            {isOnlyAccountant ? (
+              <>
+                {/* Nhóm 1: Tài chính & Tiền lương (Nổi bật cho Kế toán) */}
+                <GridItem4
+                  icon="cash-register"
+                  title="Duyệt tài chính"
+                  color="#059669"
+                  bgColor="#ECFDF5"
+                  badge={pendingFinancialCount > 0 ? String(pendingFinancialCount) : undefined}
+                  badgeColor="#EF4444"
+                  onPress={() => router.navigate('/hr/financial-requests' as any)}
+                />
+                <GridItem4
+                  icon="file-table-box-multiple-outline"
+                  title="Phiếu lương"
+                  color="#059669"
+                  bgColor="#ECFDF5"
+                  onPress={() => router.navigate('/hr/payslip' as any)}
+                />
+                <GridItem4
+                  icon="file-document-check-outline"
+                  title="Duyệt đơn"
+                  color="#0D9488"
+                  bgColor="#F0FDFA"
+                  badge={dashboardData?.leave?.pending > 0 ? String(dashboardData.leave.pending) : undefined}
+                  onPress={() => router.navigate('/hr/employee-requests' as any)}
+                />
+                <GridItem4
+                  icon="gift-outline"
+                  title="Ví Thưởng"
+                  color="#059669"
+                  bgColor="#ECFDF5"
+                  badge={isVaultEnabled ? 'VÍ' : undefined}
+                  badgeColor="#059669"
+                  onPress={() => router.push('/hr/vault' as any)}
+                />
 
-            {/* Nhóm 2: Hành chính & Nhân sự (Teal thanh lịch) */}
-            <GridItem4
-              icon="file-document-check-outline"
-              title="Duyệt đơn"
-              color="#0D9488"
-              bgColor="#F0FDFA"
-              badge={dashboardData?.leave?.pending > 0 ? String(dashboardData.leave.pending) : undefined}
-              onPress={() => router.navigate('/hr/employee-requests' as any)}
-            />
-            <GridItem4
-              icon="account-group-outline"
-              title="Nhân sự"
-              color="#0D9488"
-              bgColor="#F0FDFA"
-              onPress={() => router.push('/hr/employees' as any)}
-            />
-            <GridItem4
-              icon="text-box-check-outline"
-              title="Hợp đồng"
-              color="#0D9488"
-              bgColor="#F0FDFA"
-              badge={dashboardData?.contracts?.expiringSoon > 0 ? String(dashboardData.contracts.expiringSoon) : undefined}
-              onPress={() => router.navigate('/hr/contracts' as any)}
-            />
-            <GridItem4
-              icon="folder-text-outline"
-              title="Tài liệu"
-              color="#0D9488"
-              bgColor="#F0FDFA"
-              onPress={() => router.push('/hr/documents' as any)}
-            />
+                {/* Nhóm 2: Hồ sơ & Chứng từ */}
+                <GridItem4
+                  icon="account-group-outline"
+                  title="Nhân sự"
+                  color="#0D9488"
+                  bgColor="#F0FDFA"
+                  onPress={() => router.push('/hr/employees' as any)}
+                />
+                <GridItem4
+                  icon="text-box-check-outline"
+                  title="Hợp đồng"
+                  color="#0D9488"
+                  bgColor="#F0FDFA"
+                  badge={dashboardData?.contracts?.expiringSoon > 0 ? String(dashboardData.contracts.expiringSoon) : undefined}
+                  onPress={() => router.navigate('/hr/contracts' as any)}
+                />
+                <GridItem4
+                  icon="folder-text-outline"
+                  title="Tài liệu"
+                  color="#0D9488"
+                  bgColor="#F0FDFA"
+                  onPress={() => router.push('/hr/documents' as any)}
+                />
+                <GridItem4
+                  icon="clipboard-account-outline"
+                  title="Việc của tôi"
+                  color="#4F46E5"
+                  bgColor="#EEF2FF"
+                  badge={myTasksUncompletedCount > 0 ? `${myTasksUncompletedCount}` : undefined}
+                  badgeColor="#EF4444"
+                  onPress={() => router.push('/hr/my-tasks' as any)}
+                />
 
-            {/* Nhóm 3: Công việc, Cấp bậc & Quỹ thưởng (Indigo sang trọng) */}
-            <GridItem4
-              icon="clipboard-account-outline"
-              title="Việc của tôi"
-              color="#4F46E5"
-              bgColor="#EEF2FF"
-              badge={myTasksUncompletedCount > 0 ? `${myTasksUncompletedCount}` : undefined}
-              badgeColor="#EF4444"
-              onPress={() => router.push('/hr/my-tasks' as any)}
-            />
-            <GridItem4
-              icon="format-list-checks"
-              title="Giao việc"
-              color="#4F46E5"
-              bgColor="#EEF2FF"
-              onPress={() => router.push('/hr/tasks' as any)}
-            />
-            <GridItem4
-              icon="star-circle-outline"
-              title="Cấp của bạn"
-              color="#4F46E5"
-              bgColor="#EEF2FF"
-              onPress={() => router.push('/hr/leveling' as any)}
-            />
-            <GridItem4
-              icon="gift-outline"
-              title="Ví Thưởng"
-              color="#4F46E5"
-              bgColor="#EEF2FF"
-              badge={isVaultEnabled ? 'VÍ' : undefined}
-              badgeColor="#4F46E5"
-              onPress={() => router.push('/hr/vault' as any)}
-            />
+                {/* Nhóm 3: Vận hành & Trợ lý */}
+                <GridItem4
+                  icon="calendar-account-outline"
+                  title="QL Chấm công"
+                  color="#2563EB"
+                  bgColor="#EFF6FF"
+                  onPress={() => router.navigate('/hr/attendance-management' as any)}
+                />
+                <GridItem4
+                  icon="view-grid-outline"
+                  title="Phân ca"
+                  color="#2563EB"
+                  bgColor="#EFF6FF"
+                  onPress={() => router.navigate('/hr/shifts' as any)}
+                />
+                <GridItem4
+                  icon="history"
+                  title="Lịch sử công"
+                  color="#2563EB"
+                  bgColor="#EFF6FF"
+                  onPress={() => router.navigate('/hr/attendance/history' as any)}
+                />
+                <GridItem4
+                  icon="robot-outline"
+                  title="Trợ lý AI"
+                  color="#FFFFFF"
+                  bgColor="#0F172A"
+                  badge="AI"
+                  badgeColor="#2563EB"
+                  onPress={() => router.push('/hr/ai-chat' as any)}
+                />
+              </>
+            ) : (
+              <>
+                {/* Nhóm 1: Chấm công & Ca làm (Xanh dương hoàng gia) */}
+                <GridItem4
+                  icon="calendar-account-outline"
+                  title="QL Chấm công"
+                  color="#2563EB"
+                  bgColor="#EFF6FF"
+                  onPress={() => router.navigate('/hr/attendance-management' as any)}
+                />
+                <GridItem4
+                  icon="view-grid-outline"
+                  title="Phân ca"
+                  color="#2563EB"
+                  bgColor="#EFF6FF"
+                  onPress={() => router.navigate('/hr/shifts' as any)}
+                />
+                <GridItem4
+                  icon="calendar-clock-outline"
+                  title="Lịch làm việc"
+                  color="#2563EB"
+                  bgColor="#EFF6FF"
+                  onPress={() => router.navigate('/hr/schedule' as any)}
+                />
+                <GridItem4
+                  icon="history"
+                  title="Lịch sử công"
+                  color="#2563EB"
+                  bgColor="#EFF6FF"
+                  onPress={() => router.navigate('/hr/attendance/history' as any)}
+                />
 
-            {/* Nhóm 4: Hỗ trợ & Trí tuệ nhân tạo (Executive Slate & Dark) */}
-            <GridItem4
-              icon="robot-outline"
-              title="Trợ lý AI"
-              color="#FFFFFF"
-              bgColor="#0F172A"
-              badge="AI"
-              badgeColor="#2563EB"
-              onPress={() => router.push('/hr/ai-chat' as any)}
-            />
-            <GridItem4
-              icon="laptop"
-              title="Tài sản"
-              color="#64748B"
-              bgColor="#F8FAFC"
-              onPress={() => router.navigate('/hr/assets' as any)}
-            />
-            <GridItem4
-              icon="message-draw"
-              title="Góp ý"
-              color="#64748B"
-              bgColor="#F8FAFC"
-              onPress={() => router.navigate('/hr/feedbacks' as any)}
-            />
+                {/* Nhóm 2: Hành chính & Nhân sự (Teal thanh lịch) */}
+                <GridItem4
+                  icon="file-document-check-outline"
+                  title="Duyệt đơn"
+                  color="#0D9488"
+                  bgColor="#F0FDFA"
+                  badge={dashboardData?.leave?.pending > 0 ? String(dashboardData.leave.pending) : undefined}
+                  onPress={() => router.navigate('/hr/employee-requests' as any)}
+                />
+                <GridItem4
+                  icon="cash-register"
+                  title="Duyệt tài chính"
+                  color="#059669"
+                  bgColor="#ECFDF5"
+                  badge={pendingFinancialCount > 0 ? String(pendingFinancialCount) : undefined}
+                  badgeColor="#EF4444"
+                  onPress={() => router.navigate('/hr/financial-requests' as any)}
+                />
+                <GridItem4
+                  icon="file-table-box-multiple-outline"
+                  title="Phiếu lương"
+                  color="#059669"
+                  bgColor="#ECFDF5"
+                  onPress={() => router.navigate('/hr/payslip' as any)}
+                />
+                <GridItem4
+                  icon="account-group-outline"
+                  title="Nhân sự"
+                  color="#0D9488"
+                  bgColor="#F0FDFA"
+                  onPress={() => router.push('/hr/employees' as any)}
+                />
+                <GridItem4
+                  icon="text-box-check-outline"
+                  title="Hợp đồng"
+                  color="#0D9488"
+                  bgColor="#F0FDFA"
+                  badge={dashboardData?.contracts?.expiringSoon > 0 ? String(dashboardData.contracts.expiringSoon) : undefined}
+                  onPress={() => router.navigate('/hr/contracts' as any)}
+                />
+                <GridItem4
+                  icon="folder-text-outline"
+                  title="Tài liệu"
+                  color="#0D9488"
+                  bgColor="#F0FDFA"
+                  onPress={() => router.push('/hr/documents' as any)}
+                />
+
+                {/* Nhóm 3: Công việc, Cấp bậc & Quỹ thưởng (Indigo sang trọng) */}
+                <GridItem4
+                  icon="clipboard-account-outline"
+                  title="Việc của tôi"
+                  color="#4F46E5"
+                  bgColor="#EEF2FF"
+                  badge={myTasksUncompletedCount > 0 ? `${myTasksUncompletedCount}` : undefined}
+                  badgeColor="#EF4444"
+                  onPress={() => router.push('/hr/my-tasks' as any)}
+                />
+                <GridItem4
+                  icon="format-list-checks"
+                  title="Giao việc"
+                  color="#4F46E5"
+                  bgColor="#EEF2FF"
+                  onPress={() => router.push('/hr/tasks' as any)}
+                />
+                <GridItem4
+                  icon="star-circle-outline"
+                  title="Cấp của bạn"
+                  color="#4F46E5"
+                  bgColor="#EEF2FF"
+                  onPress={() => router.push('/hr/leveling' as any)}
+                />
+                <GridItem4
+                  icon="gift-outline"
+                  title="Ví Thưởng"
+                  color="#4F46E5"
+                  bgColor="#EEF2FF"
+                  badge={isVaultEnabled ? 'VÍ' : undefined}
+                  badgeColor="#4F46E5"
+                  onPress={() => router.push('/hr/vault' as any)}
+                />
+
+                {/* Nhóm 4: Hỗ trợ & Trí tuệ nhân tạo (Executive Slate & Dark) */}
+                <GridItem4
+                  icon="robot-outline"
+                  title="Trợ lý AI"
+                  color="#FFFFFF"
+                  bgColor="#0F172A"
+                  badge="AI"
+                  badgeColor="#2563EB"
+                  onPress={() => router.push('/hr/ai-chat' as any)}
+                />
+                <GridItem4
+                  icon="laptop"
+                  title="Tài sản"
+                  color="#64748B"
+                  bgColor="#F8FAFC"
+                  onPress={() => router.navigate('/hr/assets' as any)}
+                />
+                <GridItem4
+                  icon="message-draw"
+                  title="Góp ý"
+                  color="#64748B"
+                  bgColor="#F8FAFC"
+                  onPress={() => router.navigate('/hr/feedbacks' as any)}
+                />
+              </>
+            )}
           </View>
         </View>
 
-        {/* Tổng quan công việc HR (Stats Section) */}
+        {/* Tổng quan công việc (Stats Section) */}
         <View style={[styles.section, styles.statsSection]}>
-          <Text style={styles.sectionTitle}>Tổng quan công việc HR</Text>
+          <Text style={styles.sectionTitle}>
+            {isOnlyAccountant ? 'Tổng quan Kế toán & Tài chính' : 'Tổng quan công việc HR'}
+          </Text>
           <View style={styles.statsRow}>
-            <StatCard
-              title="Tổng nhân sự"
-              value={dashboardData?.employees?.active?.toString() || '0'}
-              color="#111827"
-            />
-            <StatCard
-              title="Đi làm hôm nay"
-              value={dashboardData?.attendanceToday?.checkedIn?.toString() || '0'}
-              color="#10B981"
-            />
-            <StatCard
-              title="Đơn chờ duyệt"
-              value={dashboardData?.leave?.pending?.toString() || '0'}
-              color="#F59E0B"
-            />
-            <StatCard
-              title="HĐ sắp hết"
-              value={dashboardData?.contracts?.expiringSoon?.toString() || '0'}
-              color="#EF4444"
-            />
+            {isOnlyAccountant ? (
+              <>
+                <StatCard
+                  title="Đơn TC chờ duyệt"
+                  value={pendingFinancialCount.toString()}
+                  color="#059669"
+                />
+                <StatCard
+                  title="Tổng nhân sự"
+                  value={dashboardData?.employees?.active?.toString() || '0'}
+                  color="#111827"
+                />
+                <StatCard
+                  title="Đi làm hôm nay"
+                  value={dashboardData?.attendanceToday?.checkedIn?.toString() || '0'}
+                  color="#10B981"
+                />
+                <StatCard
+                  title="HĐ sắp hết"
+                  value={dashboardData?.contracts?.expiringSoon?.toString() || '0'}
+                  color="#EF4444"
+                />
+              </>
+            ) : (
+              <>
+                <StatCard
+                  title="Tổng nhân sự"
+                  value={dashboardData?.employees?.active?.toString() || '0'}
+                  color="#111827"
+                />
+                <StatCard
+                  title="Đi làm hôm nay"
+                  value={dashboardData?.attendanceToday?.checkedIn?.toString() || '0'}
+                  color="#10B981"
+                />
+                <StatCard
+                  title="Đơn chờ duyệt"
+                  value={dashboardData?.leave?.pending?.toString() || '0'}
+                  color="#F59E0B"
+                />
+                <StatCard
+                  title="HĐ sắp hết"
+                  value={dashboardData?.contracts?.expiringSoon?.toString() || '0'}
+                  color="#EF4444"
+                />
+              </>
+            )}
           </View>
         </View>
 

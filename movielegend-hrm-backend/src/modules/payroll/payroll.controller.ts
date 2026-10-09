@@ -4,7 +4,17 @@ import { AnyPermissions } from '../../common/decorators/any-permissions.decorato
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { CreatePayrollPeriodDto, ImportPayrollDto, MyPayslipQueryDto, CompanyPayslipsQueryDto, UploadPayslipImageDto } from './dto/payroll.dto';
+import {
+  CreatePayrollPeriodDto,
+  ImportPayrollDto,
+  MyPayslipQueryDto,
+  CompanyPayslipsQueryDto,
+  UploadPayslipImageDto,
+  UploadDepartmentPayslipBatchDto,
+  AssignDepartmentPayslipImageDto,
+  UnassignDepartmentPayslipImageDto,
+  GetDepartmentBatchQueryDto,
+} from './dto/payroll.dto';
 import { PayrollService } from './payroll.service';
 
 @ApiTags('Payroll Periods')
@@ -139,6 +149,73 @@ export class PayrollsController {
   )
   uploadPayslipImage(@Body() dto: UploadPayslipImageDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.payroll.uploadOfficialImage(actor, dto);
+  }
+
+  @Post('department-batch/upload')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.review',
+    'payroll.approve',
+    'payroll.manage',
+    'payroll.read_all',
+    'payroll.read',
+    'salary_profile.read',
+    'salary_component.read',
+    'report.payroll.summary',
+    'dashboard.department.read',
+    'dashboard.admin.read',
+  )
+  uploadDepartmentBatch(@Body() dto: UploadDepartmentPayslipBatchDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payroll.uploadDepartmentPayslipBatch(actor, dto);
+  }
+
+  @Get('department-batch')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.review',
+    'payroll.approve',
+    'payroll.manage',
+    'payroll.read_all',
+    'payroll.read',
+    'payroll.read_own',
+    'salary_profile.read',
+    'dashboard.department.read',
+    'dashboard.admin.read',
+  )
+  getDepartmentBatch(@Query() query: GetDepartmentBatchQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payroll.getDepartmentPayslipBatch(actor, query);
+  }
+
+  @Post('department-batch/assign')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.review',
+    'payroll.approve',
+    'payroll.manage',
+    'payroll.read_all',
+    'payroll.read',
+    'salary_profile.read',
+    'dashboard.department.read',
+    'dashboard.admin.read',
+  )
+  assignDepartmentImage(@Body() dto: AssignDepartmentPayslipImageDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payroll.assignDepartmentPayslipImage(actor, dto);
+  }
+
+  @Post('department-batch/unassign')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.review',
+    'payroll.approve',
+    'payroll.manage',
+    'payroll.read_all',
+    'payroll.read',
+    'salary_profile.read',
+    'dashboard.department.read',
+    'dashboard.admin.read',
+  )
+  unassignDepartmentImage(@Body() dto: UnassignDepartmentPayslipImageDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payroll.unassignDepartmentPayslipImage(actor, dto);
   }
 
   @Post('my/:id/acknowledge')

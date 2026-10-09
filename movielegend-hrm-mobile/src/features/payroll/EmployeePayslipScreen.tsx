@@ -28,6 +28,8 @@ import { getDepartments } from '../../api/departments.api';
 import type { Department } from '../../types/department.types';
 import { uploadFile } from '../../api/uploads.api';
 import { CustomAlert } from '../../components/CustomAlert';
+import { DepartmentBatchUploadModal } from './components/DepartmentBatchUploadModal';
+import { DepartmentLabelingModal } from './components/DepartmentLabelingModal';
 
 export function EmployeePayslipScreen() {
   const insets = useSafeAreaInsets();
@@ -47,22 +49,25 @@ export function EmployeePayslipScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAcknowledging, setIsAcknowledging] = useState(false);
-  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
+  const [isBatchUploadModalOpen, setIsBatchUploadModalOpen] = useState(false);
+  const [isLabelingModalOpen, setIsLabelingModalOpen] = useState(false);
+  const [labelingDeptId, setLabelingDeptId] = useState<string | undefined>(undefined);
 
-  const deptName = (user?.department?.name || user?.departmentLinks?.[0]?.department?.name || '').toLowerCase();
+  const deptName = (user?.department?.name || (user as any)?.departmentLinks?.[0]?.department?.name || '').toLowerCase();
   const isAdmin = Boolean(
     user?.roles?.some((r) => String(r).toUpperCase().includes('ADMIN')) ||
-    user?.role?.code === 'ADMIN'
+    (user as any)?.role?.code === 'ADMIN'
   );
   const isLeader = Boolean(
     user?.roles?.some((r) => String(r).toUpperCase().includes('LEADER')) ||
-    user?.role?.code === 'LEADER'
+    (user as any)?.role?.code === 'LEADER'
   );
   const isAccountantRole = Boolean(
     user?.roles?.some((r) => String(r).toUpperCase().includes('ACCOUNTANT')) ||
-    user?.role?.code === 'ACCOUNTANT'
+    (user as any)?.role?.code === 'ACCOUNTANT'
   );
 
   // Leader phòng Kế toán / Tài chính
@@ -331,12 +336,40 @@ export function EmployeePayslipScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" backgroundColor="#fff" />
+      <StatusBar style="dark" />
 
       {/* Top Bar */}
       <View style={[styles.topBarWrapper, { paddingTop: insets.top }]}>
         <View style={styles.topBar}>
           <Text style={styles.topTitle}>Phiếu Lương</Text>
+          <View style={styles.topBarActions}>
+            {/* Nút cho Kế toán: Tải lô ảnh */}
+            {canViewCompany && (
+              <Pressable
+                style={styles.batchUploadTopBtn}
+                onPress={() => setIsBatchUploadModalOpen(true)}
+                hitSlop={6}
+              >
+                <MaterialCommunityIcons name="folder-upload" size={15} color="#059669" />
+                <Text style={styles.batchUploadTopBtnText}>Tải lô ảnh</Text>
+              </Pressable>
+            )}
+
+            {/* Nút Gán nhãn cho Leader phòng ban hoặc Kế toán */}
+            {(isLeader || canViewCompany) && (
+              <Pressable
+                style={styles.labelingTopBtn}
+                onPress={() => {
+                  setLabelingDeptId(selectedDepartmentId !== 'ALL' ? selectedDepartmentId : undefined);
+                  setIsLabelingModalOpen(true);
+                }}
+                hitSlop={6}
+              >
+                <MaterialCommunityIcons name="label-multiple" size={15} color="#FFFFFF" />
+                <Text style={styles.labelingTopBtnText}>Gán nhãn phòng</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
 
         {/* Role Accountant Tabs */}
@@ -663,6 +696,30 @@ export function EmployeePayslipScreen() {
           onRequestClose={() => setIsImageViewerVisible(false)}
         />
       ) : null}
+
+      {/* Department Batch Upload Modal (Kế toán tải lô ảnh) */}
+      <DepartmentBatchUploadModal
+        visible={isBatchUploadModalOpen}
+        onClose={() => setIsBatchUploadModalOpen(false)}
+        month={selectedMonth}
+        year={selectedYear}
+        departments={departments}
+        onSuccess={() => {
+          fetchPayslip();
+        }}
+      />
+
+      {/* Department Labeling Modal (Leader gán nhãn cho nhân sự) */}
+      <DepartmentLabelingModal
+        visible={isLabelingModalOpen}
+        onClose={() => setIsLabelingModalOpen(false)}
+        month={selectedMonth}
+        year={selectedYear}
+        departmentId={labelingDeptId || (selectedDepartmentId !== 'ALL' ? selectedDepartmentId : undefined)}
+        onAssigned={() => {
+          fetchPayslip();
+        }}
+      />
     </View>
   );
 }
@@ -690,6 +747,41 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  batchUploadTopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  batchUploadTopBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  labelingTopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#059669',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  labelingTopBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   tabContainer: {
     paddingHorizontal: 16,

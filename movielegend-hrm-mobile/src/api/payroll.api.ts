@@ -163,3 +163,87 @@ export async function getCompanyMonthlyPayslips(params?: {
   });
   return unwrapData(response);
 }
+
+export interface DepartmentBatchImage {
+  id: string;
+  imageUrl: string;
+  assignedUserId?: string | null;
+  assignedUserName?: string | null;
+  labeledById?: string | null;
+  labeledAt?: string | null;
+}
+
+export interface DepartmentBatchEmployee {
+  userId: string;
+  userCode: string;
+  fullName: string;
+  avatarUrl?: string | null;
+  positionName: string;
+  hasPayslip: boolean;
+  assignedImageId?: string | null;
+  assignedImageUrl?: string | null;
+}
+
+export interface DepartmentPayslipBatchResponse {
+  departmentId: string;
+  departmentName: string;
+  month: number;
+  year: number;
+  totalImages: number;
+  unassignedImages: DepartmentBatchImage[];
+  assignedImages: DepartmentBatchImage[];
+  employees: DepartmentBatchEmployee[];
+}
+
+export async function uploadDepartmentPayslipBatch(payload: {
+  departmentId: string;
+  month: number;
+  year: number;
+  imageUrls: string[];
+  note?: string;
+}): Promise<{ success: boolean; message: string; totalImages: number; unassignedCount: number }> {
+  const response = await apiClient.post<ApiResponse<{ success: boolean; message: string; totalImages: number; unassignedCount: number }>>(
+    '/payrolls/department-batch/upload',
+    payload
+  );
+  return unwrapData(response);
+}
+
+export async function getDepartmentPayslipBatch(params: {
+  departmentId?: string;
+  month?: number;
+  year?: number;
+}): Promise<DepartmentPayslipBatchResponse> {
+  const response = await apiClient.get<ApiResponse<DepartmentPayslipBatchResponse>>('/payrolls/department-batch', {
+    params,
+  });
+  return unwrapData(response);
+}
+
+export async function assignDepartmentPayslipImage(payload: {
+  departmentId: string;
+  month: number;
+  year: number;
+  imageId: string;
+  targetUserId: string;
+}): Promise<{ success: boolean; message: string; assignedUserId: string; assignedImageUrl: string }> {
+  const response = await apiClient.post<ApiResponse<{ success: boolean; message: string; assignedUserId: string; assignedImageUrl: string }>>(
+    '/payrolls/department-batch/assign',
+    payload
+  );
+  return unwrapData(response);
+}
+
+export async function unassignDepartmentPayslipImage(payload: {
+  departmentId: string;
+  month: number;
+  year: number;
+  imageId: string;
+}): Promise<{ success: boolean; message: string; unassignedImageId: string; previousUserId?: string | null }> {
+  const response = await apiClient.post<ApiResponse<{ success: boolean; message: string; unassignedImageId: string; previousUserId?: string | null }>>(
+    '/payrolls/department-batch/unassign',
+    payload
+  );
+  return unwrapData(response);
+}
+

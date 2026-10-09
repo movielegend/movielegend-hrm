@@ -991,7 +991,7 @@ export function LeaderApprovalScreen() {
             ) : null}
 
             {/* Button Row */}
-            {isNonVatOver2M && (stage === 'PENDING_LEADER' || stage === 'PENDING_ACCOUNTANT') ? (
+            {isNonVatOver2M && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') ? (
               <View style={{ gap: 8 }}>
                 <View style={styles.actionButtonsRow}>
                   <Pressable 
