@@ -95,18 +95,17 @@ export class AttendanceService {
     let latePenaltyWorkDays: number | null = null;
     let assignment: any = null;
 
-    if (isLiveDepartment) {
-      // ĐẶC THÙ PHÒNG LIVE:
-      // 1. Kiểm tra xem có lượt nào đang mở (chưa checkout) không
-      const openRecord = await this.prisma.attendanceRecord.findFirst({
-        where: { userId: actor.userId, checkOutAt: null },
-        orderBy: { checkInAt: 'desc' }
-      });
-      if (openRecord) {
-        throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một lượt làm việc chưa check-out. Vui lòng check-out lượt trước rồi mới được check-in lượt mới!');
-      }
+    // 1. Kiểm tra xem có ca/lượt nào đang mở (chưa checkout) không (áp dụng cho TẤT CẢ các phòng ban và loại ca)
+    const openRecord = await this.prisma.attendanceRecord.findFirst({
+      where: { userId: actor.userId, checkOutAt: null },
+      orderBy: { checkInAt: 'desc' }
+    });
+    if (openRecord) {
+      throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước rồi mới được check-in ca mới!');
+    }
 
-      // 2. Phòng Live check-in tự do nhiều lượt, không áp dụng phạt đi muộn
+    if (isLiveDepartment) {
+      // ĐẶC THÙ PHÒNG LIVE: check-in tự do nhiều lượt, không áp dụng phạt đi muộn
       assignment = null;
       isUnplannedOt = false;
       lateMinutes = 0;
@@ -133,7 +132,7 @@ export class AttendanceService {
         });
 
         if (existing) {
-          if (existing.status === AttendanceStatus.CHECKED_IN) {
+          if (existing.status === AttendanceStatus.CHECKED_IN || !existing.checkOutAt) {
             throw conflict('ALREADY_CHECKED_IN', 'Bạn đang trong một ca chưa check-out');
           } else {
             // Da hoan thanh ca nay, day la OT
@@ -247,6 +246,15 @@ export class AttendanceService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Atomic concurrency lock check: Đảm bảo không có request nào vừa tạo bản ghi mở song song
+      const concurrentOpen = await tx.attendanceRecord.findFirst({
+        where: { userId: actor.userId, checkOutAt: null },
+        orderBy: { checkInAt: 'desc' },
+      });
+      if (concurrentOpen) {
+        throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước rồi mới được check-in ca mới!');
+      }
+
       if (photo) {
         const attached = await tx.uploadedFile.updateMany({
           where: {
@@ -318,13 +326,24 @@ export class AttendanceService {
   }
 
   async checkOut(dto: CheckOutDto, actor: AuthenticatedUser, ip: string) {
+    // 1. Tìm bản ghi check-in ĐANG MỞ (chưa checkout)
     const record = await this.prisma.attendanceRecord.findFirst({
-      where: { userId: actor.userId },
+      where: { userId: actor.userId, checkOutAt: null },
       include: { shiftAssignment: { include: { shift: true } } },
       orderBy: { checkInAt: 'desc' },
     });
-    if (!record) throw badRequest('NOT_CHECKED_IN', 'Chưa có bản ghi check-in đang mở');
-    if (record.checkOutAt) throw conflict('ALREADY_CHECKED_OUT', 'Bảng công đã checkout');
+
+    if (!record) {
+      // Nếu không có bản ghi nào đang mở, kiểm tra xem có bản ghi đã checkout gần đây để báo lỗi chính xác
+      const latestRecord = await this.prisma.attendanceRecord.findFirst({
+        where: { userId: actor.userId },
+        orderBy: { checkInAt: 'desc' },
+      });
+      if (latestRecord && latestRecord.checkOutAt) {
+        throw conflict('ALREADY_CHECKED_OUT', 'Bảng công đã checkout. Không có ca làm việc nào đang mở.');
+      }
+      throw badRequest('NOT_CHECKED_IN', 'Chưa có bản ghi check-in đang mở');
+    }
 
     const now = new Date();
 
@@ -377,6 +396,23 @@ export class AttendanceService {
         },
       });
       if (updated.count === 0) throw conflict('ALREADY_CHECKED_OUT', 'Bảng công đã checkout');
+
+      // Tự động dọn dẹp / đóng các bản ghi trùng bị kẹt trước đó (nếu có do race condition cũ)
+      await tx.attendanceRecord.updateMany({
+        where: {
+          userId: actor.userId,
+          checkOutAt: null,
+          id: { not: record.id },
+        },
+        data: {
+          checkOutAt: now,
+          checkOutLatitude: dto.latitude,
+          checkOutLongitude: dto.longitude,
+          checkOutPhotoFileId: photo?.id,
+          checkOutIp: ip,
+          status: AttendanceStatus.CHECKED_OUT,
+        },
+      });
 
       await tx.attendanceVerification.createMany({
         data: [
