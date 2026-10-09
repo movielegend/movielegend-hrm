@@ -70,15 +70,31 @@ export class DepartmentScopeService {
     return Array.from(new Set([...ledFromScopes, ...ledFromDbIds]));
   }
 
+  /** Returns true if the actor has any accounting or finance role. */
+  isAccountant(actor: AuthenticatedUser): boolean {
+    return (
+      actor.roles.some(
+        (r) =>
+          r === 'ACCOUNTANT' ||
+          r === 'ACCOUNTANT_LEAD' ||
+          r === 'ACCOUNTANT_PAYROLL' ||
+          r.startsWith('ACCOUNTANT') ||
+          r.includes('ACCOUNTANT') ||
+          r.includes('FINANCE') ||
+          r.includes('CFO'),
+      ) || false
+    );
+  }
+
   /**
-   * Sync check — ONLY returns true for Global Admin, or non-region-restricted HR,
+   * Sync check — ONLY returns true for Global Admin, or non-region-restricted HR / Accountant,
    * or LEADER of that department.
    * Regional actors (Admin Miền, HR Miền) must use `canAccessDepartmentAsync()`.
    */
   canAccessDepartment(actor: AuthenticatedUser, departmentId: string): boolean {
     if (this.isGlobalAdmin(actor)) return true;
     if (this.getRegionScope(actor)) return false; // Regional actors must use async version
-    if (actor.roles.includes('HR')) return true;
+    if (actor.roles.includes('HR') || this.isAccountant(actor)) return true;
     return actor.scopes.some(
       (scope) =>
         scope.role === 'LEADER' &&
@@ -93,7 +109,7 @@ export class DepartmentScopeService {
   visibleDepartmentIds(actor: AuthenticatedUser): string[] | null {
     if (this.isGlobalAdmin(actor)) return null;
     if (this.isRegionAdmin(actor) || this.getRegionScope(actor)) return [];
-    if (actor.roles.includes('HR')) return null;
+    if (actor.roles.includes('HR') || this.isAccountant(actor)) return null;
     return actor.scopes
       .filter((scope) => scope.role === 'LEADER' && scope.scopeType === RoleScopeType.DEPARTMENT && scope.scopeId)
       .map((scope) => scope.scopeId as string);
@@ -101,13 +117,31 @@ export class DepartmentScopeService {
 
   /**
    * Async version — correctly returns scoped department IDs:
-   * - Global Admin or Global HR (no region): null (unrestricted nationwide access)
-   * - Region Admin or Regional HR (Miền Bắc / Miền Nam): array of department IDs in that region
+   * - Global Admin or Global HR/Accountant (no region): null (unrestricted nationwide access)
+   * - Region Admin or Regional HR/Accountant (Miền Bắc / Miền Nam): array of department IDs in that region
    * - Leader: ONLY array of led department IDs (never broad region or company)
    * - Employee: ONLY their primary department ID
    */
   async getVisibleDepartmentIds(actor: AuthenticatedUser): Promise<string[] | null> {
     if (this.isGlobalAdmin(actor)) return null;
+
+    // Accountant scope handling:
+    // Accountants with explicit region scope -> visible departments in that region.
+    // Accountants with global scope or no region scope -> visible to all departments (null).
+    if (this.isAccountant(actor)) {
+      const explicitRegion = this.getRegionScope(actor);
+      if (explicitRegion) {
+        const departments = await this.prisma.department.findMany({
+          where: {
+            deletedAt: null,
+            branch: { regionId: explicitRegion, deletedAt: null },
+          },
+          select: { id: true },
+        });
+        return departments.map((d) => d.id);
+      }
+      return null;
+    }
 
     const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
 
