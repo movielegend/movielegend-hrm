@@ -3,21 +3,23 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View} from 'react-native';
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import ImageViewing from 'react-native-image-viewing';
 import { useAuth } from '../../providers/AuthProvider';
 import {
-  acknowledgePayslip,
   getMyPayslip,
   getCompanyMonthlyPayslips,
   MonthlyPayslipData,
@@ -29,7 +31,23 @@ import type { Department } from '../../types/department.types';
 import { uploadFile } from '../../api/uploads.api';
 import { CustomAlert } from '../../components/CustomAlert';
 
+function formatVnd(val?: number | null): string {
+  if (val === undefined || val === null || isNaN(val)) return '0 đ';
+  return `${val.toLocaleString('vi-VN')} đ`;
+}
+
+function getInitials(name?: string): string {
+  if (!name) return 'NV';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'NV';
+  const first = parts[0] || '';
+  const last = parts[parts.length - 1] || '';
+  if (parts.length === 1) return first.substring(0, 2).toUpperCase() || 'NV';
+  return ((first[0] || '') + (last[0] || '')).toUpperCase() || 'NV';
+}
+
 export function EmployeePayslipScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
@@ -43,35 +61,39 @@ export function EmployeePayslipScreen() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDeptModalVisible, setIsDeptModalVisible] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isAcknowledging, setIsAcknowledging] = useState(false);
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
 
-  const deptName = (user?.department?.name || user?.departmentLinks?.[0]?.department?.name || '').toLowerCase();
+  const deptName = (
+    user?.department?.name ||
+    (user as any)?.departmentLinks?.[0]?.department?.name ||
+    ''
+  ).toLowerCase();
   const isAdmin = Boolean(
     user?.roles?.some((r) => String(r).toUpperCase().includes('ADMIN')) ||
-    user?.role?.code === 'ADMIN'
+      (user as any)?.role?.code === 'ADMIN'
   );
   const isLeader = Boolean(
     user?.roles?.some((r) => String(r).toUpperCase().includes('LEADER')) ||
-    user?.role?.code === 'LEADER'
+      (user as any)?.role?.code === 'LEADER'
   );
   const isAccountantRole = Boolean(
     user?.roles?.some((r) => String(r).toUpperCase().includes('ACCOUNTANT')) ||
-    user?.role?.code === 'ACCOUNTANT'
+      (user as any)?.role?.code === 'ACCOUNTANT'
   );
 
-  // Leader phòng Kế toán / Tài chính
-  const isLeaderAccountant = isLeader && (deptName.includes('kế toán') || deptName.includes('tài chính') || deptName.includes('accountant'));
+  const isLeaderAccountant =
+    isLeader &&
+    (deptName.includes('kế toán') ||
+      deptName.includes('tài chính') ||
+      deptName.includes('accountant'));
 
-  // Quyền xem tab Toàn công ty / Miền: Admin, Accountant hoặc Leader Kế toán
   const canViewCompany = isAdmin || isAccountantRole || isLeaderAccountant;
-
-  // Quyền tải ảnh / đổi ảnh phiếu lương: CHỈ LEADER KẾ TOÁN (Admin chỉ xem)
   const canUploadPayslip = isLeaderAccountant;
 
   useEffect(() => {
@@ -136,7 +158,11 @@ export function EmployeePayslipScreen() {
     setIsImageViewerVisible(true);
   };
 
-  const doUploadPayslipImage = async (uri: string, targetUserId?: string, targetUserName?: string) => {
+  const doUploadPayslipImage = async (
+    uri: string,
+    targetUserId?: string,
+    targetUserName?: string
+  ) => {
     try {
       setUploadingUserId(targetUserId || 'MY');
       const uploaded = await uploadFile({
@@ -151,7 +177,10 @@ export function EmployeePayslipScreen() {
         year: selectedYear,
         imageUrl: uploaded.fileUrl || (uploaded as any).url,
       });
-      CustomAlert.alert('Thành công', `Đã lưu ảnh phiếu lương cho ${targetUserName || 'bạn'} thành công!`);
+      CustomAlert.alert(
+        'Thành công',
+        `Đã lưu ảnh phiếu lương cho ${targetUserName || 'bạn'} thành công!`
+      );
       fetchPayslip();
     } catch (err: any) {
       CustomAlert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh phiếu lương chốt');
@@ -163,448 +192,282 @@ export function EmployeePayslipScreen() {
   const handleUploadUserPayslipImage = (targetUserId?: string, targetUserName?: string) => {
     const isPersonal = !targetUserId || targetUserId === user?.id;
     const title = isPersonal ? 'Phiếu lương của bạn' : `Phiếu lương: ${targetUserName || 'Nhân sự'}`;
-    CustomAlert.alert(
-      title,
-      'Chọn phương thức tải ảnh chốt phiếu lương từ Leader Kế toán:',
-      [
-        {
-          text: 'Chụp ảnh mới',
-          onPress: async () => {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (!perm.granted) {
-              CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              quality: 0.85,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              await doUploadPayslipImage(result.assets[0].uri, targetUserId, targetUserName);
-            }
-          },
+    CustomAlert.alert(title, 'Chọn phương thức tải ảnh chốt phiếu lương từ Leader Kế toán:', [
+      {
+        text: 'Chụp ảnh mới',
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.85,
+          });
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            await doUploadPayslipImage(result.assets[0].uri, targetUserId, targetUserName);
+          }
         },
-        {
-          text: 'Chọn từ thư viện',
-          onPress: async () => {
-            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!perm.granted) {
-              CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
-              return;
-            }
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              quality: 0.85,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              await doUploadPayslipImage(result.assets[0].uri, targetUserId, targetUserName);
-            }
-          },
+      },
+      {
+        text: 'Chọn từ thư viện',
+        onPress: async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!perm.granted) {
+            CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.85,
+          });
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            await doUploadPayslipImage(result.assets[0].uri, targetUserId, targetUserName);
+          }
         },
-        { text: 'Huỷ', style: 'cancel' },
-      ]
-    );
+      },
+      { text: 'Huỷ', style: 'cancel' },
+    ]);
   };
 
-  const handleAcknowledge = async () => {
-    if (!payslip?.id) return;
-    try {
-      setIsAcknowledging(true);
-      await acknowledgePayslip(payslip.id);
-      CustomAlert.alert('Thành công', 'Bạn đã xác nhận phiếu lương thành công!');
-      fetchPayslip();
-    } catch (err: any) {
-      CustomAlert.alert('Lỗi', err.message || 'Không thể xác nhận phiếu lương');
-    } finally {
-      setIsAcknowledging(false);
-    }
-  };
+  const selectedDeptLabel =
+    departments.find((d) => d.id === selectedDepartmentId)?.name || 'Tất cả phòng ban';
 
-  const formatCurrency = (val?: number) => {
-    return new Intl.NumberFormat('vi-VN').format(val || 0) + ' đ';
-  };
-
-  const renderCompanyPayslipItem = ({ item }: { item: CompanyPayslipEmployee }) => {
-    const isThisUploading = uploadingUserId === item.userId;
-    return (
-      <View style={styles.companyEmpCard}>
-        <View style={styles.empHeader}>
-          <View style={styles.empAvatarBg}>
-            <Text style={styles.empAvatarText}>{item.fullName.charAt(0)}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.empName}>{item.fullName}</Text>
-            <Text style={styles.empDept}>{item.userCode} • {item.departmentName}</Text>
-          </View>
-          <View style={[styles.empImageBadge, item.employeeAcknowledgedAt ? styles.empBadgeAck : item.finalOfficialImageUrl ? styles.empImageBadgeDone : styles.empImageBadgePending]}>
-            <Text style={[styles.empImageBadgeText, item.employeeAcknowledgedAt ? styles.empBadgeAckText : item.finalOfficialImageUrl ? styles.empImageBadgeTextDone : styles.empImageBadgeTextPending]}>
-              {item.employeeAcknowledgedAt ? 'Đã xác nhận' : item.finalOfficialImageUrl ? 'Đã có ảnh' : 'Chưa có ảnh'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.empMetricsGrid}>
-          <View style={styles.empMetricItem}>
-            <Text style={styles.empMetricLabel}>Thực lĩnh</Text>
-            <Text style={[styles.empMetricVal, { color: '#059669', fontSize: 13 }]}>
-              {item.hasData ? formatCurrency(item.netSalary) : 'Chưa tính'}
-            </Text>
-          </View>
-          <View style={styles.empMetricItem}>
-            <Text style={styles.empMetricLabel}>Ngày công</Text>
-            <Text style={styles.empMetricVal}>{item.actualWorkingDays}/{item.standardWorkingDays}</Text>
-          </View>
-          <View style={styles.empMetricItem}>
-            <Text style={styles.empMetricLabel}>Chức vụ</Text>
-            <Text style={styles.empMetricVal} numberOfLines={1}>{item.positionName}</Text>
-          </View>
-        </View>
-
-        {/* Action Upload / View Individual Payslip Image */}
-        <View style={styles.empImageActionRow}>
-          {item.finalOfficialImageUrl ? (
-            <View style={styles.empUploadedImageRow}>
-              <Pressable
-                style={styles.empThumbPressable}
-                onPress={() => openViewer(item.finalOfficialImageUrl!)}
-              >
-                <Image
-                  source={{ uri: item.finalOfficialImageUrl }}
-                  style={styles.empThumbImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.empThumbOverlay}>
-                  <MaterialCommunityIcons name="magnify-plus" size={14} color="#fff" />
-                </View>
-              </Pressable>
-              <View style={{ flex: 1, gap: 6 }}>
-                <Pressable
-                  style={styles.empViewBtn}
-                  onPress={() => openViewer(item.finalOfficialImageUrl!)}
-                >
-                  <MaterialCommunityIcons name="eye-outline" size={16} color="#059669" />
-                  <Text style={styles.empViewBtnText}>Xem ảnh phiếu lương</Text>
-                </Pressable>
-                {canUploadPayslip && (
-                  <Pressable
-                    style={styles.empReuploadBtn}
-                    onPress={() => handleUploadUserPayslipImage(item.userId, item.fullName)}
-                    disabled={isThisUploading}
-                  >
-                    {isThisUploading ? (
-                      <ActivityIndicator size="small" color="#64748B" />
-                    ) : (
-                      <>
-                        <MaterialCommunityIcons name="camera-retake-outline" size={15} color="#475569" />
-                        <Text style={styles.empReuploadBtnText}>Đổi ảnh khác</Text>
-                      </>
-                    )}
-                  </Pressable>
-                )}
-              </View>
-            </View>
-          ) : canUploadPayslip ? (
-            <Pressable
-              style={styles.empUploadNewBtn}
-              onPress={() => handleUploadUserPayslipImage(item.userId, item.fullName)}
-              disabled={isThisUploading}
-            >
-              {isThisUploading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="camera-plus-outline" size={18} color="#fff" />
-                  <Text style={styles.empUploadNewBtnText}>Tải ảnh phiếu lương cho nhân sự này</Text>
-                </>
-              )}
-            </Pressable>
-          ) : (
-            <View style={styles.empNoImageNotice}>
-              <MaterialCommunityIcons name="image-off-outline" size={16} color="#94A3B8" />
-              <Text style={styles.empNoImageNoticeText}>Chưa có ảnh phiếu lương</Text>
-            </View>
-          )}
-        </View>
-      </View>
-    );
-  };
+  const netSalaryAmount = payslip?.netSalary ?? 0;
+  const isDataAvailable = netSalaryAmount > 0 || Boolean(payslip?.finalOfficialImageUrl);
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" backgroundColor="#fff" />
+      <StatusBar style="light" />
 
-      {/* Top Bar */}
-      <View style={[styles.topBarWrapper, { paddingTop: insets.top }]}>
-        <View style={styles.topBar}>
-          <Text style={styles.topTitle}>Phiếu Lương</Text>
+      {/* ── Top Header (#1B3B2B) ── */}
+      <View style={[styles.modernHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={styles.decorativeCurve} />
+
+        <View style={styles.modernHeaderTopRow}>
+          <Pressable
+            style={styles.headerBackBtn}
+            onPress={() => router.back()}
+            hitSlop={8}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.screenTitle}>Phiếu lương</Text>
         </View>
 
-        {/* Role Accountant Tabs */}
         {canViewCompany && (
-          <View style={styles.tabContainer}>
-            <View style={styles.segmentedControl}>
-              <Pressable
-                style={[styles.tabBtn, activeTab === 'MY' && styles.tabBtnActive]}
-                onPress={() => setActiveTab('MY')}
-              >
-                <MaterialCommunityIcons
-                  name="account-outline"
-                  size={17}
-                  color={activeTab === 'MY' ? '#059669' : '#64748B'}
-                />
-                <Text style={[styles.tabText, activeTab === 'MY' && styles.tabTextActive]}>Cá nhân</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.tabBtn, activeTab === 'COMPANY' && styles.tabBtnActive]}
-                onPress={() => setActiveTab('COMPANY')}
-              >
-                <MaterialCommunityIcons
-                  name="domain"
-                  size={17}
-                  color={activeTab === 'COMPANY' ? '#059669' : '#64748B'}
-                />
-                <Text style={[styles.tabText, activeTab === 'COMPANY' && styles.tabTextActive]}>
-                  Toàn công ty
-                </Text>
-              </Pressable>
-            </View>
+          <View style={styles.tabsBar}>
+            <Pressable
+              style={[styles.tabBtn, activeTab === 'MY' && styles.tabBtnActive]}
+              onPress={() => setActiveTab('MY')}
+            >
+              <Text style={[styles.tabBtnText, activeTab === 'MY' && styles.tabBtnTextActive]}>
+                Cá nhân
+              </Text>
+              {activeTab === 'MY' && <View style={styles.tabIndicator} />}
+            </Pressable>
+            <Pressable
+              style={[styles.tabBtn, activeTab === 'COMPANY' && styles.tabBtnActive]}
+              onPress={() => setActiveTab('COMPANY')}
+            >
+              <Text style={[styles.tabBtnText, activeTab === 'COMPANY' && styles.tabBtnTextActive]}>
+                Toàn công ty
+              </Text>
+              {activeTab === 'COMPANY' && <View style={styles.tabIndicator} />}
+            </Pressable>
           </View>
         )}
       </View>
 
-      {/* Month Selector Bar with previous/next buttons */}
+      {/* ── Month Selector Bar ── */}
       <View style={styles.monthSelectorBar}>
-        <Pressable onPress={() => changeMonth(-1)} style={styles.monthNavBtn}>
-          <MaterialCommunityIcons name="chevron-left" size={24} color="#374151" />
+        <Pressable onPress={() => changeMonth(-1)} style={styles.monthArrowBtn} hitSlop={8}>
+          <Ionicons name="chevron-back" size={18} color="#64748B" />
         </Pressable>
-        <View style={styles.monthDisplay}>
-          <Text style={styles.monthTitle}>Tháng {selectedMonth} / {selectedYear}</Text>
-        </View>
-        <Pressable onPress={() => changeMonth(1)} style={styles.monthNavBtn}>
-          <MaterialCommunityIcons name="chevron-right" size={24} color="#374151" />
+        <Text style={styles.monthSelectorTitle}>
+          Tháng {selectedMonth}, {selectedYear}
+        </Text>
+        <Pressable onPress={() => changeMonth(1)} style={styles.monthArrowBtn} hitSlop={8}>
+          <Ionicons name="chevron-forward" size={18} color="#64748B" />
         </Pressable>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#059669" />
-          <Text style={styles.loadingText}>Đang tải dữ liệu lương...</Text>
+          <ActivityIndicator size="large" color="#1B3B2B" />
+          <Text style={styles.loadingText}>Đang tải dữ liệu phiếu lương...</Text>
         </View>
       ) : activeTab === 'MY' ? (
+        /* ═════════════════════════════════════════════════════════════
+           TAB 03: LƯƠNG CÁ NHÂN
+        ═════════════════════════════════════════════════════════════ */
         <ScrollView
-          style={styles.scrollBody}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 16) + 40 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#1B3B2B"
+            />
+          }
           showsVerticalScrollIndicator={false}
         >
-          {/* Official Payslip Snapshot Card */}
-          <View style={styles.officialSnapshotCard}>
-            <View style={styles.officialCardHeader}>
-              <View style={styles.officialBadgeRow}>
-                <MaterialCommunityIcons name="shield-check" size={18} color="#059669" />
-                <Text style={styles.officialCardTitle}>Phiếu lương chốt chính thức (Kế toán)</Text>
-              </View>
+          {/* Card 1: Thực lĩnh */}
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryCardTag}>THỰC LĨNH</Text>
+            <Text style={styles.netSalaryText}>{formatVnd(netSalaryAmount)}</Text>
+
+            {/* Status dot */}
+            <View style={styles.statusRow}>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: isDataAvailable ? '#16A34A' : '#F59E0B' },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.statusText,
+                  { color: isDataAvailable ? '#16A34A' : '#D97706' },
+                ]}
+              >
+                {isDataAvailable ? 'Đã có dữ liệu chốt' : 'Chưa có dữ liệu'}
+              </Text>
             </View>
 
-            <View style={styles.officialCardBody}>
-              {payslip?.finalOfficialImageUrl ? (
-                <View style={styles.imagePreviewWrap}>
-                  <Pressable
-                    style={styles.imagePressable}
-                    onPress={() => openViewer(payslip.finalOfficialImageUrl!)}
-                  >
-                    <Image
-                      source={{ uri: payslip.finalOfficialImageUrl }}
-                      style={styles.snapshotImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.imageOverlayBadge}>
-                      <MaterialCommunityIcons name="magnify-plus-outline" size={16} color="#fff" />
-                      <Text style={styles.imageOverlayText}>Chạm để phóng to xem chi tiết</Text>
-                    </View>
-                  </Pressable>
-                  <Pressable
-                    style={styles.viewFullBtn}
-                    onPress={() => openViewer(payslip.finalOfficialImageUrl!)}
-                  >
-                    <MaterialCommunityIcons name="fullscreen" size={18} color="#059669" />
-                    <Text style={styles.viewFullBtnText}>Xem toàn màn hình & Phóng to</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <View style={styles.noImageNotice}>
-                  <MaterialCommunityIcons name="image-off-outline" size={24} color="#94A3B8" />
-                  <Text style={styles.noImageText}>Chưa có ảnh chụp phiếu lương chốt từ Kế toán</Text>
-                </View>
-              )}
+            {/* Employee info line */}
+            <View style={styles.employeeMetaBox}>
+              <Text style={styles.empMainName}>
+                {user?.fullName || 'Admin Movie Legend'}
+              </Text>
+              <Text style={styles.empSubCode}>
+                {user?.userCode || 'NV000001'} • Ngày công{' '}
+                {payslip?.actualWorkingDays || 0}/
+                {payslip?.standardWorkingDays || 26}
+              </Text>
             </View>
           </View>
 
-          {/* Main Net Salary Hero Card */}
-          <View style={styles.heroCard}>
-            <View style={styles.heroTopRow}>
-              <Text style={styles.heroSub}>THỰC LĨNH (NET SALARY)</Text>
-              <View style={[styles.statusTag, payslip?.employeeAcknowledgedAt ? styles.statusTagAck : styles.statusTagApproved]}>
-                <Text style={[styles.statusTagText, payslip?.employeeAcknowledgedAt ? styles.statusTagTextAck : styles.statusTagTextApproved]}>
-                  {payslip?.employeeAcknowledgedAt ? 'Đã xác nhận' : payslip?.hasData ? 'Đã phát hành' : 'Chưa có dữ liệu'}
-                </Text>
-              </View>
+          {/* Card 2: Phiếu lương chính thức */}
+          <Pressable
+            style={styles.officialCard}
+            onPress={() => {
+              if (payslip?.finalOfficialImageUrl) {
+                openViewer(payslip.finalOfficialImageUrl);
+              } else if (canUploadPayslip) {
+                handleUploadUserPayslipImage();
+              }
+            }}
+          >
+            <View style={styles.officialIconBox}>
+              <MaterialCommunityIcons name="file-document-outline" size={22} color="#1B3B2B" />
+            </View>
+            <View style={styles.officialMetaCol}>
+              <Text style={styles.officialTitle}>Phiếu lương chính thức</Text>
+              <Text style={styles.officialSubtitle}>
+                {payslip?.finalOfficialImageUrl
+                  ? 'Đã có ảnh phiếu lương'
+                  : 'Chờ ảnh từ Kế toán'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          </Pressable>
+
+          {/* Section: Chi tiết thu nhập */}
+          <Text style={styles.sectionHeaderTitle}>Chi tiết thu nhập</Text>
+
+          <View style={styles.detailTableCard}>
+            {/* Group: Thu nhập */}
+            <Text style={styles.tableGroupTitle}>Thu nhập</Text>
+            <View style={styles.tableRow}>
+              <Text style={styles.tableRowLabel}>Lương cơ bản</Text>
+              <Text style={styles.tableRowVal}>{formatVnd(payslip?.baseSalary)}</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.tableRowLabel}>Lương theo ngày công</Text>
+              <Text style={styles.tableRowVal}>
+                {formatVnd(payslip?.actualSalary)}
+              </Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.tableRowLabel}>Phụ cấp</Text>
+              <Text style={styles.tableRowVal}>
+                {formatVnd(payslip?.allowanceAmount)}
+              </Text>
             </View>
 
-            <Text style={styles.heroNetAmount}>{formatCurrency(payslip?.netSalary)}</Text>
+            <View style={styles.tableDivider} />
 
-            <View style={styles.heroDivider} />
+            <View style={styles.tableTotalRow}>
+              <Text style={styles.tableTotalLabel}>Tổng thu nhập</Text>
+              <Text style={styles.tableTotalVal}>
+                {formatVnd(payslip?.grossSalary)}
+              </Text>
+            </View>
 
-            <View style={styles.heroEmpRow}>
+            {/* Group: Giảm trừ */}
+            <Text style={[styles.tableGroupTitle, { marginTop: 18 }]}>Giảm trừ</Text>
+            <View style={styles.tableRow}>
               <View>
-                <Text style={styles.heroEmpName}>{payslip?.employee.fullName || user?.fullName || '---'}</Text>
-                <Text style={styles.heroEmpCode}>
-                  {payslip?.employee.userCode || user?.userCode} • {payslip?.employee.departmentName || user?.department?.name}
-                </Text>
+                <Text style={styles.tableRowLabel}>Bảo hiểm</Text>
+                <Text style={styles.tableRowSubLabel}>BHXH, BHYT, BHTN</Text>
               </View>
-              <View style={styles.workDaysBadge}>
-                <Text style={styles.workDaysLabel}>Ngày công</Text>
-                <Text style={styles.workDaysVal}>
-                  {payslip?.actualWorkingDays || 0} / {payslip?.standardWorkingDays || 26}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Income Breakdown Card */}
-          <View style={styles.breakdownCard}>
-            <View style={styles.cardHeaderRow}>
-              <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#059669" />
-              <Text style={styles.cardSectionTitle}>Thu nhập (Earnings)</Text>
-            </View>
-
-            <View style={styles.itemRow}>
-              <Text style={styles.itemLabel}>Lương cơ bản</Text>
-              <Text style={styles.itemVal}>{formatCurrency(payslip?.baseSalary)}</Text>
-            </View>
-
-            <View style={styles.itemRow}>
-              <Text style={styles.itemLabel}>
-                Lương thực tế theo ngày công{'\n'}
-                <Text style={styles.itemLabelSub}>({payslip?.actualWorkingDays || 0}/{payslip?.standardWorkingDays || 26} ngày)</Text>
+              <Text style={styles.tableRowVal}>
+                {formatVnd(payslip?.insuranceAmount)}
               </Text>
-              <Text style={styles.itemVal}>{formatCurrency(payslip?.actualSalary)}</Text>
+            </View>
+            <View style={styles.tableRow}>
+              <Text style={styles.tableRowLabel}>Thuế TNCN</Text>
+              <Text style={styles.tableRowVal}>{formatVnd(payslip?.taxAmount)}</Text>
             </View>
 
-            {(payslip?.overtimeAmount || 0) > 0 && (
-              <View style={styles.itemRow}>
-                <Text style={styles.itemLabel}>
-                  Tiền làm thêm giờ (OT){'\n'}
-                  <Text style={styles.itemLabelSub}>({payslip?.overtimeHours || 0} giờ)</Text>
-                </Text>
-                <Text style={styles.itemValGreen}>+{formatCurrency(payslip?.overtimeAmount)}</Text>
-              </View>
-            )}
+            <View style={styles.tableDivider} />
 
-            {(payslip?.allowanceAmount || 0) > 0 && (
-              <View style={styles.itemRow}>
-                <Text style={styles.itemLabel}>Phụ cấp</Text>
-                <Text style={styles.itemValGreen}>+{formatCurrency(payslip?.allowanceAmount)}</Text>
-              </View>
-            )}
-
-            {(payslip?.bonusAmount || 0) > 0 && (
-              <View style={styles.itemRow}>
-                <Text style={styles.itemLabel}>Thưởng hiệu quả / Dự án</Text>
-                <Text style={styles.itemValGreen}>+{formatCurrency(payslip?.bonusAmount)}</Text>
-              </View>
-            )}
-
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Tổng thu nhập (Gross)</Text>
-              <Text style={styles.totalValGreen}>{formatCurrency(payslip?.grossSalary)}</Text>
-            </View>
-          </View>
-
-          {/* Deductions Breakdown Card */}
-          <View style={styles.breakdownCard}>
-            <View style={styles.cardHeaderRow}>
-              <MaterialCommunityIcons name="minus-circle-outline" size={20} color="#DC2626" />
-              <Text style={styles.cardSectionTitle}>Các khoản giảm trừ (Deductions)</Text>
-            </View>
-
-            <View style={styles.itemRow}>
-              <Text style={styles.itemLabel}>Bảo hiểm (BHXH, BHYT, BHTN)</Text>
-              <Text style={styles.itemValRed}>-{formatCurrency(payslip?.insuranceAmount)}</Text>
-            </View>
-
-            <View style={styles.itemRow}>
-              <Text style={styles.itemLabel}>Thuế TNCN</Text>
-              <Text style={styles.itemValRed}>-{formatCurrency(payslip?.taxAmount)}</Text>
-            </View>
-
-            {(payslip?.latePenaltyAmount || 0) > 0 && (
-              <View style={styles.itemRow}>
-                <Text style={styles.itemLabel}>Khấu trừ đi muộn / vi phạm</Text>
-                <Text style={styles.itemValRed}>-{formatCurrency(payslip?.latePenaltyAmount)}</Text>
-              </View>
-            )}
-
-            {(payslip?.deductionAmount || 0) > 0 && (
-              <View style={styles.itemRow}>
-                <Text style={styles.itemLabel}>Các khoản giảm trừ khác</Text>
-                <Text style={styles.itemValRed}>-{formatCurrency(payslip?.deductionAmount)}</Text>
-              </View>
-            )}
-
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Tổng các khoản khấu trừ</Text>
-              <Text style={styles.totalValRed}>
-                -{formatCurrency((payslip?.insuranceAmount || 0) + (payslip?.taxAmount || 0) + (payslip?.deductionAmount || 0))}
+            <View style={styles.tableTotalRow}>
+              <Text style={styles.tableTotalLabel}>Tổng khấu trừ</Text>
+              <Text style={styles.tableTotalVal}>
+                {formatVnd(payslip?.deductionAmount)}
               </Text>
             </View>
           </View>
-
-          {/* Employee Acknowledgment Action */}
-          {payslip?.hasData && (
-            <View style={styles.actionCard}>
-              {payslip.employeeAcknowledgedAt ? (
-                <View style={styles.acknowledgedBox}>
-                  <MaterialCommunityIcons name="check-decagram" size={24} color="#059669" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.ackTitle}>Đã xác nhận nhận phiếu lương</Text>
-                    <Text style={styles.ackTime}>Thời gian: {new Date(payslip.employeeAcknowledgedAt).toLocaleDateString('vi-VN')}</Text>
-                  </View>
-                </View>
-              ) : (
-                <Pressable
-                  style={styles.ackBtn}
-                  onPress={handleAcknowledge}
-                  disabled={isAcknowledging}
-                >
-                  {isAcknowledging ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <MaterialCommunityIcons name="check-circle-outline" size={20} color="#fff" />
-                      <Text style={styles.ackBtnText}>Xác nhận đã nhận & đồng ý</Text>
-                    </>
-                  )}
-                </Pressable>
-              )}
-            </View>
-          )}
         </ScrollView>
       ) : (
+        /* ═════════════════════════════════════════════════════════════
+           TAB 04: LƯƠNG CÔNG TY
+        ═════════════════════════════════════════════════════════════ */
         <FlatList
           data={companyPayslips}
           keyExtractor={(item) => item.userId}
-          renderItem={renderCompanyPayslipItem}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 16) + 40 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#1B3B2B"
+            />
+          }
+          showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <View style={styles.companyFilterWrap}>
-              {/* Search Bar */}
-              <View style={styles.searchBarWrap}>
-                <MaterialCommunityIcons name="magnify" size={20} color="#64748B" />
+            <View style={styles.companyHeaderSection}>
+              {/* Search bar */}
+              <View style={styles.searchBar}>
+                <Ionicons
+                  name="search-outline"
+                  size={18}
+                  color="#94A3B8"
+                  style={{ marginRight: 8 }}
+                />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Tìm theo tên hoặc mã nhân viên..."
+                  placeholder="Tìm tên hoặc mã nhân viên"
                   placeholderTextColor="#94A3B8"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
@@ -612,49 +475,206 @@ export function EmployeePayslipScreen() {
                 />
                 {searchQuery.length > 0 && (
                   <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-                    <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                    <Ionicons name="close-circle" size={18} color="#94A3B8" />
                   </Pressable>
                 )}
               </View>
 
-              {/* Department Pills */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.deptFilterScroll}
+              {/* Department Dropdown Selector */}
+              <Pressable
+                style={styles.deptSelectorBox}
+                onPress={() => setIsDeptModalVisible(true)}
               >
-                <Pressable
-                  style={[styles.deptPill, selectedDepartmentId === 'ALL' && styles.deptPillActive]}
-                  onPress={() => setSelectedDepartmentId('ALL')}
-                >
-                  <Text style={[styles.deptPillText, selectedDepartmentId === 'ALL' && styles.deptPillTextActive]}>
-                    Tất cả PB
-                  </Text>
-                </Pressable>
-                {departments.map((d) => (
-                  <Pressable
-                    key={d.id}
-                    style={[styles.deptPill, selectedDepartmentId === d.id && styles.deptPillActive]}
-                    onPress={() => setSelectedDepartmentId(d.id)}
-                  >
-                    <Text style={[styles.deptPillText, selectedDepartmentId === d.id && styles.deptPillTextActive]}>
-                      {d.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+                <View style={styles.deptSelectorLeft}>
+                  <Ionicons
+                    name="options-outline"
+                    size={18}
+                    color="#0F172A"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.deptSelectorText}>{selectedDeptLabel}</Text>
+                </View>
+                <Ionicons name="chevron-down" size={16} color="#64748B" />
+              </Pressable>
+
+              {/* Location Tag */}
+              <View style={styles.locationTagRow}>
+                <Ionicons
+                  name="location-sharp"
+                  size={12}
+                  color="#64748B"
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.locationTagText}>
+                  MOVIELEGEND • {((user?.department as any)?.branch?.name || 'HÀ NỘI').toUpperCase()}
+                </Text>
+              </View>
+
+              {/* Section: Nhân sự */}
+              <Text style={styles.companySectionTitle}>Nhân sự</Text>
             </View>
           }
+          renderItem={({ item }) => {
+            const isThisUploading = uploadingUserId === item.userId;
+            const isComputed = item.netSalary !== null && item.netSalary !== undefined && item.netSalary > 0;
+
+            return (
+              <View style={styles.companyCard}>
+                <View style={styles.companyCardTop}>
+                  <View style={styles.companyAvatarBox}>
+                    <Text style={styles.companyAvatarText}>{getInitials(item.fullName)}</Text>
+                  </View>
+                  <View style={styles.companyMetaCol}>
+                    <Text style={styles.companyEmpName}>{item.fullName}</Text>
+                    <Text style={styles.companyEmpCode}>{item.userCode}</Text>
+                    <Text style={styles.companyEmpDept}>{item.departmentName}</Text>
+                  </View>
+                  <View style={styles.rolePill}>
+                    <Text style={styles.rolePillText}>Nhân viên</Text>
+                  </View>
+                </View>
+
+                {/* Salary & Days Row */}
+                <View style={styles.companySalaryGrid}>
+                  <View style={styles.salaryGridCol}>
+                    <Text style={styles.salaryGridLabel}>Thực lĩnh</Text>
+                    <Text
+                      style={[
+                        styles.salaryGridVal,
+                        isComputed ? styles.salaryGridValActive : styles.salaryGridValPending,
+                      ]}
+                    >
+                      {isComputed ? formatVnd(item.netSalary) : 'Chưa tính'}
+                    </Text>
+                  </View>
+                  <View style={[styles.salaryGridCol, { alignItems: 'flex-end' }]}>
+                    <Text style={styles.salaryGridLabel}>Ngày công</Text>
+                    <Text style={styles.daysGridVal}>
+                      {item.actualWorkingDays}/{item.standardWorkingDays}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Image status row */}
+                <View style={styles.companyImageRow}>
+                  {item.finalOfficialImageUrl ? (
+                    <Pressable
+                      style={styles.viewImagePressable}
+                      onPress={() => openViewer(item.finalOfficialImageUrl!)}
+                    >
+                      <MaterialCommunityIcons name="image-check-outline" size={17} color="#059669" />
+                      <Text style={styles.viewImageTextDone}>Xem ảnh phiếu lương</Text>
+                    </Pressable>
+                  ) : (
+                    <View style={styles.noImageInlineRow}>
+                      <MaterialCommunityIcons name="image-outline" size={17} color="#94A3B8" />
+                      <Text style={styles.noImageInlineText}>Chưa có ảnh phiếu lương</Text>
+                    </View>
+                  )}
+
+                  {canUploadPayslip && (
+                    <Pressable
+                      style={styles.uploadImageInlineBtn}
+                      onPress={() => handleUploadUserPayslipImage(item.userId, item.fullName)}
+                      disabled={isThisUploading}
+                    >
+                      {isThisUploading ? (
+                        <ActivityIndicator size="small" color="#1B3B2B" />
+                      ) : (
+                        <>
+                          <MaterialCommunityIcons name="camera-outline" size={15} color="#1B3B2B" />
+                          <Text style={styles.uploadImageInlineBtnText}>
+                            {item.finalOfficialImageUrl ? 'Đổi ảnh' : 'Tải ảnh'}
+                          </Text>
+                        </>
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+            );
+          }}
           ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <MaterialCommunityIcons name="account-group-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyText}>Không có dữ liệu phiếu lương nhân sự</Text>
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="cash-multiple" size={48} color="#CBD5E1" />
+              <Text style={styles.emptyTitleText}>Không có dữ liệu phiếu lương</Text>
+              <Text style={styles.emptySubtitleText}>Không tìm thấy nhân viên phù hợp</Text>
             </View>
           }
         />
       )}
 
-      {/* Fullscreen Zoomable ImageViewing */}
+      {/* ── Department Picker Modal ── */}
+      <Modal
+        visible={isDeptModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsDeptModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn phòng ban</Text>
+              <Pressable onPress={() => setIsDeptModalVisible(false)} hitSlop={8}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }}>
+              <Pressable
+                style={[
+                  styles.modalItemRow,
+                  selectedDepartmentId === 'ALL' && styles.modalItemRowActive,
+                ]}
+                onPress={() => {
+                  setSelectedDepartmentId('ALL');
+                  setIsDeptModalVisible(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.modalItemText,
+                    selectedDepartmentId === 'ALL' && styles.modalItemTextActive,
+                  ]}
+                >
+                  Tất cả phòng ban
+                </Text>
+                {selectedDepartmentId === 'ALL' && (
+                  <Ionicons name="checkmark" size={18} color="#1B3B2B" />
+                )}
+              </Pressable>
+
+              {departments.map((d) => (
+                <Pressable
+                  key={d.id}
+                  style={[
+                    styles.modalItemRow,
+                    selectedDepartmentId === d.id && styles.modalItemRowActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedDepartmentId(d.id);
+                    setIsDeptModalVisible(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      selectedDepartmentId === d.id && styles.modalItemTextActive,
+                    ]}
+                  >
+                    {d.name}
+                  </Text>
+                  {selectedDepartmentId === d.id && (
+                    <Ionicons name="checkmark" size={18} color="#1B3B2B" />
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Fullscreen Image Viewer ── */}
       {viewerImages.length > 0 ? (
         <ImageViewing
           images={viewerImages}
@@ -672,118 +692,293 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  topBarWrapper: {
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingBottom: 10,
+
+  /* ── Header (#1B3B2B) ── */
+  modernHeader: {
+    backgroundColor: '#1B3B2B',
+    paddingHorizontal: 16,
+    paddingBottom: 0,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  topBar: {
+  decorativeCurve: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modernHeaderTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 6,
+    marginBottom: 8,
   },
-  topTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -6,
+    marginRight: 6,
   },
-  tabContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
-  segmentedControl: {
+
+  /* ── Tabs Bar ── */
+  tabsBar: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    padding: 3,
-    gap: 4,
+    marginTop: 6,
   },
   tabBtn: {
     flex: 1,
-    flexDirection: 'row',
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
+    position: 'relative',
   },
-  tabBtnActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  tabText: {
-    fontSize: 13.5,
+  tabBtnActive: {},
+  tabBtnText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: 'rgba(255, 255, 255, 0.65)',
   },
-  tabTextActive: {
-    color: '#059669',
-    fontWeight: '700',
+  tabBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: '20%',
+    right: '20%',
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+  },
+
+  /* ── Month Selector Bar ── */
   monthSelectorBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
-  monthNavBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+  monthArrowBtn: {
+    padding: 4,
   },
-  monthDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  monthTitle: {
-    fontSize: 15,
+  monthSelectorTitle: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
+
+  /* ── Loading ── */
   loadingWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
   },
-  scrollBody: {
-    flex: 1,
-  },
+
+  /* ── Content ── */
   scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 6,
   },
-  companyFilterWrap: {
-    marginBottom: 14,
-    gap: 10,
-  },
-  searchBarWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+
+  /* ── Tab 03: Lương cá nhân ── */
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    gap: 8,
+    padding: 16,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  summaryCardTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.6,
+  },
+  netSalaryText: {
+    fontSize: 38,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 4,
+    letterSpacing: -0.5,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  employeeMetaBox: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  empMainName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  empSubCode: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* Official Payslip Card */
+  officialCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 16,
+  },
+  officialIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  officialMetaCol: {
+    flex: 1,
+  },
+  officialTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  officialSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* Section Title */
+  sectionHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 10,
+  },
+
+  /* Detail Table Card */
+  detailTableCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    marginBottom: 16,
+  },
+  tableGroupTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 10,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 7,
+  },
+  tableRowLabel: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  tableRowSubLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  tableRowVal: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  tableDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 6,
+  },
+  tableTotalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 6,
+  },
+  tableTotalLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  tableTotalVal: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+
+  /* ── Tab 04: Lương công ty ── */
+  companyHeaderSection: {
+    marginBottom: 10,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    height: 44,
+    paddingHorizontal: 12,
+    marginBottom: 8,
   },
   searchInput: {
     flex: 1,
@@ -791,529 +986,239 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     padding: 0,
   },
-  deptFilterScroll: {
-    gap: 8,
-  },
-  deptPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#fff',
+  deptSelectorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    height: 44,
+    paddingHorizontal: 12,
+    marginBottom: 10,
   },
-  deptPillActive: {
-    backgroundColor: '#059669',
-    borderColor: '#059669',
-  },
-  deptPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  deptPillTextActive: {
-    color: '#fff',
-  },
-  emptyWrap: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    gap: 10,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#94A3B8',
-  },
-  officialSnapshotCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  officialCardHeader: {
+  deptSelectorLeft: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    flex: 1,
+  },
+  deptSelectorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  locationTagRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-  officialBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  officialCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#065F46',
-  },
-  officialCardBody: {
-    gap: 12,
-  },
-  imagePreviewWrap: {
-    gap: 8,
-  },
-  imagePressable: {
-    position: 'relative',
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#D1FAE5',
-  },
-  snapshotImage: {
-    width: '100%',
-    height: 160,
-    backgroundColor: '#F1F5F9',
-  },
-  imageOverlayBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  imageOverlayText: {
-    color: '#fff',
+  locationTagText: {
     fontSize: 11,
-    fontWeight: '600',
-  },
-  viewFullBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#ECFDF5',
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  viewFullBtnText: {
-    fontSize: 13,
     fontWeight: '700',
-    color: '#059669',
-  },
-  noImageNotice: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
-  },
-  noImageText: {
-    fontSize: 12,
     color: '#64748B',
-    textAlign: 'center',
+    letterSpacing: 0.6,
   },
-  uploadImageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#059669',
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginTop: 4,
-  },
-  uploadImageBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  heroCard: {
-    backgroundColor: '#064E3B',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 14,
-    shadowColor: '#064E3B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  heroTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  heroSub: {
-    color: '#A7F3D0',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  statusTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  statusTagApproved: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  statusTagAck: {
-    backgroundColor: '#10B981',
-  },
-  statusTagText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  statusTagTextApproved: {
-    color: '#ECFDF5',
-  },
-  statusTagTextAck: {
-    color: '#fff',
-  },
-  heroNetAmount: {
-    fontSize: 32,
+  companySectionTitle: {
+    fontSize: 16,
     fontWeight: '800',
-    color: '#fff',
-    marginVertical: 6,
+    color: '#0F172A',
+    marginBottom: 6,
   },
-  heroDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    marginVertical: 10,
-  },
-  heroEmpRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  heroEmpName: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  heroEmpCode: {
-    color: '#A7F3D0',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  workDaysBadge: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    alignItems: 'flex-end',
-  },
-  workDaysLabel: {
-    fontSize: 9,
-    color: '#A7F3D0',
-  },
-  workDaysVal: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  breakdownCard: {
-    backgroundColor: '#fff',
+
+  /* Company Employee Card */
+  companyCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  cardHeaderRow: {
+  companyCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
   },
-  cardSectionTitle: {
+  companyAvatarBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  companyAvatarText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1B3B2B',
+  },
+  companyMetaCol: {
+    flex: 1,
+  },
+  companyEmpName: {
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
-  itemRow: {
+  companyEmpCode: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  companyEmpDept: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  rolePill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  rolePillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  companySalaryGrid: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingVertical: 7,
+    paddingVertical: 10,
+    marginVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
     borderBottomWidth: 1,
     borderBottomColor: '#F8FAFC',
   },
-  itemLabel: {
-    fontSize: 13,
-    color: '#475569',
+  salaryGridCol: {
     flex: 1,
   },
-  itemLabelSub: {
+  salaryGridLabel: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: '#64748B',
   },
-  itemVal: {
-    fontSize: 13,
-    fontWeight: '600',
+  salaryGridVal: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  salaryGridValPending: {
+    color: '#D97706',
+  },
+  salaryGridValActive: {
     color: '#0F172A',
   },
-  itemValGreen: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#059669',
+  daysGridVal: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 2,
   },
-  itemValRed: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#DC2626',
-  },
-  totalRow: {
+  companyImageRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 10,
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    paddingTop: 4,
   },
-  totalLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  totalValGreen: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#059669',
-  },
-  totalValRed: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#DC2626',
-  },
-  actionCard: {
-    marginTop: 4,
-    marginBottom: 20,
-  },
-  ackBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#059669',
-    paddingVertical: 14,
-    borderRadius: 12,
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  ackBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  acknowledgedBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    padding: 14,
-    borderRadius: 12,
-  },
-  ackTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#065F46',
-  },
-  ackTime: {
-    fontSize: 11,
-    color: '#047857',
-    marginTop: 2,
-  },
-  companyEmpCard: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  empHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
-  },
-  empAvatarBg: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#064E3B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  empAvatarText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  empName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  empDept: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  empImageBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  empImageBadgeDone: {
-    backgroundColor: '#D1FAE5',
-  },
-  empImageBadgePending: {
-    backgroundColor: '#F1F5F9',
-  },
-  empBadgeAck: {
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#10B981',
-  },
-  empBadgeAckText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  empImageBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  empImageBadgeTextDone: {
-    color: '#059669',
-  },
-  empImageBadgeTextPending: {
-    color: '#64748B',
-  },
-  empMetricsGrid: {
-    flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 8,
-    justifyContent: 'space-around',
-    marginBottom: 10,
-  },
-  empMetricItem: {
-    alignItems: 'center',
-  },
-  empMetricLabel: {
-    fontSize: 10,
-    color: '#64748B',
-    marginBottom: 2,
-  },
-  empMetricVal: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  empImageActionRow: {
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingTop: 10,
-  },
-  empUploadedImageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  empThumbPressable: {
-    position: 'relative',
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  empThumbImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#F1F5F9',
-  },
-  empThumbOverlay: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 4,
-    padding: 2,
-  },
-  empViewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    alignSelf: 'flex-start',
-  },
-  empViewBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  empReuploadBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-  },
-  empReuploadBtnText: {
-    fontSize: 11,
-    color: '#475569',
-  },
-  empUploadNewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#059669',
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  empUploadNewBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  empNoImageNotice: {
+  viewImagePressable: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    alignSelf: 'flex-start',
   },
-  empNoImageNoticeText: {
+  viewImageTextDone: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  noImageInlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  noImageInlineText: {
     fontSize: 12,
     color: '#94A3B8',
-    fontStyle: 'italic',
+  },
+  uploadImageInlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#E8F5E9',
+  },
+  uploadImageInlineBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1B3B2B',
+  },
+
+  /* Empty State */
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 6,
+  },
+  emptyTitleText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  emptySubtitleText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+
+  /* Modal Department */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalItemRowActive: {
+    backgroundColor: '#F8FAFC',
+  },
+  modalItemText: {
+    fontSize: 14,
+    color: '#334155',
+  },
+  modalItemTextActive: {
+    fontWeight: '700',
+    color: '#1B3B2B',
   },
 });

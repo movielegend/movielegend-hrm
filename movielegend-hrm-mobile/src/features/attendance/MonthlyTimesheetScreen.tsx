@@ -3,16 +3,19 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  View} from 'react-native';
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import ImageViewing from 'react-native-image-viewing';
 import { useAuth } from '../../providers/AuthProvider';
@@ -27,6 +30,7 @@ import {
 import { getDepartments } from '../../api/departments.api';
 import type { Department } from '../../types/department.types';
 import { uploadFile } from '../../api/uploads.api';
+import { CustomAlert } from '../../components/CustomAlert';
 
 function formatTimesheetTime(isoString?: string | null): string {
   if (!isoString) return '--:--';
@@ -52,7 +56,18 @@ function formatTimesheetTime(isoString?: string | null): string {
   }
 }
 
+function getInitials(name?: string): string {
+  if (!name) return 'NV';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'NV';
+  const first = parts[0] || '';
+  const last = parts[parts.length - 1] || '';
+  if (parts.length === 1) return first.substring(0, 2).toUpperCase() || 'NV';
+  return ((first[0] || '') + (last[0] || '')).toUpperCase() || 'NV';
+}
+
 export function MonthlyTimesheetScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
@@ -66,6 +81,7 @@ export function MonthlyTimesheetScreen() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isDeptModalVisible, setIsDeptModalVisible] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -73,27 +89,28 @@ export function MonthlyTimesheetScreen() {
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
 
-  const deptName = (user?.department?.name || user?.departmentLinks?.[0]?.department?.name || '').toLowerCase();
+  const deptName = (
+    user?.department?.name ||
+    (user as any)?.departmentLinks?.[0]?.department?.name ||
+    ''
+  ).toLowerCase();
   const isAdmin = Boolean(
     user?.roles?.some((r) => String(r).toUpperCase().includes('ADMIN')) ||
-    user?.role?.code === 'ADMIN'
+      (user as any)?.role?.code === 'ADMIN'
   );
   const isLeader = Boolean(
     user?.roles?.some((r) => String(r).toUpperCase().includes('LEADER')) ||
-    user?.role?.code === 'LEADER'
+      (user as any)?.role?.code === 'LEADER'
   );
   const isHRRole = Boolean(
     user?.roles?.some((r) => String(r).toUpperCase().includes('HR')) ||
-    user?.role?.code === 'HR'
+      (user as any)?.role?.code === 'HR'
   );
 
-  // Leader phòng Nhân sự / Hành chính nhân sự
-  const isLeaderHR = isLeader && (deptName.includes('nhân sự') || deptName.includes('hcns') || deptName.includes('hr'));
-
-  // Quyền xem tab Toàn công ty / Miền: Admin, HR hoặc Leader HR
+  const isLeaderHR =
+    isLeader &&
+    (deptName.includes('nhân sự') || deptName.includes('hcns') || deptName.includes('hr'));
   const canViewCompany = isAdmin || isHRRole || isLeaderHR;
-
-  // Quyền tải ảnh / đổi ảnh bảng công: CHỈ LEADER HR (Admin chỉ xem)
   const canUploadTimesheet = isLeaderHR;
 
   useEffect(() => {
@@ -160,7 +177,11 @@ export function MonthlyTimesheetScreen() {
     setIsImageViewerVisible(true);
   };
 
-  const doUploadTimesheetImage = async (uri: string, targetUserId?: string, targetUserName?: string) => {
+  const doUploadTimesheetImage = async (
+    uri: string,
+    targetUserId?: string,
+    targetUserName?: string
+  ) => {
     try {
       setUploadingUserId(targetUserId || 'MY');
       const uploaded = await uploadFile({
@@ -175,7 +196,10 @@ export function MonthlyTimesheetScreen() {
         year: selectedYear,
         imageUrl: uploaded.fileUrl || (uploaded as any).url,
       });
-      CustomAlert.alert('Thành công', `Đã lưu ảnh bảng công cho ${targetUserName || 'bạn'} thành công!`);
+      CustomAlert.alert(
+        'Thành công',
+        `Đã lưu ảnh bảng công cho ${targetUserName || 'bạn'} thành công!`
+      );
       fetchTimesheet();
     } catch (err: any) {
       CustomAlert.alert('Lỗi tải ảnh', err.message || 'Không thể tải lên ảnh bảng công');
@@ -187,103 +211,97 @@ export function MonthlyTimesheetScreen() {
   const handleUploadUserTimesheetImage = (targetUserId?: string, targetUserName?: string) => {
     const isPersonal = !targetUserId || targetUserId === user?.id;
     const title = isPersonal ? 'Bảng công của bạn' : `Bảng công: ${targetUserName || 'Nhân sự'}`;
-    CustomAlert.alert(
-      title,
-      'Chọn phương thức tải ảnh chốt bảng công:',
-      [
-        {
-          text: 'Chụp ảnh mới',
-          onPress: async () => {
-            const perm = await ImagePicker.requestCameraPermissionsAsync();
-            if (!perm.granted) {
-              CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              quality: 0.85,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              await doUploadTimesheetImage(result.assets[0].uri, targetUserId, targetUserName);
-            }
-          },
+    CustomAlert.alert(title, 'Chọn phương thức tải ảnh chốt bảng công:', [
+      {
+        text: 'Chụp ảnh mới',
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập máy ảnh');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.85,
+          });
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            await doUploadTimesheetImage(result.assets[0].uri, targetUserId, targetUserName);
+          }
         },
-        {
-          text: 'Chọn từ thư viện',
-          onPress: async () => {
-            const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!perm.granted) {
-              CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
-              return;
-            }
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              quality: 0.85,
-            });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-              await doUploadTimesheetImage(result.assets[0].uri, targetUserId, targetUserName);
-            }
-          },
+      },
+      {
+        text: 'Chọn từ thư viện',
+        onPress: async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!perm.granted) {
+            CustomAlert.alert('Cần quyền', 'Vui lòng cho phép truy cập thư viện ảnh');
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.85,
+          });
+          if (!result.canceled && result.assets?.[0]?.uri) {
+            await doUploadTimesheetImage(result.assets[0].uri, targetUserId, targetUserName);
+          }
         },
-        { text: 'Huỷ', style: 'cancel' },
-      ]
-    );
+      },
+      { text: 'Huỷ', style: 'cancel' },
+    ]);
   };
+
+  const selectedDeptLabel =
+    departments.find((d) => d.id === selectedDepartmentId)?.name || 'Tất cả phòng ban';
 
   const renderDailyItem = ({ item }: { item: MonthlyTimesheetDailyRecord }) => {
     const isLate = item.lateMinutes > 0;
     const hasOt = item.otHours > 0;
 
-    let badgeColor = '#10B981';
+    let badgeColor = '#16A34A';
+    let badgeBg = '#DCFCE7';
     let badgeText = 'Đủ công';
 
     if (item.status === 'LEAVE') {
-      badgeColor = '#3B82F6';
+      badgeColor = '#2563EB';
+      badgeBg = '#EFF6FF';
       badgeText = item.leaveTitle || 'Nghỉ phép';
     } else if (item.status === 'WEEKEND') {
-      badgeColor = '#9CA3AF';
+      badgeColor = '#64748B';
+      badgeBg = '#F1F5F9';
       badgeText = 'Cuối tuần';
     } else if (item.status === 'NO_RECORD' || item.status === 'MISSING') {
       badgeColor = '#EF4444';
+      badgeBg = '#FEE2E2';
       badgeText = 'Vắng mặt';
     } else if (isLate) {
-      badgeColor = '#F59E0B';
+      badgeColor = '#D97706';
+      badgeBg = '#FEF3C7';
       badgeText = `Muộn ${item.lateMinutes}p`;
     }
 
+    const dayNum = item.date.slice(8, 10);
+    const dayOfWeekShort = item.dayOfWeek.replace('Thứ ', 'T');
+    const isSunday = item.isSunday;
+
     return (
-      <View style={styles.dailyRow}>
-        <View style={styles.dateCol}>
-          <Text style={[styles.dayOfWeekText, item.isSunday && { color: '#EF4444' }]}>
-            {item.dayOfWeek}
+      <View style={styles.dailyCard}>
+        <View style={styles.dailyDateCol}>
+          <Text style={[styles.dailyDayNum, isSunday && { color: '#EF4444' }]}>{dayNum}</Text>
+          <Text style={[styles.dailyDayOfWeek, isSunday && { color: '#EF4444' }]}>
+            {dayOfWeekShort}
           </Text>
-          <Text style={styles.dateText}>{item.date.slice(8, 10)}</Text>
         </View>
 
-        <View style={styles.recordContent}>
-          <View style={styles.recordTopRow}>
-            <Text style={styles.shiftNameText}>{item.shiftName}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: `${badgeColor}15` }]}>
-              <Text style={[styles.statusBadgeText, { color: badgeColor }]}>{badgeText}</Text>
-            </View>
-          </View>
+        <View style={styles.dailyInfoCol}>
+          <Text style={styles.dailyShiftName}>{item.shiftName || 'Ca hành chính'}</Text>
+          <Text style={styles.dailyTimeRow}>
+            Vào {formatTimesheetTime(item.checkInAt)} • Ra {formatTimesheetTime(item.checkOutAt)}
+            {hasOt ? ` • +${item.otHours}h OT` : ''}
+          </Text>
+        </View>
 
-          <View style={styles.recordBottomRow}>
-            <View style={styles.timeTag}>
-              <MaterialCommunityIcons name="login" size={14} color="#10B981" />
-              <Text style={styles.timeVal}>{formatTimesheetTime(item.checkInAt)}</Text>
-            </View>
-            <View style={styles.timeTag}>
-              <MaterialCommunityIcons name="logout" size={14} color="#EF4444" />
-              <Text style={styles.timeVal}>{formatTimesheetTime(item.checkOutAt)}</Text>
-            </View>
-            {hasOt && (
-              <View style={[styles.timeTag, { backgroundColor: '#FEF3C7' }]}>
-                <MaterialCommunityIcons name="clock-plus-outline" size={14} color="#D97706" />
-                <Text style={[styles.timeVal, { color: '#D97706', fontWeight: '700' }]}>+{item.otHours}h OT</Text>
-              </View>
-            )}
-          </View>
+        <View style={[styles.dailyStatusBadge, { backgroundColor: badgeBg }]}>
+          <Text style={[styles.dailyStatusBadgeText, { color: badgeColor }]}>{badgeText}</Text>
         </View>
       </View>
     );
@@ -292,105 +310,67 @@ export function MonthlyTimesheetScreen() {
   const renderCompanyItem = ({ item }: { item: CompanyTimesheetEmployee }) => {
     const isThisUploading = uploadingUserId === item.userId;
     return (
-      <View style={styles.companyEmpCard}>
-        <View style={styles.empHeader}>
-          <View style={styles.empAvatarBg}>
-            <Text style={styles.empAvatarText}>{item.fullName.charAt(0)}</Text>
+      <View style={styles.companyCard}>
+        <View style={styles.companyCardTop}>
+          <View style={styles.companyAvatarBox}>
+            <Text style={styles.companyAvatarText}>{getInitials(item.fullName)}</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.empName}>{item.fullName}</Text>
-            <Text style={styles.empDept}>{item.userCode} • {item.departmentName}</Text>
+          <View style={styles.companyMetaCol}>
+            <Text style={styles.companyEmpName}>{item.fullName}</Text>
+            <Text style={styles.companyEmpCode}>{item.userCode}</Text>
+            <Text style={styles.companyEmpDept}>{item.departmentName}</Text>
           </View>
-          <View style={[styles.empImageBadge, item.finalOfficialImageUrl ? styles.empImageBadgeDone : styles.empImageBadgePending]}>
-            <Text style={[styles.empImageBadgeText, item.finalOfficialImageUrl ? styles.empImageBadgeTextDone : styles.empImageBadgeTextPending]}>
-              {item.finalOfficialImageUrl ? 'Đã có ảnh' : 'Chưa có ảnh'}
+          <View style={styles.companyDaysCol}>
+            <Text style={styles.companyDaysVal}>
+              {item.actualWorkingDays}/{item.standardWorkingDays}
             </Text>
+            <Text style={styles.companyDaysLabel}>Ngày công</Text>
           </View>
         </View>
 
-        <View style={styles.empMetricsGrid}>
-          <View style={styles.empMetricItem}>
-            <Text style={styles.empMetricLabel}>Công thực tế</Text>
-            <Text style={styles.empMetricVal}>{item.actualWorkingDays}/{item.standardWorkingDays}</Text>
-          </View>
-          <View style={styles.empMetricItem}>
-            <Text style={styles.empMetricLabel}>Tăng ca</Text>
-            <Text style={[styles.empMetricVal, { color: '#D97706' }]}>{item.otHours}h</Text>
-          </View>
-          <View style={styles.empMetricItem}>
-            <Text style={styles.empMetricLabel}>Nghỉ phép</Text>
-            <Text style={styles.empMetricVal}>{item.paidLeaveDays}p</Text>
-          </View>
-          <View style={styles.empMetricItem}>
-            <Text style={styles.empMetricLabel}>Đi muộn</Text>
-            <Text style={[styles.empMetricVal, { color: item.totalLateMinutes > 0 ? '#EF4444' : '#10B981' }]}>
-              {item.totalLateMinutes}p
-            </Text>
-          </View>
+        {/* Metrics Pill Row */}
+        <View style={styles.companyMetricsPill}>
+          <Text style={styles.companyMetricText}>OT {item.otHours}h</Text>
+          <Text style={styles.companyMetricDivider}>|</Text>
+          <Text style={styles.companyMetricText}>Phép {item.paidLeaveDays}p</Text>
+          <Text style={styles.companyMetricDivider}>|</Text>
+          <Text style={styles.companyMetricText}>Muộn {item.totalLateMinutes}p</Text>
         </View>
 
-        <View style={styles.empImageActionRow}>
+        {/* Bottom Image Row */}
+        <View style={styles.companyImageRow}>
           {item.finalOfficialImageUrl ? (
-            <View style={styles.empUploadedImageRow}>
-              <Pressable
-                style={styles.empThumbPressable}
-                onPress={() => openViewer(item.finalOfficialImageUrl!)}
-              >
-                <Image
-                  source={{ uri: item.finalOfficialImageUrl }}
-                  style={styles.empThumbImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.empThumbOverlay}>
-                  <MaterialCommunityIcons name="magnify-plus" size={14} color="#fff" />
-                </View>
-              </Pressable>
-              <View style={{ flex: 1, gap: 6 }}>
-                <Pressable
-                  style={styles.empViewBtn}
-                  onPress={() => openViewer(item.finalOfficialImageUrl!)}
-                >
-                  <MaterialCommunityIcons name="eye-outline" size={16} color="#059669" />
-                  <Text style={styles.empViewBtnText}>Xem ảnh bảng công</Text>
-                </Pressable>
-                {canUploadTimesheet && (
-                  <Pressable
-                    style={styles.empReuploadBtn}
-                    onPress={() => handleUploadUserTimesheetImage(item.userId, item.fullName)}
-                    disabled={isThisUploading}
-                  >
-                    {isThisUploading ? (
-                      <ActivityIndicator size="small" color="#64748B" />
-                    ) : (
-                      <>
-                        <MaterialCommunityIcons name="camera-retake-outline" size={15} color="#475569" />
-                        <Text style={styles.empReuploadBtnText}>Đổi ảnh khác</Text>
-                      </>
-                    )}
-                  </Pressable>
-                )}
-              </View>
-            </View>
-          ) : canUploadTimesheet ? (
             <Pressable
-              style={styles.empUploadNewBtn}
+              style={styles.viewImagePressable}
+              onPress={() => openViewer(item.finalOfficialImageUrl!)}
+            >
+              <MaterialCommunityIcons name="image-check-outline" size={17} color="#059669" />
+              <Text style={styles.viewImageTextDone}>Xem ảnh bảng công</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.noImageInlineRow}>
+              <MaterialCommunityIcons name="image-outline" size={17} color="#94A3B8" />
+              <Text style={styles.noImageInlineText}>Chưa có ảnh bảng công</Text>
+            </View>
+          )}
+
+          {canUploadTimesheet && (
+            <Pressable
+              style={styles.uploadImageInlineBtn}
               onPress={() => handleUploadUserTimesheetImage(item.userId, item.fullName)}
               disabled={isThisUploading}
             >
               {isThisUploading ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color="#1B3B2B" />
               ) : (
                 <>
-                  <MaterialCommunityIcons name="camera-plus-outline" size={18} color="#fff" />
-                  <Text style={styles.empUploadNewBtnText}>Tải ảnh bảng công cho nhân sự này</Text>
+                  <MaterialCommunityIcons name="camera-outline" size={15} color="#1B3B2B" />
+                  <Text style={styles.uploadImageInlineBtnText}>
+                    {item.finalOfficialImageUrl ? 'Đổi ảnh' : 'Tải ảnh'}
+                  </Text>
                 </>
               )}
             </Pressable>
-          ) : (
-            <View style={styles.empNoImageNotice}>
-              <MaterialCommunityIcons name="image-off-outline" size={16} color="#94A3B8" />
-              <Text style={styles.empNoImageNoticeText}>Chưa có ảnh bảng công</Text>
-            </View>
           )}
         </View>
       </View>
@@ -399,185 +379,239 @@ export function MonthlyTimesheetScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" backgroundColor="#fff" />
+      <StatusBar style="light" />
 
-      <View style={[styles.topBarWrapper, { paddingTop: insets.top }]}>
-        <View style={styles.topBar}>
-          <Text style={styles.topTitle}>Bảng Chấm Công</Text>
+      {/* ── Top Header (#1B3B2B) ── */}
+      <View style={[styles.modernHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={styles.decorativeCurve} />
+
+        <View style={styles.modernHeaderTopRow}>
+          <Pressable
+            style={styles.headerBackBtn}
+            onPress={() => router.back()}
+            hitSlop={8}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.screenTitle}>Bảng công</Text>
         </View>
 
         {canViewCompany && (
-          <View style={styles.tabContainer}>
-            <View style={styles.segmentedControl}>
-              <Pressable
-                style={[styles.tabBtn, activeTab === 'MY' && styles.tabBtnActive]}
-                onPress={() => setActiveTab('MY')}
-              >
-                <MaterialCommunityIcons
-                  name="account-outline"
-                  size={17}
-                  color={activeTab === 'MY' ? '#0F172A' : '#64748B'}
-                />
-                <Text style={[styles.tabText, activeTab === 'MY' && styles.tabTextActive]}>Cá nhân</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.tabBtn, activeTab === 'COMPANY' && styles.tabBtnActive]}
-                onPress={() => setActiveTab('COMPANY')}
-              >
-                <MaterialCommunityIcons
-                  name="domain"
-                  size={17}
-                  color={activeTab === 'COMPANY' ? '#0F172A' : '#64748B'}
-                />
-                <Text style={[styles.tabText, activeTab === 'COMPANY' && styles.tabTextActive]}>
-                  Toàn công ty
-                </Text>
-              </Pressable>
-            </View>
+          <View style={styles.tabsBar}>
+            <Pressable
+              style={[styles.tabBtn, activeTab === 'MY' && styles.tabBtnActive]}
+              onPress={() => setActiveTab('MY')}
+            >
+              <Text style={[styles.tabBtnText, activeTab === 'MY' && styles.tabBtnTextActive]}>
+                Cá nhân
+              </Text>
+              {activeTab === 'MY' && <View style={styles.tabIndicator} />}
+            </Pressable>
+            <Pressable
+              style={[styles.tabBtn, activeTab === 'COMPANY' && styles.tabBtnActive]}
+              onPress={() => setActiveTab('COMPANY')}
+            >
+              <Text style={[styles.tabBtnText, activeTab === 'COMPANY' && styles.tabBtnTextActive]}>
+                Toàn công ty
+              </Text>
+              {activeTab === 'COMPANY' && <View style={styles.tabIndicator} />}
+            </Pressable>
           </View>
         )}
       </View>
 
+      {/* ── Month Selector Bar ── */}
       <View style={styles.monthSelectorBar}>
-        <Pressable onPress={() => changeMonth(-1)} style={styles.monthNavBtn}>
-          <MaterialCommunityIcons name="chevron-left" size={24} color="#374151" />
+        <Pressable onPress={() => changeMonth(-1)} style={styles.monthArrowBtn} hitSlop={8}>
+          <Ionicons name="chevron-back" size={18} color="#64748B" />
         </Pressable>
-        <View style={styles.monthDisplay}>
-          <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#111827" />
-          <Text style={styles.monthTitle}>Tháng {selectedMonth} / {selectedYear}</Text>
-        </View>
-        <Pressable onPress={() => changeMonth(1)} style={styles.monthNavBtn}>
-          <MaterialCommunityIcons name="chevron-right" size={24} color="#374151" />
+        <Text style={styles.monthSelectorTitle}>
+          Tháng {selectedMonth}, {selectedYear}
+        </Text>
+        <Pressable onPress={() => changeMonth(1)} style={styles.monthArrowBtn} hitSlop={8}>
+          <Ionicons name="chevron-forward" size={18} color="#64748B" />
         </Pressable>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#111827" />
-          <Text style={styles.loadingText}>Đang tải dữ liệu công...</Text>
+          <ActivityIndicator size="large" color="#1B3B2B" />
+          <Text style={styles.loadingText}>Đang tải dữ liệu bảng công...</Text>
         </View>
       ) : activeTab === 'MY' ? (
+        /* ═════════════════════════════════════════════════════════════
+           TAB 01: CÔNG CÁ NHÂN
+        ═════════════════════════════════════════════════════════════ */
         <FlatList
           data={myTimesheet?.dailyRecords || []}
           keyExtractor={(item) => item.date}
           renderItem={renderDailyItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: Math.max(insets.bottom, 16) + 40 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#1B3B2B"
+            />
+          }
+          showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <View style={styles.summaryContainer}>
-              <View style={styles.officialSnapshotCard}>
-                <View style={styles.officialCardHeader}>
-                  <View style={styles.officialBadgeRow}>
-                    <MaterialCommunityIcons name="shield-check" size={18} color="#059669" />
-                    <Text style={styles.officialCardTitle}>Bảng công chốt chính thức (HR)</Text>
+            <View style={styles.personalHeaderSection}>
+              {/* Card 1: Công ghi nhận */}
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryCardTag}>CÔNG GHI NHẬN</Text>
+                <View style={styles.mainDaysRow}>
+                  <Text style={styles.actualDaysNum}>{myTimesheet?.actualWorkingDays || 0}</Text>
+                  <Text style={styles.standardDaysNum}>
+                    {' '}
+                    / {myTimesheet?.standardWorkingDays || 26} ngày
+                  </Text>
+                </View>
+
+                {/* 2 Stats row */}
+                <View style={styles.hoursRow}>
+                  <View style={styles.hoursCol}>
+                    <Text style={styles.hoursVal}>{myTimesheet?.totalWorkedHours || 0} giờ</Text>
+                    <Text style={styles.hoursLabel}>Tổng giờ làm</Text>
                   </View>
-                  <View style={[styles.officialTag, myTimesheet?.finalOfficialImageUrl ? styles.officialTagDone : styles.officialTagPending]}>
-                    <Text style={[styles.officialTagText, myTimesheet?.finalOfficialImageUrl ? styles.officialTagTextDone : styles.officialTagTextPending]}>
-                      {myTimesheet?.finalOfficialImageUrl ? 'Đã có ảnh chốt' : 'Chờ HR gửi ảnh'}
+                  <View style={styles.hoursDivider} />
+                  <View style={styles.hoursCol}>
+                    <Text style={styles.hoursVal}>{myTimesheet?.otHours || 0} giờ</Text>
+                    <Text style={styles.hoursLabel}>
+                      Tăng ca • x{myTimesheet?.departmentOtMultiplier || 1.5}
                     </Text>
                   </View>
                 </View>
 
-                <View style={styles.officialCardBody}>
-                  <View style={styles.officialDaysRow}>
-                    <Text style={styles.officialDaysLabel}>Công thực nhận (Official):</Text>
-                    <Text style={styles.officialDaysVal}>
-                      {myTimesheet?.officialWorkingDays !== undefined && myTimesheet?.officialWorkingDays !== null
-                        ? myTimesheet.officialWorkingDays
-                        : myTimesheet?.actualWorkingDays || 0}
-                      <Text style={styles.officialDaysSub}> / {myTimesheet?.standardWorkingDays || 26} ngày</Text>
+                {/* 3 Pills Row */}
+                <View style={styles.pillsRow}>
+                  <View
+                    style={[
+                      styles.metricPill,
+                      { backgroundColor: '#F0FDF4', borderColor: '#DCFCE7' },
+                    ]}
+                  >
+                    <Text style={[styles.metricPillLabel, { color: '#166534' }]}>Nghỉ phép</Text>
+                    <Text style={[styles.metricPillVal, { color: '#166534' }]}>
+                      {myTimesheet?.paidLeaveDays || 0} ngày
                     </Text>
                   </View>
-
-                  {myTimesheet?.finalOfficialImageUrl ? (
-                    <View style={styles.imagePreviewWrap}>
-                      <Pressable
-                        style={styles.imagePressable}
-                        onPress={() => openViewer(myTimesheet.finalOfficialImageUrl!)}
-                      >
-                        <Image
-                          source={{ uri: myTimesheet.finalOfficialImageUrl }}
-                          style={styles.snapshotImage}
-                          resizeMode="cover"
-                        />
-                        <View style={styles.imageOverlayBadge}>
-                          <MaterialCommunityIcons name="magnify-plus-outline" size={16} color="#fff" />
-                          <Text style={styles.imageOverlayText}>Chạm để phóng to xem chi tiết</Text>
-                        </View>
-                      </Pressable>
-                      <Pressable
-                        style={styles.viewFullBtn}
-                        onPress={() => openViewer(myTimesheet.finalOfficialImageUrl!)}
-                      >
-                        <MaterialCommunityIcons name="fullscreen" size={18} color="#059669" />
-                        <Text style={styles.viewFullBtnText}>Xem toàn màn hình & Phóng to</Text>
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <View style={styles.noImageNotice}>
-                      <MaterialCommunityIcons name="image-off-outline" size={24} color="#94A3B8" />
-                      <Text style={styles.noImageText}>Chưa có ảnh bảng công chốt chính thức từ HR cho tháng này</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              <View style={styles.mainStatCard}>
-                <View style={styles.mainStatLeft}>
-                  <Text style={styles.mainStatLabel}>Ghi nhận trên App / Chuẩn</Text>
-                  <Text style={styles.mainStatVal}>
-                    {myTimesheet?.actualWorkingDays || 0}
-                    <Text style={styles.mainStatTotal}> / {myTimesheet?.standardWorkingDays || 26}</Text>
-                  </Text>
-                  <Text style={styles.mainStatSub}>
-                    Tổng giờ làm: {myTimesheet?.totalWorkedHours || 0} giờ
-                  </Text>
-                </View>
-                <View style={styles.mainStatRight}>
-                  <View style={styles.otBadgeBox}>
-                    <Text style={styles.otBadgeLabel}>Tăng ca (OT)</Text>
-                    <Text style={styles.otBadgeVal}>{myTimesheet?.otHours || 0}h</Text>
-                    <Text style={styles.otMultiplierHint}>x{myTimesheet?.departmentOtMultiplier || 1.5}</Text>
+                  <View
+                    style={[
+                      styles.metricPill,
+                      { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' },
+                    ]}
+                  >
+                    <Text style={[styles.metricPillLabel, { color: '#475569' }]}>Không lương</Text>
+                    <Text style={[styles.metricPillVal, { color: '#475569' }]}>
+                      {myTimesheet?.unpaidLeaveDays || 0} ngày
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.metricPill,
+                      { backgroundColor: '#FEF2F2', borderColor: '#FEE2E2' },
+                    ]}
+                  >
+                    <Text style={[styles.metricPillLabel, { color: '#B91C1C' }]}>Muộn / Sớm</Text>
+                    <Text style={[styles.metricPillVal, { color: '#B91C1C' }]}>
+                      {myTimesheet?.totalLateMinutes || 0} phút
+                    </Text>
                   </View>
                 </View>
               </View>
 
-              <View style={styles.statsGrid}>
-                <View style={styles.statBox}>
-                  <MaterialCommunityIcons name="calendar-check" size={20} color="#3B82F6" />
-                  <Text style={styles.statBoxVal}>{myTimesheet?.paidLeaveDays || 0} ngày</Text>
-                  <Text style={styles.statBoxLabel}>Nghỉ phép</Text>
+              {/* Card 2: Bảng công HR */}
+              <Pressable
+                style={styles.officialTimesheetCard}
+                onPress={() => {
+                  if (myTimesheet?.finalOfficialImageUrl) {
+                    openViewer(myTimesheet.finalOfficialImageUrl);
+                  } else if (canUploadTimesheet) {
+                    handleUploadUserTimesheetImage();
+                  }
+                }}
+              >
+                <View style={styles.officialIconBox}>
+                  <MaterialCommunityIcons name="file-document-outline" size={22} color="#1B3B2B" />
                 </View>
-                <View style={styles.statBox}>
-                  <MaterialCommunityIcons name="calendar-remove" size={20} color="#6B7280" />
-                  <Text style={styles.statBoxVal}>{myTimesheet?.unpaidLeaveDays || 0} ngày</Text>
-                  <Text style={styles.statBoxLabel}>Nghỉ không lương</Text>
-                </View>
-                <View style={styles.statBox}>
-                  <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#EF4444" />
-                  <Text style={[styles.statBoxVal, { color: (myTimesheet?.totalLateMinutes || 0) > 0 ? '#EF4444' : '#10B981' }]}>
-                    {myTimesheet?.totalLateMinutes || 0} p
+                <View style={styles.officialMetaCol}>
+                  <Text style={styles.officialTitle}>Bảng công HR</Text>
+                  <Text style={styles.officialSubtitle}>
+                    Công thực nhận:{' '}
+                    {myTimesheet?.officialWorkingDays !== undefined &&
+                    myTimesheet?.officialWorkingDays !== null
+                      ? myTimesheet.officialWorkingDays
+                      : myTimesheet?.actualWorkingDays || 0}
+                    /{myTimesheet?.standardWorkingDays || 26} ngày
                   </Text>
-                  <Text style={styles.statBoxLabel}>Đi muộn / Về sớm</Text>
                 </View>
+                <View
+                  style={[
+                    styles.officialBadge,
+                    {
+                      backgroundColor: myTimesheet?.finalOfficialImageUrl
+                        ? '#DCFCE7'
+                        : '#FEF3C7',
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.officialBadgeText,
+                      { color: myTimesheet?.finalOfficialImageUrl ? '#16A34A' : '#D97706' },
+                    ]}
+                  >
+                    {myTimesheet?.finalOfficialImageUrl ? 'Đã có ảnh' : 'Chờ ảnh'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              </Pressable>
+
+              {/* Section: Nhật ký tháng */}
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitleText}>Nhật ký tháng</Text>
               </View>
             </View>
           }
         />
       ) : (
+        /* ═════════════════════════════════════════════════════════════
+           TAB 02: CÔNG CÔNG TY
+        ═════════════════════════════════════════════════════════════ */
         <FlatList
           data={companyTimesheet}
           keyExtractor={(item) => item.userId}
           renderItem={renderCompanyItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: Math.max(insets.bottom, 16) + 40 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#1B3B2B"
+            />
+          }
+          showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <View style={styles.companyFilterWrap}>
-              <View style={styles.searchBarWrap}>
-                <MaterialCommunityIcons name="magnify" size={20} color="#64748B" />
+            <View style={styles.companyHeaderSection}>
+              {/* Search bar */}
+              <View style={styles.searchBar}>
+                <Ionicons
+                  name="search-outline"
+                  size={18}
+                  color="#94A3B8"
+                  style={{ marginRight: 8 }}
+                />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Tìm theo tên hoặc mã nhân viên..."
+                  placeholder="Tìm tên hoặc mã nhân viên"
                   placeholderTextColor="#94A3B8"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
@@ -585,47 +619,126 @@ export function MonthlyTimesheetScreen() {
                 />
                 {searchQuery.length > 0 && (
                   <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-                    <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                    <Ionicons name="close-circle" size={18} color="#94A3B8" />
                   </Pressable>
                 )}
               </View>
 
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.deptFilterScroll}
+              {/* Department Dropdown Selector */}
+              <Pressable
+                style={styles.deptSelectorBox}
+                onPress={() => setIsDeptModalVisible(true)}
               >
-                <Pressable
-                  style={[styles.deptPill, selectedDepartmentId === 'ALL' && styles.deptPillActive]}
-                  onPress={() => setSelectedDepartmentId('ALL')}
-                >
-                  <Text style={[styles.deptPillText, selectedDepartmentId === 'ALL' && styles.deptPillTextActive]}>
-                    Tất cả PB
-                  </Text>
-                </Pressable>
-                {departments.map((d) => (
-                  <Pressable
-                    key={d.id}
-                    style={[styles.deptPill, selectedDepartmentId === d.id && styles.deptPillActive]}
-                    onPress={() => setSelectedDepartmentId(d.id)}
-                  >
-                    <Text style={[styles.deptPillText, selectedDepartmentId === d.id && styles.deptPillTextActive]}>
-                      {d.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+                <View style={styles.deptSelectorLeft}>
+                  <Ionicons
+                    name="options-outline"
+                    size={18}
+                    color="#0F172A"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.deptSelectorText}>{selectedDeptLabel}</Text>
+                </View>
+                <Ionicons name="chevron-down" size={16} color="#64748B" />
+              </Pressable>
+
+              {/* Location Tag */}
+              <View style={styles.locationTagRow}>
+                <Ionicons
+                  name="location-sharp"
+                  size={12}
+                  color="#64748B"
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.locationTagText}>
+                  MOVIELEGEND • {((user?.department as any)?.branch?.name || 'HÀ NỘI').toUpperCase()}
+                </Text>
+              </View>
+
+              {/* Section: Nhân sự */}
+              <Text style={styles.companySectionTitle}>Nhân sự</Text>
             </View>
           }
           ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <MaterialCommunityIcons name="account-group-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyText}>Không có dữ liệu nhân sự phù hợp</Text>
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="account-group-outline" size={48} color="#CBD5E1" />
+              <Text style={styles.emptyTitleText}>Không có dữ liệu nhân sự</Text>
+              <Text style={styles.emptySubtitleText}>Không tìm thấy nhân viên phù hợp</Text>
             </View>
           }
         />
       )}
 
+      {/* ── Department Picker Modal ── */}
+      <Modal
+        visible={isDeptModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsDeptModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn phòng ban</Text>
+              <Pressable onPress={() => setIsDeptModalVisible(false)} hitSlop={8}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }}>
+              <Pressable
+                style={[
+                  styles.modalItemRow,
+                  selectedDepartmentId === 'ALL' && styles.modalItemRowActive,
+                ]}
+                onPress={() => {
+                  setSelectedDepartmentId('ALL');
+                  setIsDeptModalVisible(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.modalItemText,
+                    selectedDepartmentId === 'ALL' && styles.modalItemTextActive,
+                  ]}
+                >
+                  Tất cả phòng ban
+                </Text>
+                {selectedDepartmentId === 'ALL' && (
+                  <Ionicons name="checkmark" size={18} color="#1B3B2B" />
+                )}
+              </Pressable>
+
+              {departments.map((d) => (
+                <Pressable
+                  key={d.id}
+                  style={[
+                    styles.modalItemRow,
+                    selectedDepartmentId === d.id && styles.modalItemRowActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedDepartmentId(d.id);
+                    setIsDeptModalVisible(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalItemText,
+                      selectedDepartmentId === d.id && styles.modalItemTextActive,
+                    ]}
+                  >
+                    {d.name}
+                  </Text>
+                  {selectedDepartmentId === d.id && (
+                    <Ionicons name="checkmark" size={18} color="#1B3B2B" />
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Fullscreen Image Viewer ── */}
       {viewerImages.length > 0 ? (
         <ImageViewing
           images={viewerImages}
@@ -643,115 +756,332 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  topBarWrapper: {
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingBottom: 10,
+
+  /* ── Header (#1B3B2B) ── */
+  modernHeader: {
+    backgroundColor: '#1B3B2B',
+    paddingHorizontal: 16,
+    paddingBottom: 0,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  topBar: {
+  decorativeCurve: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modernHeaderTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 6,
+    marginBottom: 8,
   },
-  topTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -6,
+    marginRight: 6,
   },
-  tabContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
+  screenTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
-  segmentedControl: {
+
+  /* ── Tabs Bar ── */
+  tabsBar: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    padding: 3,
-    gap: 4,
+    marginTop: 6,
   },
   tabBtn: {
     flex: 1,
-    flexDirection: 'row',
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
+    position: 'relative',
   },
-  tabBtnActive: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  tabText: {
-    fontSize: 13.5,
+  tabBtnActive: {},
+  tabBtnText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: 'rgba(255, 255, 255, 0.65)',
   },
-  tabTextActive: {
-    color: '#0F172A',
-    fontWeight: '700',
+  tabBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: '20%',
+    right: '20%',
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+  },
+
+  /* ── Month Selector Bar ── */
   monthSelectorBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
-  monthNavBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+  monthArrowBtn: {
+    padding: 4,
   },
-  monthDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  monthTitle: {
-    fontSize: 15,
+  monthSelectorTitle: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
+
+  /* ── Loading ── */
   loadingWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
   },
+
+  /* ── List Common ── */
   listContent: {
-    padding: 16,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 6,
   },
-  companyFilterWrap: {
-    marginBottom: 14,
-    gap: 10,
+
+  /* ── Tab 01: Công cá nhân ── */
+  personalHeaderSection: {
+    marginBottom: 8,
   },
-  searchBarWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    padding: 16,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  summaryCardTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.6,
+  },
+  mainDaysRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  actualDaysNum: {
+    fontSize: 44,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 50,
+  },
+  standardDaysNum: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  hoursRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 12,
+  },
+  hoursCol: {
+    flex: 1,
+  },
+  hoursVal: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  hoursLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  hoursDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 12,
+  },
+  pillsRow: {
+    flexDirection: 'row',
     gap: 8,
+  },
+  metricPill: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metricPillLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  metricPillVal: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+
+  /* Official Timesheet Card */
+  officialTimesheetCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 16,
+  },
+  officialIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  officialMetaCol: {
+    flex: 1,
+  },
+  officialTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  officialSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  officialBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  officialBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  /* Section Title */
+  sectionTitleRow: {
+    marginBottom: 10,
+  },
+  sectionTitleText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+
+  /* Daily Card */
+  dailyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 8,
+  },
+  dailyDateCol: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  dailyDayNum: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  dailyDayOfWeek: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 1,
+  },
+  dailyInfoCol: {
+    flex: 1,
+  },
+  dailyShiftName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  dailyTimeRow: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  dailyStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  dailyStatusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  /* ── Tab 02: Công công ty ── */
+  companyHeaderSection: {
+    marginBottom: 10,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    height: 44,
+    paddingHorizontal: 12,
+    marginBottom: 8,
   },
   searchInput: {
     flex: 1,
@@ -759,520 +1089,226 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     padding: 0,
   },
-  deptFilterScroll: {
-    gap: 8,
-  },
-  deptPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#fff',
+  deptSelectorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-  },
-  deptPillActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
-  },
-  deptPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  deptPillTextActive: {
-    color: '#fff',
-  },
-  summaryContainer: {
-    marginBottom: 16,
-  },
-  officialSnapshotCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  officialCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  officialBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  officialCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#065F46',
-  },
-  officialTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-  },
-  officialTagDone: {
-    backgroundColor: '#D1FAE5',
-  },
-  officialTagPending: {
-    backgroundColor: '#FEF3C7',
-  },
-  officialTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  officialTagTextDone: {
-    color: '#059669',
-  },
-  officialTagTextPending: {
-    color: '#D97706',
-  },
-  officialCardBody: {
-    gap: 10,
-  },
-  officialDaysRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    height: 44,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    marginBottom: 10,
   },
-  officialDaysLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#065F46',
-  },
-  officialDaysVal: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#059669',
-  },
-  officialDaysSub: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#065F46',
-  },
-  imagePreviewWrap: {
-    gap: 8,
-    marginTop: 4,
-  },
-  imagePressable: {
-    position: 'relative',
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#D1FAE5',
-  },
-  snapshotImage: {
-    width: '100%',
-    height: 160,
-    backgroundColor: '#F1F5F9',
-  },
-  imageOverlayBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+  deptSelectorLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  imageOverlayText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  viewFullBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#ECFDF5',
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  viewFullBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  noImageNotice: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
-  },
-  noImageText: {
-    fontSize: 12,
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  uploadImageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#059669',
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginTop: 4,
-  },
-  uploadImageBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  mainStatCard: {
-    backgroundColor: '#0F172A',
-    borderRadius: 20,
-    padding: 18,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  mainStatLeft: {
     flex: 1,
   },
-  mainStatLabel: {
-    fontSize: 12,
-    color: '#94A3B8',
-    marginBottom: 4,
-  },
-  mainStatVal: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  mainStatTotal: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#64748B',
-  },
-  mainStatSub: {
-    fontSize: 12,
-    color: '#38BDF8',
-    marginTop: 4,
-  },
-  mainStatRight: {
-    alignItems: 'flex-end',
-  },
-  otBadgeBox: {
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  otBadgeLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-  },
-  otBadgeVal: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#F59E0B',
-    marginVertical: 2,
-  },
-  otMultiplierHint: {
-    fontSize: 9,
-    color: '#64748B',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  statBoxVal: {
+  deptSelectorText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#0F172A',
-    marginTop: 4,
   },
-  statBoxLabel: {
-    fontSize: 10,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  dailyRow: {
+  locationTagRow: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  dateCol: {
-    width: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRightWidth: 1,
-    borderRightColor: '#F1F5F9',
-    paddingRight: 8,
-    marginRight: 10,
-  },
-  dayOfWeekText: {
+  locationTagText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
+    letterSpacing: 0.6,
   },
-  dateText: {
+  companySectionTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
-  },
-  recordContent: {
-    flex: 1,
-  },
-  recordTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 6,
   },
-  shiftNameText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  recordBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  timeTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+
+  /* Company Employee Card */
+  companyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-  },
-  timeVal: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  emptyWrap: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    gap: 10,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#94A3B8',
-  },
-  companyEmpCard: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
     padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  empHeader: {
+  companyCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
   },
-  empAvatarBg: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#0F172A',
+  companyAvatarBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#E8F5E9',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
   },
-  empAvatarText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+  companyAvatarText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1B3B2B',
   },
-  empName: {
+  companyMetaCol: {
+    flex: 1,
+  },
+  companyEmpName: {
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
-  empDept: {
+  companyEmpCode: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 1,
   },
-  empImageBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  empImageBadgeDone: {
-    backgroundColor: '#D1FAE5',
-  },
-  empImageBadgePending: {
-    backgroundColor: '#F1F5F9',
-  },
-  empImageBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  empImageBadgeTextDone: {
-    color: '#059669',
-  },
-  empImageBadgeTextPending: {
-    color: '#64748B',
-  },
-  empMetricsGrid: {
-    flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 8,
-    justifyContent: 'space-around',
-    marginBottom: 10,
-  },
-  empMetricItem: {
-    alignItems: 'center',
-  },
-  empMetricLabel: {
-    fontSize: 10,
-    color: '#64748B',
-    marginBottom: 2,
-  },
-  empMetricVal: {
+  companyEmpDept: {
     fontSize: 12,
-    fontWeight: '700',
+    color: '#64748B',
+  },
+  companyDaysCol: {
+    alignItems: 'flex-end',
+  },
+  companyDaysVal: {
+    fontSize: 15,
+    fontWeight: '800',
     color: '#0F172A',
   },
-  empImageActionRow: {
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingTop: 10,
-  },
-  empUploadedImageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  empThumbPressable: {
-    position: 'relative',
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  empThumbImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#F1F5F9',
-  },
-  empThumbOverlay: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 4,
-    padding: 2,
-  },
-  empViewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    alignSelf: 'flex-start',
-  },
-  empViewBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  empReuploadBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-  },
-  empReuploadBtnText: {
+  companyDaysLabel: {
     fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  companyMetricsPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    paddingVertical: 6,
+    marginVertical: 10,
+  },
+  companyMetricText: {
+    fontSize: 11,
+    fontWeight: '600',
     color: '#475569',
   },
-  empUploadNewBtn: {
+  companyMetricDivider: {
+    color: '#CBD5E1',
+    fontSize: 10,
+  },
+  companyImageRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#059669',
-    paddingVertical: 8,
-    borderRadius: 8,
+    justifyContent: 'space-between',
+    paddingTop: 4,
   },
-  empUploadNewBtnText: {
+  viewImagePressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  viewImageTextDone: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#fff',
+    color: '#059669',
   },
-  empNoImageNotice: {
+  noImageInlineRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    alignSelf: 'flex-start',
   },
-  empNoImageNoticeText: {
+  noImageInlineText: {
     fontSize: 12,
     color: '#94A3B8',
-    fontStyle: 'italic',
+  },
+  uploadImageInlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#E8F5E9',
+  },
+  uploadImageInlineBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1B3B2B',
+  },
+
+  /* Empty State */
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 6,
+  },
+  emptyTitleText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  emptySubtitleText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+
+  /* Modal Department */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalItemRowActive: {
+    backgroundColor: '#F8FAFC',
+  },
+  modalItemText: {
+    fontSize: 14,
+    color: '#334155',
+  },
+  modalItemTextActive: {
+    fontWeight: '700',
+    color: '#1B3B2B',
   },
 });
