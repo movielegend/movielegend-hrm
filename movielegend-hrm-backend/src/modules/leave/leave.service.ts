@@ -6,6 +6,7 @@ import {
   NotificationType,
   OvertimeRequestStatus,
   Prisma,
+  RoleScopeType,
   UploadedFileStatus,
 } from '@prisma/client';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
@@ -237,6 +238,56 @@ export class LeaveService {
     });
   }
 
+  private async getDepartmentLeaderUserIds(departmentId: string, excludeUserId?: string): Promise<string[]> {
+    const leaderUserIds = new Set<string>();
+
+    const dept = await this.prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { leaderUserId: true },
+    });
+    if (dept?.leaderUserId) {
+      leaderUserIds.add(dept.leaderUserId);
+    }
+
+    const scopedLeaders = await this.prisma.userRole.findMany({
+      where: {
+        role: { code: 'LEADER' },
+        scopeType: RoleScopeType.DEPARTMENT,
+        scopeId: departmentId,
+        user: { accountStatus: 'ACTIVE' },
+      },
+      select: { userId: true },
+    });
+    for (const assignment of scopedLeaders) {
+      leaderUserIds.add(assignment.userId);
+    }
+
+    const departmentLeaderMembers = await this.prisma.departmentMember.findMany({
+      where: {
+        departmentId,
+        leftAt: null,
+        user: {
+          accountStatus: 'ACTIVE',
+          roles: {
+            some: {
+              role: { code: 'LEADER' },
+            },
+          },
+        },
+      },
+      select: { userId: true },
+    });
+    for (const member of departmentLeaderMembers) {
+      leaderUserIds.add(member.userId);
+    }
+
+    if (excludeUserId) {
+      leaderUserIds.delete(excludeUserId);
+    }
+
+    return Array.from(leaderUserIds);
+  }
+
   async createOvertimeRequest(dto: CreateOvertimeRequestDto, actor: AuthenticatedUser) {
     const departmentId = await this.scope.getPrimaryDepartmentId(actor.userId);
     const startAt = new Date(dto.startAt);
@@ -254,7 +305,7 @@ export class LeaveService {
     }
 
     await this.assertNoOvertimeOverlap(actor.userId, startAt, endAt);
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const request = await tx.overtimeRequest.create({
         data: {
           userId: actor.userId,
@@ -285,8 +336,28 @@ export class LeaveService {
         });
       }
 
-      return request;
+      // Gửi thông báo cho Leader của phòng ban
+      const leaderUserIds = await this.getDepartmentLeaderUserIds(departmentId, actor.userId);
+      let notif;
+      if (leaderUserIds.length > 0) {
+        const submitterName = request.user?.profile?.fullName || request.user?.userCode || 'Nhân viên';
+        const workDateFormatted = this.businessTime.businessDateString(request.workDate);
+        notif = await this.notifications.createForUsers(tx, leaderUserIds, {
+          type: NotificationType.SYSTEM,
+          title: 'Đơn xin tăng ca mới chờ duyệt',
+          body: `${submitterName} đã gửi đơn xin tăng ca ngày ${workDateFormatted} chờ bạn phê duyệt.`,
+          metadata: { overtimeRequestId: request.id, route: '/leader/overtime' },
+        });
+      }
+
+      return { request, notif };
     });
+
+    if (result.notif) {
+      this.notifications.emitCreated(result.notif);
+    }
+
+    return result.request;
   }
 
   async approveOvertime(id: string, actor: AuthenticatedUser) {
@@ -296,10 +367,25 @@ export class LeaveService {
     if (request.status !== OvertimeRequestStatus.PENDING) {
       throw badRequest('OVERTIME_REQUEST_INVALID_STATE', 'Don tang ca khong con cho duyet');
     }
-    return this.prisma.overtimeRequest.update({
-      where: { id },
-      data: { status: OvertimeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.overtimeRequest.update({
+        where: { id },
+        data: { status: OvertimeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() },
+      });
+      const notif = await this.notifications.createForUsers(tx, [request.userId], {
+        type: NotificationType.SYSTEM,
+        title: 'Đơn tăng ca đã được duyệt',
+        body: `Đơn xin tăng ca ngày ${this.businessTime.businessDateString(request.workDate)} của bạn đã được phê duyệt.`,
+        metadata: { overtimeRequestId: id },
+      });
+      return { updated, notif };
     });
+
+    if (result.notif) {
+      this.notifications.emitCreated(result.notif);
+    }
+
+    return result.updated;
   }
 
   async rejectOvertime(id: string, dto: RejectRequestDto, actor: AuthenticatedUser) {
@@ -330,8 +416,8 @@ export class LeaveService {
       });
       const notification = await this.notifications.createForUsers(tx, [request.userId], {
         type: NotificationType.SYSTEM,
-        title: 'Overtime request rejected',
-        body: dto.reason,
+        title: 'Đơn tăng ca bị từ chối',
+        body: `Đơn xin tăng ca ngày ${this.businessTime.businessDateString(request.workDate)} bị từ chối. Lý do: ${dto.reason}`,
         metadata: { overtimeRequestId: id },
       });
       return { rejected, notification };
