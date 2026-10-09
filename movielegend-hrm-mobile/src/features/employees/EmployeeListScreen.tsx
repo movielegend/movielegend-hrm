@@ -238,14 +238,16 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
               const roleCodes = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.role?.code || r?.name || '').toUpperCase());
 
-              const isAccDept = deptName.toLowerCase().includes('kế toán') || deptName.toLowerCase().includes('kt');
+              const deptNameLower = deptName.toLowerCase();
+              const isAccDept = deptNameLower.includes('kế toán') || deptNameLower.includes('tài chính') || deptNameLower.includes('accountant') || deptNameLower.includes('accounting');
               let displayRole = employee.profile?.position?.name || employee.position?.name;
               if (roleCodes.includes('ADMIN') || roleCodes.includes('SUPER_ADMIN')) displayRole = 'Admin Tổng';
               else if (roleCodes.includes('ACCOUNTANT_LEAD')) displayRole = 'Kế toán trưởng';
               else if (roleCodes.includes('LEADER') || roleCodes.includes('DEPARTMENT_HEAD')) displayRole = isAccDept ? 'Kế toán trưởng' : 'Trưởng phòng (Leader)';
               else if (roleCodes.includes('ACCOUNTANT_PAYROLL')) displayRole = 'Kế toán lương';
               else if (roleCodes.includes('ACCOUNTANT_TAX')) displayRole = 'Kế toán thuế';
-              else if (roleCodes.includes('ACCOUNTANT_GENERAL') || isAccDept) displayRole = 'Kế toán viên';
+              else if (roleCodes.includes('ACCOUNTANT_GENERAL')) displayRole = 'Kế toán viên';
+              else if (isAccDept) displayRole = 'Kế toán viên';
               else if (roleCodes.includes('HR') || roleCodes.includes('HUMAN_RESOURCE')) displayRole = 'Nhân sự HR';
               else if (!displayRole) displayRole = 'Nhân viên';
 
@@ -433,10 +435,17 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               const hasAccRole = roleCodes.includes('ACCOUNTANT_LEAD') || roleCodes.includes('ACCOUNTANT_PAYROLL') || roleCodes.includes('ACCOUNTANT_TAX') || roleCodes.includes('ACCOUNTANT_GENERAL') || roleCodes.includes('ACCOUNTANT');
               const isAccLead = roleCodes.includes('ACCOUNTANT_LEAD');
 
-              const dept = selectedEmployeeMenu.departmentLinks?.find((l: any) => l.isPrimary)?.department ||
+              const empDept = selectedEmployeeMenu.departmentLinks?.find((l: any) => l.isPrimary)?.department ||
                 selectedEmployeeMenu.departmentLinks?.[0]?.department ||
                 (selectedEmployeeMenu as any).department;
-              const isAccDept = dept?.name?.toLowerCase().includes('kế toán') || dept?.code?.toLowerCase().includes('kt') || isCurrentUserAdmin;
+              const deptNameLower = (empDept?.name || '').toLowerCase();
+              const deptCodeLower = (empDept?.code || '').toLowerCase();
+              const isAccDept = deptNameLower.includes('kế toán') ||
+                deptNameLower.includes('tài chính') ||
+                deptNameLower.includes('accountant') ||
+                deptNameLower.includes('accounting') ||
+                deptCodeLower === 'kt' ||
+                deptCodeLower === 'acc';
 
               if (!isAccDept && !hasAccRole) return null;
 
