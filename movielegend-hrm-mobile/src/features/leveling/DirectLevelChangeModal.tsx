@@ -1,20 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Modal,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Platform} from 'react-native';
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { levelingApi } from '../../api/leveling.api';
-import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES, LevelNameBadge } from '../../components/common/LevelNameBadge';
+import { levelingApi, DepartmentLevelItem } from '../../api/leveling.api';
+import { LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import { CustomAlert } from '../../components/CustomAlert';
 
-interface DirectLevelChangeModalProps {
+export interface DirectLevelChangeModalProps {
   visible: boolean;
   targetUser: {
     id: string;
@@ -23,6 +24,7 @@ interface DirectLevelChangeModalProps {
     departmentName?: string;
   } | null;
   isAdmin?: boolean;
+  levelConfigs?: DepartmentLevelItem[];
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -31,17 +33,16 @@ export const DirectLevelChangeModal: React.FC<DirectLevelChangeModalProps> = ({
   visible,
   targetUser,
   isAdmin = false,
+  levelConfigs = [],
   onClose,
   onSuccess,
 }) => {
   const [selectedLevel, setSelectedLevel] = useState<number>(1);
-  const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (targetUser) {
       setSelectedLevel(targetUser.currentLevelNumber || 1);
-      setNote('');
     }
   }, [targetUser]);
 
@@ -50,23 +51,51 @@ export const DirectLevelChangeModal: React.FC<DirectLevelChangeModalProps> = ({
   const maxAllowedLevel = isAdmin ? 8 : 4;
   const availableLevels = Array.from({ length: maxAllowedLevel }, (_, i) => i + 1);
 
+  const getInitials = (name?: string) => {
+    if (!name) return 'NV';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'NV';
+    if (parts.length === 1) return parts[0] ? parts[0].substring(0, 2).toUpperCase() : 'NV';
+    const first = parts[0]?.charAt(0) || '';
+    const last = parts[parts.length - 1]?.charAt(0) || '';
+    return (first + last).toUpperCase() || 'NV';
+  };
+
+  const getLevelTitle = (levelNumber: number) => {
+    const found = levelConfigs.find((c) => c.levelNumber === levelNumber);
+    if (found?.customLevelName && found.customLevelName.trim()) {
+      return found.customLevelName.trim();
+    }
+    if (found?.displayName && found.displayName.trim()) {
+      return found.displayName.trim();
+    }
+    return LEVEL_DEFAULT_NAMES[levelNumber] || `Level ${levelNumber}`;
+  };
+
+  const isSameLevel = selectedLevel === targetUser.currentLevelNumber;
+
   const handleSubmit = async () => {
+    if (isSameLevel) return;
+
     try {
       setIsSubmitting(true);
       await levelingApi.setDirectUserLevel(
         targetUser.id,
         selectedLevel,
-        note.trim() || 'Leader đổi cấp trực tiếp',
+        isAdmin ? 'Admin đổi cấp trực tiếp' : 'Leader đổi cấp trực tiếp',
       );
 
       CustomAlert.alert(
         'Thành công',
-        `Đã cập nhật cấp bậc của ${targetUser.fullName} thành Level ${selectedLevel} - ${LEVEL_DEFAULT_NAMES[selectedLevel]}!`,
+        `Đã cập nhật cấp bậc của ${targetUser.fullName} thành Level ${selectedLevel} · ${getLevelTitle(selectedLevel)}!`,
       );
       onSuccess();
       onClose();
     } catch (err: any) {
-      CustomAlert.alert('Lỗi cập nhật', err?.response?.data?.message || err?.message || 'Có lỗi xảy ra');
+      CustomAlert.alert(
+        'Lỗi cập nhật',
+        err?.response?.data?.message || err?.message || 'Có lỗi xảy ra khi đổi cấp bậc',
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -76,110 +105,106 @@ export const DirectLevelChangeModal: React.FC<DirectLevelChangeModalProps> = ({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
+          {/* Drag handle */}
+          <View style={styles.dragHandle} />
+
           {/* Header */}
           <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Đổi Cấp Bậc Nhân Viên</Text>
-              <Text style={styles.subtitle}>
-                Nhân sự: <Text style={{ fontWeight: '700' }}>{targetUser.fullName}</Text>
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <Text style={styles.title}>Đổi cấp bậc</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={8}>
               <Ionicons name="close" size={22} color="#64748B" />
             </TouchableOpacity>
           </View>
 
+          {/* User Info Card */}
+          <View style={styles.userCard}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{getInitials(targetUser.fullName)}</Text>
+            </View>
+            <View style={styles.userMetaCol}>
+              <Text style={styles.userName}>{targetUser.fullName}</Text>
+              <Text style={styles.userCurrentLevel}>
+                Hiện tại: Level {targetUser.currentLevelNumber} · {getLevelTitle(targetUser.currentLevelNumber)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Section: Chọn cấp bậc mới */}
+          <Text style={styles.sectionLabel}>Chọn cấp bậc mới</Text>
+
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            <Text style={styles.sectionLabel}>Chọn Cấp Bậc Mới:</Text>
             <View style={styles.levelOptionsContainer}>
               {availableLevels.map((lvl) => {
                 const isSelected = selectedLevel === lvl;
-                const colorHex = LEVEL_COLORS[lvl] || '#2196F3';
-                const levelName = LEVEL_DEFAULT_NAMES[lvl] || `Level ${lvl}`;
+                const isCurrent = targetUser.currentLevelNumber === lvl;
+                const formattedNum = String(lvl).padStart(2, '0');
+                const levelTitle = getLevelTitle(lvl);
 
                 return (
                   <TouchableOpacity
                     key={lvl}
                     style={[
-                      styles.levelOptionCard,
-                      isSelected && { borderColor: colorHex, backgroundColor: `${colorHex}10` },
+                      styles.levelOptionRow,
+                      isSelected && styles.levelOptionRowSelected,
                     ]}
                     onPress={() => setSelectedLevel(lvl)}
+                    activeOpacity={0.7}
                   >
                     <View style={styles.levelOptionLeft}>
-                      <View
-                        style={[
-                          styles.radioCircle,
-                          isSelected && { borderColor: colorHex },
-                        ]}
-                      >
-                        {isSelected && (
-                          <View style={[styles.radioDot, { backgroundColor: colorHex }]} />
-                        )}
-                      </View>
-                      <View>
-                        <Text style={[styles.levelOptionNumber, { color: colorHex }]}>
-                          Level {lvl}
+                      <View style={[styles.numBadge, (isSelected || isCurrent) && styles.numBadgeHighlight]}>
+                        <Text style={[styles.numBadgeText, (isSelected || isCurrent) && styles.numBadgeTextHighlight]}>
+                          {formattedNum}
                         </Text>
-                        <Text style={styles.levelOptionName}>{levelName}</Text>
                       </View>
+                      <Text style={styles.levelNameText}>{levelTitle}</Text>
+                      {isCurrent && (
+                        <View style={styles.currentBadge}>
+                          <Text style={styles.currentBadgeText}>Hiện tại</Text>
+                        </View>
+                      )}
                     </View>
 
-                    <View
-                      style={[
-                        styles.badgeTag,
-                        { backgroundColor: `${colorHex}20`, borderColor: `${colorHex}40` },
-                      ]}
-                    >
-                      <Text style={[styles.badgeTagText, { color: colorHex }]}>
-                        {levelName}
-                      </Text>
+                    {/* Radio Button */}
+                    <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                      {isSelected && <View style={styles.radioDot} />}
                     </View>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {!isAdmin && (
-              <View style={styles.limitNotice}>
-                <Ionicons name="information-circle-outline" size={16} color="#64748B" />
-                <Text style={styles.limitNoticeText}>
-                  Leader có quyền set từ Level 1 đến Level 4. Cấp Level 5+ cần do Ban Giám Đốc phê duyệt.
-                </Text>
-              </View>
-            )}
-
-            {/* Note Input */}
-            <Text style={styles.sectionLabel}>Lý do / Ghi chú thay đổi:</Text>
-            <TextInput
-              style={styles.textArea}
-              placeholder="VD: Đã ký hợp đồng chính thức / Đạt thành tích xuất sắc quý..."
-              placeholderTextColor="#94A3B8"
-              value={note}
-              onChangeText={setNote}
-            />
+            <Text style={styles.hintText}>Chọn cấp bậc khác để xác nhận.</Text>
           </ScrollView>
 
-          {/* Footer */}
+          {/* Footer Buttons */}
           <View style={styles.footer}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose} disabled={isSubmitting}>
               <Text style={styles.cancelBtnText}>Hủy</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[
                 styles.confirmBtn,
-                { backgroundColor: LEVEL_COLORS[selectedLevel] || '#2196F3' },
+                !isSameLevel && styles.confirmBtnActive,
               ]}
               onPress={handleSubmit}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isSameLevel}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Text style={styles.confirmBtnText}>Xác Nhận Đổi Level</Text>
+                <Text
+                  style={[
+                    styles.confirmBtnText,
+                    !isSameLevel && styles.confirmBtnTextActive,
+                  ]}
+                >
+                  Xác nhận đổi cấp
+                </Text>
               )}
             </TouchableOpacity>
           </View>
+          <SafeAreaView edges={['bottom']} />
         </View>
       </View>
     </Modal>
@@ -189,65 +214,150 @@ export const DirectLevelChangeModal: React.FC<DirectLevelChangeModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '88%',
-    paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    maxHeight: '90%',
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    marginBottom: 14,
   },
   title: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 2,
   },
   closeBtn: {
     padding: 4,
   },
-  body: {
-    padding: 16,
+
+  /* User Info Card */
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginBottom: 16,
   },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1B3B2B',
+  },
+  userMetaCol: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  userCurrentLevel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* Section */
   sectionLabel: {
     fontSize: 14,
     fontWeight: '700',
     color: '#334155',
     marginBottom: 10,
   },
+  body: {
+    maxHeight: 380,
+  },
   levelOptionsContainer: {
     gap: 8,
-    marginBottom: 14,
   },
-  levelOptionCard: {
+  levelOptionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
     borderColor: '#E2E8F0',
-    backgroundColor: '#FAFAFA',
+  },
+  levelOptionRowSelected: {
+    borderColor: '#1B3B2B',
+    backgroundColor: '#F0FDF4',
   },
   levelOptionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    flex: 1,
   },
+  numBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  numBadgeHighlight: {
+    backgroundColor: '#E8F5E9',
+  },
+  numBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  numBadgeTextHighlight: {
+    color: '#1B3B2B',
+  },
+  levelNameText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  currentBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  currentBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1B3B2B',
+  },
+
+  /* Radio Button */
   radioCircle: {
     width: 20,
     height: 20,
@@ -257,85 +367,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  radioCircleSelected: {
+    borderColor: '#1B3B2B',
+  },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
+    backgroundColor: '#1B3B2B',
   },
-  levelOptionNumber: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  levelOptionName: {
-    fontSize: 13,
-    color: '#475569',
-    marginTop: 1,
-  },
-  badgeTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  badgeTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  limitNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 14,
-    gap: 6,
-  },
-  limitNoticeText: {
+
+  hintText: {
     fontSize: 12,
-    color: '#64748B',
-    flex: 1,
+    color: '#94A3B8',
+    marginTop: 10,
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
-  textArea: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 14,
-    color: '#0F172A',
-    backgroundColor: '#F8FAFC',
-    marginBottom: 16,
-  },
+
+  /* Footer */
   footer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    gap: 12,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    gap: 10,
+    marginTop: 8,
+    marginBottom: 12,
   },
   cancelBtn: {
     flex: 1,
+    height: 46,
+    borderRadius: 12,
     backgroundColor: '#F1F5F9',
-    paddingVertical: 12,
-    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#334155',
   },
   confirmBtn: {
-    flex: 2,
-    paddingVertical: 12,
-    borderRadius: 10,
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#CBD5E1',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  confirmBtnActive: {
+    backgroundColor: '#1B3B2B',
   },
   confirmBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFF',
+    color: '#94A3B8',
+  },
+  confirmBtnTextActive: {
+    color: '#FFFFFF',
   },
 });
