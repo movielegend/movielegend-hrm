@@ -45,6 +45,8 @@ export class OtReportService {
   ): Promise<number> {
     if (otEnd <= otStart) return 0;
 
+    const declaredOtMinutes = Math.max(0, Math.floor((otEnd.getTime() - otStart.getTime()) / 60_000));
+
     // Lấy tất cả các lượt làm việc trong ngày công này
     const records = await this.prisma.attendanceRecord.findMany({
       where: {
@@ -54,8 +56,8 @@ export class OtReportService {
       orderBy: { checkInAt: 'asc' },
     });
 
-    // Bắt buộc phải có ít nhất 1 lần check-in trong ngày
-    if (records.length === 0) return 0;
+    // Nếu không có lượt check-in nào trong ngày thì tính theo toàn bộ thời gian OT đã khai báo
+    if (records.length === 0) return declaredOtMinutes;
 
     // Tập hợp tất cả các khoảng thời gian làm việc (từ check-in/out và từ đơn báo cáo OT)
     const rawIntervals: Array<{ start: Date; end: Date }> = [];
@@ -128,7 +130,7 @@ export class OtReportService {
       }
     }
 
-    return totalValidMinutes;
+    return totalValidMinutes > 0 ? totalValidMinutes : declaredOtMinutes;
   }
 
   async create(actor: AuthenticatedUser, dto: CreateOtReportDto) {
@@ -160,16 +162,7 @@ export class OtReportService {
       );
     }
 
-    // 3. Kiểm tra ngày được chọn phải có check-in
-    const checkinCount = await this.prisma.attendanceRecord.count({
-      where: {
-        userId: actor.userId,
-        workDate: otWorkDate,
-      },
-    });
-    if (checkinCount === 0) {
-      throw badRequest('NO_CHECKIN_FOUND', 'Ngày được chọn không có dữ liệu check-in');
-    }
+    // 3. Không bắt buộc phải có check-in trong ngày (cho phép gửi báo cáo OT ngay cả khi chưa/không check-in)
 
     // 4. Kiểm tra mỗi nhân viên chỉ có 1 báo cáo cho mỗi ngày OT (nếu đã REJECTED thì cho phép nộp lại)
     const existing = await this.prisma.otReport.findUnique({

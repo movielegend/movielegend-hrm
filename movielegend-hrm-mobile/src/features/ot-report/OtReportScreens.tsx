@@ -294,7 +294,7 @@ export function CreateOtReportScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <PageHeader
           title="Tạo báo cáo OT"
-          subtitle="Chỉ dành cho phòng Live trong 3 ngày gần nhất có check-in."
+          subtitle="Chỉ dành cho phòng Live trong 3 ngày gần nhất."
         />
         <SectionCard>
           {/* Chọn ngày bằng Modal */}

@@ -48,6 +48,7 @@ export async function exportAndShareFinancialExcel(options: ExportExcelOptions =
         headers: {
           Authorization: `Bearer ${token}`,
           'ngrok-skip-browser-warning': 'true',
+          'bypass-tunnel-reminder': 'true',
         },
       });
 
@@ -75,6 +76,7 @@ export async function exportAndShareFinancialExcel(options: ExportExcelOptions =
       headers: {
         Authorization: `Bearer ${token}`,
         'ngrok-skip-browser-warning': 'true',
+        'bypass-tunnel-reminder': 'true',
       },
     });
 

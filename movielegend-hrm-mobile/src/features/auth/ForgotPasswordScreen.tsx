@@ -83,7 +83,11 @@ export function ForgotPasswordScreen() {
       
       const isEmail = identifier.includes('@');
       if (!isEmail) {
-        await removeRememberedAccount(identifier.trim());
+        try {
+          await removeRememberedAccount(identifier.trim());
+        } catch (e) {
+          console.warn('Failed to remove remembered account:', e);
+        }
       }
       
       Toast.show({ type: 'success', text1: 'Đổi mật khẩu thành công!' });
