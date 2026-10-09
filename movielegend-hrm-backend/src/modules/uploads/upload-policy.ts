@@ -124,6 +124,12 @@ export const uploadPolicies: Record<UploadPurpose, UploadPolicy> = {
     mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
     extensions: ['.jpg', '.jpeg', '.png', '.webp'],
   },
+  OVERTIME_REQUEST_ATTACHMENT: {
+    purpose: UploadPurpose.OVERTIME_REQUEST_ATTACHMENT,
+    maxSize: 20 * 1024 * 1024,
+    mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    extensions: ['.jpg', '.jpeg', '.png', '.webp'],
+  },
 };
 
 export const maxUploadSize = Math.max(...Object.values(uploadPolicies).map((policy) => policy.maxSize));

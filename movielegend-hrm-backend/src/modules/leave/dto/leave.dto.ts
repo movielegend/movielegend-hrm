@@ -49,6 +49,11 @@ export class CreateOvertimeRequestDto {
   @IsString()
   @MinLength(3)
   reason!: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsUUID('4', { each: true })
+  photoFileIds?: string[];
 }
 
 export class RejectRequestDto {

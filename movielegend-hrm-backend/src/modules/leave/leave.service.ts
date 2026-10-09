@@ -6,6 +6,7 @@ import {
   NotificationType,
   OvertimeRequestStatus,
   Prisma,
+  UploadedFileStatus,
 } from '@prisma/client';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { badRequest, notFound } from '../../common/utils/error.util';
@@ -253,15 +254,38 @@ export class LeaveService {
     }
 
     await this.assertNoOvertimeOverlap(actor.userId, startAt, endAt);
-    return this.prisma.overtimeRequest.create({
-      data: {
-        userId: actor.userId,
-        departmentId,
-        workDate,
-        startAt,
-        endAt,
-        reason: dto.reason,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.overtimeRequest.create({
+        data: {
+          userId: actor.userId,
+          departmentId,
+          workDate,
+          startAt,
+          endAt,
+          reason: dto.reason,
+          photos: dto.photoFileIds && dto.photoFileIds.length > 0
+            ? {
+                create: dto.photoFileIds.map((fileId) => ({ fileId })),
+              }
+            : undefined,
+        },
+        include: {
+          photos: {
+            include: { file: true },
+          },
+          user: { select: { id: true, userCode: true, phone: true, email: true, profile: true } },
+          department: true,
+        },
+      });
+
+      if (dto.photoFileIds && dto.photoFileIds.length > 0) {
+        await tx.uploadedFile.updateMany({
+          where: { id: { in: dto.photoFileIds } },
+          data: { status: UploadedFileStatus.ATTACHED },
+        });
+      }
+
+      return request;
     });
   }
 
@@ -347,6 +371,9 @@ export class LeaveService {
         include: {
           user: { select: { id: true, userCode: true, phone: true, email: true, profile: true } },
           department: true,
+          photos: {
+            include: { file: true },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip: (query.page - 1) * query.limit,

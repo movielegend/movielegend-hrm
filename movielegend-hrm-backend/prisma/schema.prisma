@@ -69,6 +69,7 @@ enum UploadPurpose {
   ASSET_INCIDENT
   CANDIDATE_CV
   OT_REPORT_ATTACHMENT
+  OVERTIME_REQUEST_ATTACHMENT
 }
 
 enum UploadedFileStatus {
@@ -857,6 +858,7 @@ model UploadedFile {
   attendanceRecords         AttendanceRecord[] @relation("AttendancePhotoFile")
   attendanceCheckOutRecords AttendanceRecord[] @relation("AttendanceCheckOutPhotoFile")
   otReportPhotos            OtReportPhoto[]
+  overtimeRequestPhotos     OvertimeRequestPhoto[]
 
   @@index([purpose, status, createdAt])
   @@index([uploadedById])
@@ -1600,10 +1602,25 @@ model OvertimeRequest {
   updatedAt       DateTime              @updatedAt
   user            User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
   department      Department            @relation(fields: [departmentId], references: [id])
+  photos          OvertimeRequestPhoto[]
 
   @@index([departmentId, status])
   @@index([userId])
   @@map("overtime_requests")
+}
+
+model OvertimeRequestPhoto {
+  id                String          @id @default(uuid()) @db.Uuid
+  overtimeRequestId String          @db.Uuid
+  fileId            String          @db.Uuid
+  createdAt         DateTime        @default(now())
+
+  overtimeRequest   OvertimeRequest @relation(fields: [overtimeRequestId], references: [id], onDelete: Cascade)
+  file              UploadedFile    @relation(fields: [fileId], references: [id])
+
+  @@index([overtimeRequestId])
+  @@index([fileId])
+  @@map("overtime_request_photos")
 }
 
 model OtReport {
