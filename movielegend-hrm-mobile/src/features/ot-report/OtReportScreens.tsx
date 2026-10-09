@@ -39,13 +39,15 @@ import { requestMediaLibraryPermissionWithFallback, requestCameraPermissionWithF
 import { useQueryClient } from '@tanstack/react-query';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import type { OtReport } from '../../types/ot-report.types';
+import { shadows } from '../../theme/shadows';
+import type { OtReport, OtReportStatus } from '../../types/ot-report.types';
 import { businessDateToday, formatDate, formatDateTime } from '../../utils/date-time';
 import { normalizeApiError } from '../../utils/api-error';
 
 export function OtReportHomeScreen() {
   const router = useRouter();
-  const reports = useMyOtReports({ page: 1, limit: 20 });
+  const [selectedStatus, setSelectedStatus] = useState<OtReportStatus | 'ALL'>('ALL');
+  const reports = useMyOtReports({ status: selectedStatus, page: 1, limit: 50 });
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -68,11 +70,82 @@ export function OtReportHomeScreen() {
         <PrimaryButton onPress={() => router.push('/employee/ot-report/create' as any)}>
           + Tạo báo cáo OT mới
         </PrimaryButton>
-        <SectionCard title="Báo cáo OT của tôi">
+
+        {/* Tab bộ lọc trạng thái */}
+        <View style={[styles.tabContainer, { marginTop: spacing.md }]}>
+          <TouchableOpacity
+            style={[styles.tabButton, selectedStatus === 'ALL' && styles.tabButtonActiveAll]}
+            onPress={() => setSelectedStatus('ALL')}
+          >
+            <MaterialCommunityIcons
+              name="format-list-bulleted"
+              size={15}
+              color={selectedStatus === 'ALL' ? '#4338CA' : '#6B7280'}
+            />
+            <Text style={[styles.tabText, selectedStatus === 'ALL' && styles.tabTextActiveAll]}>
+              Tất cả
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, selectedStatus === 'PENDING' && styles.tabButtonActivePending]}
+            onPress={() => setSelectedStatus('PENDING')}
+          >
+            <MaterialCommunityIcons
+              name="clock-outline"
+              size={15}
+              color={selectedStatus === 'PENDING' ? '#B45309' : '#6B7280'}
+            />
+            <Text style={[styles.tabText, selectedStatus === 'PENDING' && styles.tabTextActivePending]}>
+              Chờ duyệt
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, selectedStatus === 'APPROVED' && styles.tabButtonActiveApproved]}
+            onPress={() => setSelectedStatus('APPROVED')}
+          >
+            <MaterialCommunityIcons
+              name="check-circle-outline"
+              size={15}
+              color={selectedStatus === 'APPROVED' ? '#047857' : '#6B7280'}
+            />
+            <Text style={[styles.tabText, selectedStatus === 'APPROVED' && styles.tabTextActiveApproved]}>
+              Đã duyệt
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, selectedStatus === 'REJECTED' && styles.tabButtonActiveRejected]}
+            onPress={() => setSelectedStatus('REJECTED')}
+          >
+            <MaterialCommunityIcons
+              name="close-circle-outline"
+              size={15}
+              color={selectedStatus === 'REJECTED' ? '#B91C1C' : '#6B7280'}
+            />
+            <Text style={[styles.tabText, selectedStatus === 'REJECTED' && styles.tabTextActiveRejected]}>
+              Từ chối
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <SectionCard title={
+          selectedStatus === 'PENDING' ? 'Báo cáo chờ duyệt'
+          : selectedStatus === 'APPROVED' ? 'Báo cáo đã duyệt'
+          : selectedStatus === 'REJECTED' ? 'Báo cáo bị từ chối'
+          : 'Báo cáo OT của tôi'
+        }>
           {(reports.data?.items ?? []).map((report) => (
             <OtReportCard key={report.id} report={report} />
           ))}
-          {!reports.data?.items?.length ? <EmptyState title="Chưa có báo cáo OT nào" /> : null}
+          {!reports.data?.items?.length ? (
+            <EmptyState
+              title={
+                selectedStatus === 'PENDING' ? 'Không có báo cáo chờ duyệt'
+                : selectedStatus === 'APPROVED' ? 'Chưa có báo cáo nào được duyệt'
+                : selectedStatus === 'REJECTED' ? 'Không có báo cáo bị từ chối'
+                : 'Chưa có báo cáo OT nào'
+              }
+            />
+          ) : null}
         </SectionCard>
       </ScrollView>
     </Screen>
@@ -454,8 +527,11 @@ export function CreateOtReportScreen() {
   );
 }
 
+type OtFilterStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
+
 export function LeaderOtReviewScreen() {
-  const pending = usePendingOtReports({ page: 1, limit: 20 });
+  const [selectedStatus, setSelectedStatus] = useState<OtFilterStatus>('PENDING');
+  const reportsQuery = usePendingOtReports({ status: selectedStatus, page: 1, limit: 50 });
   const approveMutation = useApproveOtReport();
   const rejectMutation = useRejectOtReport();
   const { showAlert } = useAppAlert();
@@ -542,6 +618,24 @@ export function LeaderOtReviewScreen() {
     }
   };
 
+  const getSectionTitle = () => {
+    switch (selectedStatus) {
+      case 'PENDING': return 'Danh sách chờ duyệt';
+      case 'APPROVED': return 'Danh sách đã duyệt';
+      case 'REJECTED': return 'Danh sách từ chối';
+      case 'ALL': return 'Tất cả báo cáo OT';
+    }
+  };
+
+  const getEmptyStateTitle = () => {
+    switch (selectedStatus) {
+      case 'PENDING': return 'Không có báo cáo nào đang chờ duyệt';
+      case 'APPROVED': return 'Chưa có báo cáo nào được duyệt';
+      case 'REJECTED': return 'Không có báo cáo nào bị từ chối';
+      case 'ALL': return 'Chưa có báo cáo OT nào';
+    }
+  };
+
   return (
     <Screen>
       <ScrollView
@@ -550,10 +644,70 @@ export function LeaderOtReviewScreen() {
       >
         <PageHeader
           title="Duyệt báo cáo OT"
-          subtitle="Danh sách báo cáo OT chờ duyệt từ nhân viên phòng Live."
+          subtitle="Quản lý và phê duyệt báo cáo OT nhân viên phòng Live."
         />
-        <SectionCard title="Chờ duyệt">
-          {(pending.data?.items ?? []).map((report) => (
+
+        {/* BỘ LỌC TRẠNG THÁI (Tabs) */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tabButton, selectedStatus === 'PENDING' && styles.tabButtonActivePending]}
+            onPress={() => setSelectedStatus('PENDING')}
+          >
+            <MaterialCommunityIcons
+              name="clock-outline"
+              size={15}
+              color={selectedStatus === 'PENDING' ? '#B45309' : '#6B7280'}
+            />
+            <Text style={[styles.tabText, selectedStatus === 'PENDING' && styles.tabTextActivePending]}>
+              Chờ duyệt
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabButton, selectedStatus === 'APPROVED' && styles.tabButtonActiveApproved]}
+            onPress={() => setSelectedStatus('APPROVED')}
+          >
+            <MaterialCommunityIcons
+              name="check-circle-outline"
+              size={15}
+              color={selectedStatus === 'APPROVED' ? '#047857' : '#6B7280'}
+            />
+            <Text style={[styles.tabText, selectedStatus === 'APPROVED' && styles.tabTextActiveApproved]}>
+              Đã duyệt
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabButton, selectedStatus === 'REJECTED' && styles.tabButtonActiveRejected]}
+            onPress={() => setSelectedStatus('REJECTED')}
+          >
+            <MaterialCommunityIcons
+              name="close-circle-outline"
+              size={15}
+              color={selectedStatus === 'REJECTED' ? '#B91C1C' : '#6B7280'}
+            />
+            <Text style={[styles.tabText, selectedStatus === 'REJECTED' && styles.tabTextActiveRejected]}>
+              Từ chối
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tabButton, selectedStatus === 'ALL' && styles.tabButtonActiveAll]}
+            onPress={() => setSelectedStatus('ALL')}
+          >
+            <MaterialCommunityIcons
+              name="format-list-bulleted"
+              size={15}
+              color={selectedStatus === 'ALL' ? '#4338CA' : '#6B7280'}
+            />
+            <Text style={[styles.tabText, selectedStatus === 'ALL' && styles.tabTextActiveAll]}>
+              Tất cả
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <SectionCard title={getSectionTitle()}>
+          {(reportsQuery.data?.items ?? []).map((report) => (
             <View key={report.id} style={styles.card}>
               <View style={styles.row}>
                 <View style={styles.flex}>
@@ -574,7 +728,12 @@ export function LeaderOtReviewScreen() {
               <Text style={styles.cardText}>
                 Thời gian: {formatDateTime(report.startTime)} - {formatDateTime(report.endTime)}
               </Text>
-              <Text style={styles.cardText}>% Đề xuất: <Text style={styles.cardTextHighlight}>{report.proposedPercent}%</Text></Text>
+              <Text style={styles.cardText}>
+                % Đề xuất: <Text style={styles.cardTextHighlight}>{report.proposedPercent}%</Text>
+                {report.approvedPercent ? (
+                  <Text style={{ color: '#047857', fontWeight: '700' }}> | % Duyệt: {report.approvedPercent}%</Text>
+                ) : null}
+              </Text>
               
               <View style={styles.validOtBox}>
                 <MaterialCommunityIcons name="clock-check-outline" size={18} color="#2563EB" />
@@ -582,6 +741,48 @@ export function LeaderOtReviewScreen() {
                   Giờ OT hợp lệ (sau mốc 5h): {Math.floor(report.validOtMinutes / 60)}h {report.validOtMinutes % 60}p
                 </Text>
               </View>
+
+              {/* Thông tin duyệt / từ chối */}
+              {report.status === 'APPROVED' && (report.decidedBy || report.decidedAt) ? (
+                <View style={styles.approvedInfoBox}>
+                  <MaterialCommunityIcons name="check-decagram" size={16} color="#059669" />
+                  <View style={styles.flex}>
+                    {report.decidedBy ? (
+                      <Text style={styles.approvedInfoText}>
+                        Người duyệt: <Text style={{ fontWeight: '700' }}>{report.decidedBy.profile?.fullName || report.decidedBy.userCode}</Text>
+                      </Text>
+                    ) : null}
+                    {report.decidedAt ? (
+                      <Text style={styles.approvedInfoText}>
+                        Thời gian: {formatDateTime(report.decidedAt)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+
+              {report.status === 'REJECTED' ? (
+                <View style={styles.rejectedInfoBox}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#DC2626" />
+                  <View style={styles.flex}>
+                    {report.rejectionReason ? (
+                      <Text style={styles.rejectedInfoText}>
+                        Lý do từ chối: <Text style={{ fontWeight: '700' }}>{report.rejectionReason}</Text>
+                      </Text>
+                    ) : null}
+                    {report.decidedBy ? (
+                      <Text style={styles.rejectedInfoText}>
+                        Người xử lý: {report.decidedBy.profile?.fullName || report.decidedBy.userCode}
+                      </Text>
+                    ) : null}
+                    {report.decidedAt ? (
+                      <Text style={styles.rejectedInfoText}>
+                        Thời gian: {formatDateTime(report.decidedAt)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
 
               {report.reason ? (
                 <Text style={styles.cardText} numberOfLines={2}>
@@ -625,14 +826,17 @@ export function LeaderOtReviewScreen() {
                   <MaterialCommunityIcons name="eye-outline" size={16} color="#4B5563" />
                   <Text style={styles.detailButtonText}>Chi tiết</Text>
                 </TouchableOpacity>
-                <View style={styles.flexRowGap}>
-                  <PrimaryButton onPress={() => handleOpenApprove(report)}>Duyệt</PrimaryButton>
-                  <SecondaryButton onPress={() => handleOpenReject(report)}>Từ chối</SecondaryButton>
-                </View>
+
+                {report.status === 'PENDING' ? (
+                  <View style={styles.flexRowGap}>
+                    <PrimaryButton onPress={() => handleOpenApprove(report)}>Duyệt</PrimaryButton>
+                    <SecondaryButton onPress={() => handleOpenReject(report)}>Từ chối</SecondaryButton>
+                  </View>
+                ) : null}
               </View>
             </View>
           ))}
-          {!pending.data?.items?.length ? <EmptyState title="Không có báo cáo chờ duyệt" /> : null}
+          {!reportsQuery.data?.items?.length ? <EmptyState title={getEmptyStateTitle()} /> : null}
         </SectionCard>
       </ScrollView>
 
@@ -804,6 +1008,29 @@ function OtReportDetailModal({
               </View>
             </View>
 
+            {/* Thông tin duyệt / từ chối trong modal */}
+            {report.status === 'APPROVED' ? (
+              <View style={styles.detailApprovedBox}>
+                <MaterialCommunityIcons name="check-decagram" size={20} color="#059669" />
+                <View style={styles.flex}>
+                  <Text style={styles.detailApprovedTitle}>Thông tin duyệt OT:</Text>
+                  <Text style={styles.detailApprovedDesc}>
+                    Mức công OT được duyệt: <Text style={{ fontWeight: '800' }}>{report.approvedPercent}%</Text>
+                  </Text>
+                  {report.decidedBy ? (
+                    <Text style={styles.detailDeciderText}>
+                      Người duyệt: {report.decidedBy.profile?.fullName || report.decidedBy.userCode}
+                    </Text>
+                  ) : null}
+                  {report.decidedAt ? (
+                    <Text style={styles.detailDeciderText}>
+                      Thời gian: {formatDateTime(report.decidedAt)}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+
             {report.reason ? (
               <View style={styles.detailReasonBox}>
                 <Text style={styles.detailReasonLabel}>Nội dung công việc:</Text>
@@ -815,6 +1042,16 @@ function OtReportDetailModal({
               <View style={styles.detailRejectBox}>
                 <Text style={styles.detailRejectLabel}>Lý do từ chối:</Text>
                 <Text style={styles.detailRejectText}>{report.rejectionReason}</Text>
+                {report.decidedBy ? (
+                  <Text style={[styles.detailDeciderText, { color: '#991B1B', marginTop: 4 }]}>
+                    Người xử lý: {report.decidedBy.profile?.fullName || report.decidedBy.userCode}
+                  </Text>
+                ) : null}
+                {report.decidedAt ? (
+                  <Text style={[styles.detailDeciderText, { color: '#991B1B' }]}>
+                    Thời gian: {formatDateTime(report.decidedAt)}
+                  </Text>
+                ) : null}
               </View>
             ) : null}
 
@@ -1546,5 +1783,128 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: spacing.md,
+    gap: 4,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  tabButtonActivePending: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    ...shadows.sm,
+  },
+  tabButtonActiveApproved: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    ...shadows.sm,
+  },
+  tabButtonActiveRejected: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    ...shadows.sm,
+  },
+  tabButtonActiveAll: {
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    ...shadows.sm,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  tabTextActivePending: {
+    color: '#B45309',
+    fontWeight: '700',
+  },
+  tabTextActiveApproved: {
+    color: '#047857',
+    fontWeight: '700',
+  },
+  tabTextActiveRejected: {
+    color: '#B91C1C',
+    fontWeight: '700',
+  },
+  tabTextActiveAll: {
+    color: '#4338CA',
+    fontWeight: '700',
+  },
+  approvedInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#ECFDF5',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 6,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  approvedInfoText: {
+    fontSize: 13,
+    color: '#065F46',
+    lineHeight: 18,
+  },
+  rejectedInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 6,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  rejectedInfoText: {
+    fontSize: 13,
+    color: '#991B1B',
+    lineHeight: 18,
+  },
+  detailApprovedBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#ECFDF5',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  detailApprovedTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#065F46',
+  },
+  detailApprovedDesc: {
+    fontSize: 14,
+    color: '#047857',
+    marginTop: 2,
+  },
+  detailDeciderText: {
+    fontSize: 12,
+    color: '#059669',
+    marginTop: 3,
   },
 });

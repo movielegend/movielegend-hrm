@@ -42,6 +42,13 @@ export interface OtReport {
     name: string;
     code: string;
   };
+  decidedBy?: {
+    id: string;
+    userCode?: string;
+    profile?: {
+      fullName?: string;
+    };
+  } | null;
 }
 
 export interface CreateOtReportPayload {
@@ -70,7 +77,7 @@ export interface RejectOtReportPayload {
 }
 
 export interface OtReportFilters {
-  status?: OtReportStatus;
+  status?: OtReportStatus | 'ALL';
   fromDate?: string;
   toDate?: string;
   page?: number;
