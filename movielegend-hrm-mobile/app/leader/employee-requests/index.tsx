@@ -10,6 +10,7 @@ import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 import { getEmployeeRequests, approveEmployeeRequest, rejectEmployeeRequest } from '../../../src/api/employee-requests.api';
+import { exportAndShareFinancialExcel } from '../../../src/utils/export-financial-excel';
 import type { EmployeeRequestType, EmployeeRequestStatus } from '../../../src/types/request.types';
 
 const REQUEST_TYPES: { type: EmployeeRequestType | 'ALL', label: string, icon: keyof typeof MaterialCommunityIcons.glyphMap, color: string }[] = [
@@ -22,6 +23,7 @@ const REQUEST_TYPES: { type: EmployeeRequestType | 'ALL', label: string, icon: k
   { type: 'BUSINESS_TRIP', label: 'Công tác', icon: 'airplane', color: '#3B82F6' },
   { type: 'ADVANCE', label: 'Tạm ứng', icon: 'cash', color: '#14B8A6' },
   { type: 'EXPENSE', label: 'Thanh toán', icon: 'receipt', color: '#F97316' },
+  { type: 'PURCHASE', label: 'Mua sắm', icon: 'cart-outline', color: '#0EA5E9' },
 ];
 
 export default function LeaderRequestsScreen() {
@@ -32,6 +34,21 @@ export default function LeaderRequestsScreen() {
   const [activeTab, setActiveTab] = useState<EmployeeRequestStatus>('PENDING');
   const [selectedType, setSelectedType] = useState<EmployeeRequestType | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+
+  const rawRoles = user?.roles || [];
+  const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+  const roleCodes = userRoles.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
+  const userDeptName = (user?.departmentLinks?.[0]?.department?.name || user?.department?.name || '').toLowerCase();
+  const isAccountantOrAdmin =
+    userDeptName.includes('kế toán') ||
+    userDeptName.includes('tài chính') ||
+    roleCodes.includes('ACCOUNTANT') ||
+    roleCodes.includes('ACCOUNTANT_LEAD') ||
+    roleCodes.includes('CHIEF_ACCOUNTANT') ||
+    roleCodes.includes('ADMIN') ||
+    roleCodes.includes('SUPER_ADMIN') ||
+    user?.role?.code === 'ACCOUNTANT';
 
   const { data: allRequests = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['leader-employee-requests'],
@@ -127,13 +144,38 @@ export default function LeaderRequestsScreen() {
             </Pressable>
             <Text style={styles.title}>Duyệt yêu cầu</Text>
           </View>
-          <Pressable 
-            style={styles.headerCreateBtn} 
-            onPress={() => router.push('/employee/requests/create' as any)}
-          >
-            <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
-            <Text style={styles.headerCreateText}>Tạo đơn</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {isAccountantOrAdmin && (
+              <Pressable 
+                style={[styles.headerExportBtn, isExporting && { opacity: 0.6 }]} 
+                onPress={async () => {
+                  setIsExporting(true);
+                  try {
+                    await exportAndShareFinancialExcel({ date: new Date().toISOString().split('T')[0] });
+                  } finally {
+                    setIsExporting(false);
+                  }
+                }}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="file-excel-box" size={15} color="#FFFFFF" />
+                    <Text style={styles.headerExportText}>Xuất Excel</Text>
+                  </>
+                )}
+              </Pressable>
+            )}
+            <Pressable 
+              style={styles.headerCreateBtn} 
+              onPress={() => router.push('/employee/requests/create' as any)}
+            >
+              <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
+              <Text style={styles.headerCreateText}>Tạo đơn</Text>
+            </Pressable>
+          </View>
         </View>
         <Text style={styles.subtitle}>Quản lý yêu cầu của nhân sự</Text>
       </View>
@@ -319,6 +361,25 @@ const styles = StyleSheet.create({
   headerCreateText: {
     color: '#FFFFFF',
     fontSize: 13,
+    fontWeight: '700',
+  },
+  headerExportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#059669',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  headerExportText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '700',
   },
   segmentedContainer: {

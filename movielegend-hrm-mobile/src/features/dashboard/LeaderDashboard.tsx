@@ -13,6 +13,7 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { getDashboardByRole, getLeaderActivities } from '../../api/dashboard.api';
 import { getMyVault, getVaultWithdrawalRequests } from '../../api/employees.api';
+import { getEmployeeRequests } from '../../api/employee-requests.api';
 import { getNextVaultMilestone } from '../vault/vault-utils';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
@@ -84,8 +85,19 @@ export function LeaderDashboard() {
     return getNextVaultMilestone(myVault, new Date());
   }, [myVault]);
 
-  const userDeptName = (user?.departmentLinks?.[0]?.department?.name || '').toLowerCase();
-  const isAccountantLeader = userDeptName.includes('kế toán') || userDeptName.includes('tài chính') || user?.role?.code === 'ACCOUNTANT';
+  const rawRoles = user?.roles || [];
+  const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+  const roleCodes = userRoles.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
+  const userDeptName = (user?.departmentLinks?.[0]?.department?.name || user?.department?.name || '').toLowerCase();
+  const isAccountantLeader =
+    userDeptName.includes('kế toán') ||
+    userDeptName.includes('tài chính') ||
+    roleCodes.includes('ACCOUNTANT') ||
+    roleCodes.includes('ACCOUNTANT_LEAD') ||
+    roleCodes.includes('CHIEF_ACCOUNTANT') ||
+    roleCodes.includes('ADMIN') ||
+    roleCodes.includes('SUPER_ADMIN') ||
+    user?.role?.code === 'ACCOUNTANT';
 
   const { data: accountantWithdrawals } = useQuery({
     queryKey: ['vault-withdrawals-accountant-badge'],
@@ -93,6 +105,15 @@ export function LeaderDashboard() {
     enabled: isAccountantLeader,
   });
   const pendingAccCount = accountantWithdrawals?.counts?.PENDING_ACCOUNTANT || 0;
+
+  const { data: allFinancialReqs = [] } = useQuery({
+    queryKey: ['financial-requests-badge'],
+    queryFn: () => getEmployeeRequests({ status: 'PENDING' }),
+    enabled: isAccountantLeader,
+  });
+  const pendingFinancialCount = allFinancialReqs.filter((r: any) =>
+    r.status === 'PENDING' && (r.type === 'EXPENSE' || r.type === 'PURCHASE' || r.type === 'ADVANCE')
+  ).length;
   
   const deptStats = (dashboardData?.department as any) || { activeEmployeeCount: 0, absentToday: 0, lateToday: 0, onLeaveToday: 0, checkedInCount: 0 };
   const checkedInCount = deptStats.checkedInCount || 0;
@@ -498,6 +519,17 @@ export function LeaderDashboard() {
               badgeColor="#4F46E5"
               onPress={() => router.push('/leader/vault' as any)}
             />
+            {isAccountantLeader && (
+              <GridItem4
+                icon="cash-register"
+                title="Duyệt tài chính"
+                color="#059669"
+                bgColor="#ECFDF5"
+                badge={pendingFinancialCount > 0 ? `${pendingFinancialCount}` : undefined}
+                badgeColor="#EF4444"
+                onPress={() => router.push('/leader/financial-requests' as any)}
+              />
+            )}
             {isAccountantLeader && (
               <GridItem4
                 icon="cash-check"

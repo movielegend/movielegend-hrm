@@ -244,6 +244,13 @@ export function AdminDashboard() {
               onPress={() => router.push('/leader/approvals' as any)}
             />
             <GridItem4
+              icon="cash-register"
+              title="Duyệt tài chính"
+              color="#059669"
+              bgColor="#ECFDF5"
+              onPress={() => router.push('/admin/financial-requests' as any)}
+            />
+            <GridItem4
               icon="video-vintage"
               title="Duyệt OT Live"
               color="#EA580C"

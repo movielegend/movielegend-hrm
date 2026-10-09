@@ -11,10 +11,23 @@ export function ApprovalMenuScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
+  const rawRoles = user?.roles || [];
+  const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+  const roleCodes = userRoles.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
+  const userDeptName = (user?.departmentLinks?.[0]?.department?.name || user?.department?.name || '').toLowerCase();
   const isAdmin =
-    user?.roles?.some(
-      (r: any) => (typeof r === 'string' ? r : r.role?.code || r.name) === 'ADMIN'
-    ) || user?.role?.code === 'ADMIN';
+    roleCodes.includes('ADMIN') ||
+    roleCodes.includes('SUPER_ADMIN') ||
+    user?.role?.code === 'ADMIN';
+
+  const isAccountantOrAdmin =
+    isAdmin ||
+    userDeptName.includes('kế toán') ||
+    userDeptName.includes('tài chính') ||
+    roleCodes.includes('ACCOUNTANT') ||
+    roleCodes.includes('ACCOUNTANT_LEAD') ||
+    roleCodes.includes('CHIEF_ACCOUNTANT') ||
+    user?.role?.code === 'ACCOUNTANT';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -127,6 +140,30 @@ export function ApprovalMenuScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </Pressable>
+
+          {/* Item 4: Duyệt tài chính & Xuất Excel */}
+          {isAccountantOrAdmin && (
+            <Pressable
+              style={styles.menuCard}
+              onPress={() => router.push(`${roleBase(user)}/financial-requests` as any)}
+              android_ripple={{ color: '#F1F5F9' }}
+            >
+              <View style={[styles.iconCircle, { backgroundColor: '#ECFDF5' }]}>
+                <MaterialCommunityIcons
+                  name="cash-register"
+                  size={22}
+                  color="#059669"
+                />
+              </View>
+              <View style={styles.menuCardInfo}>
+                <Text style={styles.menuCardTitle}>Duyệt tài chính & Xuất Excel</Text>
+                <Text style={styles.menuCardSubtitle}>
+                  Thanh toán, mua sắm, tạm ứng & xuất bảng kê 13 cột
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            </Pressable>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
