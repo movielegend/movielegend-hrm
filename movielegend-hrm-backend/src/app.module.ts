@@ -70,6 +70,7 @@ import { DepartmentDocumentsModule } from './modules/department-documents/depart
 import { DailyReportsModule } from './modules/daily-reports/daily-reports.module';
 import { RecruitmentModule } from './modules/recruitment/recruitment.module';
 import { OtReportModule } from './modules/ot-report/ot-report.module';
+import { WorkReportsModule } from './modules/work-reports/work-reports.module';
 
 @Module({
   imports: [
@@ -161,6 +162,7 @@ import { OtReportModule } from './modules/ot-report/ot-report.module';
     DailyReportsModule,
     RecruitmentModule,
     OtReportModule,
+    WorkReportsModule,
   ],
   providers: [
     {

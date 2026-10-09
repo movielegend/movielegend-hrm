@@ -11,7 +11,8 @@ import { ScopedEmployeeQueryDto } from './dto/scoped-employee-query.dto';
 @Injectable()
 export class EmployeesService {
   async updateAccountStatus(id: string, status: AccountStatus, actor: AuthenticatedUser) {
-    if (!actor.roles.includes('HR')) {
+    const isHr = await this.scope.isHrActorAsync(actor);
+    if (!isHr && !actor.roles.includes('ADMIN')) {
        const userDeptId = await this.scope.getPrimaryDepartmentId(id);
        await this.scope.assertDepartmentAccessAsync(actor, userDeptId);
     }
@@ -61,7 +62,8 @@ export class EmployeesService {
   async scoped(actor: AuthenticatedUser, query: ScopedEmployeeQueryDto) {
     let allowedDeptIds = await this.scope.getVisibleDepartmentIds(actor);
 
-    if (!actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
+    const isHr = await this.scope.isHrActorAsync(actor);
+    if (!actor.roles.includes('ADMIN') && !actor.roles.includes('HR') && !isHr) {
       const userDepts = await this.prisma.departmentMember.findMany({
         where: { userId: actor.userId, leftAt: null },
         select: { departmentId: true },

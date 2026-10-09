@@ -835,6 +835,12 @@ model User {
   departmentDocuments             DepartmentDocument[]         @relation("DeptDocUploader")
   dailyReports                    DailyReport[]                @relation("UserDailyReports")
   reviewedDailyReports            DailyReport[]                @relation("ReportReviewer")
+  assignedWorkTasks               WorkTask[]                   @relation("AssignedWorkTasks")
+  createdWorkTasks                WorkTask[]                   @relation("CreatedWorkTasks")
+  workTaskUpdatesReported         WorkTaskUpdate[]             @relation("ReportedUpdates")
+  workTaskUpdatesApproved         WorkTaskUpdate[]             @relation("ApprovedUpdates")
+  workReportHistoryActions        WorkReportHistory[]          @relation("WorkReportHistoryActor")
+  workTasksDeleted                WorkTask[]                   @relation("DeletedWorkTasks")
 
   @@map("users")
 }
@@ -1038,6 +1044,7 @@ model Department {
   levelPromotionRequests LevelPromotionRequest[]
   documents             DepartmentDocument[]
   contractFieldPresets  ContractFieldPreset[]
+  workTasks             WorkTask[]
 
   @@unique([companyId, code])
   @@index([branchId])
@@ -3534,6 +3541,124 @@ model DailyReport {
   @@index([departmentId, reportDate])
   @@index([status, reportDate])
   @@map("daily_reports")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BÁO CÁO CÔNG VIỆC HẰNG NGÀY (ĐẶCTẢ MỚI v2)
+// ═══════════════════════════════════════════════════════════════
+
+model WorkTask {
+  id                String    @id @default(uuid()) @db.Uuid
+  taskCode          String    @unique  // CV001, CV002 - mã công việc dùng để liên kết lâu dài
+  userId            String    @db.Uuid // người phụ trách hiện tại
+  createdByUserId   String    @db.Uuid
+  departmentId      String    @db.Uuid
+
+  category          String    // Phát sinh, Phối hợp, Theo kế hoạch, Thường xuyên, Xử lý vấn đề
+  title             String
+  description       String?
+  taskType          String    @default("REGULAR")
+  priority          String    @default("MEDIUM") // HIGH, MEDIUM, LOW
+
+  deadline          String?   // YYYY-MM-DD
+
+  // 2 trạng thái độc lập
+  workStatus        String    @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, WAITING, DONE, CANCELLED
+  approvalStatus    String    @default("PENDING")     // PENDING, APPROVED, NEED_MORE_INFO
+
+  isCarriedOver     Boolean   @default(false) // true = được chuyển tiếp từ ngày trước
+  isRecurring       Boolean   @default(false) // công việc lặp định kỳ
+
+  // Xóa mềm
+  isDeleted         Boolean   @default(false)
+  deletedAt         DateTime?
+  deletedById       String?   @db.Uuid
+  deleteReason      String?
+
+  // Báo cáo bù
+  isMakeup          Boolean   @default(false)
+  makeupForDate     String?   // ngày cần báo cáo bù (YYYY-MM-DD)
+  makeupReason      String?
+
+  reportDate        String    // YYYY-MM-DD — ngày tạo/báo cáo đầu tiên
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user              User      @relation("AssignedWorkTasks", fields: [userId], references: [id])
+  createdBy         User      @relation("CreatedWorkTasks", fields: [createdByUserId], references: [id])
+  deletedBy         User?     @relation("DeletedWorkTasks", fields: [deletedById], references: [id])
+  department        Department @relation(fields: [departmentId], references: [id])
+  updates           WorkTaskUpdate[]
+  history           WorkReportHistory[]
+
+  @@index([userId, reportDate])
+  @@index([departmentId, reportDate])
+  @@index([workStatus])
+  @@index([isDeleted, reportDate])
+  @@map("work_tasks")
+}
+
+model WorkTaskUpdate {
+  id                    String    @id @default(uuid()) @db.Uuid
+  taskId                String    @db.Uuid
+  reportDate            String    // YYYY-MM-DD — ngày của bản cập nhật này
+
+  progress              Int       @default(0)   // 0-100%
+  workStatus            String                  // trạng thái công việc tại lần cập nhật
+  approvalStatus        String    @default("PENDING") // PENDING, APPROVED, NEED_MORE_INFO
+
+  notes                 String?
+  obstacles             String?
+  supportRequest        String?
+
+  // Người nhập thực tế
+  reportedByUserId      String    @db.Uuid
+  isProxied             Boolean   @default(false) // true = leader nhập thay
+  proxyReason           String?
+
+  // Duyệt
+  approvedByUserId      String?   @db.Uuid
+  approvedAt            DateTime?
+  approvalNote          String?
+
+  isDraft               Boolean   @default(false)
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  task                  WorkTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reportedBy            User      @relation("ReportedUpdates", fields: [reportedByUserId], references: [id])
+  approvedBy            User?     @relation("ApprovedUpdates", fields: [approvedByUserId], references: [id])
+
+  @@unique([taskId, reportDate])
+  @@index([reportDate])
+  @@index([approvalStatus])
+  @@map("work_task_updates")
+}
+
+model WorkReportHistory {
+  id            String    @id @default(uuid()) @db.Uuid
+  taskId        String?   @db.Uuid
+  updateId      String?   @db.Uuid
+
+  actorUserId   String    @db.Uuid
+  action        String    // CREATE, UPDATE, STATUS_CHANGE, APPROVE, REJECT, DELETE, TRANSFER, ADMIN_OVERRIDE, PROXY_INPUT
+
+  fieldChanged  String?
+  beforeValue   Json?
+  afterValue    Json?
+  reason        String?
+
+  createdAt     DateTime  @default(now())
+
+  task          WorkTask? @relation(fields: [taskId], references: [id])
+  actor         User      @relation("WorkReportHistoryActor", fields: [actorUserId], references: [id])
+
+  @@index([taskId])
+  @@index([actorUserId])
+  @@index([createdAt])
+  @@map("work_report_history")
 }
 
 enum JobStatus {

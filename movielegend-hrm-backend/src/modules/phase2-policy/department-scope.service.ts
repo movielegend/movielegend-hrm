@@ -27,6 +27,25 @@ export class DepartmentScopeService {
     return scope?.scopeId ?? null;
   }
 
+  /** Check if actor has HR role or belongs to an HR/HCNS department */
+  async isHrActorAsync(actor: AuthenticatedUser): Promise<boolean> {
+    if (actor.roles.includes('HR')) return true;
+    try {
+      const member = await this.prisma.departmentMember.findFirst({
+        where: { userId: actor.userId, leftAt: null },
+        include: { department: true },
+      });
+      if (member?.department) {
+        const name = (member.department.name || '').toLowerCase();
+        const code = (member.department.code || '').toUpperCase();
+        if (name.includes('nhân sự') || name.includes('hành chính') || code.includes('HR') || code.includes('HCNS')) {
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  }
+
   /**
    * Resolves the actor's region ID.
    * Checks explicit REGION scope first; if absent and not Global Admin,
@@ -38,7 +57,8 @@ export class DepartmentScopeService {
     if (explicit) return explicit;
     if (this.isGlobalAdmin(actor)) return null;
 
-    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
+    const isHr = await this.isHrActorAsync(actor);
+    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR') || isHr;
     if (!isRegionalStaff) return null;
 
     // Check if actor belongs to a department bound to a region
@@ -109,7 +129,8 @@ export class DepartmentScopeService {
   async getVisibleDepartmentIds(actor: AuthenticatedUser): Promise<string[] | null> {
     if (this.isGlobalAdmin(actor)) return null;
 
-    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
+    const isHr = await this.isHrActorAsync(actor);
+    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR') || isHr;
 
     if (isRegionalStaff) {
       const regionId = await this.getActorRegionIdAsync(actor);
