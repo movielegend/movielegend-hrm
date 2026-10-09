@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 import { Modal, Platform } from 'react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useSocketStatus } from '../../providers/SocketProvider';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { IncomingCallScreen } from './IncomingCallScreen';
 import { CallingScreen } from './CallingScreen';
 import { ActiveCallScreen } from './ActiveCallScreen';
@@ -20,9 +21,11 @@ if (Platform.OS !== 'web' && Constants.executionEnvironment !== ExecutionEnviron
 interface VoiceCallContextType {
   initiateCall: (targetUserId: string, targetName: string, targetAvatar?: string | null) => void;
   handleIncomingCallFromNotification: (data: {
+    callId?: string;
     callerId: string;
     callerName: string;
     callerAvatar?: string | null;
+    createdAt?: number;
   }) => void;
 }
 
@@ -40,11 +43,16 @@ const CALL_TIMEOUT_MS = 40_000;
 export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   const { getSocket } = useSocketStatus();
   const socket = getSocket();
+  const { showAlert } = useAppAlert();
 
   // Call state
   const [callState, setCallState] = useState<'IDLE' | 'CALLING' | 'INCOMING' | 'ACTIVE'>('IDLE');
   const callStateRef = useRef(callState);
   useEffect(() => { callStateRef.current = callState; }, [callState]);
+
+  const [callId, setCallId] = useState<string | null>(null);
+  const callIdRef = useRef(callId);
+  useEffect(() => { callIdRef.current = callId; }, [callId]);
 
   const [callerId, setCallerId] = useState<string | null>(null);
   const callerIdRef = useRef(callerId);
@@ -56,7 +64,6 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   const [targetAvatar, setTargetAvatar] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [roomName, setRoomName] = useState<string | null>(null);
-
 
   // Audio controls
   const [isMuted, setIsMuted] = useState(false);
@@ -79,6 +86,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   // ── Reset call ──
   const resetCall = useCallback(() => {
     setCallState('IDLE');
+    setCallId(null);
     setCallerId(null);
     setCallerName('Người dùng');
     setCallerAvatar(null);
@@ -97,13 +105,19 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!socket) return;
 
-    const onIncoming = (data: { callerId: string; callerName?: string; callerAvatar?: string | null }) => {
+    const onIncoming = (data: { callId?: string; callerId: string; callerName?: string; callerAvatar?: string | null; createdAt?: number }) => {
+      // If call notification is older than 45s, ignore
+      if (data.createdAt && Date.now() - Number(data.createdAt) > 45000) {
+        return;
+      }
+
       if (callStateRef.current !== 'IDLE') {
-        // Automatically reject if busy
-        socket.emit('voice_call:reject', { callerId: data.callerId, reason: 'BUSY' });
+        // Automatically reject with BUSY if already in another call
+        socket.emit('voice_call:reject', { callerId: data.callerId, callId: data.callId, reason: 'BUSY' });
         return;
       }
       
+      setCallId(data.callId || null);
       setCallerId(data.callerId);
       setCallerName(data.callerName || 'Người dùng');
       setCallerAvatar(data.callerAvatar || null);
@@ -114,33 +128,43 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
         data.callerName || 'Người dùng',
         data.callerId,
         data.callerAvatar,
+        data.callId,
+        data.createdAt,
       );
     };
 
-    const onAccepted = (data: { token: string; roomName: string; receiverId: string }) => {
+    const onAccepted = (data: { token: string; roomName: string; receiverId: string; callId?: string }) => {
       clearCallTimeout();
+      if (data.callId) setCallId(data.callId);
       setToken(data.token);
       setRoomName(data.roomName);
       setCallState('ACTIVE');
     };
 
-    const onToken = (data: { token: string; roomName: string }) => {
+    const onToken = (data: { token: string; roomName: string; callId?: string }) => {
       clearCallTimeout();
+      if (data.callId) setCallId(data.callId);
       setToken(data.token);
       setRoomName(data.roomName);
       setCallState('ACTIVE');
       dismissCallNotification();
     };
 
-    const onRejected = () => {
+    const onRejected = (data?: { receiverId?: string; reason?: string }) => {
       resetCall();
+      if (data?.reason === 'BUSY') {
+        showAlert('Người nhận bận', 'Người nhận hiện đang trong cuộc gọi khác hoặc đang bận.');
+      }
     };
 
-    const onEnded = () => {
+    const onEnded = (data?: { userId?: string; reason?: string; message?: string }) => {
       resetCall();
+      if (data?.reason === 'TIMEOUT') {
+        showAlert('Thông báo', 'Cuộc gọi kết thúc do không có phản hồi.');
+      }
     };
 
-    const onHandledElsewhere = (data: { callerId: string }) => {
+    const onHandledElsewhere = (data: { callerId: string; callId?: string }) => {
       if (callStateRef.current === 'INCOMING' && callerIdRef.current === data.callerId) {
         resetCall();
       }
@@ -161,7 +185,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
       socket.off('voice_call:ended', onEnded);
       socket.off('voice_call:handled_elsewhere', onHandledElsewhere);
     };
-  }, [socket, resetCall, clearCallTimeout]);
+  }, [socket, resetCall, clearCallTimeout, showAlert]);
 
   function ensureLiveKitGlobals() {
     try {
@@ -192,6 +216,11 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   // ── Initiate a call ──
   const initiateCall = async (userId: string, name: string, avatar?: string | null) => {
     if (!socket) return;
+    if (callStateRef.current !== 'IDLE') {
+      showAlert('Thông báo', 'Bạn đang trong một cuộc gọi khác.');
+      return;
+    }
+
     const hasPermission = await ensurePermissions();
     if (!hasPermission) return;
 
@@ -200,68 +229,122 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     setTargetName(name);
     setTargetAvatar(avatar || null);
     setCallState('CALLING');
-    socket.emit('voice_call:request', { targetUserId: userId });
+    
+    socket.emit('voice_call:request', { targetUserId: userId }, (res: any) => {
+      if (res && res.ok === false) {
+        resetCall();
+        if (res.code === 'TARGET_BUSY' || res.code === 'USER_BUSY') {
+          showAlert('Người nhận bận', 'Người nhận hiện đang trong cuộc gọi khác hoặc đang bận.');
+        } else if (res.code === 'ALREADY_IN_CALL') {
+          showAlert('Thông báo', 'Bạn đang trong một cuộc gọi khác.');
+        } else if (res.code === 'CANNOT_CALL_SELF') {
+          showAlert('Thông báo', 'Không thể tự gọi cho chính mình.');
+        } else {
+          showAlert('Thông báo', res.message || 'Không thể thực hiện cuộc gọi.');
+        }
+      } else if (res?.callId) {
+        setCallId(res.callId);
+      }
+    });
 
     // Auto-cancel after timeout
     timeoutRef.current = setTimeout(() => {
       if (socket) {
-        socket.emit('voice_call:end', { targetUserId: userId });
+        socket.emit('voice_call:end', { targetUserId: userId, callId: callIdRef.current });
       }
       resetCall();
     }, CALL_TIMEOUT_MS);
   };
 
   // ── Accept call ──
-  const acceptCall = async (overrideCallerId?: string | any) => {
-    const cid = typeof overrideCallerId === 'string' ? overrideCallerId : callerId;
+  const acceptCall = async (overrideData?: { callerId: string; callId?: string } | string | any) => {
+    let cid = callerId;
+    let targetCallId = callId;
+
+    if (typeof overrideData === 'string') {
+      cid = overrideData;
+    } else if (overrideData && typeof overrideData === 'object') {
+      cid = overrideData.callerId || cid;
+      targetCallId = overrideData.callId || targetCallId;
+    }
+
     if (!socket || !cid) return;
     const hasPermission = await ensurePermissions();
     if (!hasPermission) return;
 
     ensureLiveKitGlobals();
     dismissCallNotification();
-    socket.emit('voice_call:accept', { callerId: cid });
+
+    socket.emit('voice_call:accept', { callerId: cid, callId: targetCallId || undefined }, (res: any) => {
+      if (res && res.ok === false) {
+        resetCall();
+        showAlert('Thông báo', res.message || 'Cuộc gọi đã kết thúc hoặc không tồn tại.');
+      }
+    });
   };
 
   // ── Reject call ──
-  const rejectCall = (overrideCallerId?: string | any) => {
-    const cid = typeof overrideCallerId === 'string' ? overrideCallerId : callerId;
+  const rejectCall = (overrideData?: { callerId: string; callId?: string } | string | any) => {
+    let cid = callerId;
+    let targetCallId = callId;
+
+    if (typeof overrideData === 'string') {
+      cid = overrideData;
+    } else if (overrideData && typeof overrideData === 'object') {
+      cid = overrideData.callerId || cid;
+      targetCallId = overrideData.callId || targetCallId;
+    }
+
     if (!socket || !cid) return;
-    socket.emit('voice_call:reject', { callerId: cid });
+    socket.emit('voice_call:reject', { callerId: cid, callId: targetCallId || undefined });
     resetCall();
   };
 
-  const [pendingAction, setPendingAction] = useState<{ type: 'accept' | 'reject', callerId: string } | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ type: 'accept' | 'reject'; payload: any } | null>(null);
 
   // ── Handle call from push notification tap ──
   const handleIncomingCallFromNotification = useCallback((data: {
+    callId?: string;
     callerId: string;
     callerName: string;
     callerAvatar?: string | null;
+    createdAt?: number;
   }) => {
+    const createdAt = Number(data.createdAt || 0);
+    if (createdAt > 0 && Date.now() - createdAt > 45000) {
+      dismissCallNotification();
+      showAlert('Thông báo', 'Cuộc gọi đã kết thúc');
+      return;
+    }
+
+    if (callStateRef.current !== 'IDLE') {
+      return;
+    }
+
+    setCallId(data.callId || null);
     setCallerId(data.callerId);
-    setCallerName(data.callerName);
+    setCallerName(data.callerName || 'Người dùng');
     setCallerAvatar(data.callerAvatar || null);
     setCallState('INCOMING');
-  }, []);
+  }, [showAlert]);
 
   // ── Listen for Push Notification Actions ──
   useEffect(() => {
     const { DeviceEventEmitter } = require('react-native');
     
-    const subAccept = DeviceEventEmitter.addListener('voice_call:action_accept', (cid: string) => {
+    const subAccept = DeviceEventEmitter.addListener('voice_call:action_accept', (payload: any) => {
       if (!socket) {
-        setPendingAction({ type: 'accept', callerId: cid });
+        setPendingAction({ type: 'accept', payload });
       } else {
-        acceptCall(cid);
+        acceptCall(payload);
       }
     });
     
-    const subReject = DeviceEventEmitter.addListener('voice_call:action_reject', (cid: string) => {
+    const subReject = DeviceEventEmitter.addListener('voice_call:action_reject', (payload: any) => {
       if (!socket) {
-        setPendingAction({ type: 'reject', callerId: cid });
+        setPendingAction({ type: 'reject', payload });
       } else {
-        rejectCall(cid);
+        rejectCall(payload);
       }
     });
     
@@ -269,20 +352,26 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
       handleIncomingCallFromNotification(data);
     });
 
+    const subExpired = DeviceEventEmitter.addListener('voice_call:expired', () => {
+      dismissCallNotification();
+      showAlert('Thông báo', 'Cuộc gọi đã kết thúc');
+    });
+
     return () => {
       subAccept.remove();
       subReject.remove();
       subOpen.remove();
+      subExpired.remove();
     };
-  }, [socket, callerId]);
+  }, [socket, callerId, callId, handleIncomingCallFromNotification, showAlert]);
 
   // Execute pending action when socket connects
   useEffect(() => {
     if (socket && pendingAction) {
       if (pendingAction.type === 'accept') {
-        acceptCall(pendingAction.callerId);
+        acceptCall(pendingAction.payload);
       } else if (pendingAction.type === 'reject') {
-        rejectCall(pendingAction.callerId);
+        rejectCall(pendingAction.payload);
       }
       setPendingAction(null);
     }
@@ -301,13 +390,20 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
         ) {
           const actionId = lastNotificationResponse.actionIdentifier;
           const data = lastNotificationResponse.notification.request.content.data as any;
+          const createdAt = Number(data.createdAt || data.timestamp || 0);
+
+          if (createdAt > 0 && Date.now() - createdAt > 45000) {
+            dismissCallNotification();
+            showAlert('Thông báo', 'Cuộc gọi đã kết thúc');
+            return;
+          }
           
           if (actionId === 'ACCEPT') {
-            if (socket) acceptCall(data.callerId);
-            else setPendingAction({ type: 'accept', callerId: data.callerId });
+            if (socket) acceptCall({ callerId: data.callerId, callId: data.callId });
+            else setPendingAction({ type: 'accept', payload: { callerId: data.callerId, callId: data.callId } });
           } else if (actionId === 'REJECT') {
-            if (socket) rejectCall(data.callerId);
-            else setPendingAction({ type: 'reject', callerId: data.callerId });
+            if (socket) rejectCall({ callerId: data.callerId, callId: data.callId });
+            else setPendingAction({ type: 'reject', payload: { callerId: data.callerId, callId: data.callId } });
           } else {
             handleIncomingCallFromNotification(data);
           }
@@ -317,7 +413,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
       }
     }
     void checkLastNotification();
-  }, [socket, handleIncomingCallFromNotification]);
+  }, [socket, handleIncomingCallFromNotification, showAlert]);
 
   // ── End call ──
   const endCall = (duration?: number | any) => {
@@ -327,7 +423,7 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
     const validDuration = typeof duration === 'number' ? duration : undefined;
     
     if (peerId) {
-      socket.emit('voice_call:end', { targetUserId: peerId, duration: validDuration });
+      socket.emit('voice_call:end', { targetUserId: peerId, callId: callIdRef.current, duration: validDuration });
     }
     resetCall();
   };

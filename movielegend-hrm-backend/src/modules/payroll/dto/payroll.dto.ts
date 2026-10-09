@@ -259,3 +259,108 @@ export class UploadPayslipImageDto {
   @IsString()
   note?: string;
 }
+
+export class UploadDepartmentPayslipBatchDto {
+  @ApiProperty({ description: 'ID phòng ban' })
+  @IsUUID()
+  departmentId!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 12 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month!: number;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year!: number;
+
+  @ApiProperty({ description: 'Danh sách URLs ảnh phiếu lương đã tải lên' })
+  @IsArray()
+  @IsString({ each: true })
+  imageUrls!: string[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+export class AssignDepartmentPayslipImageDto {
+  @ApiProperty({ description: 'ID phòng ban' })
+  @IsUUID()
+  departmentId!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 12 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month!: number;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year!: number;
+
+  @ApiProperty({ description: 'ID ảnh trong batch' })
+  @IsString()
+  imageId!: string;
+
+  @ApiProperty({ description: 'ID nhân viên được gán' })
+  @IsUUID()
+  targetUserId!: string;
+}
+
+export class UnassignDepartmentPayslipImageDto {
+  @ApiProperty({ description: 'ID phòng ban' })
+  @IsUUID()
+  departmentId!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 12 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month!: number;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year!: number;
+
+  @ApiProperty({ description: 'ID ảnh trong batch' })
+  @IsString()
+  imageId!: string;
+}
+
+export class GetDepartmentBatchQueryDto {
+  @ApiPropertyOptional({ description: 'ID phòng ban' })
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 12 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year?: number;
+}

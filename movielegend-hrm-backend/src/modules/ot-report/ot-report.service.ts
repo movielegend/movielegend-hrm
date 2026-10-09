@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, OtReportStatus } from '@prisma/client';
+import { Prisma, OtReportStatus, RoleScopeType, NotificationType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { BusinessTimeService } from '../time/business-time.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType } from '@prisma/client';
 import { badRequest, conflict, forbidden, notFound } from '../../common/utils/error.util';
 import {
   CreateOtReportDto,
@@ -32,6 +31,59 @@ export class OtReportService {
     const name = dept.name?.toLowerCase() || '';
     const code = dept.code?.toLowerCase() || '';
     return name.includes('live') || code.includes('live');
+  }
+
+  /**
+   * Lấy danh sách ID các Leader/Trưởng bộ phận của phòng ban để gửi thông báo duyệt đơn
+   */
+  private async getDepartmentLeaderUserIds(departmentId: string, excludeUserId?: string): Promise<string[]> {
+    const leaderUserIds = new Set<string>();
+
+    const dept = await this.prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { leaderUserId: true },
+    });
+    if (dept?.leaderUserId) {
+      leaderUserIds.add(dept.leaderUserId);
+    }
+
+    const scopedLeaders = await this.prisma.userRole.findMany({
+      where: {
+        role: { code: 'LEADER' },
+        scopeType: RoleScopeType.DEPARTMENT,
+        scopeId: departmentId,
+        user: { accountStatus: 'ACTIVE' },
+      },
+      select: { userId: true },
+    });
+    for (const assignment of scopedLeaders) {
+      leaderUserIds.add(assignment.userId);
+    }
+
+    const departmentLeaderMembers = await this.prisma.departmentMember.findMany({
+      where: {
+        departmentId,
+        leftAt: null,
+        user: {
+          accountStatus: 'ACTIVE',
+          roles: {
+            some: {
+              role: { code: 'LEADER' },
+            },
+          },
+        },
+      },
+      select: { userId: true },
+    });
+    for (const member of departmentLeaderMembers) {
+      leaderUserIds.add(member.userId);
+    }
+
+    if (excludeUserId) {
+      leaderUserIds.delete(excludeUserId);
+    }
+
+    return Array.from(leaderUserIds);
   }
 
   /**
@@ -193,7 +245,7 @@ export class OtReportService {
     const validOtMinutes = await this.calculateValidOtMinutes(actor.userId, otWorkDate, otStart, otEnd);
 
     // 6. Lưu báo cáo và đính kèm ảnh
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       let report;
       if (existing && existing.status === OtReportStatus.REJECTED) {
         // Xóa ảnh cũ của báo cáo bị từ chối
@@ -274,8 +326,28 @@ export class OtReportService {
         },
       });
 
-      return report;
+      // Gửi thông báo cho Leader của phòng ban
+      const leaderUserIds = await this.getDepartmentLeaderUserIds(department.id, actor.userId);
+      let notif;
+      if (leaderUserIds.length > 0) {
+        const submitterName = report.user?.profile?.fullName || report.user?.userCode || 'Nhân viên';
+        const otDateFormatted = this.businessTime.businessDateString(report.otDate);
+        notif = await this.notifications.createForUsers(tx, leaderUserIds, {
+          type: NotificationType.SYSTEM,
+          title: 'Báo cáo OT Live mới chờ duyệt',
+          body: `${submitterName} đã gửi báo cáo OT Live ngày ${otDateFormatted} (${report.proposedPercent}%) chờ bạn phê duyệt.`,
+          metadata: { otReportId: report.id, route: '/leader/ot-report' },
+        });
+      }
+
+      return { report, notif };
     });
+
+    if (result.notif) {
+      this.notifications.emitCreated(result.notif);
+    }
+
+    return result.report;
   }
 
   /**
@@ -307,7 +379,7 @@ export class OtReportService {
 
     const validOtMinutes = await this.calculateValidOtMinutes(actor.userId, report.otDate, otStart, otEnd);
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Cập nhật ảnh nếu có truyền
       if (dto.photoFileIds && dto.photoFileIds.length > 0) {
         await tx.otReportPhoto.deleteMany({ where: { otReportId: id } });
@@ -353,8 +425,28 @@ export class OtReportService {
         },
       });
 
-      return updated;
+      // Gửi thông báo cho Leader phòng ban khi cập nhật báo cáo OT
+      const leaderUserIds = await this.getDepartmentLeaderUserIds(updated.departmentId, actor.userId);
+      let notif;
+      if (leaderUserIds.length > 0) {
+        const submitterName = updated.user?.profile?.fullName || updated.user?.userCode || 'Nhân viên';
+        const otDateFormatted = this.businessTime.businessDateString(updated.otDate);
+        notif = await this.notifications.createForUsers(tx, leaderUserIds, {
+          type: NotificationType.SYSTEM,
+          title: 'Báo cáo OT Live được cập nhật',
+          body: `${submitterName} đã cập nhật lại báo cáo OT Live ngày ${otDateFormatted} (${updated.proposedPercent}%) chờ bạn phê duyệt.`,
+          metadata: { otReportId: updated.id, route: '/leader/ot-report' },
+        });
+      }
+
+      return { updated, notif };
     });
+
+    if (result.notif) {
+      this.notifications.emitCreated(result.notif);
+    }
+
+    return result.updated;
   }
 
   /**

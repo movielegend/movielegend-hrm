@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const REMEMBERED_ACCOUNTS_KEY = 'remembered_accounts';
 const MAX_REMEMBERED_ACCOUNTS = 10;
@@ -11,7 +12,12 @@ export interface RememberedAccount {
 
 export async function getRememberedAccounts(): Promise<RememberedAccount[]> {
   try {
-    const raw = await SecureStore.getItemAsync(REMEMBERED_ACCOUNTS_KEY);
+    let raw: string | null = null;
+    if (Platform.OS === 'web') {
+      raw = typeof window !== 'undefined' ? window.localStorage.getItem(REMEMBERED_ACCOUNTS_KEY) : null;
+    } else {
+      raw = await SecureStore.getItemAsync(REMEMBERED_ACCOUNTS_KEY);
+    }
     if (!raw) {
       return [];
     }
@@ -28,7 +34,18 @@ export async function getRememberedAccounts(): Promise<RememberedAccount[]> {
 }
 
 async function saveRememberedAccounts(accounts: RememberedAccount[]): Promise<void> {
-  await SecureStore.setItemAsync(REMEMBERED_ACCOUNTS_KEY, JSON.stringify(accounts));
+  const json = JSON.stringify(accounts);
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(REMEMBERED_ACCOUNTS_KEY, json);
+      }
+      return;
+    }
+    await SecureStore.setItemAsync(REMEMBERED_ACCOUNTS_KEY, json);
+  } catch (error) {
+    console.warn('Lỗi lưu tài khoản đã ghi nhớ:', error);
+  }
 }
 
 export async function rememberAccount(phone: string, password: string): Promise<void> {
@@ -56,5 +73,15 @@ export async function removeRememberedAccount(phone: string): Promise<void> {
 }
 
 export async function clearAllRememberedAccounts(): Promise<void> {
-  await SecureStore.deleteItemAsync(REMEMBERED_ACCOUNTS_KEY);
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(REMEMBERED_ACCOUNTS_KEY);
+      }
+      return;
+    }
+    await SecureStore.deleteItemAsync(REMEMBERED_ACCOUNTS_KEY);
+  } catch (error) {
+    console.warn('Lỗi xóa tất cả tài khoản đã ghi nhớ:', error);
+  }
 }

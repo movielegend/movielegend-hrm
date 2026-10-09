@@ -3,6 +3,8 @@ import {
   AccountStatus,
   EmployeeBonusStatus,
   EmployeeDeductionStatus,
+  EmployeeRequestStatus,
+  EmployeeRequestType,
   LeaveRequestStatus,
   NotificationType,
   OvertimeRequestStatus,
@@ -19,8 +21,19 @@ import { badRequest, conflict, forbidden, notFound } from '../../common/utils/er
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
+import { randomUUID } from 'crypto';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
-import { CreatePayrollPeriodDto, ImportPayrollDto, MyPayslipQueryDto, CompanyPayslipsQueryDto, UploadPayslipImageDto } from './dto/payroll.dto';
+import {
+  CreatePayrollPeriodDto,
+  ImportPayrollDto,
+  MyPayslipQueryDto,
+  CompanyPayslipsQueryDto,
+  UploadPayslipImageDto,
+  UploadDepartmentPayslipBatchDto,
+  AssignDepartmentPayslipImageDto,
+  UnassignDepartmentPayslipImageDto,
+  GetDepartmentBatchQueryDto,
+} from './dto/payroll.dto';
 import { PayrollPolicyService } from './payroll-policy.service';
 
 @Injectable()
@@ -269,20 +282,71 @@ export class PayrollService {
       }
     }
 
+    // Tính toán hạn mức Tạm ứng lương (Tối đa 50% lương) & Lấy danh sách đơn tạm ứng trong tháng
+    const salaryProfile = await this.prisma.salaryProfile.findFirst({
+      where: { userId: actor.userId },
+      orderBy: { effectiveFrom: 'desc' },
+    });
+    const userBaseSalary = payroll ? Number(payroll.baseSalary) : (salaryProfile?.baseSalary ? Number(salaryProfile.baseSalary) : 0);
+    const maxAdvanceLimit = Math.floor(userBaseSalary * 0.5);
+
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+    const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+    const advanceRequests = await this.prisma.employeeRequest.findMany({
+      where: {
+        userId: actor.userId,
+        type: EmployeeRequestType.ADVANCE,
+        createdAt: { gte: startOfMonth, lte: endOfMonth },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const currentMonthAdvancedAmount = advanceRequests
+      .filter((r) => r.status === EmployeeRequestStatus.PENDING || r.status === EmployeeRequestStatus.APPROVED)
+      .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+
+    const remainingAdvanceLimit = Math.max(0, maxAdvanceLimit - currentMonthAdvancedAmount);
+
+    const advanceSummary = {
+      baseSalary: userBaseSalary,
+      maxAdvanceLimit,
+      currentMonthAdvancedAmount,
+      remainingAdvanceLimit,
+      requests: advanceRequests.map((r) => {
+        const meta = (typeof r.attachmentMetadata === 'object' && r.attachmentMetadata !== null) ? (r.attachmentMetadata as any) : {};
+        return {
+          id: r.id,
+          title: r.title,
+          content: r.content,
+          amount: Number(r.amount || 0),
+          status: r.status,
+          stage: meta.stage || (r.status === 'APPROVED' ? 'DISBURSED' : 'PENDING_LEADER'),
+          createdAt: r.createdAt.toISOString(),
+          bankName: meta.bankName || meta.bankAccountName,
+          bankAccount: meta.bankAccount || meta.accountNumber,
+          accountHolder: meta.accountHolder || meta.accountHolderName,
+          disbursementProofUrl: meta.disbursementProofUrl || null,
+          approvalSteps: meta.approvalSteps || [],
+        };
+      }),
+    };
+
     if (!payroll) {
       return {
         month,
         year,
         hasData: false,
         finalOfficialImageUrl,
+        advanceSummary,
         employee: {
           fullName: user?.profile?.fullName || 'Nhân viên',
           userCode: user?.userCode || '---',
           departmentName: user?.departmentLinks?.[0]?.department?.name || '---',
           positionName: user?.profile?.position?.name || 'Nhân viên',
         },
-        baseSalary: 0,
-        actualSalary: 0,
+        baseSalary: userBaseSalary,
+        actualSalary: userBaseSalary,
         standardWorkingDays: 26,
         actualWorkingDays: 0,
         paidLeaveDays: 0,
@@ -294,10 +358,10 @@ export class PayrollService {
         deductionAmount: 0,
         insuranceAmount: 0,
         taxAmount: 0,
-        advanceAmount: 0,
+        advanceAmount: currentMonthAdvancedAmount,
         latePenaltyAmount: 0,
-        grossSalary: 0,
-        netSalary: 0,
+        grossSalary: userBaseSalary,
+        netSalary: userBaseSalary,
         status: 'UNAVAILABLE',
         items: [],
       };
@@ -318,6 +382,7 @@ export class PayrollService {
       year,
       hasData: true,
       finalOfficialImageUrl,
+      advanceSummary,
       periodCode: payroll.period.periodCode,
       status: payroll.status,
       calculatedAt: payroll.calculatedAt,
@@ -341,6 +406,7 @@ export class PayrollService {
       deductionAmount: Number(payroll.deductionAmount),
       insuranceAmount: Number(payroll.insuranceAmount),
       taxAmount: Number(payroll.taxAmount),
+      advanceAmount: currentMonthAdvancedAmount,
       grossSalary: Number(payroll.grossSalary),
       netSalary: Number(payroll.netSalary),
       allowanceItems: allowanceItems.map((i) => ({ name: i.itemName, amount: Number(i.amount) })),
@@ -1236,4 +1302,354 @@ export class PayrollService {
     };
     return mapping[type];
   }
+
+  async uploadDepartmentPayslipBatch(actor: AuthenticatedUser, dto: UploadDepartmentPayslipBatchDto) {
+    const { departmentId, month, year, imageUrls, note } = dto;
+    if (!imageUrls || imageUrls.length === 0) {
+      throw badRequest('IMAGE_URLS_REQUIRED', 'Cần ít nhất 1 ảnh để tải lên lô');
+    }
+
+    const dept = await this.prisma.department.findUnique({
+      where: { id: departmentId },
+      include: {
+        leader: { select: { id: true, profile: { select: { fullName: true } } } },
+      },
+    });
+    if (!dept) throw notFound('DEPARTMENT_NOT_FOUND', 'Không tìm thấy phòng ban');
+
+    // Tìm batch hiện tại nếu có
+    const existingLog = await this.prisma.auditLog.findFirst({
+      where: {
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityId: departmentId,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let currentImages: Array<{
+      id: string;
+      imageUrl: string;
+      assignedUserId?: string | null;
+      assignedUserName?: string | null;
+      labeledById?: string | null;
+      labeledAt?: string | null;
+    }> = [];
+
+    if (existingLog?.metadata && typeof existingLog.metadata === 'object') {
+      const meta = existingLog.metadata as any;
+      if (meta.month === month && meta.year === year && Array.isArray(meta.images)) {
+        currentImages = meta.images;
+      }
+    }
+
+    // Thêm các ảnh mới vào pool
+    const newImageItems = imageUrls.map((url) => ({
+      id: randomUUID(),
+      imageUrl: url,
+      assignedUserId: null,
+      assignedUserName: null,
+      labeledById: null,
+      labeledAt: null,
+    }));
+
+    const allImages = [...currentImages, ...newImageItems];
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityType: 'DepartmentPayslipBatch',
+        entityId: departmentId,
+        metadata: {
+          departmentId,
+          departmentName: dept.name,
+          month,
+          year,
+          note,
+          images: allImages,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: (actor as any).fullName || (actor as any).email || actor.userId,
+        },
+      },
+    });
+
+    // Bắn thông báo cho Leader phòng ban
+    try {
+      const leaderIds = dept.leaderUserId ? [dept.leaderUserId] : [];
+
+      if (leaderIds.length > 0) {
+        const notif = await this.notifications.createForUsers(this.prisma, leaderIds, {
+          type: NotificationType.PAYSLIP_AVAILABLE,
+          title: `Lô ảnh phiếu lương phòng ${dept.name} 📑`,
+          body: `Kế toán đã tải lên ${newImageItems.length} ảnh phiếu lương tháng ${month}/${year}. Vui lòng vào gán nhãn cho từng nhân viên.`,
+          metadata: {
+            screen: 'DepartmentPayslipLabeling',
+            departmentId,
+            month,
+            year,
+          },
+        });
+        if (notif) this.notifications.emitCreated(notif);
+      }
+    } catch {
+      // Ignore notif error
+    }
+
+    return {
+      success: true,
+      message: `Đã tải lên ${newImageItems.length} ảnh phiếu lương cho phòng ${dept.name} thành công`,
+      totalImages: allImages.length,
+      unassignedCount: allImages.filter((img) => !img.assignedUserId).length,
+    };
+  }
+
+  async getDepartmentPayslipBatch(actor: AuthenticatedUser, query: GetDepartmentBatchQueryDto) {
+    const now = new Date();
+    const month = query.month ? Number(query.month) : now.getMonth() + 1;
+    const year = query.year ? Number(query.year) : now.getFullYear();
+
+    let departmentId = query.departmentId;
+    if (!departmentId) {
+      // Tìm phòng ban của actor nếu là leader
+      const member = await this.prisma.departmentMember.findFirst({
+        where: { userId: actor.userId },
+        select: { departmentId: true },
+      });
+      departmentId = member?.departmentId;
+    }
+
+    if (!departmentId) {
+      throw badRequest('DEPARTMENT_ID_REQUIRED', 'Cần cung cấp departmentId');
+    }
+
+    const dept = await this.prisma.department.findUnique({
+      where: { id: departmentId },
+      include: {
+        members: {
+          where: { user: { isActive: true, deletedAt: null } },
+          include: {
+            user: {
+              include: {
+                profile: { include: { position: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!dept) throw notFound('DEPARTMENT_NOT_FOUND', 'Không tìm thấy phòng ban');
+
+    // Lấy batch log mới nhất
+    const batchLogs = await this.prisma.auditLog.findMany({
+      where: {
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityId: departmentId,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    let batchImages: Array<{
+      id: string;
+      imageUrl: string;
+      assignedUserId?: string | null;
+      assignedUserName?: string | null;
+      labeledById?: string | null;
+      labeledAt?: string | null;
+    }> = [];
+
+    for (const log of batchLogs) {
+      if (log.metadata && typeof log.metadata === 'object') {
+        const meta = log.metadata as any;
+        if (meta.month === month && meta.year === year && Array.isArray(meta.images)) {
+          batchImages = meta.images;
+          break;
+        }
+      }
+    }
+
+    // Danh sách nhân viên trong phòng
+    const employees = dept.members.map((m) => {
+      const u = m.user;
+      const assignedImage = batchImages.find((img) => img.assignedUserId === u.id);
+      return {
+        userId: u.id,
+        userCode: u.userCode,
+        fullName: u.profile?.fullName || 'Nhân sự',
+        avatarUrl: u.profile?.avatarUrl || null,
+        positionName: u.profile?.position?.name || 'Nhân viên',
+        hasPayslip: Boolean(assignedImage),
+        assignedImageId: assignedImage?.id || null,
+        assignedImageUrl: assignedImage?.imageUrl || null,
+      };
+    });
+
+    const unassignedImages = batchImages.filter((img) => !img.assignedUserId);
+    const assignedImages = batchImages.filter((img) => Boolean(img.assignedUserId));
+
+    return {
+      departmentId,
+      departmentName: dept.name,
+      month,
+      year,
+      totalImages: batchImages.length,
+      unassignedImages,
+      assignedImages,
+      employees,
+    };
+  }
+
+  async assignDepartmentPayslipImage(actor: AuthenticatedUser, dto: AssignDepartmentPayslipImageDto) {
+    const { departmentId, month, year, imageId, targetUserId } = dto;
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      include: { profile: true },
+    });
+    if (!targetUser) throw notFound('USER_NOT_FOUND', 'Không tìm thấy nhân sự');
+
+    // Lấy batch log mới nhất
+    const batchLogs = await this.prisma.auditLog.findMany({
+      where: {
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityId: departmentId,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    let targetLog: any = null;
+    let batchImages: any[] = [];
+
+    for (const log of batchLogs) {
+      if (log.metadata && typeof log.metadata === 'object') {
+        const meta = log.metadata as any;
+        if (meta.month === month && meta.year === year && Array.isArray(meta.images)) {
+          targetLog = log;
+          batchImages = [...meta.images];
+          break;
+        }
+      }
+    }
+
+    const imageIndex = batchImages.findIndex((img) => img.id === imageId);
+    if (imageIndex === -1) {
+      throw notFound('IMAGE_NOT_FOUND', 'Không tìm thấy ảnh trong lô');
+    }
+
+    const targetImageUrl = batchImages[imageIndex].imageUrl;
+
+    // Cập nhật gán nhãn
+    batchImages[imageIndex] = {
+      ...batchImages[imageIndex],
+      assignedUserId: targetUser.id,
+      assignedUserName: targetUser.profile?.fullName || targetUser.userCode,
+      labeledById: actor.userId,
+      labeledAt: new Date().toISOString(),
+    };
+
+    // Tạo bản ghi log cập nhật batch
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityType: 'DepartmentPayslipBatch',
+        entityId: departmentId,
+        metadata: {
+          ...(targetLog?.metadata || {}),
+          departmentId,
+          month,
+          year,
+          images: batchImages,
+          lastUpdatedBy: (actor as any).fullName || (actor as any).email || actor.userId,
+          lastUpdatedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    // Đồng thời cập nhật vào ảnh chính thức của nhân sự
+    await this.uploadOfficialImage(actor, {
+      userId: targetUserId,
+      month,
+      year,
+      imageUrl: targetImageUrl,
+      note: `Gán từ lô phòng ban`,
+    });
+
+    return {
+      success: true,
+      message: `Đã gán ảnh phiếu lương cho ${targetUser.profile?.fullName || targetUser.userCode} thành công`,
+      assignedUserId: targetUser.id,
+      assignedImageUrl: targetImageUrl,
+    };
+  }
+
+  async unassignDepartmentPayslipImage(actor: AuthenticatedUser, dto: UnassignDepartmentPayslipImageDto) {
+    const { departmentId, month, year, imageId } = dto;
+
+    const batchLogs = await this.prisma.auditLog.findMany({
+      where: {
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityId: departmentId,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    let targetLog: any = null;
+    let batchImages: any[] = [];
+
+    for (const log of batchLogs) {
+      if (log.metadata && typeof log.metadata === 'object') {
+        const meta = log.metadata as any;
+        if (meta.month === month && meta.year === year && Array.isArray(meta.images)) {
+          targetLog = log;
+          batchImages = [...meta.images];
+          break;
+        }
+      }
+    }
+
+    const imageIndex = batchImages.findIndex((img) => img.id === imageId);
+    if (imageIndex === -1) {
+      throw notFound('IMAGE_NOT_FOUND', 'Không tìm thấy ảnh trong lô');
+    }
+
+    const previousUserId = batchImages[imageIndex].assignedUserId;
+
+    // Hủy gán
+    batchImages[imageIndex] = {
+      ...batchImages[imageIndex],
+      assignedUserId: null,
+      assignedUserName: null,
+      labeledById: null,
+      labeledAt: null,
+    };
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityType: 'DepartmentPayslipBatch',
+        entityId: departmentId,
+        metadata: {
+          ...(targetLog?.metadata || {}),
+          departmentId,
+          month,
+          year,
+          images: batchImages,
+          lastUpdatedBy: (actor as any).fullName || (actor as any).email || actor.userId,
+          lastUpdatedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Đã hủy gán ảnh phiếu lương thành công',
+      unassignedImageId: imageId,
+      previousUserId,
+    };
+  }
 }
+

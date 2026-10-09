@@ -148,32 +148,8 @@ export class UsersService {
         await this.uploads.attachTemporaryFiles(fileIds, actor.userId, UploadPurpose.FACE_REGISTRATION, tx);
       }
 
-      // Verify that the FRONT face image contains a valid face descriptor
-      const frontImage = dto.faceImages.find(img => img.pose === FacePoseType.FRONT) || dto.faceImages[0];
-      if (frontImage) {
-        try {
-          const key = this.storage.extractKeyFromUrl(frontImage.imageUrl);
-          if (key) {
-            const buffer = await this.storage.read(key);
-            if (buffer) {
-              const verifyResult = await this.faceVerification.verifyAttendanceFace({
-                userId: actor.userId,
-                imageBuffer: buffer,
-              }).catch(() => null);
-
-              if (verifyResult && !verifyResult.matched && verifyResult.reason?.includes('Không tìm thấy khuôn mặt')) {
-                throw badRequest('INVALID_FACE_IMAGE', 'Ảnh đăng ký không nhận diện được khuôn mặt rõ ràng. Vui lòng chụp lại ảnh chính diện rõ mặt hơn.');
-              }
-            }
-          }
-        } catch (err: any) {
-          if (err?.response?.message || err?.message?.includes('khuôn mặt')) {
-            throw err;
-          }
-          // Non-blocking log if file read fails during dev
-          console.warn('Face validation check warning during updateMyFace:', err?.message || err);
-        }
-      }
+      // Clear user face cache
+      this.faceVerification.clearUserCache(actor.userId);
 
       await tx.auditLog.create({
         data: {

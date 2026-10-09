@@ -285,7 +285,7 @@ export function CreateOtReportScreen() {
       router.back();
     } catch (error) {
       const normalized = normalizeApiError(error);
-      showAlert(normalized.code, normalized.message);
+      showAlert('Lỗi gửi báo cáo', normalized.message);
     }
   }
 
@@ -513,7 +513,7 @@ export function LeaderOtReviewScreen() {
       setDetailReport(null);
     } catch (error) {
       const normalized = normalizeApiError(error);
-      showAlert(normalized.code, normalized.message);
+      showAlert('Lỗi duyệt báo cáo', normalized.message);
     }
   };
 
@@ -538,7 +538,7 @@ export function LeaderOtReviewScreen() {
       setDetailReport(null);
     } catch (error) {
       const normalized = normalizeApiError(error);
-      showAlert(normalized.code, normalized.message);
+      showAlert('Lỗi từ chối báo cáo', normalized.message);
     }
   };
 
