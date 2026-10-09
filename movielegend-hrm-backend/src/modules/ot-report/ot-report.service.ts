@@ -572,9 +572,11 @@ export class OtReportService {
    * Lấy danh sách báo cáo OT của tôi
    */
   async findMyReports(actor: AuthenticatedUser, query: OtReportQueryDto) {
+    const targetStatus = query.status === 'ALL' ? undefined : query.status;
+
     const where: Prisma.OtReportWhereInput = {
       userId: actor.userId,
-      ...(query.status ? { status: query.status } : {}),
+      ...(targetStatus ? { status: targetStatus as OtReportStatus } : {}),
       ...(this.businessTime.inclusiveDateRange(query.fromDate, query.toDate)
         ? { otDate: this.businessTime.inclusiveDateRange(query.fromDate, query.toDate) }
         : {}),
@@ -597,6 +599,17 @@ export class OtReportService {
       this.prisma.otReport.count({ where }),
     ]);
 
+    // Lấy thông tin người duyệt nếu có decidedByUserId
+    const deciderIds = Array.from(new Set(items.map((i) => i.decidedByUserId).filter(Boolean))) as string[];
+    let decidersMap = new Map<string, { id: string; userCode: string; profile?: { fullName?: string } | null }>();
+    if (deciderIds.length > 0) {
+      const deciders = await this.prisma.user.findMany({
+        where: { id: { in: deciderIds } },
+        select: { id: true, userCode: true, profile: { select: { fullName: true } } },
+      });
+      decidersMap = new Map(deciders.map((d) => [d.id, d]));
+    }
+
     const populatedItems = await Promise.all(
       items.map(async (item) => {
         if (item.status === OtReportStatus.PENDING) {
@@ -616,7 +629,10 @@ export class OtReportService {
               .catch(() => null);
           }
         }
-        return item;
+        return {
+          ...item,
+          decidedBy: item.decidedByUserId ? decidersMap.get(item.decidedByUserId) || null : null,
+        };
       }),
     );
 
@@ -632,13 +648,16 @@ export class OtReportService {
   }
 
   /**
-   * Lấy danh sách báo cáo OT chờ duyệt (Leader phòng Live)
+   * Lấy danh sách báo cáo OT chờ duyệt / đã duyệt / từ chối (Leader phòng Live & Admin)
    */
   async findPendingReports(actor: AuthenticatedUser, query: OtReportQueryDto) {
     const visibleDepartmentIds = await this.scope.getVisibleDepartmentIds(actor);
 
+    // Xử lý status: nếu truyền 'ALL' thì không lọc status; nếu truyền 'APPROVED' / 'REJECTED' / 'PENDING' thì lọc đúng status đó; nếu không truyền thì mặc định là PENDING
+    const targetStatus = query.status === 'ALL' ? undefined : (query.status || OtReportStatus.PENDING);
+
     const where: Prisma.OtReportWhereInput = {
-      status: query.status || OtReportStatus.PENDING,
+      ...(targetStatus ? { status: targetStatus as OtReportStatus } : {}),
       ...(visibleDepartmentIds ? { departmentId: { in: visibleDepartmentIds } } : {}),
       ...(this.businessTime.inclusiveDateRange(query.fromDate, query.toDate)
         ? { otDate: this.businessTime.inclusiveDateRange(query.fromDate, query.toDate) }
@@ -665,6 +684,17 @@ export class OtReportService {
       this.prisma.otReport.count({ where }),
     ]);
 
+    // Lấy thông tin người duyệt nếu có decidedByUserId
+    const deciderIds = Array.from(new Set(items.map((i) => i.decidedByUserId).filter(Boolean))) as string[];
+    let decidersMap = new Map<string, { id: string; userCode: string; profile?: { fullName?: string } | null }>();
+    if (deciderIds.length > 0) {
+      const deciders = await this.prisma.user.findMany({
+        where: { id: { in: deciderIds } },
+        select: { id: true, userCode: true, profile: { select: { fullName: true } } },
+      });
+      decidersMap = new Map(deciders.map((d) => [d.id, d]));
+    }
+
     const populatedItems = await Promise.all(
       items.map(async (item) => {
         if (item.status === OtReportStatus.PENDING) {
@@ -684,7 +714,10 @@ export class OtReportService {
               .catch(() => null);
           }
         }
-        return item;
+        return {
+          ...item,
+          decidedBy: item.decidedByUserId ? decidersMap.get(item.decidedByUserId) || null : null,
+        };
       }),
     );
 
@@ -738,6 +771,17 @@ export class OtReportService {
       }
     }
 
-    return report;
+    let decidedBy = null;
+    if (report.decidedByUserId) {
+      decidedBy = await this.prisma.user.findUnique({
+        where: { id: report.decidedByUserId },
+        select: { id: true, userCode: true, profile: { select: { fullName: true } } },
+      });
+    }
+
+    return {
+      ...report,
+      decidedBy,
+    };
   }
 }

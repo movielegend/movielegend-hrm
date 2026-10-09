@@ -88,52 +88,10 @@ export class EmployeeRequestsService {
     const amountVal = Number(dto.amount || 0);
     const NON_VAT_ADMIN_THRESHOLD = 2000000; // 2.000.000 VNĐ theo sơ đồ (Trên 2tr: A Kiên)
 
-    // Validation riêng cho Đơn Tạm ứng Lương (ADVANCE) - Tối đa 50% lương
+    // Xử lý riêng cho Đơn Tạm ứng Lương (ADVANCE) - Leader sẽ trực tiếp xét duyệt
     if (isAdvance) {
       if (amountVal <= 0) {
         throw badRequest('INVALID_ADVANCE_AMOUNT', 'Số tiền tạm ứng lương phải lớn hơn 0');
-      }
-
-      // Lấy lương cơ bản của nhân sự
-      const salaryProfile = await this.prisma.salaryProfile.findFirst({
-        where: { userId: actor.userId },
-        orderBy: { effectiveFrom: 'desc' },
-      });
-      let baseSalary = salaryProfile ? Number(salaryProfile.baseSalary) : 0;
-      if (baseSalary <= 0) {
-        const latestPayroll = await this.prisma.payroll.findFirst({
-          where: { userId: actor.userId },
-          orderBy: { calculatedAt: 'desc' },
-        });
-        if (latestPayroll) {
-          baseSalary = Number(latestPayroll.baseSalary);
-        }
-      }
-
-      if (baseSalary > 0) {
-        const nowTime = new Date();
-        const startOfMonth = new Date(Date.UTC(nowTime.getFullYear(), nowTime.getMonth(), 1, 0, 0, 0));
-        const endOfMonth = new Date(Date.UTC(nowTime.getFullYear(), nowTime.getMonth() + 1, 0, 23, 59, 59, 999));
-
-        const existingAdvances = await this.prisma.employeeRequest.findMany({
-          where: {
-            userId: actor.userId,
-            type: EmployeeRequestType.ADVANCE,
-            status: { in: [EmployeeRequestStatus.PENDING, EmployeeRequestStatus.APPROVED] },
-            createdAt: { gte: startOfMonth, lte: endOfMonth },
-          },
-        });
-
-        const currentAdvancedTotal = existingAdvances.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-        const maxAdvanceLimit = Math.floor(baseSalary * 0.5);
-        const remainingAdvanceLimit = Math.max(0, maxAdvanceLimit - currentAdvancedTotal);
-
-        if (amountVal > remainingAdvanceLimit) {
-          throw badRequest(
-            'ADVANCE_LIMIT_EXCEEDED',
-            `Số tiền đề xuất tạm ứng (${amountVal.toLocaleString('vi-VN')} đ) vượt quá hạn mức cho phép. Quy định: Tối đa 50% lương (${maxAdvanceLimit.toLocaleString('vi-VN')} đ). Hạn mức còn lại trong tháng: ${remainingAdvanceLimit.toLocaleString('vi-VN')} đ.`,
-          );
-        }
       }
 
       if (!requestTitle || requestTitle === 'Tạm ứng' || requestTitle === 'Yêu cầu') {
@@ -249,9 +207,48 @@ export class EmployeeRequestsService {
           },
         };
       }
-    } else if (isGlobalAdmin || isHr) {
+    } else if (isGlobalAdmin) {
       if (departmentId) {
         where = { departmentId };
+      }
+    } else if (isHr) {
+      // HR: manages all non-financial requests across company,
+      // PLUS all requests in their own department(s)
+      const ledDeptIds = await this.scope.getLedDepartmentIds(actor);
+      const ownDeptIds = [...ledDeptIds];
+      try {
+        const primaryDeptId = await this.scope.getPrimaryDepartmentId(actor.userId);
+        if (primaryDeptId && !ownDeptIds.includes(primaryDeptId)) {
+          ownDeptIds.push(primaryDeptId);
+        }
+      } catch {}
+
+      const nonFinancialTypes: EmployeeRequestType[] = [
+        EmployeeRequestType.LEAVE,
+        EmployeeRequestType.ATTENDANCE_ADJUSTMENT,
+        EmployeeRequestType.BUSINESS_TRIP,
+        EmployeeRequestType.OVERTIME,
+        EmployeeRequestType.EQUIPMENT,
+        EmployeeRequestType.OTHER,
+      ];
+
+      if (departmentId) {
+        if (ownDeptIds.includes(departmentId)) {
+          where = { departmentId };
+        } else {
+          where = {
+            departmentId,
+            type: { in: nonFinancialTypes },
+          };
+        }
+      } else {
+        const orConditions: Prisma.EmployeeRequestWhereInput[] = [
+          { type: { in: nonFinancialTypes } },
+        ];
+        if (ownDeptIds.length > 0) {
+          orConditions.push({ departmentId: { in: ownDeptIds } });
+        }
+        where = { OR: orConditions };
       }
     } else if (isAccountant) {
       // Accountant: can see ALL financial requests across all departments,
@@ -629,7 +626,7 @@ export class EmployeeRequestsService {
       // 1. Leader Approval stage
       if (currentStage === 'PENDING_LEADER') {
         const isLeader = request.department?.leaderUserId === actor.userId;
-        if (!isLeader && !isGlobalAdmin && !isHr && !canDeptAccess) {
+        if (!isLeader && !isGlobalAdmin && !canDeptAccess) {
           throw forbidden('FORBIDDEN', 'Chỉ Trưởng bộ phận hoặc Quản trị viên quản lý phòng ban mới có quyền duyệt bước này.');
         }
 
@@ -946,7 +943,7 @@ export class EmployeeRequestsService {
 
       if (currentStage === 'PENDING_LEADER') {
         const isLeader = request.department?.leaderUserId === actor.userId || canDeptAccess;
-        if (!isLeader && !isGlobalAdmin && !isHr) {
+        if (!isLeader && !isGlobalAdmin) {
           throw forbidden('FORBIDDEN', 'Chỉ Trưởng bộ phận hoặc Quản trị viên quản lý mới có quyền từ chối bước này.');
         }
       } else if (currentStage === 'PENDING_HR') {

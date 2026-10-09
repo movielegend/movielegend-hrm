@@ -17,7 +17,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import ImageViewing from 'react-native-image-viewing';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 import { useAuth } from '../../providers/AuthProvider';
 import {
   getMyPayslip,
@@ -33,6 +33,7 @@ import { CustomAlert } from '../../components/CustomAlert';
 import { DepartmentBatchUploadModal } from './components/DepartmentBatchUploadModal';
 import { DepartmentLabelingModal } from './components/DepartmentLabelingModal';
 import { SalaryAdvanceModal } from './components/SalaryAdvanceModal';
+import { resolveFileUrl } from '../../utils/url';
 
 function formatVnd(val?: number | null): string {
   if (val === undefined || val === null || isNaN(val)) return '0 đ';
@@ -161,7 +162,8 @@ export function EmployeePayslipScreen() {
   };
 
   const openViewer = (uri: string) => {
-    setViewerImages([{ uri }]);
+    const fullUrl = resolveFileUrl(uri) || uri;
+    setViewerImages([{ uri: fullUrl }]);
     setIsImageViewerVisible(true);
   };
 
@@ -825,7 +827,7 @@ export function EmployeePayslipScreen() {
 
       {/* ── Fullscreen Image Viewer ── */}
       {viewerImages.length > 0 ? (
-        <ImageViewing
+        <ImageView
           images={viewerImages}
           imageIndex={0}
           visible={isImageViewerVisible}

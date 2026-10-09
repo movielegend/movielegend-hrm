@@ -78,8 +78,11 @@ export class PayrollPeriodsController {
   }
 }
 
+import { SkipThrottle } from '@nestjs/throttler';
+
 @ApiTags('Payrolls')
 @ApiBearerAuth()
+@SkipThrottle()
 @Controller('payrolls')
 export class PayrollsController {
   constructor(private readonly payroll: PayrollService) {}

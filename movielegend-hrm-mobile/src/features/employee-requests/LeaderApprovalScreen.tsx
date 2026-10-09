@@ -308,7 +308,7 @@ export function LeaderApprovalScreen() {
   } else {
     // Financial workflow
     if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
-      if (isDeptLeader || isAdmin || isHr) {
+      if (isDeptLeader || isAdmin) {
         canActOnCurrentStage = true;
       } else {
         waitingStageDescription = `Đang chờ Trưởng bộ phận (${userDept}) duyệt sơ bộ.`;
