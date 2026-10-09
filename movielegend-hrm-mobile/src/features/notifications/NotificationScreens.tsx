@@ -2,31 +2,17 @@ import React, { useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import {
-  Award,
-  Bell,
-  CalendarCheck,
-  CheckCheck,
-  ClipboardList,
-  FileCheck2,
-  FileText,
-  Inbox,
-  MessageCircle,
-  ShieldAlert,
-  Trash2,
-  Wallet,
-} from 'lucide-react-native';
-import { ErrorState } from '../../components/ErrorState';
-import { LoadingState } from '../../components/LoadingState';
-import { PageHeader } from '../../components/PageHeader';
-import { Screen } from '../../components/Screen';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   useDeleteAllNotifications,
   useDeleteNotification,
@@ -36,11 +22,9 @@ import {
   useUnreadNotificationCount,
 } from '../../hooks/useNotifications';
 import { useAuth } from '../../providers/AuthProvider';
-import { colors } from '../../theme/colors';
-import { spacing } from '../../theme/spacing';
 import type { NotificationTargetDto } from '../../types/notification.types';
-import { timeAgo } from '../../utils/date-time';
-import { notificationRoute, stringMeta } from '../../utils/notification-routing';
+import { notificationRoute } from '../../utils/notification-routing';
+import { CustomAlert } from '../../components/CustomAlert';
 
 type TabType = 'ALL' | 'UNREAD';
 
@@ -78,154 +62,177 @@ function stripEmojis(str?: string): string {
     .trim();
 }
 
-interface NotificationVisuals {
-  IconComponent: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
-  iconColor: string;
-  bgColor: string;
+function getGroupLabel(dateStr: string): string {
+  if (!dateStr) return 'Trước đó';
+  const itemDate = new Date(dateStr);
+  if (isNaN(itemDate.getTime())) return 'Trước đó';
+
+  const now = new Date();
+  const d1 = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
+  const d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 0) return 'Hôm nay';
+  if (diffDays === 1) return '1 ngày trước';
+  if (diffDays === 2) return '2 ngày trước';
+  if (diffDays === 3) return '3 ngày trước';
+  if (diffDays < 7) return `${diffDays} ngày trước`;
+  if (diffDays < 14) return '1 tuần trước';
+  return `${Math.floor(diffDays / 7)} tuần trước`;
 }
 
-function getNotificationVisuals(target: NotificationTargetDto): NotificationVisuals {
+interface VisualConfig {
+  category: string;
+  iconName: string;
+  isMaterialCommunity: boolean;
+}
+
+function getNotificationVisual(target: NotificationTargetDto): VisualConfig {
   const item = target.notification;
-  const type = item.type || '';
+  const type = (item.type || '').toUpperCase();
   const title = (item.title || '').toLowerCase();
   const body = (item.body || '').toLowerCase();
   const text = `${title} ${body}`;
 
-  // 0. DAILY REPORT (Blue / Indigo)
+  // Candidate / Recruitment
   if (
-    type.startsWith('DAILY_REPORT_') ||
-    stringMeta(item.metadata, 'reportId') ||
-    stringMeta(item.metadata, 'category') === 'DAILY_REPORT' ||
-    title.includes('báo cáo cuối ngày') ||
-    title.includes('báo cáo ngày') ||
-    text.includes('nộp báo cáo')
+    type.includes('CANDIDATE') ||
+    type.includes('RECRUIT') ||
+    text.includes('ứng viên') ||
+    text.includes('tuyển dụng') ||
+    text.includes('nộp hồ sơ')
   ) {
     return {
-      IconComponent: ClipboardList,
-      iconColor: '#315DE5',
-      bgColor: '#EEF3FF',
+      category: 'Ứng viên mới nộp hồ sơ',
+      iconName: 'briefcase-outline',
+      isMaterialCommunity: false,
     };
   }
 
-  // 1. VIOLATION & INCIDENTS (Rose Red)
-  if (type.startsWith('VIOLATION_') || type.startsWith('ASSET_INCIDENT_') || title.includes('vi phạm') || title.includes('kỷ luật')) {
-    return {
-      IconComponent: ShieldAlert,
-      iconColor: '#EF4444',
-      bgColor: '#FEE2E2',
-    };
-  }
-
-  // 2. BONUS & SALARY (Warm Amber / Gold)
+  // Account creation & request
   if (
-    type.startsWith('VAULT_') ||
-    type.startsWith('PAYROLL_') ||
-    type.startsWith('PAYSLIP_') ||
-    text.includes('ví thưởng') ||
-    text.includes('điểm thưởng') ||
-    text.includes('phiếu lương') ||
-    text.includes('bảng lương') ||
-    text.includes('thưởng') ||
-    text.includes('rút ví') ||
-    text.includes('rút tiền')
+    type.includes('ACCOUNT') ||
+    text.includes('tạo tài khoản') ||
+    text.includes('duyệt tài khoản') ||
+    text.includes('đăng ký tài khoản')
   ) {
     return {
-      IconComponent: Wallet,
-      iconColor: '#F59E0B',
-      bgColor: '#FEF3C7',
+      category: 'Yêu cầu tạo tài khoản',
+      iconName: 'file-account-outline',
+      isMaterialCommunity: true,
     };
   }
 
-  // 3. ATTENDANCE & SHIFT (Teal / Cyan)
+  // Leave & Shift & Attendance
   if (
-    text.includes('phân ca') ||
+    type.includes('LEAVE') ||
+    type.includes('SHIFT') ||
+    type.includes('ATTENDANCE') ||
+    text.includes('nghỉ phép') ||
     text.includes('chấm công') ||
-    text.includes('bảng công') ||
-    text.includes('đổi ca') ||
-    text.includes('check in') ||
-    text.includes('check out') ||
-    text.includes('giờ làm việc') ||
-    text.includes('timesheet')
+    text.includes('ca làm việc')
   ) {
     return {
-      IconComponent: CalendarCheck,
-      iconColor: '#06B6D4',
-      bgColor: '#E0F2FE',
+      category: 'Chấm công & Ca làm việc',
+      iconName: 'time-outline',
+      isMaterialCommunity: false,
     };
   }
 
-  // 4. REQUESTS & APPROVALS (Emerald Green)
+  // Task & Report
   if (
-    type.startsWith('CROSS_DEPARTMENT_') ||
-    type === 'ACCOUNT_APPROVAL_REQUESTED' ||
-    stringMeta(item.metadata, 'requestId') ||
-    stringMeta(item.metadata, 'approvalRequestId') ||
-    text.includes('đơn nghỉ') ||
-    text.includes('đơn xin') ||
-    text.includes('yêu cầu duyệt') ||
-    text.includes('chờ duyệt') ||
-    text.includes('đã duyệt đơn') ||
-    text.includes('từ chối đơn')
+    type.includes('TASK') ||
+    type.includes('REPORT') ||
+    text.includes('báo cáo') ||
+    text.includes('công việc')
   ) {
     return {
-      IconComponent: FileCheck2,
-      iconColor: '#10B981',
-      bgColor: '#D1FAE5',
+      category: 'Công việc & Báo cáo',
+      iconName: 'clipboard-outline',
+      isMaterialCommunity: false,
     };
   }
 
-  // 5. LEVEL PROJECTS & KPI (Purple Violet)
+  // Salary & Wallet
   if (
-    type.startsWith('LEVEL_') ||
-    text.includes('cấp bậc') ||
-    text.includes('dự án level') ||
-    text.includes('thăng cấp') ||
-    type.startsWith('KPI_')
+    type.includes('PAYROLL') ||
+    type.includes('VAULT') ||
+    text.includes('lương') ||
+    text.includes('thưởng') ||
+    text.includes('ví')
   ) {
     return {
-      IconComponent: Award,
-      iconColor: '#8B5CF6',
-      bgColor: '#EDE9FE',
+      category: 'Lương & Thưởng',
+      iconName: 'wallet-outline',
+      isMaterialCommunity: false,
     };
   }
 
-  // 6. TASKS / ASSIGNMENTS (Royal Blue)
-  if (type.startsWith('TASK_') || text.includes('công việc') || text.includes('nhiệm vụ') || stringMeta(item.metadata, 'taskId')) {
-    return {
-      IconComponent: ClipboardList,
-      iconColor: '#3B82F6',
-      bgColor: '#DBEAFE',
-    };
-  }
-
-  // 7. DOCUMENTS & CONTRACTS (Indigo)
-  if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_') || text.includes('hợp đồng') || text.includes('tài liệu')) {
-    return {
-      IconComponent: FileText,
-      iconColor: '#6366F1',
-      bgColor: '#E0E7FF',
-    };
-  }
-
-  // 8. CHAT & MESSAGES (Sky Blue Bubble)
-  if (type.startsWith('CHAT_') || type.startsWith('NEWSFEED_') || text.includes('tin nhắn') || text.includes('bài viết')) {
-    return {
-      IconComponent: MessageCircle,
-      iconColor: '#0EA5E9',
-      bgColor: '#E0F2FE',
-    };
-  }
-
-  // DEFAULT (Slate Gray)
+  // Default system notification
   return {
-    IconComponent: Bell,
-    iconColor: '#64748B',
-    bgColor: '#F1F5F9',
+    category: 'Thông báo hệ thống',
+    iconName: 'notifications-outline',
+    isMaterialCommunity: false,
   };
+}
+
+function parseNotificationContent(target: NotificationTargetDto) {
+  const item = target.notification;
+  const rawTitle = stripEmojis(EN_TO_VI[item.title] || item.title || '');
+  const rawBody = stripEmojis(item.body || '');
+  const visual = getNotificationVisual(target);
+
+  let category = visual.category;
+  let subject = rawTitle;
+  let description = rawBody;
+
+  // Smart formatting to match template line 1 (category) - line 2 (bold name/subject) - line 3 (description)
+  if (
+    rawTitle.toLowerCase().includes('tạo tài khoản') ||
+    rawTitle.toLowerCase().includes('ứng viên') ||
+    rawTitle.toLowerCase().includes('duyệt') ||
+    rawTitle.toLowerCase().includes('yêu cầu')
+  ) {
+    category = rawTitle;
+    const lines = rawBody.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      subject = lines[0] || rawTitle;
+      description = lines.slice(1).join(' ');
+    } else if (lines.length === 1) {
+      const metaName = item.metadata?.fullName || item.metadata?.userName || item.metadata?.name;
+      if (typeof metaName === 'string' && metaName.trim()) {
+        subject = metaName;
+        description = lines[0] || 'Đề nghị kiểm tra và xét duyệt.';
+      } else {
+        subject = lines[0] || rawTitle;
+        description = 'Đề nghị kiểm tra và xét duyệt.';
+      }
+    } else {
+      description = 'Đề nghị kiểm tra và xét duyệt.';
+    }
+  } else {
+    // Normal notifications
+    if (!description) {
+      description = 'Đề nghị kiểm tra và xét duyệt.';
+    }
+  }
+
+  return {
+    category,
+    subject,
+    description,
+    visual,
+  };
+}
+
+interface NotificationGroup {
+  label: string;
+  items: NotificationTargetDto[];
 }
 
 export function NotificationListScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const notifications = useNotifications();
   const unread = useUnreadNotificationCount();
@@ -233,7 +240,37 @@ export function NotificationListScreen() {
   const markAll = useMarkAllNotificationsRead();
   const deleteNotif = useDeleteNotification();
   const deleteAll = useDeleteAllNotifications();
+
   const [activeTab, setActiveTab] = useState<TabType>('ALL');
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [selectedTargetForMenu, setSelectedTargetForMenu] = useState<NotificationTargetDto | null>(null);
+
+  const rawList = notifications.data || [];
+  const unreadCount = unread.data || 0;
+
+  const displayList = useMemo(() => {
+    if (activeTab === 'UNREAD') {
+      return rawList.filter((target) => !target.readAt);
+    }
+    return rawList;
+  }, [rawList, activeTab]);
+
+  // Group items by time label (e.g. "1 ngày trước", "2 ngày trước")
+  const groupedNotifications = useMemo<NotificationGroup[]>(() => {
+    const map = new Map<string, NotificationTargetDto[]>();
+    for (const item of displayList) {
+      const label = getGroupLabel(item.notification.createdAt);
+      if (!map.has(label)) {
+        map.set(label, []);
+      }
+      map.get(label)!.push(item);
+    }
+
+    return Array.from(map.entries()).map(([label, items]) => ({
+      label,
+      items,
+    }));
+  }, [displayList]);
 
   async function openNotification(target: NotificationTargetDto) {
     const route = notificationRoute(target, user);
@@ -249,434 +286,663 @@ export function NotificationListScreen() {
     }
   }
 
-  const rawList = notifications.data || [];
-  const unreadCount = unread.data || 0;
-
-  const displayList = useMemo(() => {
-    if (activeTab === 'UNREAD') {
-      return rawList.filter((target) => !target.readAt);
-    }
-    return rawList;
-  }, [rawList, activeTab]);
-
   return (
-    <Screen backgroundColor="#FFFFFF">
-      <View style={styles.headerArea}>
-        <PageHeader
-          title="Thông báo"
-          subtitle={unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : 'Tất cả đã cập nhật'}
-          showBack={false}
-          right={
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              {unreadCount > 0 && (
-                <Pressable
-                  style={({ pressed }) => [styles.markAllBtn, pressed && styles.markAllBtnPressed]}
-                  onPress={() => void markAll.mutateAsync()}
-                  disabled={markAll.isPending}
-                >
-                  <CheckCheck size={16} strokeWidth={2.2} color={colors.primary} />
-                  <Text style={styles.markAllText}>Đã đọc hết</Text>
-                </Pressable>
-              )}
-              {rawList.length > 0 && (
-                <Pressable
-                  style={({ pressed }) => [styles.clearAllBtn, pressed && styles.markAllBtnPressed]}
-                  onPress={() => {
-                    Alert.alert(
-                      'Xóa tất cả thông báo',
-                      'Bạn có chắc chắn muốn xóa tất cả thông báo không?',
-                      [
-                        { text: 'Hủy', style: 'cancel' },
-                        { text: 'Xóa tất cả', style: 'destructive', onPress: () => void deleteAll.mutateAsync() },
-                      ]
-                    );
-                  }}
-                  disabled={deleteAll.isPending}
-                >
-                  <Trash2 size={15} color="#94A3B8" />
-                </Pressable>
-              )}
-            </View>
-          }
-        />
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
-        {/* 2 Tabs: Tất cả & Chưa đọc */}
-        <View style={styles.tabsContainer}>
-          <Pressable
-            style={[styles.tabButton, activeTab === 'ALL' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('ALL')}
-          >
-            <Text style={[styles.tabText, activeTab === 'ALL' && styles.tabTextActive]}>
-              Tất cả
+      {/* ── Top Header (#1B3B2B) ── */}
+      <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTextCol}>
+            <Text style={styles.headerTagline}>MOVIE LEGEND</Text>
+            <Text style={styles.headerTitle}>Thông báo</Text>
+            <Text style={styles.headerSubtitle}>
+              {unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : 'Tất cả đã cập nhật'}
             </Text>
-            {rawList.length > 0 && (
-              <View style={[styles.tabBadge, activeTab === 'ALL' && styles.tabBadgeActive]}>
-                <Text style={[styles.tabBadgeText, activeTab === 'ALL' && styles.tabBadgeTextActive]}>
-                  {rawList.length}
-                </Text>
-              </View>
-            )}
-          </Pressable>
+          </View>
 
+          {/* Right 3 dots action button */}
           <Pressable
-            style={[styles.tabButton, activeTab === 'UNREAD' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('UNREAD')}
+            style={({ pressed }) => [
+              styles.headerMenuBtn,
+              pressed && { opacity: 0.75 },
+            ]}
+            onPress={() => setShowHeaderMenu(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={[styles.tabText, activeTab === 'UNREAD' && styles.tabTextActive]}>
-              Chưa đọc
-            </Text>
-            {unreadCount > 0 ? (
-              <View style={[styles.unreadCountBadge, activeTab === 'UNREAD' && styles.unreadCountBadgeActive]}>
-                <Text style={[styles.unreadCountBadgeText, activeTab === 'UNREAD' && styles.unreadCountBadgeTextActive]}>
-                  {unreadCount}
-                </Text>
-              </View>
-            ) : null}
+            <Ionicons name="ellipsis-horizontal" size={20} color="#FFFFFF" />
           </Pressable>
         </View>
       </View>
 
-      {notifications.isLoading ? <LoadingState /> : null}
-      {notifications.isError ? (
-        <ErrorState error={notifications.error} onRetry={() => void notifications.refetch()} />
-      ) : null}
-
-      {!notifications.isLoading && !notifications.isError && (
-        <FlatList
-          data={displayList}
-          keyExtractor={(target) => target.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={notifications.isRefetching}
-              onRefresh={() => void notifications.refetch()}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                {activeTab === 'UNREAD' ? (
-                  <CheckCheck size={36} strokeWidth={1.8} color="#10B981" />
-                ) : (
-                  <Inbox size={36} strokeWidth={1.8} color="#94A3B8" />
-                )}
-              </View>
-              <Text style={styles.emptyTitle}>
-                {activeTab === 'UNREAD' ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo nào'}
-              </Text>
-              <Text style={styles.emptySubtitle}>
-                {activeTab === 'UNREAD'
-                  ? 'Tuyệt vời! Bạn đã xem hết tất cả các thông báo.'
-                  : 'Bạn sẽ nhận được thông báo khi có công việc mới, duyệt đơn hoặc tin tức từ công ty.'}
+      {/* ── Tab Filter Pills (Tất cả & Chưa đọc) ── */}
+      <View style={styles.filterTabsRow}>
+        {/* Tab Tất cả */}
+        <Pressable
+          style={[
+            styles.tabPill,
+            activeTab === 'ALL' ? styles.tabPillActive : styles.tabPillInactive,
+          ]}
+          onPress={() => setActiveTab('ALL')}
+        >
+          <Text
+            style={[
+              styles.tabPillText,
+              activeTab === 'ALL' ? styles.tabPillTextActive : styles.tabPillTextInactive,
+            ]}
+          >
+            Tất cả
+          </Text>
+          {rawList.length > 0 && (
+            <View
+              style={[
+                styles.tabCountPill,
+                activeTab === 'ALL'
+                  ? styles.tabCountPillActive
+                  : styles.tabCountPillInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabCountPillText,
+                  activeTab === 'ALL'
+                    ? styles.tabCountPillTextActive
+                    : styles.tabCountPillTextInactive,
+                ]}
+              >
+                {rawList.length}
               </Text>
             </View>
-          }
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          renderItem={({ item: target }) => (
-            <NotificationItemRow
-              target={target}
-              onPress={() => void openNotification(target)}
-              onDelete={() => void deleteNotif.mutate(target.id)}
-            />
           )}
-        />
-      )}
-    </Screen>
+        </Pressable>
+
+        {/* Tab Chưa đọc */}
+        <Pressable
+          style={[
+            styles.tabPill,
+            activeTab === 'UNREAD' ? styles.tabPillActive : styles.tabPillInactive,
+          ]}
+          onPress={() => setActiveTab('UNREAD')}
+        >
+          <Text
+            style={[
+              styles.tabPillText,
+              activeTab === 'UNREAD' ? styles.tabPillTextActive : styles.tabPillTextInactive,
+            ]}
+          >
+            Chưa đọc
+          </Text>
+          {unreadCount > 0 && (
+            <View
+              style={[
+                styles.tabCountPill,
+                activeTab === 'UNREAD'
+                  ? styles.tabCountPillActive
+                  : styles.tabCountPillInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.tabCountPillText,
+                  activeTab === 'UNREAD'
+                    ? styles.tabCountPillTextActive
+                    : styles.tabCountPillTextInactive,
+                ]}
+              >
+                {unreadCount}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+      </View>
+
+      {/* ── Grouped Notifications List ── */}
+      <FlatList
+        data={groupedNotifications}
+        keyExtractor={(item) => item.label}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={notifications.isRefetching}
+            onRefresh={() => void notifications.refetch()}
+            colors={['#1B3B2B']}
+            tintColor="#1B3B2B"
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons
+                name={activeTab === 'UNREAD' ? 'checkmark-done-circle-outline' : 'notifications-off-outline'}
+                size={38}
+                color="#64748B"
+              />
+            </View>
+            <Text style={styles.emptyTitle}>
+              {activeTab === 'UNREAD' ? 'Không có thông báo chưa đọc' : 'Chưa có thông báo nào'}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {activeTab === 'UNREAD'
+                ? 'Tuyệt vời! Bạn đã xem hết tất cả các thông báo.'
+                : 'Bạn sẽ nhận được thông báo khi có công việc mới, duyệt đơn hoặc tin tức từ công ty.'}
+            </Text>
+          </View>
+        }
+        renderItem={({ item: group }) => (
+          <View style={styles.groupSection}>
+            {/* Group Label */}
+            <Text style={styles.groupLabel}>{group.label}</Text>
+
+            {/* White Group Card Container */}
+            <View style={styles.groupCard}>
+              {group.items.map((target, index) => {
+                const { category, subject, description, visual } = parseNotificationContent(target);
+                const isUnread = !target.readAt;
+
+                return (
+                  <React.Fragment key={target.id}>
+                    {index > 0 && <View style={styles.itemDivider} />}
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.itemRow,
+                        pressed && styles.itemRowPressed,
+                      ]}
+                      onPress={() => void openNotification(target)}
+                    >
+                      {/* Left Icon Avatar */}
+                      <View style={styles.itemIconBox}>
+                        {visual.isMaterialCommunity ? (
+                          <MaterialCommunityIcons
+                            name={visual.iconName as any}
+                            size={22}
+                            color="#1B3B2B"
+                          />
+                        ) : (
+                          <Ionicons
+                            name={visual.iconName as any}
+                            size={22}
+                            color="#1B3B2B"
+                          />
+                        )}
+                      </View>
+
+                      {/* Content Column */}
+                      <View style={styles.itemContentCol}>
+                        <Text style={styles.itemCategory} numberOfLines={1}>
+                          {category}
+                        </Text>
+                        <Text style={styles.itemSubject} numberOfLines={1}>
+                          {subject}
+                        </Text>
+                        <Text style={styles.itemDescription} numberOfLines={2}>
+                          {description}
+                        </Text>
+                      </View>
+
+                      {/* Right 3 dots action button */}
+                      <Pressable
+                        style={styles.itemDotsBtn}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setSelectedTargetForMenu(target);
+                        }}
+                      >
+                        <Ionicons name="ellipsis-horizontal" size={18} color="#94A3B8" />
+                      </Pressable>
+
+                      {/* Unread indicator */}
+                      {isUnread && <View style={styles.unreadDot} />}
+                    </Pressable>
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          </View>
+        )}
+      />
+
+      {/* ── Modal: Header 3 Dots Menu ── */}
+      <Modal
+        visible={showHeaderMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowHeaderMenu(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowHeaderMenu(false)}>
+          <View style={styles.modalMenuCard}>
+            <Text style={styles.modalMenuTitle}>Tùy chọn thông báo</Text>
+
+            {unreadCount > 0 && (
+              <Pressable
+                style={styles.modalMenuItem}
+                onPress={() => {
+                  setShowHeaderMenu(false);
+                  void markAll.mutateAsync();
+                }}
+              >
+                <Ionicons name="checkmark-done-outline" size={20} color="#1B3B2B" />
+                <Text style={styles.modalMenuItemText}>Đánh dấu tất cả đã đọc</Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              style={styles.modalMenuItem}
+              onPress={() => {
+                setShowHeaderMenu(false);
+                void notifications.refetch();
+              }}
+            >
+              <Ionicons name="refresh-outline" size={20} color="#1B3B2B" />
+              <Text style={styles.modalMenuItemText}>Làm mới danh sách</Text>
+            </Pressable>
+
+            {rawList.length > 0 && (
+              <Pressable
+                style={styles.modalMenuItem}
+                onPress={() => {
+                  setShowHeaderMenu(false);
+                  CustomAlert.alert(
+                    'Xóa tất cả thông báo',
+                    'Bạn có chắc chắn muốn xóa toàn bộ thông báo không?',
+                    [
+                      { text: 'Hủy', style: 'cancel' },
+                      {
+                        text: 'Xóa tất cả',
+                        style: 'destructive',
+                        onPress: () => void deleteAll.mutateAsync(),
+                      },
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#DC2626" />
+                <Text style={[styles.modalMenuItemText, { color: '#DC2626' }]}>
+                  Xóa tất cả thông báo
+                </Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              style={styles.modalMenuCloseBtn}
+              onPress={() => setShowHeaderMenu(false)}
+            >
+              <Text style={styles.modalMenuCloseText}>Đóng</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* ── Modal: Item 3 Dots Menu ── */}
+      <Modal
+        visible={Boolean(selectedTargetForMenu)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedTargetForMenu(null)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setSelectedTargetForMenu(null)}
+        >
+          <View style={styles.modalMenuCard}>
+            <Text style={styles.modalMenuTitle}>Thao tác</Text>
+
+            {selectedTargetForMenu && !selectedTargetForMenu.readAt && (
+              <Pressable
+                style={styles.modalMenuItem}
+                onPress={() => {
+                  const id = selectedTargetForMenu.notificationId;
+                  setSelectedTargetForMenu(null);
+                  void markRead.mutateAsync(id);
+                }}
+              >
+                <Ionicons name="checkmark-outline" size={20} color="#1B3B2B" />
+                <Text style={styles.modalMenuItemText}>Đánh dấu đã đọc</Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              style={styles.modalMenuItem}
+              onPress={() => {
+                const target = selectedTargetForMenu;
+                setSelectedTargetForMenu(null);
+                if (target) void openNotification(target);
+              }}
+            >
+              <Ionicons name="open-outline" size={20} color="#1B3B2B" />
+              <Text style={styles.modalMenuItemText}>Xem chi tiết</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.modalMenuItem}
+              onPress={() => {
+                const id = selectedTargetForMenu?.id;
+                setSelectedTargetForMenu(null);
+                if (id) {
+                  deleteNotif.mutate(id);
+                }
+              }}
+            >
+              <Ionicons name="trash-outline" size={20} color="#DC2626" />
+              <Text style={[styles.modalMenuItemText, { color: '#DC2626' }]}>
+                Xóa thông báo này
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.modalMenuCloseBtn}
+              onPress={() => setSelectedTargetForMenu(null)}
+            >
+              <Text style={styles.modalMenuCloseText}>Đóng</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
   );
 }
 
+// Keep export for backwards compatibility
 export function NotificationItemRow({
   target,
   onPress,
-  onDelete,
 }: {
   target: NotificationTargetDto;
   onPress: () => void;
   onDelete?: () => void;
 }) {
-  const item = target.notification;
-  const isUnread = !target.readAt;
-  const rawTitle = EN_TO_VI[item.title] || item.title;
-  const displayTitle = stripEmojis(rawTitle);
-
-  const rawBody =
-    item.body?.startsWith('GIPHY_STICKER:') ||
-    item.body?.startsWith('LOTTIE_STICKER:') ||
-    item.body?.startsWith('STATIC_STICKER:')
-      ? '[Nhãn dán]'
-      : item.body;
-  const displayBody = stripEmojis(rawBody);
-
-  const visuals = getNotificationVisuals(target);
-  const Icon = visuals.IconComponent;
+  const { category, subject, description, visual } = parseNotificationContent(target);
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.rowItem,
-        isUnread && styles.rowItemUnread,
-        pressed && styles.rowItemPressed,
-      ]}
-      onPress={onPress}
-      android_ripple={{ color: 'rgba(0,0,0,0.05)' }}
-    >
-      {/* Left Icon Avatar */}
-      <View style={[styles.avatarCircle, { backgroundColor: visuals.bgColor }]}>
-        <Icon size={20} strokeWidth={2.2} color={visuals.iconColor} />
+    <Pressable style={styles.itemRow} onPress={onPress}>
+      <View style={styles.itemIconBox}>
+        {visual.isMaterialCommunity ? (
+          <MaterialCommunityIcons name={visual.iconName as any} size={22} color="#1B3B2B" />
+        ) : (
+          <Ionicons name={visual.iconName as any} size={22} color="#1B3B2B" />
+        )}
       </View>
-
-      {/* Main Text Content */}
-      <View style={styles.contentWrap}>
-        <View style={styles.topMeta}>
-          <Text
-            style={[styles.titleText, isUnread && styles.titleTextUnread]}
-            numberOfLines={2}
-          >
-            {displayTitle}
-          </Text>
-          {isUnread && <View style={styles.blueDot} />}
-        </View>
-
-        {displayBody ? (
-          <Text
-            style={[styles.bodyText, isUnread && styles.bodyTextUnread]}
-            numberOfLines={2}
-          >
-            {displayBody}
-          </Text>
-        ) : null}
-
-        <Text style={styles.timeText}>{timeAgo(item.createdAt)}</Text>
+      <View style={styles.itemContentCol}>
+        <Text style={styles.itemCategory}>{category}</Text>
+        <Text style={styles.itemSubject}>{subject}</Text>
+        <Text style={styles.itemDescription}>{description}</Text>
       </View>
-
-      {/* Delete button */}
-      {onDelete && (
-        <Pressable
-          hitSlop={12}
-          style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.5 }]}
-          onPress={(e) => {
-            e.stopPropagation();
-            Alert.alert(
-              'Xóa thông báo',
-              'Bạn có muốn xóa thông báo này không?',
-              [
-                { text: 'Hủy', style: 'cancel' },
-                { text: 'Xóa', style: 'destructive', onPress: onDelete },
-              ]
-            );
-          }}
-        >
-          <Trash2 size={15} color="#94A3B8" />
-        </Pressable>
-      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  headerArea: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  markAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  markAllBtnPressed: {
-    opacity: 0.75,
-  },
-  markAllText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  clearAllBtn: {
-    padding: 7,
-    borderRadius: 20,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteBtn: {
-    padding: 8,
-    alignSelf: 'center',
-    marginLeft: 4,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 6,
-    marginBottom: 6,
-  },
-  tabButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-  },
-  tabButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  tabTextActive: {
-    color: '#FFFFFF',
-  },
-  tabBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 10,
-    backgroundColor: '#E2E8F0',
-  },
-  tabBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  tabBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  tabBadgeTextActive: {
-    color: '#FFFFFF',
-  },
-  unreadCountBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 10,
-    backgroundColor: '#EF4444',
-  },
-  unreadCountBadgeActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  unreadCountBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  unreadCountBadgeTextActive: {
-    color: colors.primary,
-  },
-  listContent: {
-    paddingBottom: 130, // Bottom tab bar clearance
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginLeft: 68,
-  },
-  rowItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
-    gap: 12,
-  },
-  rowItemUnread: {
-    backgroundColor: '#F8FAFF',
-  },
-  rowItemPressed: {
-    backgroundColor: '#F1F5F9',
-  },
-  avatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  contentWrap: {
+  container: {
     flex: 1,
-    gap: 3,
+    backgroundColor: '#F4F6F4',
   },
-  topMeta: {
+
+  /* ── Header (#1B3B2B) ── */
+  headerContainer: {
+    backgroundColor: '#1B3B2B',
+    paddingHorizontal: 20,
+    paddingBottom: 22,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 8,
   },
-  titleText: {
+  headerTextCol: {
     flex: 1,
-    color: '#334155',
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 20,
   },
-  titleTextUnread: {
-    color: '#0F172A',
-    fontWeight: '700',
-  },
-  blueDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#2563EB',
-    marginTop: 6,
-  },
-  bodyText: {
-    color: '#64748B',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  bodyTextUnread: {
-    color: '#475569',
-  },
-  timeText: {
+  headerTagline: {
     fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.72)',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  headerTitle: {
+    fontSize: 27,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+    marginTop: 4,
+  },
+  headerSubtitle: {
+    fontSize: 13.5,
+    color: 'rgba(255, 255, 255, 0.82)',
     marginTop: 2,
   },
+  headerMenuBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+  },
+
+  /* ── Filter Tabs ── */
+  filterTabsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 6,
+  },
+  tabPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    gap: 6,
+  },
+  tabPillActive: {
+    backgroundColor: '#1B3B2B',
+  },
+  tabPillInactive: {
+    backgroundColor: '#E8F2EC',
+  },
+  tabPillText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  tabPillTextActive: {
+    color: '#FFFFFF',
+  },
+  tabPillTextInactive: {
+    color: '#1B3B2B',
+  },
+  tabCountPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 10,
+  },
+  tabCountPillActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  tabCountPillInactive: {
+    backgroundColor: '#D6E7DC',
+  },
+  tabCountPillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  tabCountPillTextActive: {
+    color: '#FFFFFF',
+  },
+  tabCountPillTextInactive: {
+    color: '#1B3B2B',
+  },
+
+  /* ── List & Group Sections ── */
+  listContent: {
+    paddingTop: 8,
+    paddingBottom: 110, // Bottom Tab clearance
+  },
+  groupSection: {
+    marginBottom: 16,
+  },
+  groupLabel: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#111827',
+    marginHorizontal: 18,
+    marginBottom: 8,
+  },
+  groupCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    position: 'relative',
+  },
+  itemRowPressed: {
+    opacity: 0.7,
+  },
+  itemIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: '#E8F2EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  itemContentCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  itemCategory: {
+    fontSize: 12.5,
+    color: '#64748B',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  itemSubject: {
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  itemDescription: {
+    fontSize: 12.5,
+    color: '#64748B',
+    lineHeight: 17,
+  },
+  itemDotsBtn: {
+    padding: 6,
+    marginLeft: 6,
+  },
+  itemDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+  },
+  unreadDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    position: 'absolute',
+    top: 14,
+    right: 2,
+  },
+
+  /* ── Empty State ── */
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 80,
-    paddingHorizontal: spacing.lg,
-    gap: 12,
+    paddingHorizontal: 24,
   },
   emptyIconCircle: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#E8F2EC',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 4,
+    marginBottom: 14,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#334155',
+    color: '#111827',
+    marginBottom: 6,
+    textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: '#64748B',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 19,
+  },
+
+  /* ── Modal Menu ── */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalMenuCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  modalMenuTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 14,
+    textAlign: 'center',
+  },
+  modalMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalMenuItemText: {
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  modalMenuCloseBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginTop: 6,
+  },
+  modalMenuCloseText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#64748B',
   },
 });
