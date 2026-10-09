@@ -3,6 +3,8 @@ import {
   AccountStatus,
   EmployeeBonusStatus,
   EmployeeDeductionStatus,
+  EmployeeRequestStatus,
+  EmployeeRequestType,
   LeaveRequestStatus,
   NotificationType,
   OvertimeRequestStatus,
@@ -280,20 +282,71 @@ export class PayrollService {
       }
     }
 
+    // Tính toán hạn mức Tạm ứng lương (Tối đa 50% lương) & Lấy danh sách đơn tạm ứng trong tháng
+    const salaryProfile = await this.prisma.salaryProfile.findFirst({
+      where: { userId: actor.userId },
+      orderBy: { effectiveFrom: 'desc' },
+    });
+    const userBaseSalary = payroll ? Number(payroll.baseSalary) : (salaryProfile?.baseSalary ? Number(salaryProfile.baseSalary) : 0);
+    const maxAdvanceLimit = Math.floor(userBaseSalary * 0.5);
+
+    const startOfMonth = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+    const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
+    const advanceRequests = await this.prisma.employeeRequest.findMany({
+      where: {
+        userId: actor.userId,
+        type: EmployeeRequestType.ADVANCE,
+        createdAt: { gte: startOfMonth, lte: endOfMonth },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const currentMonthAdvancedAmount = advanceRequests
+      .filter((r) => r.status === EmployeeRequestStatus.PENDING || r.status === EmployeeRequestStatus.APPROVED)
+      .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+
+    const remainingAdvanceLimit = Math.max(0, maxAdvanceLimit - currentMonthAdvancedAmount);
+
+    const advanceSummary = {
+      baseSalary: userBaseSalary,
+      maxAdvanceLimit,
+      currentMonthAdvancedAmount,
+      remainingAdvanceLimit,
+      requests: advanceRequests.map((r) => {
+        const meta = (typeof r.attachmentMetadata === 'object' && r.attachmentMetadata !== null) ? (r.attachmentMetadata as any) : {};
+        return {
+          id: r.id,
+          title: r.title,
+          content: r.content,
+          amount: Number(r.amount || 0),
+          status: r.status,
+          stage: meta.stage || (r.status === 'APPROVED' ? 'DISBURSED' : 'PENDING_LEADER'),
+          createdAt: r.createdAt.toISOString(),
+          bankName: meta.bankName || meta.bankAccountName,
+          bankAccount: meta.bankAccount || meta.accountNumber,
+          accountHolder: meta.accountHolder || meta.accountHolderName,
+          disbursementProofUrl: meta.disbursementProofUrl || null,
+          approvalSteps: meta.approvalSteps || [],
+        };
+      }),
+    };
+
     if (!payroll) {
       return {
         month,
         year,
         hasData: false,
         finalOfficialImageUrl,
+        advanceSummary,
         employee: {
           fullName: user?.profile?.fullName || 'Nhân viên',
           userCode: user?.userCode || '---',
           departmentName: user?.departmentLinks?.[0]?.department?.name || '---',
           positionName: user?.profile?.position?.name || 'Nhân viên',
         },
-        baseSalary: 0,
-        actualSalary: 0,
+        baseSalary: userBaseSalary,
+        actualSalary: userBaseSalary,
         standardWorkingDays: 26,
         actualWorkingDays: 0,
         paidLeaveDays: 0,
@@ -305,10 +358,10 @@ export class PayrollService {
         deductionAmount: 0,
         insuranceAmount: 0,
         taxAmount: 0,
-        advanceAmount: 0,
+        advanceAmount: currentMonthAdvancedAmount,
         latePenaltyAmount: 0,
-        grossSalary: 0,
-        netSalary: 0,
+        grossSalary: userBaseSalary,
+        netSalary: userBaseSalary,
         status: 'UNAVAILABLE',
         items: [],
       };
@@ -329,6 +382,7 @@ export class PayrollService {
       year,
       hasData: true,
       finalOfficialImageUrl,
+      advanceSummary,
       periodCode: payroll.period.periodCode,
       status: payroll.status,
       calculatedAt: payroll.calculatedAt,
@@ -352,6 +406,7 @@ export class PayrollService {
       deductionAmount: Number(payroll.deductionAmount),
       insuranceAmount: Number(payroll.insuranceAmount),
       taxAmount: Number(payroll.taxAmount),
+      advanceAmount: currentMonthAdvancedAmount,
       grossSalary: Number(payroll.grossSalary),
       netSalary: Number(payroll.netSalary),
       allowanceItems: allowanceItems.map((i) => ({ name: i.itemName, amount: Number(i.amount) })),
@@ -1313,24 +1368,14 @@ export class PayrollService {
           note,
           images: allImages,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: actor.fullName || actor.email,
+          uploadedBy: (actor as any).fullName || (actor as any).email || actor.userId,
         },
       },
     });
 
     // Bắn thông báo cho Leader phòng ban
     try {
-      const leaderMembers = await this.prisma.departmentMember.findMany({
-        where: {
-          departmentId,
-          role: 'LEADER',
-        },
-        select: { userId: true },
-      });
-      const leaderIds = [...new Set([
-        ...(dept.leaderId ? [dept.leaderId] : []),
-        ...leaderMembers.map((m) => m.userId),
-      ])];
+      const leaderIds = dept.leaderUserId ? [dept.leaderUserId] : [];
 
       if (leaderIds.length > 0) {
         const notif = await this.notifications.createForUsers(this.prisma, leaderIds, {
@@ -1516,7 +1561,7 @@ export class PayrollService {
           month,
           year,
           images: batchImages,
-          lastUpdatedBy: actor.fullName || actor.email,
+          lastUpdatedBy: (actor as any).fullName || (actor as any).email || actor.userId,
           lastUpdatedAt: new Date().toISOString(),
         },
       },
@@ -1528,7 +1573,7 @@ export class PayrollService {
       month,
       year,
       imageUrl: targetImageUrl,
-      note: `Gán từ lô phòng ban bởi ${actor.fullName || actor.email}`,
+      note: `Gán từ lô phòng ban`,
     });
 
     return {
@@ -1593,7 +1638,7 @@ export class PayrollService {
           month,
           year,
           images: batchImages,
-          lastUpdatedBy: actor.fullName || actor.email,
+          lastUpdatedBy: (actor as any).fullName || (actor as any).email || actor.userId,
           lastUpdatedAt: new Date().toISOString(),
         },
       },

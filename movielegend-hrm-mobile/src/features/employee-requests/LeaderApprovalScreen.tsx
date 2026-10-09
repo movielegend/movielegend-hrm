@@ -775,6 +775,64 @@ export function LeaderApprovalScreen() {
           </View>
         )}
 
+        {/* ADVANCE - Salary Advance Details */}
+        {request.type === 'ADVANCE' && (
+          <View style={[styles.card, shadows.sm]}>
+            <Text style={styles.metaSectionTitle}>Thông tin tạm ứng lương (Tối đa 50%)</Text>
+            
+            {meta.baseSalary ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Lương cơ sở</Text>
+                <Text style={styles.metaValue}>{Number(meta.baseSalary).toLocaleString('vi-VN')} VNĐ</Text>
+              </View>
+            ) : null}
+
+            {meta.maxAdvanceLimit ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Hạn mức tối đa (50%)</Text>
+                <Text style={[styles.metaValue, { color: '#059669', fontWeight: '700' }]}>
+                  {Number(meta.maxAdvanceLimit).toLocaleString('vi-VN')} VNĐ
+                </Text>
+              </View>
+            ) : null}
+
+            {(meta.bankName || meta.bankAccount || meta.accountHolder) && (
+              <>
+                {meta.bankName && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngân hàng thụ hưởng</Text>
+                    <Text style={styles.metaValue}>{meta.bankName}</Text>
+                  </View>
+                )}
+                {meta.bankAccount && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Số tài khoản</Text>
+                    <Text style={[styles.metaValue, { fontWeight: '700', color: '#0F172A' }]}>{meta.bankAccount}</Text>
+                  </View>
+                )}
+                {meta.accountHolder && (
+                  <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                    <Text style={styles.metaLabel}>Chủ tài khoản</Text>
+                    <Text style={styles.metaValue}>{meta.accountHolder}</Text>
+                  </View>
+                )}
+              </>
+            )}
+
+            <View style={[styles.approvalWorkflowBanner, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', marginTop: 12, marginBottom: 0 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                <MaterialCommunityIcons name="cash-fast" size={16} color="#059669" />
+                <Text style={[styles.approvalWorkflowTitle, { color: '#065F46', marginLeft: 4 }]}>
+                  Quy trình duyệt Tạm ứng Lương
+                </Text>
+              </View>
+              <Text style={[styles.approvalWorkflowSubtitle, { color: '#065F46' }]}>
+                1. Nhân viên đề xuất (Tối đa 50% lương) ➔ 2. Leader duyệt ➔ 3. Kế toán trưởng duyệt & Đi lương (Giải ngân).
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Bank info */}
         {meta.bankInfo && (
           <View style={[styles.card, shadows.sm]}>

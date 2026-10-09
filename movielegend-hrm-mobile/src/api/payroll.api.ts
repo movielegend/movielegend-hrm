@@ -17,12 +17,42 @@ export interface PayslipItemDetail {
   note?: string | null;
 }
 
+export interface AdvanceRequestItem {
+  id: string;
+  title: string;
+  content: string;
+  amount: number;
+  status: string;
+  stage: string;
+  createdAt: string;
+  bankName?: string;
+  bankAccount?: string;
+  accountHolder?: string;
+  disbursementProofUrl?: string | null;
+  approvalSteps?: Array<{
+    stage: string;
+    action: string;
+    actorName?: string;
+    note?: string;
+    at?: string;
+  }>;
+}
+
+export interface AdvanceSummary {
+  baseSalary: number;
+  maxAdvanceLimit: number;
+  currentMonthAdvancedAmount: number;
+  remainingAdvanceLimit: number;
+  requests: AdvanceRequestItem[];
+}
+
 export interface MonthlyPayslipData {
   id?: string;
   month: number;
   year: number;
   hasData: boolean;
   finalOfficialImageUrl?: string | null;
+  advanceSummary?: AdvanceSummary;
   periodCode?: string;
   status: string;
   calculatedAt?: string;
