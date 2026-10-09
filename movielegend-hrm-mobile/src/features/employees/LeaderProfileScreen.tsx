@@ -30,8 +30,8 @@ export function LeaderProfileScreen() {
 
   const handleLogout = () => {
     showConfirm({
-      title: "Đăng xuất",
-      message: "Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?",
+      title: "Đăng xuất tài khoản?",
+      message: "Bạn có muốn đăng xuất khỏi ứng dụng?",
       confirmLabel: "Đăng xuất",
       onConfirm: () => void logout(),
     });
