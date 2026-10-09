@@ -1,7 +1,20 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState, useEffect } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable, RefreshControl, Platform, Modal } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  RefreshControl,
+  Platform,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  StatusBar,
+} from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { EmptyState } from '../../components/EmptyState';
 import { FormField } from '../../components/FormField';
@@ -92,6 +105,128 @@ function TimePickerField({ label, value, onChange }: { label: string; value: str
     </View>
   );
 }
+function calculateDuration(start: string, end: string): string {
+  if (!start || !end) return '0 giờ';
+  const [shStr, smStr] = start.split(':');
+  const [ehStr, emStr] = end.split(':');
+  const sh = parseInt(shStr || '', 10);
+  const sm = parseInt(smStr || '', 10);
+  const eh = parseInt(ehStr || '', 10);
+  const em = parseInt(emStr || '', 10);
+  if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return '0 giờ';
+  let diffMinutes = eh * 60 + em - (sh * 60 + sm);
+  if (diffMinutes < 0) {
+    diffMinutes += 24 * 60;
+  }
+  const hours = Math.floor(diffMinutes / 60);
+  const minutes = diffMinutes % 60;
+  if (minutes === 0) {
+    return `${hours} giờ`;
+  }
+  return `${hours} giờ ${minutes} phút`;
+}
+
+function TimeSelectorBox({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const [show, setShow] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(() => {
+    const d = new Date();
+    const [h, m] = value.split(':');
+    if (h && m) {
+      d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+    }
+    return d;
+  });
+
+  const date = useMemo(() => {
+    const d = new Date();
+    const [h, m] = value.split(':');
+    if (h && m) {
+      d.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+    }
+    return d;
+  }, [value]);
+
+  const handleChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShow(false);
+      if (selectedDate) {
+        const h = selectedDate.getHours().toString().padStart(2, '0');
+        const m = selectedDate.getMinutes().toString().padStart(2, '0');
+        onChange(`${h}:${m}`);
+      }
+    } else if (selectedDate) {
+      setTempDate(selectedDate);
+    }
+  };
+
+  const handleDoneIos = () => {
+    setShow(false);
+    const h = tempDate.getHours().toString().padStart(2, '0');
+    const m = tempDate.getMinutes().toString().padStart(2, '0');
+    onChange(`${h}:${m}`);
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={styles.modernFieldLabel}>{label}</Text>
+      <Pressable
+        style={styles.timeSelectorButton}
+        onPress={() => {
+          setTempDate(date);
+          setShow(true);
+        }}
+      >
+        <Ionicons name="time-outline" size={18} color="#0F172A" />
+        <Text style={styles.timeSelectorValueText}>{value || '--:--'}</Text>
+        <Ionicons name="chevron-down" size={16} color="#64748B" />
+      </Pressable>
+
+      {show && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={date}
+          mode="time"
+          is24Hour={true}
+          display="default"
+          onChange={handleChange}
+        />
+      )}
+
+      {Platform.OS === 'ios' && (
+        <Modal visible={show} transparent animationType="slide">
+          <View style={styles.datePickerModalContainer}>
+            <View style={styles.datePickerModalContent}>
+              <View style={styles.datePickerHeader}>
+                <Pressable onPress={() => setShow(false)}>
+                  <Text style={styles.datePickerCancelText}>Hủy</Text>
+                </Pressable>
+                <Pressable onPress={handleDoneIos}>
+                  <Text style={styles.datePickerDoneText}>Xong</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker
+                value={tempDate}
+                mode="time"
+                is24Hour={true}
+                display="spinner"
+                onChange={handleChange}
+                style={styles.iosDatePicker}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+    </View>
+  );
+}
+
 function getWorkDateDisplay(workDate: string | Date) {
   const formatted = formatDate(workDate);
   if (!formatted || formatted === '-') return { day: '--', month: '--' };
@@ -307,6 +442,7 @@ export function EmployeeScheduleScreen() {
 
 export function AdminShiftsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const shifts = useShifts();
   const deleteShift = useDeleteShift();
@@ -347,142 +483,264 @@ export function AdminShiftsScreen() {
     });
   };
 
-  const canCreateShift =
-    Boolean(user?.roles?.includes('ADMIN') ||
-    user?.roles?.includes('SUPER_ADMIN') ||
-    user?.roles?.includes('HR') ||
-    user?.permissions?.includes('shift.create'));
+  const canCreateShift = Boolean(
+    user?.roles?.includes('ADMIN') ||
+      user?.roles?.includes('SUPER_ADMIN') ||
+      user?.roles?.includes('HR') ||
+      user?.permissions?.includes('shift.create')
+  );
 
-  const canAssignShift =
-    Boolean(user?.roles?.includes('ADMIN') ||
-    user?.roles?.includes('SUPER_ADMIN') ||
-    user?.roles?.includes('HR') ||
-    user?.roles?.includes('LEADER') ||
-    user?.permissions?.includes('shift.assign'));
+  const canAssignShift = Boolean(
+    user?.roles?.includes('ADMIN') ||
+      user?.roles?.includes('SUPER_ADMIN') ||
+      user?.roles?.includes('HR') ||
+      user?.roles?.includes('LEADER') ||
+      user?.permissions?.includes('shift.assign')
+  );
+
+  const shiftList = shifts.data ?? [];
+  const shiftCount = shiftList.length;
 
   return (
-    <Screen>
-      <ScrollView 
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={shifts.isRefetching} onRefresh={() => void shifts.refetch()} />}
+    <View style={styles.modernContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+
+      {/* ── Top Header (#1B3B2B) ── */}
+      <View style={[styles.modernHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={styles.decorativeCurve} />
+
+        <View style={styles.modernHeaderTopRow}>
+          <Pressable
+            style={styles.headerBackBtn}
+            onPress={() => router.back()}
+            hitSlop={8}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.brandTagline}>MOVIE LEGEND</Text>
+          <View style={{ width: 36 }} />
+        </View>
+
+        <View style={styles.headerTitleWrap}>
+          <Text style={styles.screenTitle}>Ca làm việc</Text>
+          <Text style={styles.screenSubtitle}>Quản lý ca trong hệ thống</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.modernScroll}
+        contentContainerStyle={[
+          styles.modernScrollContent,
+          { paddingBottom: Math.max(insets.bottom, 16) + 40 },
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={shifts.isRefetching}
+            onRefresh={() => void shifts.refetch()}
+            tintColor="#1B3B2B"
+          />
+        }
+        showsVerticalScrollIndicator={false}
       >
-        <PageHeader
-          title="Quản lý Ca làm việc"
-          subtitle="Tất cả ca làm việc trong hệ thống"
-          showBack={false}
-          right={
-            canCreateShift ? (
-              <Pressable
-                style={styles.addBtn}
-                onPress={() => router.push('/admin/shifts/create')}
-              >
-                <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-                <Text style={styles.addBtnText}>Thêm mới</Text>
-              </Pressable>
-            ) : null
-          }
-        />
-        
-        {canAssignShift ? (
-          <SecondaryButton onPress={() => router.push('/admin/shifts/assign')}>
-            Phân ca nhân viên
-          </SecondaryButton>
-        ) : null}
+        {/* ── Phân ca nhân viên Card ── */}
+        {canAssignShift && (
+          <Pressable
+            style={styles.assignBannerCard}
+            onPress={() => router.push('/admin/shifts/assign')}
+          >
+            <View style={styles.assignIconBox}>
+              <MaterialCommunityIcons name="calendar-account-outline" size={24} color="#1B3B2B" />
+            </View>
+            <View style={styles.assignMetaCol}>
+              <Text style={styles.assignTitle}>Phân ca nhân viên</Text>
+              <Text style={styles.assignSubtitle}>Sắp xếp ca cho nhân sự</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </Pressable>
+        )}
 
-        <View style={styles.shiftList}>
-          {(shifts.data ?? []).map((shift) => (
-            <View key={shift.id} style={styles.shiftCard}>
-              <View style={styles.shiftHeader}>
-                <View style={styles.shiftIconBox}>
-                  <MaterialCommunityIcons name="clock-outline" size={24} color="#111827" />
-                </View>
-                <View style={styles.shiftInfo}>
-                  <Text style={styles.shiftName}>{shift.name}</Text>
-                  <Text style={styles.shiftCode}>Mã: {shift.code}</Text>
-                </View>
-                <View style={styles.statusBadge}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.statusText}>{shift.isActive ? 'Đang hoạt động' : 'Đã ẩn'}</Text>
-                </View>
-              </View>
-              
-              <View style={styles.shiftTimeBox}>
-                <MaterialCommunityIcons name="timer-outline" size={16} color={colors.muted} />
-                <Text style={styles.shiftTimeText}>
-                  {formatShiftRange(shift.startTime, shift.endTime)}
-                </Text>
-              </View>
+        {/* ── Section Header: Danh sách ca ── */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Danh sách ca</Text>
+          <Text style={styles.sectionCountText}>{shiftCount} ca</Text>
+        </View>
 
-              {(shift as any).assignments && (shift as any).assignments.length > 0 && (() => {
-                const rawAssignments: any[] = (shift as any).assignments;
-                const uniqueAssignments = rawAssignments.filter(
-                  (a: any, index: number, self: any[]) => index === self.findIndex((t: any) => t.userId === a.userId)
-                );
-                
-                if (uniqueAssignments.length === 0) return null;
-
-                return (
-                  <View style={styles.assignmentSection}>
-                    <View style={styles.assignmentHeader}>
-                      <MaterialCommunityIcons name="account-group-outline" size={16} color="#111827" />
-                      <Text style={styles.assignmentLabel}>Nhân sự đã phân ca</Text>
-                      <View style={styles.assignmentCount}>
-                        <Text style={styles.assignmentCountText}>{uniqueAssignments.length}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.assignmentList}>
-                      {uniqueAssignments.map((a: any) => {
-                        const name = a.user?.profile?.fullName ?? a.user?.userCode ?? '?';
-                        const initials = name.split(' ').filter(Boolean).slice(-2).map((w: string) => w[0]).join('').toUpperCase();
-                        return (
-                          <Pressable 
-                            key={a.id} 
-                            style={styles.assignmentChip}
-                            onLongPress={() => handleRevoke(a.id, name)}
-                            delayLongPress={300}
-                          >
-                            <View style={styles.assignmentAvatar}>
-                              <Text style={styles.assignmentAvatarText}>{initials}</Text>
-                            </View>
-                            <Text style={styles.assignmentName}>{name}</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
+        {/* ── Empty State Card (Template 01) ── */}
+        {shiftCount === 0 && !shifts.isLoading && (
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIllustrationWrap}>
+              <View style={styles.emptyCircleBg}>
+                {/* Accent sparkle rays */}
+                <View style={styles.sparkleContainer}>
+                  <View style={[styles.sparkleLine, { transform: [{ rotate: '-35deg' }], top: 0, right: 6 }]} />
+                  <View style={[styles.sparkleLine, { transform: [{ rotate: '15deg' }], top: 7, right: -2 }]} />
+                </View>
+                <View style={styles.emptyIconGroup}>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={48} color="#1B3B2B" />
+                  <View style={styles.emptyClockBadge}>
+                    <Ionicons name="time-outline" size={20} color="#1B3B2B" />
                   </View>
-                );
-              })()}
-
-              <View style={styles.shiftActions}>
-                <Pressable
-                  style={[styles.actionBtn, { backgroundColor: '#F3F4F6' }]}
-                  onPress={() => router.push(`/admin/shifts/edit/${shift.id}`)}
-                >
-                  <MaterialCommunityIcons name="pencil" size={18} color="#111827" />
-                  <Text style={[styles.actionText, { color: '#111827' }]}>Sửa</Text>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.actionBtn, { backgroundColor: '#F3F4F6' }]}
-                  onPress={() => handleDelete(shift.id, shift.name)}
-                >
-                  <MaterialCommunityIcons name="delete-outline" size={18} color="#111827" />
-                  <Text style={[styles.actionText, { color: '#111827' }]}>Xóa</Text>
-                </Pressable>
+                </View>
               </View>
             </View>
-          ))}
-          {!shifts.data?.length && !shifts.isLoading && (
-            <EmptyState title="Chưa có ca làm việc" message="Nhấn Thêm mới để tạo ca làm việc đầu tiên" />
-          )}
-        </View>
+
+            <Text style={styles.emptyTitle}>Chưa có ca làm việc</Text>
+            <Text style={styles.emptyDesc}>
+              Tạo ca đầu tiên để bắt đầu{'\n'}quản lý thời gian làm việc
+            </Text>
+
+            {canCreateShift && (
+              <Pressable
+                style={styles.emptyCreateBtn}
+                onPress={() => router.push('/admin/shifts/create')}
+              >
+                <Ionicons name="add" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.emptyCreateBtnText}>Tạo ca mới</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {/* ── Shifts List (Non-empty state) ── */}
+        {shiftCount > 0 && (
+          <View style={styles.shiftListWrap}>
+            {shiftList.map((shift) => (
+              <View key={shift.id} style={styles.modernShiftCard}>
+                <View style={styles.shiftCardHeader}>
+                  <View style={styles.shiftCardIconBox}>
+                    <Ionicons name="time-outline" size={22} color="#1B3B2B" />
+                  </View>
+                  <View style={styles.shiftCardMetaCol}>
+                    <Text style={styles.shiftCardName}>{shift.name}</Text>
+                    <Text style={styles.shiftCardCode}>Mã: {shift.code}</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.modernStatusBadge,
+                      { backgroundColor: shift.isActive ? '#DCFCE7' : '#F1F5F9' },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.modernStatusDot,
+                        { backgroundColor: shift.isActive ? '#16A34A' : '#94A3B8' },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.modernStatusText,
+                        { color: shift.isActive ? '#16A34A' : '#64748B' },
+                      ]}
+                    >
+                      {shift.isActive ? 'Đang hoạt động' : 'Đã ẩn'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Time range banner */}
+                <View style={styles.shiftTimeBanner}>
+                  <View style={styles.shiftTimeLeft}>
+                    <Ionicons name="time-outline" size={16} color="#64748B" style={{ marginRight: 6 }} />
+                    <Text style={styles.shiftTimeRange}>
+                      {formatShiftRange(shift.startTime, shift.endTime)}
+                    </Text>
+                  </View>
+                  <View style={styles.durationBadge}>
+                    <Text style={styles.durationBadgeText}>
+                      {calculateDuration(shift.startTime, shift.endTime)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Assigned employees if any */}
+                {(shift as any).assignments && (shift as any).assignments.length > 0 && (() => {
+                  const rawAssignments: any[] = (shift as any).assignments;
+                  const uniqueAssignments = rawAssignments.filter(
+                    (a: any, index: number, self: any[]) =>
+                      index === self.findIndex((t: any) => t.userId === a.userId)
+                  );
+
+                  if (uniqueAssignments.length === 0) return null;
+
+                  return (
+                    <View style={styles.assignmentSection}>
+                      <View style={styles.assignmentHeader}>
+                        <MaterialCommunityIcons name="account-group-outline" size={16} color="#1B3B2B" />
+                        <Text style={styles.assignmentLabel}>Nhân sự đã phân ca</Text>
+                        <View style={styles.assignmentCount}>
+                          <Text style={styles.assignmentCountText}>{uniqueAssignments.length}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.assignmentList}>
+                        {uniqueAssignments.map((a: any) => {
+                          const name = a.user?.profile?.fullName ?? a.user?.userCode ?? '?';
+                          const initials = name
+                            .split(' ')
+                            .filter(Boolean)
+                            .slice(-2)
+                            .map((w: string) => w[0])
+                            .join('')
+                            .toUpperCase();
+                          return (
+                            <Pressable
+                              key={a.id}
+                              style={styles.assignmentChip}
+                              onLongPress={() => handleRevoke(a.id, name)}
+                              delayLongPress={300}
+                            >
+                              <View style={styles.assignmentAvatar}>
+                                <Text style={styles.assignmentAvatarText}>{initials}</Text>
+                              </View>
+                              <Text style={styles.assignmentName}>{name}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                })()}
+
+                {/* Actions: Edit / Delete */}
+                <View style={styles.shiftCardActions}>
+                  <Pressable
+                    style={styles.shiftEditBtn}
+                    onPress={() => router.push(`/admin/shifts/edit/${shift.id}`)}
+                  >
+                    <Ionicons name="create-outline" size={16} color="#0F172A" style={{ marginRight: 6 }} />
+                    <Text style={styles.shiftEditBtnText}>Sửa</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={styles.shiftDeleteBtn}
+                    onPress={() => handleDelete(shift.id, shift.name)}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#B91C1C" style={{ marginRight: 6 }} />
+                    <Text style={styles.shiftDeleteBtnText}>Xóa</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+
+            {canCreateShift && (
+              <Pressable
+                style={styles.listBottomCreateBtn}
+                onPress={() => router.push('/admin/shifts/create')}
+              >
+                <Ionicons name="add" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.listBottomCreateBtnText}>Tạo ca mới</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
 export function CreateShiftScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const createShift = useCreateShift();
   const { showAlert } = useAppAlert();
   const [code, setCode] = useState('');
@@ -490,9 +748,12 @@ export function CreateShiftScreen() {
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('17:00');
 
+  const isValid = Boolean(code.trim() && name.trim());
+
   async function submit() {
+    if (!isValid) return;
     try {
-      await createShift.mutateAsync({ code, name, startTime, endTime });
+      await createShift.mutateAsync({ code: code.trim(), name: name.trim(), startTime, endTime });
       showAlert('Thành công', 'Đã tạo ca làm việc mới', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
@@ -501,33 +762,148 @@ export function CreateShiftScreen() {
   }
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Tạo Ca làm việc" subtitle="Nhập thông tin ca làm mới" />
-        <SectionCard>
-          <FormField label="Mã ca (VD: CA1)" value={code} onChangeText={setCode} autoCapitalize="characters" />
-          <FormField label="Tên ca (VD: Ca Sáng)" value={name} onChangeText={setName} />
-          <TimePickerField label="Giờ bắt đầu" value={startTime} onChange={setStartTime} />
-          <TimePickerField label="Giờ kết thúc" value={endTime} onChange={setEndTime} />
-          <View style={{ marginTop: spacing.md }}>
-            <PrimaryButton loading={createShift.isPending} disabled={!code || !name} onPress={() => void submit()}>
-              Tạo Ca Mới
-            </PrimaryButton>
+    <View style={styles.modernContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+
+      {/* ── Top Header (#1B3B2B) ── */}
+      <View style={[styles.modernHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={styles.decorativeCurve} />
+
+        <View style={styles.modernHeaderTopRow}>
+          <Pressable
+            style={styles.headerBackBtn}
+            onPress={() => router.back()}
+            hitSlop={8}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.brandTagline}>MOVIE LEGEND</Text>
+          <View style={{ width: 36 }} />
+        </View>
+
+        <View style={styles.headerTitleWrap}>
+          <Text style={styles.screenTitle}>Tạo ca làm việc</Text>
+          <Text style={styles.screenSubtitle}>Thiết lập thông tin và khung giờ</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.modernScroll}
+        contentContainerStyle={[
+          styles.modernScrollContent,
+          { paddingBottom: Math.max(insets.bottom, 16) + 40 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Card 1: Thông tin ca */}
+        <View style={styles.formCard}>
+          <View style={styles.formCardHeader}>
+            <View style={styles.formCardIconBox}>
+              <MaterialCommunityIcons name="file-document-outline" size={20} color="#1B3B2B" />
+            </View>
+            <Text style={styles.formCardTitle}>Thông tin ca</Text>
           </View>
-        </SectionCard>
+
+          <Text style={styles.modernFieldLabel}>Mã ca</Text>
+          <TextInput
+            style={styles.modernTextInput}
+            value={code}
+            onChangeText={setCode}
+            placeholder="VD: CA1"
+            placeholderTextColor="#94A3B8"
+            autoCapitalize="characters"
+          />
+
+          <Text style={[styles.modernFieldLabel, { marginTop: 14 }]}>Tên ca</Text>
+          <TextInput
+            style={styles.modernTextInput}
+            value={name}
+            onChangeText={setName}
+            placeholder="VD: Ca sáng"
+            placeholderTextColor="#94A3B8"
+          />
+        </View>
+
+        {/* Card 2: Thời gian làm việc */}
+        <View style={styles.formCard}>
+          <View style={styles.formCardHeader}>
+            <View style={styles.formCardIconBox}>
+              <Ionicons name="time-outline" size={20} color="#1B3B2B" />
+            </View>
+            <Text style={styles.formCardTitle}>Thời gian làm việc</Text>
+          </View>
+
+          <View style={styles.timeRangePickerRow}>
+            <TimeSelectorBox label="Bắt đầu" value={startTime} onChange={setStartTime} />
+            <View style={styles.timeArrowDivider}>
+              <Ionicons name="arrow-forward" size={18} color="#94A3B8" />
+            </View>
+            <TimeSelectorBox label="Kết thúc" value={endTime} onChange={setEndTime} />
+          </View>
+
+          {/* Duration info banner */}
+          <View style={styles.durationInfoBox}>
+            <View style={styles.durationIconCircle}>
+              <Ionicons name="time-outline" size={18} color="#1B3B2B" />
+            </View>
+            <View style={styles.durationTextCol}>
+              <Text style={styles.durationMainText}>
+                Khoảng thời gian: {calculateDuration(startTime, endTime)}
+              </Text>
+              <Text style={styles.durationSubText}>Chưa trừ thời gian nghỉ</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Footer actions */}
+        <View style={styles.formFooterWrap}>
+          {!isValid && (
+            <Text style={styles.footerValidationHint}>Nhập mã ca và tên ca để tiếp tục.</Text>
+          )}
+
+          <View style={styles.footerButtonsRow}>
+            <Pressable style={styles.cancelBtn} onPress={() => router.back()}>
+              <Text style={styles.cancelBtnText}>Hủy bỏ</Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.submitBtn,
+                isValid ? styles.submitBtnActive : styles.submitBtnDisabled,
+              ]}
+              disabled={!isValid || createShift.isPending}
+              onPress={() => void submit()}
+            >
+              {createShift.isPending ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text
+                  style={[
+                    styles.submitBtnText,
+                    isValid ? styles.submitBtnTextActive : styles.submitBtnTextDisabled,
+                  ]}
+                >
+                  Tạo ca mới
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
 export function EditShiftScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const shifts = useShifts();
   const updateShift = useUpdateShift(id as string);
   const { showAlert } = useAppAlert();
-  
-  const shift = useMemo(() => (shifts.data ?? []).find(s => s.id === id), [shifts.data, id]);
+
+  const shift = useMemo(() => (shifts.data ?? []).find((s) => s.id === id), [shifts.data, id]);
 
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -543,9 +919,12 @@ export function EditShiftScreen() {
     }
   }, [shift]);
 
+  const isValid = Boolean(code.trim() && name.trim());
+
   async function submit() {
+    if (!isValid) return;
     try {
-      await updateShift.mutateAsync({ code, name, startTime, endTime });
+      await updateShift.mutateAsync({ code: code.trim(), name: name.trim(), startTime, endTime });
       showAlert('Thành công', 'Đã cập nhật ca làm việc', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
@@ -556,28 +935,141 @@ export function EditShiftScreen() {
   if (!shift) {
     return (
       <Screen>
-        <EmptyState title="Không tìm thấy ca làm việc" message="Ca làm việc không tồn tại hoặc đã bị xóa." />
+        <EmptyState
+          title="Không tìm thấy ca làm việc"
+          message="Ca làm việc không tồn tại hoặc đã bị xóa."
+        />
       </Screen>
     );
   }
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Cập nhật Ca làm việc" subtitle={`Đang sửa: ${shift.name}`} />
-        <SectionCard>
-          <FormField label="Mã ca (VD: CA1)" value={code} onChangeText={setCode} autoCapitalize="characters" />
-          <FormField label="Tên ca (VD: Ca Sáng)" value={name} onChangeText={setName} />
-          <TimePickerField label="Giờ bắt đầu" value={startTime} onChange={setStartTime} />
-          <TimePickerField label="Giờ kết thúc" value={endTime} onChange={setEndTime} />
-          <View style={{ marginTop: spacing.md }}>
-            <PrimaryButton loading={updateShift.isPending} disabled={!code || !name} onPress={() => void submit()}>
-              Lưu Thay Đổi
-            </PrimaryButton>
+    <View style={styles.modernContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+
+      {/* ── Top Header (#1B3B2B) ── */}
+      <View style={[styles.modernHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={styles.decorativeCurve} />
+
+        <View style={styles.modernHeaderTopRow}>
+          <Pressable
+            style={styles.headerBackBtn}
+            onPress={() => router.back()}
+            hitSlop={8}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <Text style={styles.brandTagline}>MOVIE LEGEND</Text>
+          <View style={{ width: 36 }} />
+        </View>
+
+        <View style={styles.headerTitleWrap}>
+          <Text style={styles.screenTitle}>Cập nhật ca làm việc</Text>
+          <Text style={styles.screenSubtitle}>Thiết lập thông tin và khung giờ</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.modernScroll}
+        contentContainerStyle={[
+          styles.modernScrollContent,
+          { paddingBottom: Math.max(insets.bottom, 16) + 40 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Card 1: Thông tin ca */}
+        <View style={styles.formCard}>
+          <View style={styles.formCardHeader}>
+            <View style={styles.formCardIconBox}>
+              <MaterialCommunityIcons name="file-document-outline" size={20} color="#1B3B2B" />
+            </View>
+            <Text style={styles.formCardTitle}>Thông tin ca</Text>
           </View>
-        </SectionCard>
+
+          <Text style={styles.modernFieldLabel}>Mã ca</Text>
+          <TextInput
+            style={styles.modernTextInput}
+            value={code}
+            onChangeText={setCode}
+            placeholder="VD: CA1"
+            placeholderTextColor="#94A3B8"
+            autoCapitalize="characters"
+          />
+
+          <Text style={[styles.modernFieldLabel, { marginTop: 14 }]}>Tên ca</Text>
+          <TextInput
+            style={styles.modernTextInput}
+            value={name}
+            onChangeText={setName}
+            placeholder="VD: Ca sáng"
+            placeholderTextColor="#94A3B8"
+          />
+        </View>
+
+        {/* Card 2: Thời gian làm việc */}
+        <View style={styles.formCard}>
+          <View style={styles.formCardHeader}>
+            <View style={styles.formCardIconBox}>
+              <Ionicons name="time-outline" size={20} color="#1B3B2B" />
+            </View>
+            <Text style={styles.formCardTitle}>Thời gian làm việc</Text>
+          </View>
+
+          <View style={styles.timeRangePickerRow}>
+            <TimeSelectorBox label="Bắt đầu" value={startTime} onChange={setStartTime} />
+            <View style={styles.timeArrowDivider}>
+              <Ionicons name="arrow-forward" size={18} color="#94A3B8" />
+            </View>
+            <TimeSelectorBox label="Kết thúc" value={endTime} onChange={setEndTime} />
+          </View>
+
+          {/* Duration info banner */}
+          <View style={styles.durationInfoBox}>
+            <View style={styles.durationIconCircle}>
+              <Ionicons name="time-outline" size={18} color="#1B3B2B" />
+            </View>
+            <View style={styles.durationTextCol}>
+              <Text style={styles.durationMainText}>
+                Khoảng thời gian: {calculateDuration(startTime, endTime)}
+              </Text>
+              <Text style={styles.durationSubText}>Chưa trừ thời gian nghỉ</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Footer actions */}
+        <View style={styles.formFooterWrap}>
+          <View style={styles.footerButtonsRow}>
+            <Pressable style={styles.cancelBtn} onPress={() => router.back()}>
+              <Text style={styles.cancelBtnText}>Hủy bỏ</Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.submitBtn,
+                isValid ? styles.submitBtnActive : styles.submitBtnDisabled,
+              ]}
+              disabled={!isValid || updateShift.isPending}
+              onPress={() => void submit()}
+            >
+              {updateShift.isPending ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text
+                  style={[
+                    styles.submitBtnText,
+                    isValid ? styles.submitBtnTextActive : styles.submitBtnTextDisabled,
+                  ]}
+                >
+                  Lưu thay đổi
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
@@ -1024,5 +1516,518 @@ const styles = StyleSheet.create({
   },
   iosDatePicker: {
     height: 200,
+  },
+
+  /* ── Modern Shift Screen Shared Styles (Template) ── */
+  modernContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  modernHeader: {
+    backgroundColor: '#1B3B2B',
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  decorativeCurve: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modernHeaderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -4,
+  },
+  brandTagline: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.7)',
+    letterSpacing: 2,
+  },
+  headerTitleWrap: {
+    marginTop: 2,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  screenSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+  modernScroll: {
+    flex: 1,
+  },
+  modernScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+
+  /* ── Phân ca Banner Card ── */
+  assignBannerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  assignIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  assignMetaCol: {
+    flex: 1,
+  },
+  assignTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  assignSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* ── Section Header ── */
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  sectionCountText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+
+  /* ── Empty Card (Screen 01) ── */
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 24,
+    alignItems: 'center',
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  emptyIllustrationWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  emptyCircleBg: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  sparkleContainer: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 24,
+    height: 24,
+  },
+  sparkleLine: {
+    position: 'absolute',
+    width: 8,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: '#1B3B2B',
+  },
+  emptyIconGroup: {
+    position: 'relative',
+    width: 60,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyClockBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  emptyDesc: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  emptyCreateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1B3B2B',
+    height: 48,
+    borderRadius: 12,
+    width: '100%',
+  },
+  emptyCreateBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* ── Modern Shift Card List (Screen 01 non-empty) ── */
+  shiftListWrap: {
+    gap: 12,
+  },
+  modernShiftCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  shiftCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  shiftCardIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  shiftCardMetaCol: {
+    flex: 1,
+  },
+  shiftCardName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  shiftCardCode: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modernStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 6,
+  },
+  modernStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  modernStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  shiftTimeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  shiftTimeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  shiftTimeRange: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  durationBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  durationBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1B3B2B',
+  },
+  shiftCardActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  shiftEditBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  shiftEditBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  shiftDeleteBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
+  },
+  shiftDeleteBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B91C1C',
+  },
+  listBottomCreateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1B3B2B',
+    height: 48,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  listBottomCreateBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* ── Form Card (Screen 02 Tạo ca mới) ── */
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  formCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  formCardIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  formCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modernFieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  modernTextInput: {
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+
+  /* ── Time Pickers Row (Screen 02) ── */
+  timeRangePickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  timeSelectorButton: {
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  timeSelectorValueText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  timeArrowDivider: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 24,
+    paddingHorizontal: 8,
+  },
+
+  /* ── Duration Info Banner (Screen 02) ── */
+  durationInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+  },
+  durationIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(27, 59, 43, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  durationTextCol: {
+    flex: 1,
+  },
+  durationMainText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1B3B2B',
+  },
+  durationSubText: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* ── Form Bottom Footer (Screen 02) ── */
+  formFooterWrap: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  footerValidationHint: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 8,
+  },
+  footerButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  submitBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtnActive: {
+    backgroundColor: '#1B3B2B',
+  },
+  submitBtnDisabled: {
+    backgroundColor: '#CBD5E1',
+  },
+  submitBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  submitBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  submitBtnTextDisabled: {
+    color: '#FFFFFF',
   },
 });
