@@ -207,9 +207,48 @@ export class EmployeeRequestsService {
           },
         };
       }
-    } else if (isGlobalAdmin || isHr) {
+    } else if (isGlobalAdmin) {
       if (departmentId) {
         where = { departmentId };
+      }
+    } else if (isHr) {
+      // HR: manages all non-financial requests across company,
+      // PLUS all requests in their own department(s)
+      const ledDeptIds = await this.scope.getLedDepartmentIds(actor);
+      const ownDeptIds = [...ledDeptIds];
+      try {
+        const primaryDeptId = await this.scope.getPrimaryDepartmentId(actor.userId);
+        if (primaryDeptId && !ownDeptIds.includes(primaryDeptId)) {
+          ownDeptIds.push(primaryDeptId);
+        }
+      } catch {}
+
+      const nonFinancialTypes: EmployeeRequestType[] = [
+        EmployeeRequestType.LEAVE,
+        EmployeeRequestType.ATTENDANCE_ADJUSTMENT,
+        EmployeeRequestType.BUSINESS_TRIP,
+        EmployeeRequestType.OVERTIME,
+        EmployeeRequestType.EQUIPMENT,
+        EmployeeRequestType.OTHER,
+      ];
+
+      if (departmentId) {
+        if (ownDeptIds.includes(departmentId)) {
+          where = { departmentId };
+        } else {
+          where = {
+            departmentId,
+            type: { in: nonFinancialTypes },
+          };
+        }
+      } else {
+        const orConditions: Prisma.EmployeeRequestWhereInput[] = [
+          { type: { in: nonFinancialTypes } },
+        ];
+        if (ownDeptIds.length > 0) {
+          orConditions.push({ departmentId: { in: ownDeptIds } });
+        }
+        where = { OR: orConditions };
       }
     } else if (isAccountant) {
       // Accountant: can see ALL financial requests across all departments,
@@ -587,7 +626,7 @@ export class EmployeeRequestsService {
       // 1. Leader Approval stage
       if (currentStage === 'PENDING_LEADER') {
         const isLeader = request.department?.leaderUserId === actor.userId;
-        if (!isLeader && !isGlobalAdmin && !isHr && !canDeptAccess) {
+        if (!isLeader && !isGlobalAdmin && !canDeptAccess) {
           throw forbidden('FORBIDDEN', 'Chỉ Trưởng bộ phận hoặc Quản trị viên quản lý phòng ban mới có quyền duyệt bước này.');
         }
 
@@ -904,7 +943,7 @@ export class EmployeeRequestsService {
 
       if (currentStage === 'PENDING_LEADER') {
         const isLeader = request.department?.leaderUserId === actor.userId || canDeptAccess;
-        if (!isLeader && !isGlobalAdmin && !isHr) {
+        if (!isLeader && !isGlobalAdmin) {
           throw forbidden('FORBIDDEN', 'Chỉ Trưởng bộ phận hoặc Quản trị viên quản lý mới có quyền từ chối bước này.');
         }
       } else if (currentStage === 'PENDING_HR') {
