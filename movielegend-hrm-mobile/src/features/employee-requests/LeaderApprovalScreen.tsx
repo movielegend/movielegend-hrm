@@ -348,15 +348,9 @@ export function LeaderApprovalScreen() {
       approveButtonLabel = 'Duyệt & Giải ngân';
       approveSubtext = 'Ban Giám Đốc duyệt chi & hoàn tất giải ngân';
     } else if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
-      if (request.type === 'EXPENSE' || request.type === 'PURCHASE') {
-        const hasVat = Boolean(meta.hasVat);
-        if (hasVat || amount <= 2000000) {
-          approveButtonLabel = 'Duyệt chuyển Kế toán';
-          approveSubtext = hasVat ? 'Có VAT: chuyển Kế toán chi' : 'Đơn ≤ 2 triệu: chuyển Kế toán chi';
-        } else {
-          approveButtonLabel = 'Duyệt chuyển Ban Giám Đốc';
-          approveSubtext = 'Không VAT trên 2 triệu: chuyển Ban Giám Đốc duyệt';
-        }
+      if (request.type === 'EXPENSE' || request.type === 'PURCHASE' || request.type === 'ADVANCE') {
+        approveButtonLabel = 'Duyệt chuyển Kế toán';
+        approveSubtext = 'Trưởng bộ phận duyệt sơ bộ - Chuyển Kế toán xem xét';
       } else {
         approveButtonLabel = 'Duyệt chuyển tiếp';
         approveSubtext = 'Trưởng bộ phận phê duyệt';
@@ -416,15 +410,15 @@ export function LeaderApprovalScreen() {
     }
     if (stage === 'PENDING_ADMIN') {
       return {
-        label: 'Chờ Admin duyệt',
+        label: 'Chờ Ban Giám Đốc duyệt',
         bg: '#FEF3C7',
         color: '#B45309',
         icon: 'clock-outline' as const,
       };
     }
-    if (stage === 'PENDING_DISBURSEMENT') {
+    if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
       return {
-        label: 'Chờ giải ngân',
+        label: 'Chờ Kế toán xử lý',
         bg: '#FEF3C7',
         color: '#B45309',
         icon: 'clock-outline' as const,

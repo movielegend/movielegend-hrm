@@ -548,83 +548,43 @@ export class EmployeeRequestsService {
           throw forbidden('FORBIDDEN', 'Chỉ Trưởng bộ phận hoặc Quản trị viên quản lý phòng ban mới có quyền duyệt bước này.');
         }
 
-        let nextStage = 'PENDING_ACCOUNTANT';
-        let defaultNote = '';
-
-        if (isPurchase) {
-          // Đơn mua hàng -> chuyển Kế toán duyệt thông qua
-          nextStage = 'PENDING_ACCOUNTANT';
-          defaultNote = 'Leader đã duyệt đề xuất mua hàng, chuyển Kế toán xem xét';
-        } else if (payload?.forwardToAdmin) {
-          // Duyệt chờ thanh toán -> Chuyển thẳng Ban Giám Đốc
-          nextStage = 'PENDING_ADMIN';
-          defaultNote = `Leader đã duyệt chờ thanh toán, chuyển Ban Giám Đốc phê duyệt`;
-        } else if (payload?.disbursementProofUrl && (isAccountant || isGlobalAdmin)) {
-          // Duyệt & Giải ngân ngay nếu người duyệt là Kế toán/Admin
-          nextStage = 'DISBURSED';
-          defaultNote = 'Đã duyệt và hoàn tất giải ngân';
-        } else {
-          // Luồng chuẩn: Leader duyệt xong luôn chuyển về Kế toán để Kế toán xem xét hoặc chuyển tiếp Ban Giám Đốc
-          nextStage = 'PENDING_ACCOUNTANT';
-          defaultNote = isPurchase
-            ? 'Leader đã duyệt đề xuất mua hàng - Chuyển Kế toán'
-            : hasVat
-              ? 'Leader đã duyệt - Đơn có VAT chuyển Kế toán'
-              : 'Leader đã duyệt - Đơn không VAT chuyển Kế toán';
-        }
-
-        const isInstantDisbursed = nextStage === 'DISBURSED';
+        const nextStage = 'PENDING_ACCOUNTANT';
+        const defaultNote = isPurchase
+          ? 'Leader đã duyệt đề xuất mua hàng, chuyển Kế toán xem xét'
+          : 'Leader đã duyệt - Chuyển Kế toán xem xét xử lý';
 
         const newStep = {
           stage: 'PENDING_LEADER',
-          action: isInstantDisbursed ? 'DISBURSED' : 'APPROVED',
+          action: 'APPROVED',
           actorId: actor.userId,
           actorName,
           note: payload?.note || defaultNote,
-          bankRefCode: payload?.bankRefCode,
-          disbursementProofUrl: payload?.disbursementProofUrl,
           at: new Date().toISOString(),
         };
 
         const updatedMeta = {
           ...currentMeta,
           stage: nextStage,
-          bankRefCode: payload?.bankRefCode || currentMeta.bankRefCode,
-          disbursementProofUrl: payload?.disbursementProofUrl || currentMeta.disbursementProofUrl,
           approvalSteps: [...existingSteps, newStep],
         };
 
         const updated = await tx.employeeRequest.update({
           where: { id },
           data: {
-            ...(isInstantDisbursed ? { status: EmployeeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() } : {}),
             attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
           },
         });
 
-        // Notify next recipient
-        if (nextStage === 'PENDING_ADMIN') {
-          const adminUserIds = await this.findRelevantAdminUserIds(request.departmentId, tx);
-          if (adminUserIds.length > 0) {
-            const notif = await this.notifications.createForUsers(tx, adminUserIds, {
-              type: NotificationType.SYSTEM,
-              title: 'Đơn cần Ban Giám Đốc duyệt',
-              body: `Leader đã duyệt đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ). Vui lòng phê duyệt.`,
-              metadata: { requestId: id },
-            });
-            this.notifications.emitCreated(notif);
-          }
-        } else if (nextStage === 'PENDING_ACCOUNTANT') {
-          const accountantUserIds = await this.findAccountantUserIds(tx);
-          if (accountantUserIds.length > 0) {
-            const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
-              type: NotificationType.SYSTEM,
-              title: isPurchase ? 'Đề xuất mua hàng chuyển Kế toán' : 'Đơn thanh toán chuyển Kế toán',
-              body: `Leader đã duyệt đơn "${request.title}". Chuyển Kế toán xem xét xử lý.`,
-              metadata: { requestId: id },
-            });
-            this.notifications.emitCreated(notif);
-          }
+        // Thông báo đến toàn bộ Kế toán
+        const accountantUserIds = await this.findAccountantUserIds(tx);
+        if (accountantUserIds.length > 0) {
+          const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
+            type: NotificationType.SYSTEM,
+            title: isPurchase ? 'Đề xuất mua hàng chuyển Kế toán' : 'Đơn thanh toán chuyển Kế toán',
+            body: `Leader đã duyệt đơn "${request.title}". Chuyển Kế toán xem xét xử lý.`,
+            metadata: { requestId: id },
+          });
+          this.notifications.emitCreated(notif);
         }
 
         return updated;
