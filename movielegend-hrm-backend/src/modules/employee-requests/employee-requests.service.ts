@@ -692,15 +692,14 @@ export class EmployeeRequestsService {
           throw forbidden('FORBIDDEN', 'Chỉ Ban Giám Đốc hoặc Quản trị viên quản lý đơn từ thuộc miền của mình mới có quyền phê duyệt.');
         }
 
-        const isInstantDisbursed = Boolean(payload?.disbursementProofUrl);
-        const nextStage = isInstantDisbursed ? 'DISBURSED' : 'PENDING_ACCOUNTANT';
+        const nextStage = 'DISBURSED';
 
         const newStep = {
           stage: 'PENDING_ADMIN',
-          action: isInstantDisbursed ? 'DISBURSED' : 'APPROVED',
+          action: 'DISBURSED',
           actorId: actor.userId,
           actorName: actorName || 'Ban Giám Đốc',
-          note: payload?.note || (isInstantDisbursed ? 'Ban Giám Đốc đã duyệt và hoàn tất giải ngân' : 'Ban Giám Đốc đã phê duyệt chi, chuyển Kế toán chi trả'),
+          note: payload?.note || 'Ban Giám Đốc đã duyệt và hoàn tất giải ngân',
           bankRefCode: payload?.bankRefCode,
           disbursementProofUrl: payload?.disbursementProofUrl,
           at: new Date().toISOString(),
@@ -717,33 +716,21 @@ export class EmployeeRequestsService {
         const updated = await tx.employeeRequest.update({
           where: { id },
           data: {
-            ...(isInstantDisbursed ? { status: EmployeeRequestStatus.APPROVED, decidedByUserId: actor.userId, decidedAt: new Date() } : {}),
+            status: EmployeeRequestStatus.APPROVED,
+            decidedByUserId: actor.userId,
+            decidedAt: new Date(),
             attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
           },
         });
 
-        if (!isInstantDisbursed) {
-          // Notify Accountants
-          const accountantUserIds = await this.findAccountantUserIds(tx);
-          if (accountantUserIds.length > 0) {
-            const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
-              type: NotificationType.SYSTEM,
-              title: 'Ban Giám Đốc đã duyệt - Chuyển Kế toán chi trả',
-              body: `Ban Giám Đốc đã duyệt đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ). Vui lòng thực hiện thanh toán/giải ngân.`,
-              metadata: { requestId: id },
-            });
-            this.notifications.emitCreated(notif);
-          }
-        } else {
-          // Thông báo cho người tạo là đã giải ngân
-          const notif = await this.notifications.createForUsers(tx, [request.userId], {
-            type: NotificationType.SYSTEM,
-            title: 'Đã thanh toán thành công 💸',
-            body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) đã được Ban Giám Đốc duyệt và giải ngân thành công.`,
-            metadata: { requestId: id, disbursementProofUrl: payload?.disbursementProofUrl },
-          });
-          this.notifications.emitCreated(notif);
-        }
+        // Thông báo cho người tạo là đã giải ngân thành công
+        const notif = await this.notifications.createForUsers(tx, [request.userId], {
+          type: NotificationType.SYSTEM,
+          title: 'Đã thanh toán thành công 💸',
+          body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) đã được Ban Giám Đốc duyệt và giải ngân thành công.`,
+          metadata: { requestId: id, disbursementProofUrl: payload?.disbursementProofUrl },
+        });
+        this.notifications.emitCreated(notif);
 
         return updated;
       }

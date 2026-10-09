@@ -121,28 +121,30 @@ export function LeaderApprovalScreen() {
   };
 
   const handleConfirmDisburse = async () => {
-    if (!disbursementProofUri) {
+    if (!disbursementProofUri && !isAdmin) {
       showAlert('Yêu cầu ảnh bill', 'Vui lòng tải lên hoặc chụp ảnh bill chuyển khoản / ủy nhiệm chi để hoàn tất giải ngân.');
       return;
     }
 
     let proofUrl = undefined;
-    try {
-      setIsUploadingProof(true);
-      const res = await uploadFile({
-        uri: disbursementProofUri,
-        name: `disbursement_${Date.now()}.jpg`,
-        mimeType: 'image/jpeg',
-        purpose: 'EMPLOYEE_DOCUMENT'
-      });
-      proofUrl = res.fileUrl;
-    } catch (err) {
-      console.log('Proof upload error', err);
-      showAlert('Lỗi', 'Không thể tải ảnh chứng từ giải ngân lên.');
-      setIsUploadingProof(false);
-      return;
-    } finally {
-      setIsUploadingProof(false);
+    if (disbursementProofUri) {
+      try {
+        setIsUploadingProof(true);
+        const res = await uploadFile({
+          uri: disbursementProofUri,
+          name: `disbursement_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          purpose: 'EMPLOYEE_DOCUMENT'
+        });
+        proofUrl = res.fileUrl;
+      } catch (err) {
+        console.log('Proof upload error', err);
+        showAlert('Lỗi', 'Không thể tải ảnh chứng từ giải ngân lên.');
+        setIsUploadingProof(false);
+        return;
+      } finally {
+        setIsUploadingProof(false);
+      }
     }
 
     approveMutation.mutate({
@@ -342,9 +344,9 @@ export function LeaderApprovalScreen() {
     if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
       approveButtonLabel = 'Duyệt & Giải ngân';
       approveSubtext = 'Kế toán trưởng phê duyệt chi & hoàn tất';
-    } else if (stage === 'PENDING_ADMIN') {
-      approveButtonLabel = 'Duyệt chuyển Kế toán';
-      approveSubtext = 'Ban Giám Đốc duyệt chi > 2 triệu';
+    } else if (stage === 'PENDING_ADMIN' || isAdmin) {
+      approveButtonLabel = 'Duyệt & Giải ngân';
+      approveSubtext = 'Ban Giám Đốc duyệt chi & hoàn tất giải ngân';
     } else if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
       if (request.type === 'EXPENSE' || request.type === 'PURCHASE') {
         const hasVat = Boolean(meta.hasVat);
@@ -1054,7 +1056,7 @@ export function LeaderApprovalScreen() {
                   onPress={() => {
                     if (request.type === 'PURCHASE') {
                       handleApprove();
-                    } else if (isFinancial && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT')) {
+                    } else if (isFinancial && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT' || stage === 'PENDING_ADMIN' || isAdmin)) {
                       setIsDisburseModalOpen(true);
                     } else {
                       handleApprove();
