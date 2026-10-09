@@ -49,7 +49,8 @@ export function DepartmentBatchUploadModal({
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
-        quality: 0.85,
+        quality: 0.65,
+        selectionLimit: 50,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -84,21 +85,28 @@ export function DepartmentBatchUploadModal({
 
     try {
       const uploadedUrls: string[] = [];
+      const BATCH_SIZE = 3;
+      let completedCount = 0;
 
-      for (let i = 0; i < selectedImages.length; i++) {
-        setUploadProgress({ current: i + 1, total: selectedImages.length });
-        const localUri = selectedImages[i];
-        if (!localUri) continue;
-        const res = await uploadFile({
-          uri: localUri,
-          name: `batch_dept_${selectedDeptId}_${month}_${year}_${i + 1}.jpg`,
-          mimeType: 'image/jpeg',
-          purpose: 'EMPLOYEE_DOCUMENT',
-        });
-        const finalUrl = res.fileUrl || (res as any).url;
-        if (finalUrl) {
-          uploadedUrls.push(finalUrl);
-        }
+      for (let i = 0; i < selectedImages.length; i += BATCH_SIZE) {
+        const chunk = selectedImages.slice(i, i + BATCH_SIZE);
+        const chunkResults = await Promise.all(
+          chunk.map(async (localUri, idx) => {
+            const globalIndex = i + idx + 1;
+            const res = await uploadFile({
+              uri: localUri,
+              name: `batch_dept_${selectedDeptId}_${month}_${year}_${globalIndex}.jpg`,
+              mimeType: 'image/jpeg',
+              purpose: 'EMPLOYEE_DOCUMENT',
+            });
+            completedCount++;
+            setUploadProgress({ current: completedCount, total: selectedImages.length });
+            return res.fileUrl || (res as any).url;
+          })
+        );
+        uploadedUrls.push(...chunkResults.filter(Boolean));
+        // Small yield to keep JS thread and UI responsive
+        await new Promise((resolve) => setTimeout(resolve, 60));
       }
 
       await uploadDepartmentPayslipBatch({
