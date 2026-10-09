@@ -239,9 +239,22 @@ export function DepartmentLabelingModal({
                       <MaterialCommunityIcons name="chevron-left" size={20} color="#334155" />
                     </Pressable>
 
-                    <Text style={styles.imageIndexText}>
-                      Ảnh {selectedImageIndex + 1} / {allImages.length}
-                    </Text>
+                    <View style={styles.navIndexWrap}>
+                      <Text style={styles.imageIndexText}>
+                        Ảnh {selectedImageIndex + 1} / {allImages.length}
+                      </Text>
+                      {currentImage.assignedUserId ? (
+                        <View style={styles.pillAssignedSmall}>
+                          <MaterialCommunityIcons name="check-circle" size={12} color="#059669" />
+                          <Text style={styles.pillAssignedSmallText}>Đã gán</Text>
+                        </View>
+                      ) : (
+                        <View style={styles.pillUnassignedSmall}>
+                          <MaterialCommunityIcons name="clock-outline" size={12} color="#D97706" />
+                          <Text style={styles.pillUnassignedSmallText}>Chưa gán</Text>
+                        </View>
+                      )}
+                    </View>
 
                     <Pressable
                       style={[
@@ -257,7 +270,7 @@ export function DepartmentLabelingModal({
                     </Pressable>
                   </View>
 
-                  {/* Image Display */}
+                  {/* Image Display with prominent status badge overlay */}
                   <Pressable
                     style={styles.mainImageCard}
                     onPress={() => setIsImageViewerVisible(true)}
@@ -267,6 +280,41 @@ export function DepartmentLabelingModal({
                       style={styles.mainImage}
                       resizeMode="contain"
                     />
+
+                    {/* Top-Left: Assigned / Unassigned Badge Overlay */}
+                    {currentImage.assignedUserId ? (
+                      <View style={styles.imageOverlayBadgeAssigned}>
+                        <MaterialCommunityIcons name="check-decagram" size={16} color="#FFFFFF" />
+                        <View style={{ flexShrink: 1 }}>
+                          <Text style={styles.imageOverlayTag}>✓ ĐÃ GÁN PHIẾU LƯƠNG</Text>
+                          <Text style={styles.imageOverlayName} numberOfLines={1}>
+                            {currentImage.assignedUserName || 'Nhân viên'}
+                          </Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.imageOverlayBadgeUnassigned}>
+                        <MaterialCommunityIcons name="alert-circle-outline" size={15} color="#FFFFFF" />
+                        <Text style={styles.imageOverlayUnassignedText}>CHƯA GÁN NHÃN</Text>
+                      </View>
+                    )}
+
+                    {/* Top-Right: Quick Unassign if assigned */}
+                    {currentImage.assignedUserId ? (
+                      <Pressable
+                        style={styles.imageOverlayUnassignBtn}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleUnassign(currentImage.id);
+                        }}
+                        disabled={isAssigning}
+                      >
+                        <MaterialCommunityIcons name="link-off" size={13} color="#EF4444" />
+                        <Text style={styles.imageOverlayUnassignBtnText}>Hủy gán</Text>
+                      </Pressable>
+                    ) : null}
+
+                    {/* Bottom: Zoom instruction hint */}
                     <View style={styles.zoomHintBadge}>
                       <MaterialCommunityIcons name="magnify-plus-outline" size={14} color="#fff" />
                       <Text style={styles.zoomHintText}>Bấm để phóng to xem rõ tên</Text>
@@ -279,7 +327,7 @@ export function DepartmentLabelingModal({
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
                         <MaterialCommunityIcons name="check-decagram" size={18} color="#059669" />
                         <Text style={styles.assignedUserLabel} numberOfLines={1}>
-                          Đã gán: <Text style={{ fontWeight: '800' }}>{currentImage.assignedUserName || 'Nhân sự'}</Text>
+                          Đã gán cho: <Text style={{ fontWeight: '800' }}>{currentImage.assignedUserName || 'Nhân sự'}</Text>
                         </Text>
                       </View>
                       <Pressable
@@ -328,6 +376,10 @@ export function DepartmentLabelingModal({
                   {filteredEmployees.map((emp) => {
                     const isAssignedToThisImage =
                       currentImage?.assignedUserId === emp.userId;
+                    const assignedOtherImage = batchData?.assignedImages.find(
+                      (img) => img.assignedUserId === emp.userId && img.id !== currentImage?.id
+                    );
+
                     return (
                       <View
                         key={emp.userId}
@@ -336,13 +388,41 @@ export function DepartmentLabelingModal({
                           isAssignedToThisImage && styles.empRowCardCurrent,
                         ]}
                       >
-                        <View style={styles.empAvatar}>
-                          <Text style={styles.empAvatarText}>
+                        <View
+                          style={[
+                            styles.empAvatar,
+                            isAssignedToThisImage && styles.empAvatarCurrent,
+                            Boolean(assignedOtherImage) && styles.empAvatarOther,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.empAvatarText,
+                              isAssignedToThisImage && styles.empAvatarTextCurrent,
+                              Boolean(assignedOtherImage) && styles.empAvatarTextOther,
+                            ]}
+                          >
                             {emp.fullName.charAt(0).toUpperCase()}
                           </Text>
                         </View>
+
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.empName}>{emp.fullName}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.empName}>{emp.fullName}</Text>
+                            {isAssignedToThisImage ? (
+                              <View style={styles.empTagCurrent}>
+                                <Text style={styles.empTagCurrentText}>Ảnh này</Text>
+                              </View>
+                            ) : assignedOtherImage ? (
+                              <View style={styles.empTagOther}>
+                                <Text style={styles.empTagOtherText}>Đã có ảnh khác</Text>
+                              </View>
+                            ) : (
+                              <View style={styles.empTagNone}>
+                                <Text style={styles.empTagNoneText}>Chưa có phiếu</Text>
+                              </View>
+                            )}
+                          </View>
                           <Text style={styles.empSub}>
                             {emp.userCode} • {emp.positionName}
                           </Text>
@@ -351,8 +431,24 @@ export function DepartmentLabelingModal({
                         {isAssignedToThisImage ? (
                           <View style={styles.activeBadge}>
                             <MaterialCommunityIcons name="check" size={14} color="#059669" />
-                            <Text style={styles.activeBadgeText}>Ảnh hiện tại</Text>
+                            <Text style={styles.activeBadgeText}>Đã gán ảnh này</Text>
                           </View>
+                        ) : assignedOtherImage ? (
+                          <Pressable
+                            style={[
+                              styles.assignActionBtnSecondary,
+                              isAssigning && styles.assignActionBtnDisabled,
+                            ]}
+                            onPress={() => handleAssignToUser(emp.userId, emp.fullName)}
+                            disabled={isAssigning || !currentImage}
+                          >
+                            <MaterialCommunityIcons
+                              name="swap-horizontal"
+                              size={15}
+                              color="#4F46E5"
+                            />
+                            <Text style={styles.assignActionBtnSecondaryText}>Gán lại</Text>
+                          </Pressable>
                         ) : (
                           <Pressable
                             style={[
@@ -519,13 +615,50 @@ const styles = StyleSheet.create({
   navArrowBtnDisabled: {
     opacity: 0.3,
   },
+  navIndexWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pillAssignedSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  pillAssignedSmallText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  pillUnassignedSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  pillUnassignedSmallText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+  },
   imageIndexText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#334155',
   },
   mainImageCard: {
-    height: 180,
+    height: 190,
     backgroundColor: '#0F172A',
     borderRadius: 12,
     overflow: 'hidden',
@@ -536,6 +669,80 @@ const styles = StyleSheet.create({
   mainImage: {
     width: '100%',
     height: '100%',
+  },
+  imageOverlayBadgeAssigned: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    maxWidth: '72%',
+    backgroundColor: 'rgba(5, 150, 105, 0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  imageOverlayTag: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#D1FAE5',
+    letterSpacing: 0.5,
+  },
+  imageOverlayName: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  imageOverlayBadgeUnassigned: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(217, 119, 6, 0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  imageOverlayUnassignedText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  imageOverlayUnassignBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(254, 242, 242, 0.95)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  imageOverlayUnassignBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#EF4444',
   },
   zoomHintBadge: {
     position: 'absolute',
@@ -652,20 +859,65 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  empAvatarCurrent: {
+    backgroundColor: '#D1FAE5',
+  },
+  empAvatarOther: {
+    backgroundColor: '#EEF2FF',
+  },
   empAvatarText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#475569',
+  },
+  empAvatarTextCurrent: {
+    color: '#059669',
+  },
+  empAvatarTextOther: {
+    color: '#4F46E5',
   },
   empName: {
     fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
   },
+  empTagCurrent: {
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  empTagCurrentText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  empTagOther: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  empTagOtherText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#4F46E5',
+  },
+  empTagNone: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  empTagNoneText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+  },
   empSub: {
     fontSize: 11,
     color: '#64748B',
-    marginTop: 1,
+    marginTop: 2,
   },
   assignActionBtn: {
     flexDirection: 'row',
@@ -675,6 +927,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
+  },
+  assignActionBtnSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  assignActionBtnSecondaryText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4F46E5',
   },
   assignActionBtnDisabled: {
     opacity: 0.5,
