@@ -137,6 +137,11 @@ export function useAuth(): AuthContextValue {
   return value;
 }
 
+export function useOptionalAuth(): AuthContextValue | undefined {
+  return useContext(AuthContext);
+}
+
 if (typeof globalThis !== 'undefined') {
   (globalThis as any).useAuth = useAuth;
+  (globalThis as any).useOptionalAuth = useOptionalAuth;
 }

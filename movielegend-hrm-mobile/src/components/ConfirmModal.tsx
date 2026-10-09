@@ -12,7 +12,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { PrimaryButton, SecondaryButton } from './Buttons';
-import { useAuth } from '../providers/AuthProvider';
+import { useOptionalAuth } from '../providers/AuthProvider';
 
 interface ConfirmModalProps {
   visible: boolean;
@@ -55,7 +55,8 @@ export function ConfirmModal({
   onConfirm,
   children
 }: ConfirmModalProps) {
-  const { user } = useAuth();
+  const auth = useOptionalAuth();
+  const user = auth?.user;
   if (!visible) return null;
 
   const displayMessage = message || description;
