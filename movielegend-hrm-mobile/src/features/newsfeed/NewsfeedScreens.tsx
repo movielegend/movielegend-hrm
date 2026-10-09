@@ -194,8 +194,11 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-        <View style={newsStyles.headerTopRow}>
-          <Text style={newsStyles.headerBrand}>MOVIE LEGEND</Text>
+        <View style={newsStyles.headerMainRow}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={newsStyles.headerTitle}>Bảng tin công ty</Text>
+            <Text style={newsStyles.headerSubtitle}>Tin tức & thông báo nội bộ</Text>
+          </View>
           {isModerator && (
             <Pressable
               style={newsStyles.pendingPill}
@@ -208,9 +211,6 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
             </Pressable>
           )}
         </View>
-
-        <Text style={newsStyles.headerTitle}>Bảng tin công ty</Text>
-        <Text style={newsStyles.headerSubtitle}>Tin tức & thông báo nội bộ</Text>
       </View>
 
       {/* Main Curved White Sheet */}
@@ -2228,6 +2228,11 @@ const newsStyles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
     backgroundColor: '#1B3B2B',
+  },
+  headerMainRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTopRow: {
     flexDirection: 'row',
