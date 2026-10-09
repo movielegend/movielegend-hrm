@@ -1,18 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Linking,
   Platform,
   Pressable,
   RefreshControl,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
@@ -24,22 +25,23 @@ import {
 } from '../../api/department-documents.api';
 import { getDepartments } from '../../api/departments.api';
 import { useQuery } from '@tanstack/react-query';
-import { SearchInput } from '../../components/SearchInput';
-import { FilterChip } from '../../components/FilterChip';
 import { EmptyState } from '../../components/EmptyState';
-import { LoadingState } from '../../components/LoadingState';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { SelectModal, SelectOption } from '../../components/SelectModal';
-import { Screen } from '../../components/Screen';
-import { PageHeader } from '../../components/PageHeader';
 import { UploadDocumentModal } from './UploadDocumentModal';
 import { DocumentDetailModal } from './DocumentDetailModal';
 import { resolveFileUrl } from '../../utils/url';
 import { roleBase } from '../../utils/notification-routing';
-import { CATEGORIES, getCategoryColor, getFileIcon } from './document.utils';
+import {
+  CATEGORIES,
+  CATEGORY_LABELS,
+  formatFileSize,
+  getFileBadgeInfo,
+} from './document.utils';
 
 export function DocumentListScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showAlert, showConfirm } = useAppAlert();
 
@@ -65,19 +67,23 @@ export function DocumentListScreen() {
 
   // Kiểm tra quyền
   const isHR = Boolean(user?.roles?.includes('HR'));
-  const isGlobalAdmin = (user?.roles?.includes('ADMIN') && user?.scopes?.some(
-    (s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType)
-  )) || Boolean(user?.roles?.includes('SUPER_ADMIN'));
-  const isRegionAdmin = Boolean(user?.roles?.includes('ADMIN') && user?.scopes?.some(
-    (s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION'
-  ));
+  const isGlobalAdmin =
+    (user?.roles?.includes('ADMIN') &&
+      user?.scopes?.some(
+        (s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType)
+      )) ||
+    Boolean(user?.roles?.includes('SUPER_ADMIN'));
+  const isRegionAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+      user?.scopes?.some((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION')
+  );
   const isLeader = Boolean(user?.roles?.includes('LEADER'));
 
   const canManageAll = isGlobalAdmin || isHR;
   // Quyền đăng tài liệu: Admin Tổng, HR, Admin Miền, hoặc Leader
   const canUpload = canManageAll || isRegionAdmin || isLeader;
 
-  // Danh sách phòng ban để lọc (dành cho Admin / HR / Region Admin)
+  // Danh sách phòng ban để lọc
   const { data: deptData } = useQuery({
     queryKey: ['departments'],
     queryFn: () => getDepartments({ limit: 100 }),
@@ -86,14 +92,15 @@ export function DocumentListScreen() {
 
   const deptOptions: SelectOption[] = useMemo(() => {
     const isRegionOnly = isRegionAdmin && !canManageAll;
-    const defaultLabel = isRegionOnly ? 'Toàn miền (Tất cả phòng ban trong miền)' : 'Tất cả phòng ban được phép';
+    const defaultLabel = isRegionOnly ? 'Toàn miền (Tất cả phòng ban trong miền)' : 'Tất cả phòng ban';
     const opts: SelectOption[] = [{ id: '', value: '', label: defaultLabel }];
 
     let items = deptData?.items || [];
     if (isRegionOnly) {
-      const regionIds = user?.scopes
-        ?.filter((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION' && s.scopeId)
-        .map((s: any) => s.scopeId) || [];
+      const regionIds =
+        user?.scopes
+          ?.filter((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION' && s.scopeId)
+          .map((s: any) => s.scopeId) || [];
       items = items.filter((d) => d.branch?.region?.id && regionIds.includes(d.branch.region.id));
     }
 
@@ -154,7 +161,10 @@ export function DocumentListScreen() {
       return rawItems;
     }
 
-    const groupedMap = new Map<string, DepartmentDocument & { relatedDocIds?: string[]; isRegionWide?: boolean; regionName?: string }>();
+    const groupedMap = new Map<
+      string,
+      DepartmentDocument & { relatedDocIds?: string[]; isRegionWide?: boolean; regionName?: string }
+    >();
 
     rawItems.forEach((doc) => {
       const groupKey = `${doc.fileUrl || doc.fileName}_${doc.title}_${doc.category}`;
@@ -169,7 +179,8 @@ export function DocumentListScreen() {
         existing.relatedDocIds?.push(doc.id);
         existing.isRegionWide = true;
         if (!existing.regionName) {
-          existing.regionName = doc.department?.branch?.region?.name || doc.department?.branch?.name;
+          existing.regionName =
+            doc.department?.branch?.region?.name || doc.department?.branch?.name;
         }
       }
     });
@@ -187,7 +198,6 @@ export function DocumentListScreen() {
         ? `Tài liệu "${doc.title}" được áp dụng cho toàn miền (${relatedIds!.length} phòng ban). Bạn có chắc chắn muốn xóa khỏi toàn bộ các phòng ban không?`
         : `Bạn có chắc chắn muốn xóa tài liệu "${doc.title}" không?`,
       confirmLabel: 'Xóa',
-      confirmTone: 'danger',
       onConfirm: async () => {
         try {
           if (isMultiple && relatedIds) {
@@ -205,201 +215,233 @@ export function DocumentListScreen() {
     });
   };
 
+  const selectedDeptLabel = useMemo(() => {
+    if (!selectedDeptId) return 'Tất cả phòng ban';
+    return deptOptions.find((d) => d.value === selectedDeptId)?.label || 'Phòng ban';
+  }, [selectedDeptId, deptOptions]);
+
   const renderDocumentItem = ({ item }: { item: DepartmentDocument }) => {
-    const icon = getFileIcon(item.fileName, item.mimeType);
-    const catColor = getCategoryColor(item.category);
-    const catLabel = CATEGORIES.find((c) => c.value === item.category)?.label || item.category;
+    const badgeInfo = getFileBadgeInfo(item.fileName, item.mimeType);
+    const catLabel = CATEGORY_LABELS[item.category] || item.category || 'Chung';
 
     const isRegionWide = Boolean((item as any).isRegionWide);
     const regionName = (item as any).regionName || item.department?.branch?.name || '';
-    const deptText = isRegionWide
-      ? `Toàn miền${regionName ? ` • ${regionName}` : ''}`
+    const deptMainText = isRegionWide
+      ? `Toàn miền · ${regionName}`
       : item.department
-      ? `${item.department.name}${item.department.branch?.name ? ` • ${item.department.branch.name}` : ''}`
+      ? `${item.department.name} · ${item.department.branch?.name ? `MOVIELEGEND · ${item.department.branch.name.toUpperCase()}` : 'MOVIELEGEND'}`
       : 'Toàn công ty';
 
-    const fileSizeText = item.fileSize
-      ? item.fileSize > 1024 * 1024
-        ? `${(item.fileSize / (1024 * 1024)).toFixed(1)} MB`
-        : `${(item.fileSize / 1024).toFixed(0)} KB`
-      : '';
+    const fileSizeText = formatFileSize(item.fileSize);
 
+    // Format date: DD/MM/YYYY
     const uploadDate = item.createdAt
-      ? new Date(item.createdAt).toLocaleDateString('vi-VN')
-      : '';
+      ? (() => {
+          const d = new Date(item.createdAt);
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          return `${day}/${month}/${year}`;
+        })()
+      : '---';
 
     return (
       <View style={styles.card}>
-        <Pressable
-          style={styles.cardHeader}
-          onPress={() => setSelectedDocDetail(item)}
-        >
-          {/* File Icon */}
-          <View style={[styles.iconWrap, { backgroundColor: '#FEE2E2' }]}>
-            <MaterialCommunityIcons name="file-pdf-box" size={28} color="#DC2626" />
-          </View>
-
-          {/* Title & Info */}
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <View style={[styles.catBadge, { backgroundColor: '#F1F5F9' }]}>
-                <Text style={[styles.catBadgeText, { color: '#475569' }]}>{catLabel}</Text>
-              </View>
-              {item.department ? (
-                <View style={[styles.deptBadge, isRegionWide && { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
-                  <Text style={[styles.deptBadgeText, isRegionWide && { color: '#B45309', fontWeight: '700' }]} numberOfLines={1}>
-                    {deptText}
-                  </Text>
-                </View>
-              ) : (
-                <View style={[styles.deptBadge, { backgroundColor: '#EFF6FF' }]}>
-                  <Text style={[styles.deptBadgeText, { color: '#0055D4', fontWeight: '700' }]}>Toàn công ty</Text>
-                </View>
-              )}
-            </View>
-
-            <Text style={styles.docTitle} numberOfLines={2}>
-              {item.title}
+        <View style={styles.cardTopRow}>
+          {/* File Badge Square */}
+          <View style={[styles.fileBadgeSquare, { backgroundColor: badgeInfo.bgColor }]}>
+            <Text style={[styles.fileBadgeSquareText, { color: badgeInfo.textColor }]}>
+              {badgeInfo.label}
             </Text>
-
-            {item.description ? (
-              <Text style={styles.docDesc} numberOfLines={2}>
-                {item.description}
-              </Text>
-            ) : null}
-
-            <View style={styles.fileMetaRow}>
-              <MaterialCommunityIcons name="paperclip" size={13} color="#94A3B8" />
-              <Text style={styles.fileNameText} numberOfLines={1}>
-                {item.fileName}
-              </Text>
-              {fileSizeText ? (
-                <Text style={styles.fileSizeText}>({fileSizeText})</Text>
-              ) : null}
-            </View>
-
-            <View style={styles.dateRow}>
-              <MaterialCommunityIcons name="clock-outline" size={13} color="#94A3B8" />
-              <Text style={styles.dateText}>{uploadDate}</Text>
-            </View>
-          </View>
-        </Pressable>
-
-        {/* Actions Row */}
-        <View style={styles.cardActions}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Pressable style={styles.detailBtn} onPress={() => setSelectedDocDetail(item)}>
-              <MaterialCommunityIcons name="information-outline" size={16} color="#334155" />
-              <Text style={styles.detailBtnText}>Chi tiết</Text>
-            </Pressable>
-
-            {(() => {
-              const isPdfOrImg =
-                /\.(pdf|jpg|jpeg|png|webp|gif|svg)$/i.test(item.fileName || '') ||
-                item.mimeType?.includes('pdf') ||
-                item.mimeType?.startsWith('image/');
-              return (
-                <Pressable style={styles.viewBtn} onPress={() => handleOpenDocument(item)}>
-                  <MaterialCommunityIcons
-                    name={isPdfOrImg ? 'eye-outline' : 'download-outline'}
-                    size={16}
-                    color="#0055D4"
-                  />
-                  <Text style={styles.viewBtnText}>{isPdfOrImg ? 'Xem tệp' : 'Tải về'}</Text>
-                </Pressable>
-              );
-            })()}
           </View>
 
-          {canUpload && (
-            <Pressable style={styles.deleteBtn} onPress={() => handleDelete(item)}>
-              <MaterialCommunityIcons name="trash-can-outline" size={16} color="#EF4444" />
-            </Pressable>
-          )}
+          {/* Details */}
+          <View style={styles.cardInfoCol}>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.docTitle} numberOfLines={2}>
+                {item.title}
+              </Text>
+              <Pressable
+                onPress={() => setSelectedDocDetail(item)}
+                style={styles.moreOptionsBtn}
+                hitSlop={8}
+              >
+                <Ionicons name="ellipsis-horizontal" size={18} color="#64748B" />
+              </Pressable>
+            </View>
+
+            {/* Category tag */}
+            <View style={styles.categoryPillWrap}>
+              <View style={styles.categoryPill}>
+                <Text style={styles.categoryPillText}>{catLabel}</Text>
+              </View>
+            </View>
+
+            {/* Department info */}
+            <View style={styles.metaRow}>
+              <MaterialCommunityIcons name="office-building" size={13} color="#94A3B8" />
+              <Text style={styles.metaText} numberOfLines={1}>
+                {deptMainText}
+              </Text>
+            </View>
+
+            {/* File info */}
+            <View style={styles.metaRow}>
+              <MaterialCommunityIcons name="file-document-outline" size={13} color="#94A3B8" />
+              <Text style={styles.metaText}>
+                {badgeInfo.label} · {fileSizeText}
+              </Text>
+            </View>
+
+            {/* Date */}
+            <View style={styles.metaRow}>
+              <Ionicons name="calendar-outline" size={13} color="#94A3B8" />
+              <Text style={styles.metaText}>{uploadDate}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Action Buttons Row */}
+        <View style={styles.cardActionsRow}>
+          <Pressable style={styles.detailActionBtn} onPress={() => setSelectedDocDetail(item)}>
+            <Ionicons name="information-circle-outline" size={16} color="#0F172A" />
+            <Text style={styles.detailActionBtnText}>Chi tiết</Text>
+          </Pressable>
+
+          <Pressable style={styles.viewActionBtn} onPress={() => handleOpenDocument(item)}>
+            <Ionicons name="eye-outline" size={16} color="#FFFFFF" />
+            <Text style={styles.viewActionBtnText}>Xem tệp</Text>
+          </Pressable>
         </View>
       </View>
     );
   };
 
   return (
-    <Screen>
-      <View style={styles.headerSection}>
-        <PageHeader
-          title="Tài liệu nội bộ"
-          subtitle="Quy chế, biểu mẫu, tài liệu ca làm"
-          showBack={true}
-          onBack={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/(tabs)` as any))}
-          right={
-            canUpload ? (
-              <Pressable style={styles.addHeaderBtn} onPress={() => setShowUploadModal(true)}>
-                <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
-                <Text style={styles.addHeaderBtnText}>Thêm mới</Text>
-              </Pressable>
-            ) : undefined
-          }
-        />
-      </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
 
-      <View style={styles.searchSection}>
-        <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm tài liệu, biểu mẫu..." />
-      </View>
-
-      {/* Lọc theo danh mục */}
-      <View style={{ marginBottom: 12 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-          {CATEGORIES.map((c) => (
-            <FilterChip
-              key={c.value}
-              label={c.label}
-              isActive={selectedCategory === c.value}
-              onPress={() => setSelectedCategory(c.value)}
-            />
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Bộ lọc phòng ban (cho Admin Tổng, HR và Admin Miền) */}
-      {(canManageAll || isRegionAdmin) && (
-        <View style={styles.deptFilterRow}>
-          <Pressable style={styles.deptFilterBtn} onPress={() => setShowDeptModal(true)}>
-            <MaterialCommunityIcons name="filter-variant" size={16} color="#0055D4" />
-            <Text style={styles.deptFilterBtnText} numberOfLines={1}>
-              {selectedDeptId
-                ? deptOptions.find((d) => d.value === selectedDeptId)?.label || 'Phòng ban'
-                : (isRegionAdmin && !canManageAll ? 'Toàn miền' : 'Tất cả phòng ban')}
-            </Text>
-            <MaterialCommunityIcons name="chevron-down" size={16} color="#64748B" />
+      {/* ── Top Header (#1B3B2B) ── */}
+      <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={styles.headerMainRow}>
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/(tabs)` as any))}
+            style={styles.backBtn}
+            hitSlop={10}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </Pressable>
-          {selectedDeptId && (
-            <Pressable style={styles.clearDeptBtn} onPress={() => setSelectedDeptId(null)}>
-              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
-            </Pressable>
-          )}
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>Tài liệu nội bộ</Text>
+            <Text style={styles.headerSubtitle}>Quy chế, biểu mẫu, tài liệu ca làm</Text>
+          </View>
         </View>
-      )}
+      </View>
 
-      {/* Danh sách tài liệu */}
-      {isLoading ? (
-        <LoadingState label="Đang tải danh sách tài liệu..." />
-      ) : (
-        <FlatList
-          data={displayDocuments}
-          keyExtractor={(item) => item.id}
-          renderItem={renderDocumentItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-          ListEmptyComponent={
-            <EmptyState
-              title="Chưa có tài liệu nào"
-              message={
-                search || selectedCategory !== 'ALL' || selectedDeptId
-                  ? 'Không tìm thấy tài liệu phù hợp với bộ lọc'
-                  : 'Phòng ban của bạn chưa có tài liệu nào được đăng tải.'
-              }
-            />
-          }
-        />
-      )}
+      {/* ── Main Curved Sheet ── */}
+      <View style={styles.curvedSheet}>
+        {/* Search Input */}
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={18} color="#94A3B8" />
+          <TextInput
+            style={styles.searchInput}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Tìm tài liệu, biểu mẫu..."
+            placeholderTextColor="#94A3B8"
+          />
+          {search ? (
+            <Pressable onPress={() => setSearch('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Categories Horizontal Pills Bar */}
+        <View style={styles.categoriesBar}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesScrollContent}
+          >
+            {CATEGORIES.map((c) => {
+              const isActive = selectedCategory === c.value;
+              return (
+                <Pressable
+                  key={c.value}
+                  style={[styles.categoryBtn, isActive && styles.categoryBtnActive]}
+                  onPress={() => setSelectedCategory(c.value)}
+                >
+                  <Text style={[styles.categoryBtnText, isActive && styles.categoryBtnTextActive]}>
+                    {c.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Department Filter Card */}
+        {(canManageAll || isRegionAdmin) && (
+          <View style={styles.deptFilterSection}>
+            <Pressable style={styles.deptFilterCard} onPress={() => setShowDeptModal(true)}>
+              <View style={styles.deptFilterLeft}>
+                <MaterialCommunityIcons name="filter-variant" size={18} color="#1B3B2B" />
+                <Text style={styles.deptFilterText} numberOfLines={1}>
+                  {selectedDeptLabel}
+                </Text>
+              </View>
+              <Ionicons name="chevron-down" size={18} color="#64748B" />
+            </Pressable>
+          </View>
+        )}
+
+        {/* Section Header */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Danh sách tài liệu</Text>
+          <Text style={styles.sectionCountText}>{displayDocuments.length} tài liệu</Text>
+        </View>
+
+        {/* Documents List */}
+        {isLoading && !isRefetching ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="small" color="#1B3B2B" />
+            <Text style={styles.loadingText}>Đang tải danh sách tài liệu...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={displayDocuments}
+            keyExtractor={(item) => item.id}
+            renderItem={renderDocumentItem}
+            contentContainerStyle={[
+              styles.listContent,
+              canUpload && { paddingBottom: Math.max(insets.bottom, 16) + 72 },
+            ]}
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+            ListEmptyComponent={
+              <EmptyState
+                title="Chưa có tài liệu nào"
+                message={
+                  search || selectedCategory !== 'ALL' || selectedDeptId
+                    ? 'Không tìm thấy tài liệu phù hợp với bộ lọc'
+                    : 'Phòng ban của bạn chưa có tài liệu nào được đăng tải.'
+                }
+              />
+            }
+          />
+        )}
+
+        {/* Sticky Bottom Button: Thêm tài liệu */}
+        {canUpload && (
+          <View style={[styles.stickyFooterBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Pressable style={styles.addDocBtn} onPress={() => setShowUploadModal(true)}>
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <Text style={styles.addDocBtnText}>Thêm tài liệu</Text>
+            </Pressable>
+          </View>
+        )}
+      </View>
 
       {/* Upload Modal */}
       <UploadDocumentModal
@@ -440,232 +482,311 @@ export function DocumentListScreen() {
         onDelete={handleDelete}
         canDelete={canUpload}
       />
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
+    flex: 1,
+    backgroundColor: '#1B3B2B',
+  },
+
+  /* ── Header Wrap (#1B3B2B) ── */
+  headerWrap: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#1B3B2B',
+  },
+  headerMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleWrap: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#A7F3D0',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+
+  /* ── Curved Sheet ── */
+  curvedSheet: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
-  },
-  headerRow: {
+
+  /* ── Search Bar ── */
+  searchBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    height: 44,
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 10,
   },
-  headerTitleGroup: {
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+
+  /* ── Category Pills Bar ── */
+  categoriesBar: {
+    marginBottom: 10,
+  },
+  categoriesScrollContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  categoryBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 100,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  categoryBtnActive: {
+    backgroundColor: '#1B3B2B',
+    borderColor: '#1B3B2B',
+  },
+  categoryBtnText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  categoryBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  /* ── Dept Filter Section ── */
+  deptFilterSection: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  deptFilterCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  deptFilterLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flex: 1,
   },
-  backBtn: {
-    padding: 4,
-    marginLeft: -4,
-    justifyContent: 'center',
-    alignItems: 'center',
+  deptFilterText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+    flex: 1,
   },
-  screenTitle: {
-    fontSize: 22,
+
+  /* ── Section Header ── */
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
   },
-  screenSubtitle: {
+  sectionCountText: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 1,
   },
-  headerSection: {
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    marginBottom: 4,
-  },
-  searchSection: {
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
-  categoryScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  deptFilterRow: {
-    flexDirection: 'row',
+
+  /* ── Loading ── */
+  loadingBox: {
+    paddingVertical: 40,
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 12,
     gap: 8,
   },
-  deptFilterBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  deptFilterBtnText: {
-    flex: 1,
+  loadingText: {
     fontSize: 13,
-    color: '#1E293B',
-    fontWeight: '500',
+    color: '#64748B',
   },
-  clearDeptBtn: {
-    padding: 4,
-  },
-  addHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#0055D4',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  addHeaderBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
+
+  /* ── Document Cards ── */
   listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 40,
-    gap: 12,
+    paddingBottom: 24,
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    padding: 14,
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
-  cardHeader: {
+  cardTopRow: {
     flexDirection: 'row',
-    gap: 12,
     alignItems: 'flex-start',
+    gap: 12,
   },
-  iconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+  fileBadgeSquare: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  catBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+  fileBadgeSquareText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
-  catBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+  cardInfoCol: {
+    flex: 1,
   },
-  deptBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: '#F3F4F6',
-    maxWidth: '70%',
-  },
-  deptBadgeText: {
-    fontSize: 11,
-    color: '#4B5563',
-    fontWeight: '500',
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   docTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  docDesc: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 4,
+    flex: 1,
     lineHeight: 18,
   },
-  fileMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
+  moreOptionsBtn: {
+    padding: 2,
   },
-  fileNameText: {
-    fontSize: 12,
-    color: '#64748B',
-    flexShrink: 1,
-  },
-  fileSizeText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginLeft: 2,
-  },
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  categoryPillWrap: {
     marginTop: 4,
-    gap: 4,
+    marginBottom: 4,
   },
-  dateText: {
+  categoryPill: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  categoryPillText: {
     fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
+    fontWeight: '700',
+    color: '#1B3B2B',
   },
-  cardActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  detailBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  detailBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  viewBtn: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    marginTop: 2,
   },
-  viewBtnText: {
+  metaText: {
+    fontSize: 12,
+    color: '#64748B',
+    flex: 1,
+  },
+
+  /* Actions Row */
+  cardActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  detailActionBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  detailActionBtnText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#0055D4',
+    fontWeight: '700',
+    color: '#0F172A',
   },
-  deleteBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#FEF2F2',
+  viewActionBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#1B3B2B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  viewActionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* ── Sticky Footer ── */
+  stickyFooterBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  addDocBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#1B3B2B',
+    height: 48,
+    borderRadius: 12,
+  },
+  addDocBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
