@@ -191,6 +191,21 @@ export class AdminService {
           entityId: user.id,
         },
       });
+
+      const department = dto.departmentId
+        ? await tx.department.findUnique({ where: { id: dto.departmentId } })
+        : null;
+      const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
+      const actorName = actorProfile?.fullName || 'Quản trị viên';
+
+      // Thông báo biến động nhân sự: Nhân viên mới tới Kế toán
+      await this.notifications.notifyAccountantsOnHrEvent(tx, {
+        eventType: 'NEW_EMPLOYEE',
+        employeeName: dto.fullName,
+        userCode,
+        departmentName: department?.name,
+        performedByName: actorName,
+      });
       
       const { passwordHash: _hash, ...safeUser } = user;
       return safeUser;
@@ -884,6 +899,14 @@ export class AdminService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const prevUser = await tx.user.findUnique({
+        where: { id },
+        include: {
+          profile: true,
+          departmentLinks: { where: { leftAt: null }, include: { department: true } },
+        },
+      });
+
       const user = await tx.user.update({
         where: { id },
         data: {
@@ -982,6 +1005,53 @@ export class AdminService {
         });
       }
 
+      // Thông báo biến động nhân sự cho Kế toán
+      const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
+      const actorName = actorProfile?.fullName || 'Quản trị viên';
+      const activeDept = await tx.departmentMember.findFirst({
+        where: { userId: id, leftAt: null },
+        include: { department: true },
+      });
+      const deptName = activeDept?.department?.name || prevUser?.departmentLinks?.[0]?.department?.name;
+      const empName = user.profile?.fullName || prevUser?.profile?.fullName || user.userCode;
+
+      const oldStatus = prevUser?.accountStatus;
+      const newStatus = dto.accountStatus ?? prevUser?.accountStatus;
+      const oldActive = prevUser?.isActive;
+      const newActive = dto.isActive !== undefined ? dto.isActive : prevUser?.isActive;
+
+      if (newStatus === AccountStatus.RESIGNED || newStatus === AccountStatus.TERMINATED) {
+        if (oldStatus !== newStatus) {
+          await this.notifications.notifyAccountantsOnHrEvent(tx, {
+            eventType: 'RESIGNED_EMPLOYEE',
+            employeeName: empName,
+            userCode: user.userCode,
+            departmentName: deptName,
+            performedByName: actorName,
+          });
+        }
+      } else if (newStatus === AccountStatus.SUSPENDED || (newActive === false && oldActive !== false)) {
+        if (oldStatus !== AccountStatus.SUSPENDED || oldActive !== false) {
+          await this.notifications.notifyAccountantsOnHrEvent(tx, {
+            eventType: 'SUSPENDED_EMPLOYEE',
+            employeeName: empName,
+            userCode: user.userCode,
+            departmentName: deptName,
+            performedByName: actorName,
+          });
+        }
+      } else if (newStatus === AccountStatus.ACTIVE && newActive === true) {
+        if (oldStatus === AccountStatus.SUSPENDED || oldActive === false) {
+          await this.notifications.notifyAccountantsOnHrEvent(tx, {
+            eventType: 'ACTIVATED_EMPLOYEE',
+            employeeName: empName,
+            userCode: user.userCode,
+            departmentName: deptName,
+            performedByName: actorName,
+          });
+        }
+      }
+
       const { passwordHash: _passwordHash, ...safeUser } = user;
       return safeUser;
     });
@@ -1037,6 +1107,15 @@ export class AdminService {
           entityType: 'User',
           entityId: id,
         },
+      });
+
+      const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
+      const actorName = actorProfile?.fullName || 'Quản trị viên';
+      await this.notifications.notifyAccountantsOnHrEvent(tx, {
+        eventType: 'DELETED_EMPLOYEE',
+        employeeName: user.profile?.fullName || user.userCode,
+        userCode: user.userCode,
+        performedByName: actorName,
       });
 
       return { deleted: true, id };

@@ -580,6 +580,32 @@ export class EmployeeRequestsService {
               isActive: false,
             } as any,
           });
+
+          const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
+          const actorName = actorProfile?.fullName || 'Quản trị viên';
+          const targetUser = await tx.user.findUnique({ where: { id: request.userId }, include: { profile: true } });
+
+          await this.notifications.notifyAccountantsOnHrEvent(tx, {
+            eventType: 'DELETED_EMPLOYEE',
+            employeeName: targetUser?.profile?.fullName || targetUser?.userCode || 'Nhân sự',
+            userCode: targetUser?.userCode || '',
+            departmentName: request.department?.name,
+            reason: 'Duyệt đơn xin xóa tài khoản (đặt lịch xóa sau 30 ngày)',
+            performedByName: actorName,
+          });
+        } else if (request.title.toLowerCase().includes('nghỉ việc') || request.title.toLowerCase().includes('thôi việc')) {
+          const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
+          const actorName = actorProfile?.fullName || 'Quản lý';
+          const targetUser = await tx.user.findUnique({ where: { id: request.userId }, include: { profile: true } });
+
+          await this.notifications.notifyAccountantsOnHrEvent(tx, {
+            eventType: 'RESIGNED_EMPLOYEE',
+            employeeName: targetUser?.profile?.fullName || targetUser?.userCode || 'Nhân sự',
+            userCode: targetUser?.userCode || '',
+            departmentName: request.department?.name,
+            reason: `Duyệt đơn: ${request.title}`,
+            performedByName: actorName,
+          });
         }
 
         const notif = await this.notifications.createForUsers(tx, [request.userId], {
@@ -588,7 +614,7 @@ export class EmployeeRequestsService {
           body: `Yêu cầu "${request.title}" của bạn đã được duyệt.`,
           metadata: { requestId: id },
         });
-        this.notifications.emitCreated(notif);
+        if (notif) this.notifications.emitCreated(notif);
 
         return updated;
       });

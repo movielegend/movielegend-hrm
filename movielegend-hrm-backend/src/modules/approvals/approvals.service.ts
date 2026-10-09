@@ -13,6 +13,7 @@ import { ApprovalPolicyService } from './approval-policy.service';
 import { ApprovalQueryDto } from './dto/approval-query.dto';
 import { RejectDto } from './dto/reject.dto';
 import { EmailService } from '../notifications/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ApprovalsService {
@@ -20,6 +21,7 @@ export class ApprovalsService {
     private readonly prisma: PrismaService,
     private readonly policy: ApprovalPolicyService,
     private readonly emailService: EmailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async findAll(actor: AuthenticatedUser, query: ApprovalQueryDto) {
@@ -177,10 +179,26 @@ export class ApprovalsService {
         },
       });
 
-      // Lấy thông tin user để gửi email
+      // Lấy thông tin user để gửi email và thông báo cho Kế toán
       const user = await tx.user.findUnique({
         where: { id: request.userId },
         include: { profile: true },
+      });
+
+      const department = request.requestedDepartmentId
+        ? await tx.department.findUnique({ where: { id: request.requestedDepartmentId } })
+        : null;
+
+      const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: safeActorUserId } });
+      const actorName = actorProfile?.fullName || 'Quản trị viên';
+
+      // Gửi thông báo biến động nhân sự (Nhân viên mới) tới toàn bộ Kế toán
+      await this.notifications.notifyAccountantsOnHrEvent(tx, {
+        eventType: 'NEW_EMPLOYEE',
+        employeeName: user?.profile?.fullName || user?.userCode || 'Nhân viên mới',
+        userCode: user?.userCode || '',
+        departmentName: department?.name,
+        performedByName: actorName,
       });
 
       if (user?.email) {
@@ -244,6 +262,26 @@ export class ApprovalsService {
           entityId: id,
           metadata: { reason: dto.reason, userId: request.userId },
         },
+      });
+
+      const department = request.requestedDepartmentId
+        ? await tx.department.findUnique({ where: { id: request.requestedDepartmentId } })
+        : null;
+      const rejectedUser = await tx.user.findUnique({
+        where: { id: request.userId },
+        include: { profile: true },
+      });
+      const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: safeActorUserId } });
+      const actorName = actorProfile?.fullName || 'Quản trị viên';
+
+      // Thông báo cho kế toán tài khoản bị từ chối/tạm khóa
+      await this.notifications.notifyAccountantsOnHrEvent(tx, {
+        eventType: 'SUSPENDED_EMPLOYEE',
+        employeeName: rejectedUser?.profile?.fullName || rejectedUser?.userCode || 'Nhân sự',
+        userCode: rejectedUser?.userCode || '',
+        departmentName: department?.name,
+        reason: dto.reason ? `Từ chối duyệt đăng ký: ${dto.reason}` : 'Từ chối duyệt đăng ký',
+        performedByName: actorName,
       });
 
       return { id, status: ApprovalStatus.REJECTED };

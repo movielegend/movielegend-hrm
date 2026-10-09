@@ -6,28 +6,73 @@ import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { StorageService } from '../storage/storage.service';
 import { MediaStorageService } from '../storage/media-storage.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ScopedEmployeeQueryDto } from './dto/scoped-employee-query.dto';
 
 @Injectable()
 export class EmployeesService {
-  async updateAccountStatus(id: string, status: AccountStatus, actor: AuthenticatedUser) {
-    if (!actor.roles.includes('HR')) {
-       const userDeptId = await this.scope.getPrimaryDepartmentId(id);
-       await this.scope.assertDepartmentAccessAsync(actor, userDeptId);
-    }
-    return this.prisma.user.update({
-      where: { id },
-      data: { accountStatus: status },
-      select: { id: true, userCode: true, accountStatus: true }
-    });
-  }
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly scope: DepartmentScopeService,
     private readonly storage: StorageService,
     private readonly mediaStorage: MediaStorageService,
+    private readonly notifications: NotificationsService,
   ) {}
+
+  async updateAccountStatus(id: string, status: AccountStatus, actor: AuthenticatedUser) {
+    if (!actor.roles.includes('HR')) {
+       const userDeptId = await this.scope.getPrimaryDepartmentId(id);
+       await this.scope.assertDepartmentAccessAsync(actor, userDeptId);
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const prevUser = await tx.user.findUnique({
+        where: { id },
+        include: {
+          profile: true,
+          departmentLinks: { where: { leftAt: null }, include: { department: true } },
+        },
+      });
+
+      const updated = await tx.user.update({
+        where: { id },
+        data: { accountStatus: status },
+        select: { id: true, userCode: true, accountStatus: true },
+      });
+
+      const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: actor.userId } });
+      const actorName = actorProfile?.fullName || 'Quản lý';
+      const deptName = prevUser?.departmentLinks?.[0]?.department?.name;
+      const empName = prevUser?.profile?.fullName || prevUser?.userCode || updated.userCode;
+
+      if (status === AccountStatus.RESIGNED || status === AccountStatus.TERMINATED) {
+        await this.notifications.notifyAccountantsOnHrEvent(tx, {
+          eventType: 'RESIGNED_EMPLOYEE',
+          employeeName: empName,
+          userCode: updated.userCode,
+          departmentName: deptName,
+          performedByName: actorName,
+        });
+      } else if (status === AccountStatus.SUSPENDED) {
+        await this.notifications.notifyAccountantsOnHrEvent(tx, {
+          eventType: 'SUSPENDED_EMPLOYEE',
+          employeeName: empName,
+          userCode: updated.userCode,
+          departmentName: deptName,
+          performedByName: actorName,
+        });
+      } else if (status === AccountStatus.ACTIVE) {
+        await this.notifications.notifyAccountantsOnHrEvent(tx, {
+          eventType: 'ACTIVATED_EMPLOYEE',
+          employeeName: empName,
+          userCode: updated.userCode,
+          departmentName: deptName,
+          performedByName: actorName,
+        });
+      }
+
+      return updated;
+    });
+  }
 
   async findOne(id: string) {
     const profile = await this.prisma.employeeProfile.findUnique({
@@ -187,7 +232,7 @@ export class EmployeesService {
   async remove(id: string, actorUserId: string) {
     let profile = await this.prisma.employeeProfile.findFirst({
       where: { OR: [{ id }, { userId: id }] },
-      select: { id: true, userId: true, avatarUrl: true },
+      select: { id: true, userId: true, avatarUrl: true, fullName: true },
     });
     const targetUserId = profile?.userId || id;
     const userExists = await this.prisma.user.findUnique({ where: { id: targetUserId } });
@@ -218,6 +263,15 @@ export class EmployeesService {
           entityId: targetUserId,
           metadata: { profileId: profile?.id || id },
         },
+      });
+
+      const actorProfile = await tx.employeeProfile.findUnique({ where: { userId: actorUserId } });
+      const actorName = actorProfile?.fullName || 'Quản lý';
+      await this.notifications.notifyAccountantsOnHrEvent(tx, {
+        eventType: 'DELETED_EMPLOYEE',
+        employeeName: profile?.fullName || userExists.userCode,
+        userCode: userExists.userCode,
+        performedByName: actorName,
       });
     });
 
