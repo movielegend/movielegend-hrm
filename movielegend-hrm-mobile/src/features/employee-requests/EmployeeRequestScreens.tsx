@@ -2,10 +2,15 @@ import React, { useState, useCallback } from 'react';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform, TouchableOpacity, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform, TouchableOpacity, RefreshControl, TextInput, Modal } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { useMyEmployeeRequests, useEmployeeRequestById } from '../../hooks/useEmployeeRequests';
+import { useAuth } from '../../providers/AuthProvider';
+import { useAppAlert } from '../../contexts/AlertContext';
+import { uploadFile } from '../../api/uploads.api';
+import { createExpenseFromPurchase } from '../../api/employee-requests.api';
 import { resolveFileUrl } from '../../utils/url';
 import { shadows } from '../../theme/shadows';
 import { spacing } from '../../theme/spacing';
@@ -37,10 +42,10 @@ export function EmployeeRequestsHomeScreen() {
         case 'PENDING_HR':
           return { text: 'Chờ HR đối chứng', color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.1)' };
         case 'PENDING_ADMIN':
-          return { text: 'Chờ A Kiên duyệt', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' };
+          return { text: 'Chờ Ban Giám Đốc duyệt', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' };
         case 'PENDING_ACCOUNTANT':
         case 'PENDING_DISBURSEMENT':
-          return { text: 'Chờ Chị Tâm giải ngân', color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' };
+          return { text: 'Chờ Kế toán giải ngân', color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' };
         default:
           return { text: 'Đang chờ duyệt', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)' };
       }
@@ -110,9 +115,23 @@ export function CreateEmployeeRequestScreen() {
 
 export function EmployeeRequestDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user: currentUser } = useAuth();
+  const { showAlert } = useAppAlert();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const { data: request, isLoading, isError } = useEmployeeRequestById(id);
+
+  // HR Purchase Fulfillment Modal State
+  const [isHrPurchaseModalOpen, setIsHrPurchaseModalOpen] = useState(false);
+  const [hrAmount, setHrAmount] = useState('');
+  const [hrHasVat, setHrHasVat] = useState(false);
+  const [hrBillProofUri, setHrBillProofUri] = useState<string | null>(null);
+  const [hrNote, setHrNote] = useState('');
+  const [hrBankAccount, setHrBankAccount] = useState('');
+  const [hrBankName, setHrBankName] = useState('');
+  const [hrAccountHolder, setHrAccountHolder] = useState('');
+  const [isSubmittingHrExpense, setIsSubmittingHrExpense] = useState(false);
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -121,6 +140,69 @@ export function EmployeeRequestDetailScreen() {
     await queryClient.invalidateQueries();
     setRefreshing(false);
   }, [queryClient]);
+
+  const handlePickHrBill = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setHrBillProofUri(result.assets[0].uri);
+    }
+  };
+
+  const handleTakeHrBill = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      showAlert('Quyền truy cập', 'Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh hóa đơn mua hàng.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setHrBillProofUri(result.assets[0].uri);
+    }
+  };
+
+  const handleConfirmHrExpense = async () => {
+    if (!hrAmount.trim() || Number(hrAmount) <= 0) {
+      showAlert('Lỗi', 'Vui lòng nhập Số tiền mua hàng thực tế hợp lệ.');
+      return;
+    }
+
+    setIsSubmittingHrExpense(true);
+    try {
+      let billProofUrl = undefined;
+      if (hrBillProofUri) {
+        const res = await uploadFile({
+          uri: hrBillProofUri,
+          name: `purchase_bill_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          purpose: 'EMPLOYEE_DOCUMENT',
+        });
+        billProofUrl = res.fileUrl;
+      }
+
+      await createExpenseFromPurchase(id, {
+        amount: Number(hrAmount),
+        hasVat: hrHasVat,
+        disbursementProofUrl: billProofUrl,
+        images: billProofUrl ? [billProofUrl] : undefined,
+        note: hrNote.trim() || undefined,
+        bankAccount: hrBankAccount.trim() || undefined,
+        bankName: hrBankName.trim() || undefined,
+        accountHolder: hrAccountHolder.trim() || undefined,
+      });
+
+      showAlert('Thành công', 'HR đã tạo yêu cầu thanh toán hoàn tiền thành công! Chuyển Kế toán giải ngân.');
+      setIsHrPurchaseModalOpen(false);
+      await queryClient.invalidateQueries();
+    } catch (err: any) {
+      console.log('Error creating expense from purchase:', err);
+      showAlert('Lỗi', err.response?.data?.message || err.message || 'Không thể tạo đơn thanh toán.');
+    } finally {
+      setIsSubmittingHrExpense(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -165,6 +247,12 @@ export function EmployeeRequestDetailScreen() {
     if (status === 'REJECTED') {
       return { text: 'Từ chối', color: '#EF4444', bg: '#FEE2E2' };
     }
+    if (stage === 'PENDING_HR_PURCHASE') {
+      return { text: 'Chờ HR mua hàng', color: '#0284C7', bg: '#E0F2FE' };
+    }
+    if (stage === 'PURCHASE_FULFILLED') {
+      return { text: 'HR đã mua hàng', color: '#10B981', bg: '#D1FAE5' };
+    }
     if (status === 'APPROVED') {
       if (meta.disbursementProofUrl || stage === 'DISBURSED') {
         return { text: 'Đã giải ngân', color: '#10B981', bg: '#D1FAE5' };
@@ -178,10 +266,10 @@ export function EmployeeRequestDetailScreen() {
         case 'PENDING_HR':
           return { text: 'Chờ HR đối chứng', color: '#3B82F6', bg: '#DBEAFE' };
         case 'PENDING_ADMIN':
-          return { text: 'Chờ A Kiên duyệt', color: '#8B5CF6', bg: '#EDE9FE' };
+          return { text: 'Chờ Ban Giám Đốc duyệt', color: '#8B5CF6', bg: '#EDE9FE' };
         case 'PENDING_ACCOUNTANT':
         case 'PENDING_DISBURSEMENT':
-          return { text: 'Chờ Chị Tâm giải ngân', color: '#F97316', bg: '#FFEDD5' };
+          return { text: 'Chờ Kế toán giải ngân', color: '#F97316', bg: '#FFEDD5' };
         default:
           return { text: 'Đang chờ duyệt', color: '#F59E0B', bg: '#FEF3C7' };
       }
@@ -211,6 +299,17 @@ export function EmployeeRequestDetailScreen() {
   const dateStr = request.createdAt ? new Date(request.createdAt).toLocaleString('vi-VN') : '';
   const isFinancial = request.type === 'ADVANCE' || request.type === 'EXPENSE' || request.type === 'PURCHASE';
   const approvalSteps = Array.isArray(meta.approvalSteps) ? meta.approvalSteps : [];
+
+  const rawRoles = currentUser?.roles || [];
+  const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+  const roleCodes = userRoles.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
+  const isHrUser = roleCodes.includes('HR') ||
+    roleCodes.includes('ADMIN') ||
+    roleCodes.includes('SUPER_ADMIN') ||
+    currentUser?.department?.name?.toLowerCase().includes('nhân sự') ||
+    currentUser?.department?.code?.toUpperCase() === 'HR';
+
+  const canHrFulfillPurchase = request.type === 'PURCHASE' && meta.stage === 'PENDING_HR_PURCHASE' && isHrUser;
 
   return (
     <KeyboardAvoidingView 
@@ -283,7 +382,7 @@ export function EmployeeRequestDetailScreen() {
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Phân loại VAT:</Text>
                   <Text style={[styles.metaValueBold, { color: meta.hasVat ? '#059669' : '#D97706' }]}>
-                    {meta.hasVat ? 'Có hóa đơn VAT (Chị Tâm giải ngân)' : 'Không VAT (Dưới 2tr: Chị Tâm | Trên 2tr: A Kiên)'}
+                    {meta.hasVat ? 'Có hóa đơn VAT (Kế toán chi)' : 'Không VAT (Dưới 2tr: Kế toán chi | Trên 2tr: Ban Giám Đốc)'}
                   </Text>
                 </View>
 
@@ -518,6 +617,50 @@ export function EmployeeRequestDetailScreen() {
               </View>
             )}
 
+            {/* 6. Chi tiết Đề xuất mua sắm (PURCHASE) */}
+            {request.type === 'PURCHASE' && (
+              <View style={styles.metaCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <MaterialCommunityIcons name="cart-outline" size={18} color="#0EA5E9" style={{ marginRight: 6 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#0369A1', marginBottom: 0 }]}>
+                    THÔNG TIN ĐỀ XUẤT MUA SẮM
+                  </Text>
+                </View>
+
+                {meta.itemName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Sản phẩm / Vật tư:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#0F172A' }]}>{meta.itemName}</Text>
+                  </View>
+                ) : null}
+
+                {meta.quantity ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Số lượng:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#0EA5E9' }]}>{meta.quantity}</Text>
+                  </View>
+                ) : null}
+
+                {(meta.neededDate || meta.fromDate) ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày cần có:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>
+                      {formatDateStr(meta.neededDate || meta.fromDate)}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {meta.purchasedByHrName ? (
+                  <View style={[styles.metaRow, { borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 8, marginTop: 4 }]}>
+                    <Text style={styles.metaLabel}>Nhân sự mua hàng:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#059669' }]}>
+                      {meta.purchasedByHrName} (Đã mua xong)
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
             {meta.bankInfo && (
               <View style={{ backgroundColor: '#F0F9FF', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#BAE6FD' }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1', marginBottom: 6 }}>
@@ -623,8 +766,8 @@ export function EmployeeRequestDetailScreen() {
               let stepTitle = 'Phê duyệt';
               if (step.stage === 'PENDING_LEADER' || step.action === 'LEADER_APPROVED') stepTitle = 'Trưởng bộ phận duyệt';
               else if (step.stage === 'PENDING_HR' || step.action === 'HR_VERIFIED' || step.action === 'HR_APPROVED') stepTitle = 'HR đối chứng & duyệt';
-              else if (step.stage === 'PENDING_ADMIN' || step.action === 'ADMIN_APPROVED') stepTitle = 'Ban Giám Đốc duyệt (A Kiên)';
-              else if (step.stage === 'PENDING_ACCOUNTANT' || step.stage === 'PENDING_DISBURSEMENT' || isDisbursed) stepTitle = 'Kế toán giải ngân (Chị Tâm)';
+              else if (step.stage === 'PENDING_ADMIN' || step.action === 'ADMIN_APPROVED') stepTitle = 'Ban Giám Đốc duyệt';
+              else if (step.stage === 'PENDING_ACCOUNTANT' || step.stage === 'PENDING_DISBURSEMENT' || isDisbursed) stepTitle = 'Kế toán giải ngân';
 
               return (
                 <View key={idx} style={[styles.timelineRow, isLast && { marginBottom: 0 }]}>
@@ -665,16 +808,16 @@ export function EmployeeRequestDetailScreen() {
                     <Text style={[styles.timelineTitle, { color: '#D97706' }]}>
                       {meta.stage === 'PENDING_LEADER' ? 'Chờ Leader duyệt' :
                        meta.stage === 'PENDING_HR' ? 'Chờ Leader HR đối chứng' :
-                       meta.stage === 'PENDING_ADMIN' ? 'Chờ Ban Giám Đốc duyệt (A Kiên)' :
-                       meta.stage === 'PENDING_ACCOUNTANT' || meta.stage === 'PENDING_DISBURSEMENT' ? 'Chờ Kế toán giải ngân (Chị Tâm)' :
+                       meta.stage === 'PENDING_ADMIN' ? 'Chờ Ban Giám Đốc duyệt' :
+                       meta.stage === 'PENDING_ACCOUNTANT' || meta.stage === 'PENDING_DISBURSEMENT' ? 'Chờ Kế toán giải ngân' :
                        'Đang chờ xem xét'}
                     </Text>
                   </View>
                   <Text style={styles.timelineDesc}>
                     {meta.stage === 'PENDING_LEADER' ? 'Đang chờ Trưởng bộ phận xem xét và phê duyệt' :
                      meta.stage === 'PENDING_HR' ? 'HR đang đối chứng bảng lương & hợp đồng' :
-                     meta.stage === 'PENDING_ADMIN' ? 'Đơn không VAT trên 2 triệu đang chờ Ban Giám Đốc (A Kiên) phê duyệt' :
-                     meta.stage === 'PENDING_ACCOUNTANT' || meta.stage === 'PENDING_DISBURSEMENT' ? 'Kế toán (Chị Tâm) đang tiến hành giải ngân chi tiền' :
+                     meta.stage === 'PENDING_ADMIN' ? 'Đơn không VAT trên 2 triệu đang chờ Ban Giám Đốc phê duyệt' :
+                     meta.stage === 'PENDING_ACCOUNTANT' || meta.stage === 'PENDING_DISBURSEMENT' ? 'Kế toán đang tiến hành giải ngân chi tiền' :
                      'Đơn đang được xử lý theo quy trình'}
                   </Text>
                 </View>
@@ -712,7 +855,201 @@ export function EmployeeRequestDetailScreen() {
 
           </View>
         </View>
+
+        {/* NÚT THAO TÁC CHO HR KHI ĐÃ ĐƯỢC DUYỆT MUA HÀNG */}
+        {canHrFulfillPurchase && (
+          <View style={[styles.infoCard, { backgroundColor: '#F0F9FF', borderColor: '#0284C7', marginBottom: 24 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <MaterialCommunityIcons name="cart-check" size={24} color="#0284C7" style={{ marginRight: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#0369A1' }}>HR Đã Mua Hàng Xong?</Text>
+                <Text style={{ fontSize: 12, color: '#475569' }}>
+                  Bấm để tạo đơn thanh toán hoàn tiền cho {request.user?.profile?.fullName || 'nhân viên đề xuất'}.
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => setIsHrPurchaseModalOpen(true)}
+              style={{
+                backgroundColor: '#0284C7',
+                paddingVertical: 12,
+                borderRadius: 10,
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'row',
+                marginTop: 8,
+              }}
+            >
+              <MaterialCommunityIcons name="credit-card-plus-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>
+                Tạo yêu cầu thanh toán (Đã mua hàng)
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
+
+      {/* HR Purchase Fulfillment Modal */}
+      <Modal
+        visible={isHrPurchaseModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isSubmittingHrExpense && setIsHrPurchaseModalOpen(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 }}
+        >
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 440, maxHeight: '90%' }}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                    <MaterialCommunityIcons name="cart-check" size={20} color="#0284C7" />
+                  </View>
+                  <Text style={{ fontSize: 17, fontWeight: '800', color: '#0F172A' }}>Tạo yêu cầu thanh toán</Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => setIsHrPurchaseModalOpen(false)}
+                  disabled={isSubmittingHrExpense}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons name="close" size={22} color="#94A3B8" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 2 }}>Đơn mua sắm cho nhân viên:</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                  {request.user?.profile?.fullName || 'Nhân viên'} · {meta.itemName || request.title} (SL: {meta.quantity || '1'})
+                </Text>
+                <Text style={{ fontSize: 12, color: '#059669', marginTop: 4 }}>
+                  (Người yêu cầu: {request.user?.profile?.fullName || 'Nhân viên'} · Người tạo thanh toán: HR)
+                </Text>
+              </View>
+
+              {/* Số tiền thực tế */}
+              <View style={{ marginBottom: 12 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 6 }}>
+                  Số tiền mua thực tế (VNĐ) <Text style={{ color: '#DC2626' }}>*</Text>
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 10, paddingHorizontal: 12, height: 46 }}>
+                  <TextInput
+                    style={{ flex: 1, fontSize: 15, fontWeight: '700', color: '#0F172A' }}
+                    placeholder="Nhập số tiền..."
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    value={hrAmount ? parseInt(hrAmount, 10).toLocaleString('vi-VN') : ''}
+                    onChangeText={(text) => setHrAmount(text.replace(/[^0-9]/g, ''))}
+                  />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#475569' }}>VNĐ</Text>
+                </View>
+              </View>
+
+              {/* Hóa đơn VAT */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 14 }}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#334155' }}>Hóa đơn VAT</Text>
+                  <Text style={{ fontSize: 11, color: '#64748B' }}>
+                    {hrHasVat ? 'Đơn có VAT (chuyển Kế toán thanh toán)' : 'Đơn không có VAT'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setHrHasVat(!hrHasVat)}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 16,
+                    backgroundColor: hrHasVat ? '#10B981' : '#E2E8F0'
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: hrHasVat ? '#FFFFFF' : '#475569' }}>
+                    {hrHasVat ? 'CÓ VAT' : 'K° VAT'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Upload ảnh hóa đơn mua hàng */}
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 6 }}>
+                  Ảnh Hóa đơn / Bill mua hàng (Tùy chọn)
+                </Text>
+                {hrBillProofUri ? (
+                  <View style={{ borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#CBD5E1', marginBottom: 8 }}>
+                    <Image source={{ uri: hrBillProofUri }} style={{ width: '100%', height: 160 }} resizeMode="cover" />
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 8, backgroundColor: '#F8FAFC' }}>
+                      <TouchableOpacity onPress={handlePickHrBill} style={{ marginRight: 12 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#0284C7' }}>Đổi ảnh</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setHrBillProofUri(null)}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#DC2626' }}>Xóa</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity 
+                      onPress={handlePickHrBill}
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 42, backgroundColor: '#F1F5F9', borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E1' }}
+                    >
+                      <MaterialCommunityIcons name="image-plus" size={18} color="#475569" style={{ marginRight: 4 }} />
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>Chọn ảnh</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={handleTakeHrBill}
+                      style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 42, backgroundColor: '#F1F5F9', borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E1' }}
+                    >
+                      <MaterialCommunityIcons name="camera-outline" size={18} color="#475569" style={{ marginRight: 4 }} />
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>Chụp ảnh</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              {/* Ghi chú */}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 6 }}>
+                  Ghi chú của HR (Tùy chọn)
+                </Text>
+                <TextInput
+                  style={{ backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 10, padding: 10, height: 70, fontSize: 14, color: '#0F172A', textAlignVertical: 'top' }}
+                  placeholder="Ghi chú thêm về việc mua hàng..."
+                  placeholderTextColor="#94A3B8"
+                  multiline
+                  value={hrNote}
+                  onChangeText={setHrNote}
+                />
+              </View>
+
+              {/* Nút hành động */}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity
+                  onPress={() => setIsHrPurchaseModalOpen(false)}
+                  disabled={isSubmittingHrExpense}
+                  style={{ flex: 1, height: 46, borderRadius: 10, backgroundColor: '#F1F5F9', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#475569' }}>Hủy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleConfirmHrExpense}
+                  disabled={isSubmittingHrExpense}
+                  style={{ flex: 2, height: 46, borderRadius: 10, backgroundColor: '#0284C7', alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
+                >
+                  {isSubmittingHrExpense ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="check" size={18} color="#fff" style={{ marginRight: 4 }} />
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>Gửi yêu cầu thanh toán</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Full-screen Image Viewer with Zoom */}
       <ImageView

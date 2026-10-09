@@ -233,8 +233,22 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                 employee.departmentLinks?.[0]?.department?.branch?.name ||
                 (employee as any).department?.branch?.name ||
                 'Hà Nội';
-              const positionName = employee.profile?.position?.name || 'Chưa cập nhật';
-              const isLeader = employee.roles?.some(r => r.role?.code === 'LEADER');
+              
+              const rawRoles = employee.roles || [];
+              const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+              const roleCodes = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.role?.code || r?.name || '').toUpperCase());
+
+              const isAccDept = deptName.toLowerCase().includes('kế toán') || deptName.toLowerCase().includes('kt');
+              let displayRole = employee.profile?.position?.name || employee.position?.name;
+              if (roleCodes.includes('ADMIN') || roleCodes.includes('SUPER_ADMIN')) displayRole = 'Admin Tổng';
+              else if (roleCodes.includes('ACCOUNTANT_LEAD')) displayRole = 'Kế toán trưởng';
+              else if (roleCodes.includes('LEADER') || roleCodes.includes('DEPARTMENT_HEAD')) displayRole = isAccDept ? 'Kế toán trưởng' : 'Trưởng phòng (Leader)';
+              else if (roleCodes.includes('ACCOUNTANT_PAYROLL')) displayRole = 'Kế toán lương';
+              else if (roleCodes.includes('ACCOUNTANT_TAX')) displayRole = 'Kế toán thuế';
+              else if (roleCodes.includes('ACCOUNTANT_GENERAL') || isAccDept) displayRole = 'Kế toán viên';
+              else if (roleCodes.includes('HR') || roleCodes.includes('HUMAN_RESOURCE')) displayRole = 'Nhân sự HR';
+              else if (!displayRole) displayRole = 'Nhân viên';
+
               const isActive = employee.accountStatus === 'ACTIVE';
 
               return (
@@ -250,7 +264,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                         {deptName} • {branchName}
                       </Text>
                       <Text style={styles.employeePosition}>
-                        Vị trí: {isLeader ? 'Leader' : positionName}
+                        Vị trí: {displayRole}
                       </Text>
                     </View>
 
@@ -433,6 +447,13 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                     onPress={() => {
                       const emp = selectedEmployeeMenu;
                       setSelectedEmployeeMenu(null);
+                      if (isAccLead && !isCurrentUserAdmin) {
+                        setConfirmAction({
+                          type: 'error_chief_accountant',
+                          employeeName: emp.profile?.fullName || emp.userCode,
+                        });
+                        return;
+                      }
                       let initialRole: AccountantRoleType = 'ACCOUNTANT_GENERAL';
                       if (roleCodes.includes('ACCOUNTANT_LEAD') && isCurrentUserAdmin) initialRole = 'ACCOUNTANT_LEAD';
                       else if (roleCodes.includes('ACCOUNTANT_PAYROLL')) initialRole = 'ACCOUNTANT_PAYROLL';
@@ -552,7 +573,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               </Pressable>
             </View>
 
-            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
               {[
                 {
                   role: 'ACCOUNTANT_LEAD' as AccountantRoleType,
@@ -696,11 +717,11 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
             : confirmAction?.type === 'revoke'
             ? `Bạn có chắc chắn muốn thu hồi chức vụ Leader của nhân viên ${confirmAction?.employeeName}?`
             : confirmAction?.type === 'revoke_accountant'
-            ? `Bạn có chắc chắn muốn thu hồi các chức vụ Kế toán chuyên trách của nhân sự ${confirmAction?.employeeName}?`
+            ? `Bạn có chắc chắn muốn thu hồi chức vụ Kế toán chuyên trách của ${confirmAction?.employeeName}? Nhân sự này sẽ trở về vị trí Kế toán viên thông thường.`
             : confirmAction?.type === 'error_inactive'
             ? 'Nhân viên này đang không trong trạng thái hoạt động nên không thể bổ nhiệm làm Leader.'
             : confirmAction?.type === 'error_chief_accountant'
-            ? `Chỉ Quản trị viên hệ thống (Admin) mới có quyền thu hồi chức vụ Kế toán trưởng của ${confirmAction?.employeeName}.`
+            ? `Chỉ Quản trị viên hệ thống (Admin) mới có quyền bổ nhiệm, thay đổi chức vụ hoặc thu hồi đối với Kế toán trưởng (${confirmAction?.employeeName}).`
             : confirmAction?.type === 'lock'
             ? `Bạn có chắc chắn muốn khóa tài khoản của ${confirmAction?.employeeName}?`
             : `Bạn có chắc chắn muốn mở khóa tài khoản của ${confirmAction?.employeeName}?`
@@ -1073,7 +1094,7 @@ const styles = StyleSheet.create({
   },
   accountantRoleCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     padding: 14,
     borderRadius: 16,
     borderWidth: 1.5,
@@ -1086,26 +1107,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0FDF4',
   },
   accountantRoleCardDisabled: {
-    opacity: 0.5,
+    opacity: 0.65,
     backgroundColor: '#F8FAFC',
     borderColor: '#E2E8F0',
   },
   accountantRoleIconWrap: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 2,
   },
   accountantRoleTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
+    lineHeight: 18,
   },
   accountantRoleDesc: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 3,
+    marginTop: 4,
     lineHeight: 16,
   },
   adminOnlyNote: {
@@ -1123,6 +1146,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+    marginTop: 4,
   },
   radioCircleSelected: {
     borderColor: '#059669',

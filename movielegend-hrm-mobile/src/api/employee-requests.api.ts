@@ -54,3 +54,20 @@ export async function rejectEmployeeRequest(
   return unwrapData(response);
 }
 
+export async function createExpenseFromPurchase(
+  id: string,
+  payload: {
+    amount: number;
+    hasVat?: boolean;
+    disbursementProofUrl?: string;
+    images?: string[];
+    note?: string;
+    bankAccount?: string;
+    bankName?: string;
+    accountHolder?: string;
+  }
+): Promise<EmployeeRequest> {
+  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/create-expense-from-purchase`, payload);
+  return unwrapData(response);
+}
+

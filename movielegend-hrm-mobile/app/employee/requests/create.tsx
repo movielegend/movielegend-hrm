@@ -28,6 +28,7 @@ const REQUEST_TYPES: { type: EmployeeRequestType, label: string, icon: keyof typ
   { type: 'LATE_ARRIVAL', label: 'Đi muộn', icon: 'clock-outline', color: '#1B382B' },
   { type: 'EARLY_LEAVE', label: 'Về sớm', icon: 'exit-to-app', color: '#1B382B' },
   { type: 'OVERTIME', label: 'Làm thêm\ngiờ', icon: 'clock-plus-outline', color: '#1B382B' },
+  { type: 'PURCHASE', label: 'Mua sắm', icon: 'cart-outline', color: '#1B382B' },
   { type: 'ADVANCE', label: 'Tạm ứng', icon: 'database-outline', color: '#1B382B' },
   { type: 'EXPENSE', label: 'Thanh toán', icon: 'credit-card-outline', color: '#1B382B' },
   { type: 'OTHER', label: 'Khác', icon: 'dots-horizontal', color: '#1B382B' },
@@ -66,6 +67,10 @@ export default function CreateRequestScreen() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [amount, setAmount] = useState('');
+
+  // Specific fields for Purchase (Đề xuất mua sắm / Đơn mua hàng)
+  const [purchaseItemName, setPurchaseItemName] = useState('');
+  const [purchaseQuantity, setPurchaseQuantity] = useState('');
   
   // Specific fields for Late/Early Leave
   const [startTime, setStartTime] = useState<Date | null>(null);
@@ -139,7 +144,8 @@ export default function CreateRequestScreen() {
   const isBusinessTrip = selectedType === 'BUSINESS_TRIP';
   const isOvertime = selectedType === 'OVERTIME';
   const isLateOrEarly = selectedType === 'LATE_ARRIVAL' || selectedType === 'EARLY_LEAVE';
-  const isFinancial = selectedType === 'ADVANCE' || selectedType === 'EXPENSE' || selectedType === 'PURCHASE';
+  const isPurchase = selectedType === 'PURCHASE';
+  const isFinancial = selectedType === 'ADVANCE' || selectedType === 'EXPENSE';
 
   const userDeptId = user?.department?.id || (user as any)?.departmentId;
   const userDeptName = user?.department?.name || (user as any)?.departmentName || '';
@@ -189,6 +195,21 @@ export default function CreateRequestScreen() {
     });
     if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
       setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const handlePickPhoto = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
+        setPhotoUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.log('Pick photo error:', err);
+      showAlert('Lỗi', 'Không thể chọn ảnh từ máy.');
     }
   };
 
@@ -356,10 +377,8 @@ export default function CreateRequestScreen() {
         generatedTitle = `Giải trình: ${explanationType} - ${dateStr}`;
       } else if (isLeave && leaveType) {
         generatedTitle = `Nghỉ phép: ${leaveType} - ${dateStr}`;
-      } else if (isOvertime) {
-        generatedTitle = `Làm thêm giờ - ${dateStr}`;
-      } else if (isLateOrEarly) {
-        generatedTitle = `${typeLabel} - ${dateStr}`;
+      } else if (isPurchase) {
+        generatedTitle = `[Mua sắm] ${purchaseItemName.trim() || 'Vật tư'} (SL: ${purchaseQuantity.trim() || '1'})`;
       } else if (isFinancial) {
         generatedTitle = `${typeLabel} - ${amount ? Number(amount).toLocaleString('vi-VN') + ' VNĐ' : ''}`;
       } else {
@@ -382,6 +401,25 @@ export default function CreateRequestScreen() {
       }
       if (toDate < fromDate) {
         showAlert('Lỗi', 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.');
+        return;
+      }
+    }
+
+    if (isPurchase) {
+      if (!purchaseItemName.trim()) {
+        showAlert('Lỗi', 'Vui lòng nhập Tên sản phẩm / vật phẩm cần mua.');
+        return;
+      }
+      if (!purchaseQuantity.trim()) {
+        showAlert('Lỗi', 'Vui lòng nhập Số lượng.');
+        return;
+      }
+      if (!fromDate) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày cần có.');
+        return;
+      }
+      if (!content.trim()) {
+        showAlert('Lỗi', 'Vui lòng nhập Lý do / Mục đích sử dụng.');
         return;
       }
     }
@@ -452,7 +490,7 @@ export default function CreateRequestScreen() {
         return;
       }
     }
-    if (selectedType === 'EXPENSE' || selectedType === 'PURCHASE') {
+    if (selectedType === 'EXPENSE') {
       if (!photoUri) {
         showAlert('Lỗi', 'Vui lòng đính kèm ảnh minh chứng (Hóa đơn/Chứng từ).');
         return;
@@ -482,6 +520,11 @@ export default function CreateRequestScreen() {
       const attachmentMetadata = {
         ...(uploadedUrl ? { image: uploadedUrl } : {}),
         ...(selectedType === 'EXPENSE' ? { hasVat: Boolean(hasVat), vatInvoiceUrl: uploadedUrl || undefined } : {}),
+        ...(isPurchase ? {
+          itemName: purchaseItemName.trim(),
+          quantity: purchaseQuantity.trim(),
+          neededDate: fromDate ? fromDate.toISOString() : undefined,
+        } : {}),
         ...(isBusinessTrip ? {
           location: tripLocation.trim(),
           images: tripImages,
@@ -1208,6 +1251,91 @@ export default function CreateRequestScreen() {
                 </View>
               </View>
             </>
+          ) : isPurchase ? (
+            <>
+              {/* Tên sản phẩm */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Tên sản phẩm / vật phẩm <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.inputBox}>
+                  <TextInput
+                    style={[styles.inputText, { flex: 1 }]}
+                    placeholder="VD: Chuột máy tính, Giấy in A4, Bàn phím..."
+                    placeholderTextColor="#94A3B8"
+                    value={purchaseItemName}
+                    onChangeText={setPurchaseItemName}
+                  />
+                  <MaterialCommunityIcons name="cart-outline" size={20} color="#0EA5E9" />
+                </View>
+              </View>
+
+              {/* Số lượng */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Số lượng <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.inputBox}>
+                  <TextInput
+                    style={[styles.inputText, { flex: 1 }]}
+                    placeholder="VD: 1 chiếc, 5 cái, 2 ram..."
+                    placeholderTextColor="#94A3B8"
+                    value={purchaseQuantity}
+                    onChangeText={setPurchaseQuantity}
+                  />
+                  <MaterialCommunityIcons name="numeric" size={20} color="#64748B" />
+                </View>
+              </View>
+
+              {/* Ngày cần có */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Ngày cần có <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
+                  <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
+                    {fromDate ? formatDate(fromDate) : 'Chọn ngày cần có'}
+                  </Text>
+                  <MaterialCommunityIcons name="calendar-clock" size={20} color="#0284C7" />
+                </Pressable>
+              </View>
+
+              {/* Lý do chi tiết */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Lý do đề xuất <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.textAreaBox}>
+                  <TextInput
+                    style={styles.textAreaInput}
+                    placeholder="Nhập lý do / mục đích sử dụng chi tiết..."
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    maxLength={500}
+                    value={content}
+                    onChangeText={setContent}
+                    textAlignVertical="top"
+                    onFocus={() => {
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                    }}
+                  />
+                  <Text style={styles.counterText}>{content.length}/500</Text>
+                </View>
+              </View>
+
+              {/* Quy trình duyệt Mua sắm */}
+              <View style={styles.approvalWorkflowBanner}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <MaterialCommunityIcons name="transit-connection-variant" size={16} color="#0EA5E9" />
+                  <Text style={[styles.approvalWorkflowTitle, { color: '#0369A1' }]}>
+                    Quy trình: Đề xuất mua hàng
+                  </Text>
+                </View>
+                <Text style={styles.approvalWorkflowSubtitle}>
+                  1. Leader PB duyệt ➔ 2. Kế toán duyệt ➔ 3. HR nhận đơn mua hàng
+                </Text>
+              </View>
+            </>
           ) : isFinancial ? (
             <>
               {/* Số tiền */}
@@ -1274,8 +1402,8 @@ export default function CreateRequestScreen() {
                       <Text style={[styles.formLabel, { marginBottom: 2 }]}>Hóa đơn VAT</Text>
                       <Text style={{ fontSize: 12, color: '#64748B' }}>
                         {hasVat 
-                          ? 'Đơn có VAT (Duyệt: Leader ➔ Chị Tâm giải ngân)' 
-                          : 'Đơn K° VAT (Dưới 2tr: Chị Tâm | Trên 2tr: A Kiên ➔ Chị Tâm)'}
+                          ? 'Đơn có VAT (Duyệt: Leader ➔ Kế toán giải ngân)' 
+                          : 'Đơn K° VAT (≤ 2tr: Kế toán | > 2tr: Ban Giám Đốc ➔ Kế toán)'}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -1308,37 +1436,47 @@ export default function CreateRequestScreen() {
                       ? (hasVat 
                           ? 'Quy trình: Có hóa đơn VAT' 
                           : Number(amount || 0) > 2000000 
-                            ? 'Quy trình: K° VAT trên 2tr (A Kiên duyệt)' 
-                            : 'Quy trình: K° VAT dưới 2tr (Chị Tâm chi)')
+                            ? 'Quy trình: Không VAT trên 2tr (Ban Giám Đốc duyệt)' 
+                            : 'Quy trình: Không VAT dưới 2tr (Kế toán chi)')
                       : Number(amount || 0) > 2000000 ? 'Quy trình: Trên 2 triệu' : 'Quy trình: Dưới 2 triệu'}
                   </Text>
                 </View>
                 <Text style={styles.approvalWorkflowSubtitle}>
                   {selectedType === 'EXPENSE'
                     ? (hasVat
-                        ? '1. Leader PB duyệt ➔ 2. Kế toán chị Tâm giải ngân'
+                        ? '1. Leader PB duyệt ➔ 2. Kế toán giải ngân'
                         : Number(amount || 0) > 2000000
-                          ? '1. Leader PB duyệt ➔ 2. BGĐ (A Kiên) duyệt ➔ 3. Kế toán chị Tâm chi'
-                          : '1. Leader PB duyệt ➔ 2. Kế toán chị Tâm giải ngân')
-                    : '1. Leader PB duyệt ➔ 2. Kế toán chị Tâm duyệt & giải ngân'}
+                          ? '1. Leader PB duyệt ➔ 2. Ban Giám Đốc duyệt ➔ 3. Kế toán chi'
+                          : '1. Leader PB duyệt ➔ 2. Kế toán giải ngân')
+                    : '1. Leader PB duyệt ➔ 2. Kế toán duyệt & giải ngân'}
                 </Text>
               </View>
 
-              {/* Chụp ảnh minh chứng */}
+              {/* Đính kèm minh chứng / hóa đơn */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
-                  Ảnh minh chứng {selectedType === 'EXPENSE' ? <Text style={styles.required}>*</Text> : '(Tùy chọn)'}
+                  Ảnh / Tệp minh chứng {selectedType === 'EXPENSE' ? <Text style={styles.required}>*</Text> : '(Tùy chọn)'}
                 </Text>
-                <Pressable style={styles.photoButton} onPress={handleTakePhoto}>
-                  <MaterialCommunityIcons 
-                    name={photoUri ? "check-circle" : "camera-outline"} 
-                    size={20} 
-                    color={photoUri ? "#10B981" : "#475569"} 
-                  />
-                  <Text style={[styles.photoButtonText, photoUri && styles.photoButtonTextSuccess]}>
-                    {photoUri ? 'Đã đính kèm ảnh minh chứng' : 'Chụp ảnh minh chứng / hóa đơn'}
-                  </Text>
-                </Pressable>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handlePickPhoto}>
+                    <MaterialCommunityIcons 
+                      name={photoUri ? "check-circle" : "image-plus"} 
+                      size={20} 
+                      color={photoUri ? "#10B981" : "#475569"} 
+                    />
+                    <Text style={[styles.photoButtonText, photoUri && styles.photoButtonTextSuccess]}>
+                      {photoUri ? 'Đã chọn ảnh' : 'Chọn từ máy'}
+                    </Text>
+                  </Pressable>
+                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handleTakePhoto}>
+                    <MaterialCommunityIcons 
+                      name="camera-outline" 
+                      size={20} 
+                      color="#475569" 
+                    />
+                    <Text style={styles.photoButtonText}>Chụp ảnh</Text>
+                  </Pressable>
+                </View>
                 {photoUri && (
                   <View style={styles.photoPreviewWrap}>
                     <TouchableOpacity onPress={() => setIsFullScreenPhoto(true)} style={{ width: '100%', height: '100%' }}>

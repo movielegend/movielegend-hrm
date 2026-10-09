@@ -217,6 +217,11 @@ export class AdminService {
         department.name?.toLowerCase().includes('nhân sự') || 
         department.name?.toLowerCase().includes('human resources');
 
+      const isAccountingDept = 
+        department.code?.toUpperCase() === 'KT' || 
+        department.code?.toUpperCase() === 'ACCOUNTING' || 
+        department.name?.toLowerCase().includes('kế toán');
+
       const assignment = await tx.userRole.upsert({
         where: {
           userId_roleId_scopeType_scopeId: {
@@ -247,8 +252,53 @@ export class AdminService {
         }
       }
 
+      // Tự động gán vai trò Kế toán trưởng nếu là Phòng Kế toán (Leader phòng Kế toán auto == Kế toán trưởng)
+      if (isAccountingDept) {
+        const accLeadRole = await tx.role.upsert({
+          where: { code: 'ACCOUNTANT_LEAD' },
+          create: { code: 'ACCOUNTANT_LEAD', name: 'Kế toán trưởng', description: 'Kế toán trưởng - Toàn quyền quản trị tài chính, phê duyệt lương, thưởng và chi tiêu', isSystem: true },
+          update: { name: 'Kế toán trưởng' }
+        });
+        const accBaseRole = await tx.role.upsert({
+          where: { code: 'ACCOUNTANT' },
+          create: { code: 'ACCOUNTANT', name: 'Kế toán', description: 'Vai trò Kế toán chung hệ thống', isSystem: true },
+          update: { name: 'Kế toán' }
+        });
+
+        for (const r of [accBaseRole, accLeadRole]) {
+          const exists = await tx.userRole.findFirst({
+            where: { userId: dto.userId, roleId: r.id, scopeType: RoleScopeType.GLOBAL }
+          });
+          if (!exists) {
+            await tx.userRole.create({
+              data: { userId: dto.userId, roleId: r.id, scopeType: RoleScopeType.GLOBAL }
+            });
+          }
+        }
+
+        let posLead = await tx.position.findUnique({ where: { code: 'POS_ACCOUNTANT_LEAD' } });
+        if (!posLead) {
+          posLead = await tx.position.create({
+            data: {
+              code: 'POS_ACCOUNTANT_LEAD',
+              name: 'Kế toán trưởng',
+              departmentId: dto.departmentId,
+              isActive: true
+            }
+          });
+        }
+        await tx.employeeProfile.updateMany({
+          where: { userId: dto.userId },
+          data: { positionId: posLead.id }
+        });
+        await tx.departmentMember.updateMany({
+          where: { userId: dto.userId },
+          data: { positionId: posLead.id }
+        });
+      }
+
       if (dto.primary ?? true) {
-        // Nếu có Trưởng phòng cũ khác với người mới, gỡ vai trò Leader & HR của Trưởng phòng cũ
+        // Nếu có Trưởng phòng cũ khác với người mới, gỡ vai trò Leader & HR / Accountant Lead của Trưởng phòng cũ
         if (department.leaderUserId && department.leaderUserId !== dto.userId) {
           await tx.userRole.deleteMany({
             where: {
@@ -268,6 +318,19 @@ export class AdminService {
               },
             });
           }
+
+          if (isAccountingDept) {
+            const accLeadRole = await tx.role.findUnique({ where: { code: 'ACCOUNTANT_LEAD' } });
+            if (accLeadRole) {
+              await tx.userRole.deleteMany({
+                where: {
+                  userId: department.leaderUserId,
+                  roleId: accLeadRole.id,
+                  scopeType: RoleScopeType.GLOBAL
+                }
+              });
+            }
+          }
         }
 
         await tx.department.update({
@@ -282,12 +345,14 @@ export class AdminService {
           action: 'admin.leader.assign',
           entityType: 'UserRole',
           entityId: assignment.id,
-          metadata: { departmentId: dto.departmentId, isHrDept },
+          metadata: { departmentId: dto.departmentId, isHrDept, isAccountingDept },
         },
       });
 
       const bodyMsg = isHrDept
         ? `Bạn vừa được bổ nhiệm làm Trưởng phòng Nhân sự và tự động cấp quyền Quản trị HR toàn công ty.`
+        : isAccountingDept
+        ? `Bạn vừa được bổ nhiệm làm Trưởng phòng Kế toán kiêm Kế toán trưởng hệ thống.`
         : `Bạn vừa được bổ nhiệm làm quản lý chi nhánh/phòng ban ${department.name || ''}.`;
 
       const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
@@ -313,11 +378,25 @@ export class AdminService {
           dept?.code?.toUpperCase() === 'HR' || 
           dept?.name?.toLowerCase().includes('nhân sự');
 
+        const isAccountingDept = 
+          dept?.code?.toUpperCase() === 'KT' || 
+          dept?.code?.toUpperCase() === 'ACCOUNTING' || 
+          dept?.name?.toLowerCase().includes('kế toán');
+
         if (isHrDept) {
           const hrRole = await tx.role.findUnique({ where: { code: 'HR' } });
           if (hrRole) {
             await tx.userRole.deleteMany({
               where: { userId: assignment.userId, roleId: hrRole.id, scopeType: RoleScopeType.GLOBAL },
+            });
+          }
+        }
+
+        if (isAccountingDept) {
+          const accLeadRole = await tx.role.findUnique({ where: { code: 'ACCOUNTANT_LEAD' } });
+          if (accLeadRole) {
+            await tx.userRole.deleteMany({
+              where: { userId: assignment.userId, roleId: accLeadRole.id, scopeType: RoleScopeType.GLOBAL }
             });
           }
         }
@@ -388,6 +467,16 @@ export class AdminService {
           create: { code: r.code, name: r.name, description: r.description, isSystem: true },
           update: { name: r.name, description: r.description }
         });
+      }
+
+      // Check if target user currently has ACCOUNTANT_LEAD role
+      const currentRoles = await tx.userRole.findMany({
+        where: { userId: dto.userId },
+        include: { role: true }
+      });
+      const isTargetCurrentlyLead = currentRoles.some(r => r.role.code === 'ACCOUNTANT_LEAD');
+      if (isTargetCurrentlyLead && !isActorAdmin) {
+        throw forbidden('FORBIDDEN', 'Chỉ Quản trị viên hệ thống (Admin) mới có quyền thay đổi chức vụ hoặc giáng chức người đang giữ vị trí Kế toán trưởng');
       }
 
       const rolesInDb = await tx.role.findMany({
@@ -526,6 +615,25 @@ export class AdminService {
             data: { leaderUserId: dto.userId }
           });
         }
+      } else if (dto.accountantRole !== 'ACCOUNTANT_LEAD' && isTargetCurrentlyLead && accountingDept) {
+        // If user was previously accountant lead and is now reassigned to another role by Admin, remove leader status from accounting dept
+        if (accountingDept.leaderUserId === dto.userId) {
+          await tx.department.update({
+            where: { id: accountingDept.id },
+            data: { leaderUserId: null }
+          });
+          const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
+          if (leaderRole) {
+            await tx.userRole.deleteMany({
+              where: {
+                userId: dto.userId,
+                roleId: leaderRole.id,
+                scopeType: RoleScopeType.DEPARTMENT,
+                scopeId: accountingDept.id,
+              }
+            });
+          }
+        }
       }
 
       // 7. Audit Log
@@ -599,6 +707,35 @@ export class AdminService {
         }
       });
 
+      // Gán lại vai trò Kế toán viên (nhân viên thường phòng kế toán)
+      const baseRole = accountantRoles.find(r => r.code === 'ACCOUNTANT');
+      const genRole = accountantRoles.find(r => r.code === 'ACCOUNTANT_GENERAL');
+      for (const r of [baseRole, genRole]) {
+        if (r) {
+          await tx.userRole.create({
+            data: { userId, roleId: r.id, scopeType: RoleScopeType.GLOBAL }
+          });
+        }
+      }
+
+      // Cập nhật position về Kế toán viên
+      let posGen = await tx.position.findUnique({ where: { code: 'POS_ACCOUNTANT_GENERAL' } });
+      if (!posGen) {
+        posGen = await tx.position.create({
+          data: { code: 'POS_ACCOUNTANT_GENERAL', name: 'Kế toán viên', isActive: true }
+        });
+      }
+      if (user.profile) {
+        await tx.employeeProfile.update({
+          where: { id: user.profile.id },
+          data: { positionId: posGen.id }
+        });
+      }
+      await tx.departmentMember.updateMany({
+        where: { userId },
+        data: { positionId: posGen.id }
+      });
+
       // Check if user was leader of accounting dept
       const leaderRole = await tx.role.findUnique({ where: { code: 'LEADER' } });
       const ledDepts = await tx.department.findMany({
@@ -629,8 +766,8 @@ export class AdminService {
 
       const notif = await this.notifications.createForUsers(tx as any, [userId], {
         type: 'SYSTEM' as NotificationType,
-        title: 'Thu hồi chức vụ Kế toán',
-        body: 'Chức vụ Kế toán của bạn đã được thu hồi.',
+        title: 'Cập nhật chức vụ Kế toán',
+        body: 'Chức vụ Kế toán chuyên trách của bạn đã được thu hồi, bạn trở về vị trí Kế toán viên.',
       });
       if (notif) this.notifications.emitCreated(notif);
 

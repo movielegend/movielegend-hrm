@@ -93,4 +93,14 @@ export class EmployeeRequestsController {
   ) {
     return this.employeeRequestsService.reject(id, actor, body);
   }
+
+  @Permissions('employee.request')
+  @Post(':id/create-expense-from-purchase')
+  createExpenseFromPurchase(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() body: any,
+  ) {
+    return this.employeeRequestsService.createExpenseFromPurchase(id, body, actor);
+  }
 }

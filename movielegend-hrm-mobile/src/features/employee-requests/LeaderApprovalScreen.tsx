@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useAppAlert } from '../../contexts/AlertContext';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, TouchableOpacity, RefreshControl } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, TouchableOpacity, RefreshControl, Modal } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +33,13 @@ export function LeaderApprovalScreen() {
   const rejectMutation = useRejectEmployeeRequest();
 
   const [comment, setComment] = useState('');
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+
+  // Disbursement modal state
+  const [isDisburseModalOpen, setIsDisburseModalOpen] = useState(false);
+  const [disburseNote, setDisburseNote] = useState('');
+  const [disburseBankRefCode, setDisburseBankRefCode] = useState('');
 
   // Helper to map type to colors & labels
   const getTypeConfig = (type: string) => {
@@ -63,33 +70,26 @@ export function LeaderApprovalScreen() {
     }
   };
 
-  const handleApprove = async () => {
-    let proofUrl = undefined;
-    if (disbursementProofUri) {
-      try {
-        setIsUploadingProof(true);
-        const res = await uploadFile({
-          uri: disbursementProofUri,
-          name: `disbursement_${Date.now()}.jpg`,
-          mimeType: 'image/jpeg',
-          purpose: 'EMPLOYEE_DOCUMENT'
-        });
-        proofUrl = res.fileUrl;
-      } catch (err) {
-        console.log('Proof upload error', err);
-        showAlert('Lỗi', 'Không thể tải ảnh chứng từ giải ngân lên.');
-        setIsUploadingProof(false);
-        return;
-      } finally {
-        setIsUploadingProof(false);
-      }
+  const handleTakePhotoDisbursementProof = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) {
+      showAlert('Quyền truy cập', 'Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh bill.');
+      return;
     }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setDisbursementProofUri(result.assets[0].uri);
+    }
+  };
 
+  const handleApprove = async () => {
     approveMutation.mutate({
       id,
       payload: {
         note: comment.trim() || undefined,
-        disbursementProofUrl: proofUrl,
+        bankRefCode: isFinancial ? (comment.trim() || undefined) : undefined,
       }
     }, {
       onSuccess: () => {
@@ -102,18 +102,83 @@ export function LeaderApprovalScreen() {
     });
   };
 
-  const handleReject = () => {
-    if (!comment.trim()) {
-      showAlert('Yêu cầu lý do', 'Vui lòng nhập lý do từ chối (bắt buộc theo quy trình duyệt chi phí Movie Legend).');
+  const handleApproveForwardAdmin = async () => {
+    approveMutation.mutate({
+      id,
+      payload: {
+        note: comment.trim() || 'Duyệt chờ thanh toán, chuyển Ban Giám Đốc phê duyệt',
+        forwardToAdmin: true,
+      }
+    }, {
+      onSuccess: () => {
+        showAlert('Thành công', 'Đã duyệt và chuyển Ban Giám Đốc phê duyệt!');
+        router.back();
+      },
+      onError: (err: any) => {
+        showAlert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra');
+      }
+    });
+  };
+
+  const handleConfirmDisburse = async () => {
+    if (!disbursementProofUri) {
+      showAlert('Yêu cầu ảnh bill', 'Vui lòng tải lên hoặc chụp ảnh bill chuyển khoản / ủy nhiệm chi để hoàn tất giải ngân.');
+      return;
+    }
+
+    let proofUrl = undefined;
+    try {
+      setIsUploadingProof(true);
+      const res = await uploadFile({
+        uri: disbursementProofUri,
+        name: `disbursement_${Date.now()}.jpg`,
+        mimeType: 'image/jpeg',
+        purpose: 'EMPLOYEE_DOCUMENT'
+      });
+      proofUrl = res.fileUrl;
+    } catch (err) {
+      console.log('Proof upload error', err);
+      showAlert('Lỗi', 'Không thể tải ảnh chứng từ giải ngân lên.');
+      setIsUploadingProof(false);
+      return;
+    } finally {
+      setIsUploadingProof(false);
+    }
+
+    approveMutation.mutate({
+      id,
+      payload: {
+        note: disburseNote.trim() || undefined,
+        bankRefCode: disburseBankRefCode.trim() || undefined,
+        disbursementProofUrl: proofUrl,
+      }
+    }, {
+      onSuccess: () => {
+        setIsDisburseModalOpen(false);
+        setDisbursementProofUri(null);
+        showAlert('Thành công', 'Đã duyệt và giải ngân thành công!');
+        router.back();
+      },
+      onError: (err: any) => {
+        showAlert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra');
+      }
+    });
+  };
+
+  const handleConfirmReject = () => {
+    if (!rejectReason.trim()) {
+      showAlert('Yêu cầu lý do', 'Vui lòng nhập lý do từ chối cụ thể (bắt buộc).');
       return;
     }
     rejectMutation.mutate({
       id,
       payload: {
-        reason: comment.trim(),
+        reason: rejectReason.trim(),
       }
     }, {
       onSuccess: () => {
+        setIsRejectModalOpen(false);
+        setRejectReason('');
         showAlert('Đã từ chối', 'Đơn từ đã được cập nhật từ chối.');
         router.back();
       },
@@ -160,11 +225,11 @@ export function LeaderApprovalScreen() {
         return 'HR đối chứng & duyệt';
       case 'PENDING_ADMIN':
       case 'ADMIN':
-        return 'Ban Giám Đốc duyệt (A Kiên)';
+        return 'Ban Giám Đốc duyệt';
       case 'PENDING_ACCOUNTANT':
       case 'PENDING_DISBURSEMENT':
       case 'ACCOUNTANT':
-        return 'Kế toán giải ngân (Chị Tâm)';
+        return 'Kế toán giải ngân';
       default:
         return 'Cấp duyệt';
     }
@@ -197,17 +262,34 @@ export function LeaderApprovalScreen() {
     : {};
   const stage = meta.stage || 'PENDING';
   const approvalSteps = Array.isArray(meta.approvalSteps) ? meta.approvalSteps : [];
+  const isNonVatOver2M = isFinancial && request.type === 'EXPENSE' && !meta.hasVat && amount > 2000000;
 
-  const isAdmin = currentUser?.roles?.includes('ADMIN');
-  const isHr = currentUser?.roles?.includes('HR') ||
+  const rawRoles = currentUser?.roles || [];
+  const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+  const roleCodes = userRoles.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
+
+  const isAdmin = roleCodes.includes('ADMIN') || roleCodes.includes('SUPER_ADMIN');
+  const isHr = roleCodes.includes('HR') ||
     currentUser?.department?.name?.toLowerCase().includes('nhân sự') ||
     currentUser?.department?.code?.toUpperCase() === 'HR';
-  const isAccountant = currentUser?.roles?.includes('ACCOUNTANT') ||
+  const isAccountant = roleCodes.includes('ACCOUNTANT') ||
+    roleCodes.includes('ACCOUNTANT_LEAD') ||
+    roleCodes.includes('ACCOUNTANT_PAYROLL') ||
+    roleCodes.includes('ACCOUNTANT_TAX') ||
+    roleCodes.includes('ACCOUNTANT_GENERAL') ||
     currentUser?.department?.name?.toLowerCase().includes('kế toán') ||
     currentUser?.department?.name?.toLowerCase().includes('tài chính') ||
     ['KT', 'TC', 'ACC', 'ACCOUNTING'].includes(currentUser?.department?.code?.toUpperCase() || '');
+  const isAccountantLead = roleCodes.includes('ACCOUNTANT_LEAD') ||
+    (roleCodes.includes('LEADER') && (
+      currentUser?.department?.name?.toLowerCase().includes('kế toán') ||
+      currentUser?.department?.code?.toUpperCase() === 'KT' ||
+      currentUser?.department?.code?.toUpperCase() === 'ACCOUNTING'
+    )) ||
+    isAdmin ||
+    roleCodes.includes('DIRECTOR');
   const isDeptLeader = request.department?.leaderUserId === currentUser?.id ||
-    (currentUser?.roles?.includes('LEADER') && (currentUser?.department?.id === request.departmentId || currentUser?.department?.id === request.department?.id));
+    (roleCodes.includes('LEADER') && (currentUser?.department?.id === request.departmentId || currentUser?.department?.id === request.department?.id));
 
   // Determine if current user can perform an approval/reject action at the current stage
   let canActOnCurrentStage = false;
@@ -239,13 +321,16 @@ export function LeaderApprovalScreen() {
       if (isAdmin) {
         canActOnCurrentStage = true;
       } else {
-        waitingStageDescription = 'Đơn không VAT trên 2 triệu. Đang chờ Ban Giám Đốc (A Kiên) phê duyệt.';
+        waitingStageDescription = 'Đơn không VAT trên 2 triệu. Đang chờ Ban Giám Đốc phê duyệt.';
       }
     } else if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
-      if (isAccountant || isAdmin) {
+      if (isAccountantLead) {
         canActOnCurrentStage = true;
+      } else if (isAccountant) {
+        canActOnCurrentStage = false;
+        waitingStageDescription = 'Đơn đã duyệt các bước trước. Đang chờ Kế toán trưởng phê duyệt và giải ngân.';
       } else {
-        waitingStageDescription = 'Đơn đã được duyệt. Đang chờ Kế toán (Chị Tâm) thực hiện giải ngân.';
+        waitingStageDescription = 'Đơn đã được duyệt. Đang chờ Kế toán trưởng thực hiện giải ngân.';
       }
     }
   }
@@ -255,20 +340,20 @@ export function LeaderApprovalScreen() {
   let approveSubtext = '';
   if (isFinancial) {
     if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
-      approveButtonLabel = 'Xác nhận Giải ngân';
-      approveSubtext = 'Kế toán (Chị Tâm) giải ngân & hoàn tất';
+      approveButtonLabel = 'Duyệt & Giải ngân';
+      approveSubtext = 'Kế toán trưởng phê duyệt chi & hoàn tất';
     } else if (stage === 'PENDING_ADMIN') {
       approveButtonLabel = 'Duyệt chuyển Kế toán';
-      approveSubtext = 'Ban Giám Đốc (A Kiên) duyệt chi > 2 triệu';
+      approveSubtext = 'Ban Giám Đốc duyệt chi > 2 triệu';
     } else if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
-      if (request.type === 'EXPENSE') {
+      if (request.type === 'EXPENSE' || request.type === 'PURCHASE') {
         const hasVat = Boolean(meta.hasVat);
         if (hasVat || amount <= 2000000) {
           approveButtonLabel = 'Duyệt chuyển Kế toán';
-          approveSubtext = hasVat ? 'Có VAT: chuyển Chị Tâm chi' : 'Đơn ≤ 2 triệu: chuyển Chị Tâm chi';
+          approveSubtext = hasVat ? 'Có VAT: chuyển Kế toán chi' : 'Đơn ≤ 2 triệu: chuyển Kế toán chi';
         } else {
-          approveButtonLabel = 'Duyệt chuyển Giám Đốc';
-          approveSubtext = 'K° VAT trên 2 triệu: chuyển A Kiên duyệt';
+          approveButtonLabel = 'Duyệt chuyển Ban Giám Đốc';
+          approveSubtext = 'Không VAT trên 2 triệu: chuyển Ban Giám Đốc duyệt';
         }
       } else {
         approveButtonLabel = 'Duyệt chuyển tiếp';
@@ -663,7 +748,7 @@ export function LeaderApprovalScreen() {
             <View style={styles.metaRow}>
               <Text style={styles.metaLabel}>Phân loại VAT</Text>
               <Text style={[styles.metaValue, { color: meta.hasVat ? '#059669' : '#D97706', fontWeight: '700' }]}>
-                {meta.hasVat ? 'Có hóa đơn VAT (Chị Tâm chi)' : 'Không VAT (Dưới 2tr: Chị Tâm | Trên 2tr: A Kiên)'}
+                {meta.hasVat ? 'Có hóa đơn VAT (Kế toán chi)' : 'Không VAT (Dưới 2tr: Kế toán chi | Trên 2tr: Ban Giám Đốc)'}
               </Text>
             </View>
             {(meta.beneficiaryBank || meta.beneficiaryAccount || meta.beneficiaryName) ? (
@@ -879,9 +964,11 @@ export function LeaderApprovalScreen() {
               </View>
             )}
 
-            {/* Comment box */}
+            {/* Comment / Transaction ref box */}
             <View style={styles.commentBoxWrap}>
-              <Text style={styles.commentBoxLabel}>Ghi chú / Ý kiến</Text>
+              <Text style={styles.commentBoxLabel}>
+                {isFinancial ? 'Ghi chú / Ý kiến duyệt' : 'Ghi chú / Ý kiến'}
+              </Text>
               <TextInput
                 style={styles.commentInputModern}
                 placeholder="Nhập ghi chú nếu có..."
@@ -904,27 +991,83 @@ export function LeaderApprovalScreen() {
             ) : null}
 
             {/* Button Row */}
-            <View style={styles.actionButtonsRow}>
-              <Pressable 
-                style={[styles.rejectBtnModern, (rejectMutation.isPending || approveMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
-                onPress={handleReject}
-                disabled={rejectMutation.isPending || approveMutation.isPending || isUploadingProof}
-              >
-                {rejectMutation.isPending ? <ActivityIndicator color="#DC2626" /> : (
-                  <Text style={styles.rejectBtnModernText}>Từ chối</Text>
-                )}
-              </Pressable>
+            {isNonVatOver2M && (stage === 'PENDING_LEADER' || stage === 'PENDING_ACCOUNTANT') ? (
+              <View style={{ gap: 8 }}>
+                <View style={styles.actionButtonsRow}>
+                  <Pressable 
+                    style={[styles.rejectBtnModern, { flex: 1 }, (rejectMutation.isPending || approveMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                    onPress={() => setIsRejectModalOpen(true)}
+                    disabled={rejectMutation.isPending || approveMutation.isPending || isUploadingProof}
+                  >
+                    <Text style={styles.rejectBtnModernText}>Từ chối</Text>
+                  </Pressable>
 
-              <Pressable 
-                style={[styles.approveBtnModern, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
-                onPress={handleApprove}
-                disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
-              >
-                {approveMutation.isPending || isUploadingProof ? <ActivityIndicator color="#fff" /> : (
-                  <Text style={styles.approveBtnModernText}>{approveButtonLabel}</Text>
-                )}
-              </Pressable>
-            </View>
+                  <Pressable 
+                    style={[{
+                      flex: 1.3,
+                      height: 48,
+                      backgroundColor: '#2563EB',
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingHorizontal: 8,
+                    }, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                    onPress={handleApproveForwardAdmin}
+                    disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' }}>
+                      Duyệt chờ TT
+                    </Text>
+                  </Pressable>
+
+                  <Pressable 
+                    style={[{
+                      flex: 1.4,
+                      height: 48,
+                      backgroundColor: '#16A34A',
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingHorizontal: 8,
+                    }, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                    onPress={() => setIsDisburseModalOpen(true)}
+                    disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' }}>
+                      Duyệt & Giải ngân
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.actionButtonsRow}>
+                <Pressable 
+                  style={[styles.rejectBtnModern, (rejectMutation.isPending || approveMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                  onPress={() => setIsRejectModalOpen(true)}
+                  disabled={rejectMutation.isPending || approveMutation.isPending || isUploadingProof}
+                >
+                  <Text style={styles.rejectBtnModernText}>Từ chối</Text>
+                </Pressable>
+
+                <Pressable 
+                  style={[styles.approveBtnModern, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                  onPress={() => {
+                    if (request.type === 'PURCHASE') {
+                      handleApprove();
+                    } else if (isFinancial && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT')) {
+                      setIsDisburseModalOpen(true);
+                    } else {
+                      handleApprove();
+                    }
+                  }}
+                  disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
+                >
+                  {approveMutation.isPending || isUploadingProof ? <ActivityIndicator color="#fff" /> : (
+                    <Text style={styles.approveBtnModernText}>{approveButtonLabel}</Text>
+                  )}
+                </Pressable>
+              </View>
+            )}
           </View>
         ) : (
           <View style={[styles.bottomActionBar, shadows.lg, { paddingBottom: Math.max(insets.bottom, 16), alignItems: 'center' }]}>
@@ -951,6 +1094,237 @@ export function LeaderApprovalScreen() {
           </View>
         </View>
       )}
+
+      {/* Disbursement & Upload Bill Modal */}
+      <Modal
+        visible={isDisburseModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isUploadingProof && !approveMutation.isPending && setIsDisburseModalOpen(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalBackdrop}
+        >
+          <View style={[styles.modalCard, shadows.lg, { maxHeight: '90%' }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.modalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={[styles.modalHeaderIconWrap, { backgroundColor: '#DCFCE7' }]}>
+                    <MaterialCommunityIcons name="cash-check" size={22} color="#166534" />
+                  </View>
+                  <Text style={styles.modalTitle}>Duyệt & Giải ngân</Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => setIsDisburseModalOpen(false)}
+                  disabled={isUploadingProof || approveMutation.isPending}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons name="close" size={20} color="#94A3B8" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Amount & Beneficiary Banner */}
+              <View style={styles.disburseInfoCard}>
+                <Text style={styles.disburseInfoLabel}>SỐ TIỀN CẦN GIẢI NGÂN</Text>
+                <Text style={styles.disburseInfoAmount}>{amount.toLocaleString('vi-VN')} VNĐ</Text>
+                
+                {(meta.beneficiaryName || meta.beneficiaryAccount || meta.beneficiaryBank) ? (
+                  <View style={styles.disburseRecipientWrap}>
+                    {meta.beneficiaryName ? (
+                      <Text style={styles.disburseRecipientName}>Chủ TK: {meta.beneficiaryName}</Text>
+                    ) : null}
+                    <Text style={styles.disburseRecipientBank}>
+                      {meta.beneficiaryAccount ? `STK: ${meta.beneficiaryAccount}` : ''}
+                      {meta.beneficiaryBank ? ` · Ngân hàng: ${meta.beneficiaryBank}` : ''}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Bill Upload Section */}
+              <View style={{ marginTop: 14 }}>
+                <Text style={styles.modalInputLabel}>
+                  Ảnh Bill chuyển khoản / Ủy nhiệm chi <Text style={{ color: '#DC2626' }}>*</Text>
+                </Text>
+
+                {disbursementProofUri ? (
+                  <View style={styles.billPreviewContainer}>
+                    <Image source={{ uri: disbursementProofUri }} style={styles.billPreviewImage} resizeMode="cover" />
+                    <View style={styles.billPreviewActions}>
+                      <TouchableOpacity 
+                        style={styles.billChangeBtn}
+                        onPress={handlePickDisbursementProof}
+                      >
+                        <MaterialCommunityIcons name="image-edit-outline" size={16} color="#1E3E2F" />
+                        <Text style={styles.billChangeBtnText}>Đổi ảnh</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.billRemoveBtn}
+                        onPress={() => setDisbursementProofUri(null)}
+                      >
+                        <MaterialCommunityIcons name="delete-outline" size={16} color="#DC2626" />
+                        <Text style={styles.billRemoveBtnText}>Xóa</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.billPickerRow}>
+                    <TouchableOpacity 
+                      style={styles.billPickerBtn}
+                      onPress={handlePickDisbursementProof}
+                    >
+                      <MaterialCommunityIcons name="image-plus" size={24} color="#1E3E2F" />
+                      <Text style={styles.billPickerBtnText}>Chọn ảnh từ thư viện</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={styles.billPickerBtn}
+                      onPress={handleTakePhotoDisbursementProof}
+                    >
+                      <MaterialCommunityIcons name="camera-plus-outline" size={24} color="#1E3E2F" />
+                      <Text style={styles.billPickerBtnText}>Chụp ảnh bill</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              {/* Transaction Ref Input */}
+              <View style={{ marginTop: 14 }}>
+                <Text style={styles.modalInputLabel}>Mã giao dịch ngân hàng (Nếu có)</Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="VD: FT260109923..."
+                  placeholderTextColor="#94A3B8"
+                  value={disburseBankRefCode}
+                  onChangeText={setDisburseBankRefCode}
+                />
+              </View>
+
+              {/* Note Input */}
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>Ghi chú giải ngân (Tùy chọn)</Text>
+                <TextInput
+                  style={[styles.modalTextInput, { minHeight: 50 }]}
+                  placeholder="Nhập ghi chú thêm nếu có..."
+                  placeholderTextColor="#94A3B8"
+                  multiline
+                  value={disburseNote}
+                  onChangeText={setDisburseNote}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity 
+                  style={styles.modalCancelBtn}
+                  onPress={() => {
+                    setIsDisburseModalOpen(false);
+                  }}
+                  disabled={isUploadingProof || approveMutation.isPending}
+                >
+                  <Text style={styles.modalCancelBtnText}>Hủy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.modalConfirmDisburseBtn, (isUploadingProof || approveMutation.isPending) && { opacity: 0.7 }]}
+                  onPress={handleConfirmDisburse}
+                  disabled={isUploadingProof || approveMutation.isPending}
+                >
+                  {isUploadingProof || approveMutation.isPending ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="check-bold" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.modalConfirmDisburseBtnText}>Xác nhận Giải ngân</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Rejection Modal with dedicated reason input */}
+      <Modal
+        visible={isRejectModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsRejectModalOpen(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalBackdrop}
+        >
+          <View style={[styles.modalCard, shadows.lg]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.modalHeaderIconWrap}>
+                  <MaterialCommunityIcons name="close-circle-outline" size={22} color="#DC2626" />
+                </View>
+                <Text style={styles.modalTitle}>Từ chối yêu cầu</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => {
+                  setIsRejectModalOpen(false);
+                  setRejectReason('');
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons name="close" size={20} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              Vui lòng nhập lý do từ chối để nhân sự được thông báo rõ ràng về quyết định này.
+            </Text>
+
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.modalInputLabel}>
+                Lý do từ chối <Text style={{ color: '#DC2626' }}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.modalReasonInput}
+                placeholder="Nhập lý do từ chối cụ thể (bắt buộc)..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={4}
+                value={rejectReason}
+                onChangeText={setRejectReason}
+                textAlignVertical="top"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity 
+                style={styles.modalCancelBtn}
+                onPress={() => {
+                  setIsRejectModalOpen(false);
+                  setRejectReason('');
+                }}
+                disabled={rejectMutation.isPending}
+              >
+                <Text style={styles.modalCancelBtnText}>Hủy</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.modalConfirmRejectBtn, rejectMutation.isPending && { opacity: 0.6 }]}
+                onPress={handleConfirmReject}
+                disabled={rejectMutation.isPending}
+              >
+                {rejectMutation.isPending ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.modalConfirmRejectBtnText}>Xác nhận từ chối</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Full-screen Image Viewer */}
       <ImageView
@@ -1376,5 +1750,216 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#374151',
     lineHeight: 18,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  modalHeaderIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    lineHeight: 18,
+  },
+  modalInputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  modalReasonInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#0F172A',
+    minHeight: 88,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  modalConfirmRejectBtn: {
+    flex: 1.6,
+    backgroundColor: '#DC2626',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalConfirmRejectBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  disburseInfoCard: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 8,
+  },
+  disburseInfoLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
+    letterSpacing: 0.5,
+  },
+  disburseInfoAmount: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#14532D',
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  disburseRecipientWrap: {
+    borderTopWidth: 1,
+    borderTopColor: '#DCFCE7',
+    paddingTop: 8,
+    marginTop: 4,
+  },
+  disburseRecipientName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  disburseRecipientBank: {
+    fontSize: 12,
+    color: '#15803D',
+    marginTop: 2,
+  },
+  billPickerRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  billPickerBtn: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#94A3B8',
+    borderRadius: 10,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  billPickerBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+    marginTop: 6,
+  },
+  billPreviewContainer: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F1F5F9',
+  },
+  billPreviewImage: {
+    width: '100%',
+    height: 180,
+  },
+  billPreviewActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 8,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  billChangeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  billChangeBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E3E2F',
+    marginLeft: 4,
+  },
+  billRemoveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  billRemoveBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginLeft: 4,
+  },
+  modalTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#0F172A',
+  },
+  modalConfirmDisburseBtn: {
+    flex: 1.6,
+    backgroundColor: '#1E3E2F',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalConfirmDisburseBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

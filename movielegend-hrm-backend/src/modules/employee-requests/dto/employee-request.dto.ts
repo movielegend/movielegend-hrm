@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { EmployeeRequestStatus, EmployeeRequestType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsNumber, IsObject, IsOptional, IsString, IsUUID, Max, Min, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsNumber, IsObject, IsOptional, IsString, IsUUID, Max, Min, MinLength } from 'class-validator';
 
 export class CreateEmployeeRequestDto {
   @ApiProperty({ enum: EmployeeRequestType })
@@ -74,15 +74,66 @@ export class EmployeeRequestQueryDto {
 }
 
 export class ApproveEmployeeRequestDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Ghi chú phê duyệt' })
   @IsOptional()
   @IsString()
   note?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Mã giao dịch ngân hàng / Ủy nhiệm chi' })
+  @IsOptional()
+  @IsString()
+  bankRefCode?: string;
+
+  @ApiPropertyOptional({ description: 'Ảnh biên lai chuyển khoản / ủy nhiệm chi' })
   @IsOptional()
   @IsString()
   disbursementProofUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Duyệt chờ thanh toán và chuyển thẳng lên Ban Giám Đốc' })
+  @IsOptional()
+  @IsBoolean()
+  forwardToAdmin?: boolean;
+}
+
+export class CreateExpenseFromPurchaseDto {
+  @ApiProperty({ description: 'Số tiền thực tế đã mua sắm' })
+  @IsNumber()
+  amount!: number;
+
+  @ApiPropertyOptional({ description: 'Có hóa đơn VAT không' })
+  @IsOptional()
+  @IsBoolean()
+  hasVat?: boolean;
+
+  @ApiPropertyOptional({ description: 'Ảnh hóa đơn / chứng từ mua hàng' })
+  @IsOptional()
+  @IsString()
+  disbursementProofUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Danh sách ảnh hóa đơn / chứng từ mua hàng' })
+  @IsOptional()
+  @IsArray()
+  images?: string[];
+
+  @ApiPropertyOptional({ description: 'Ghi chú thanh toán / mua sắm của HR' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @ApiPropertyOptional({ description: 'Số tài khoản ngân hàng nhận tiền hoàn' })
+  @IsOptional()
+  @IsString()
+  bankAccount?: string;
+
+  @ApiPropertyOptional({ description: 'Tên ngân hàng' })
+  @IsOptional()
+  @IsString()
+  bankName?: string;
+
+  @ApiPropertyOptional({ description: 'Tên chủ tài khoản ngân hàng' })
+  @IsOptional()
+  @IsString()
+  accountHolder?: string;
 }
 
 export class RejectEmployeeRequestDto {

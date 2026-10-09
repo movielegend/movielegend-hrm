@@ -38,7 +38,7 @@ export class DepartmentScopeService {
     if (explicit) return explicit;
     if (this.isGlobalAdmin(actor)) return null;
 
-    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT');
+    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
     if (!isRegionalStaff) return null;
 
     // Check if actor belongs to a department bound to a region
@@ -71,14 +71,14 @@ export class DepartmentScopeService {
   }
 
   /**
-   * Sync check — ONLY returns true for Global Admin, or non-region-restricted HR/Accountant,
+   * Sync check — ONLY returns true for Global Admin, or non-region-restricted HR,
    * or LEADER of that department.
    * Regional actors (Admin Miền, HR Miền) must use `canAccessDepartmentAsync()`.
    */
   canAccessDepartment(actor: AuthenticatedUser, departmentId: string): boolean {
     if (this.isGlobalAdmin(actor)) return true;
     if (this.getRegionScope(actor)) return false; // Regional actors must use async version
-    if (actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) return true;
+    if (actor.roles.includes('HR')) return true;
     return actor.scopes.some(
       (scope) =>
         scope.role === 'LEADER' &&
@@ -93,7 +93,7 @@ export class DepartmentScopeService {
   visibleDepartmentIds(actor: AuthenticatedUser): string[] | null {
     if (this.isGlobalAdmin(actor)) return null;
     if (this.isRegionAdmin(actor) || this.getRegionScope(actor)) return [];
-    if (actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT')) return null;
+    if (actor.roles.includes('HR')) return null;
     return actor.scopes
       .filter((scope) => scope.role === 'LEADER' && scope.scopeType === RoleScopeType.DEPARTMENT && scope.scopeId)
       .map((scope) => scope.scopeId as string);
@@ -109,7 +109,7 @@ export class DepartmentScopeService {
   async getVisibleDepartmentIds(actor: AuthenticatedUser): Promise<string[] | null> {
     if (this.isGlobalAdmin(actor)) return null;
 
-    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT');
+    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
 
     if (isRegionalStaff) {
       const regionId = await this.getActorRegionIdAsync(actor);
@@ -124,7 +124,7 @@ export class DepartmentScopeService {
         return departments.map((d) => d.id);
       }
 
-      // Unrestricted HR / Accountant at national level (Head Office)
+      // Unrestricted HR at national level (Head Office)
       return null;
     }
 
