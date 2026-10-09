@@ -21,11 +21,18 @@ import { queryKeys } from '../../constants/queryKeys';
 import { useMySchedule } from '../../hooks/useShifts';
 import Toast from 'react-native-toast-message';
 
+import { useNetworkQuality } from '../../hooks/useNetworkQuality';
+import { LiveNetworkPingBadge } from './components/LiveNetworkPingBadge';
+import { NetworkQualityWarningModal } from './components/NetworkQualityWarningModal';
+
 export function CheckOutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { data: schedule, isLoading: scheduleLoading } = useMySchedule();
+
+  const { qualityInfo, isChecking: isPingChecking, measurePing, testConnectionBeforeAction } = useNetworkQuality();
+  const [isWeakNetworkModalVisible, setWeakNetworkModalVisible] = useState(false);
   
   // Find today's shift
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -34,33 +41,9 @@ export function CheckOutScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [networkType, setNetworkType] = useState<string>('Đang kiểm tra...');
 
   const [isCameraVisible, setCameraVisible] = useState(false);
   const cameraRef = useRef<any>(null);
-
-  useEffect(() => {
-    const getNetworkInfo = async () => {
-      try {
-        const state = await NetInfo.fetch();
-        if (state.type === 'wifi') {
-          const ssid = (state.details as any)?.ssid;
-          if (ssid && ssid !== '<unknown ssid>' && ssid !== 'unknown') {
-            setNetworkType(`Wi-Fi: ${ssid}`);
-          } else {
-            setNetworkType('Wi-Fi');
-          }
-        } else if (state.type === 'cellular') {
-          setNetworkType('Mạng Di động (4G/5G)');
-        } else {
-          setNetworkType(state.type ? String(state.type) : 'Không rõ');
-        }
-      } catch (e: any) {
-        setNetworkType('Lỗi: ' + e.message);
-      }
-    };
-    getNetworkInfo();
-  }, []);
 
   const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
 
@@ -87,14 +70,7 @@ export function CheckOutScreen() {
     void fetchLocation();
   }, []);
 
-
-
-  const handleConfirm = async () => {
-    if (locationError || !location) {
-      CustomAlert.alert('Lỗi', locationError || 'Đang lấy vị trí, vui lòng chờ...');
-      return;
-    }
-    
+  const proceedToVerification = async () => {
     try {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
@@ -112,10 +88,25 @@ export function CheckOutScreen() {
       }
     } catch (err) {
       console.warn('Lỗi xác thực sinh trắc học:', err);
-      // Có thể bỏ qua nếu lỗi phần cứng hoặc tiếp tục tùy theo yêu cầu
     }
 
     setCameraVisible(true);
+  };
+
+  const handleConfirm = async () => {
+    if (locationError || !location) {
+      CustomAlert.alert('Lỗi', locationError || 'Đang lấy vị trí, vui lòng chờ...');
+      return;
+    }
+
+    // Ping / Network latency test like Arena of Valor (Liên Quân)
+    const netCheck = await testConnectionBeforeAction();
+    if (netCheck.isWeak) {
+      setWeakNetworkModalVisible(true);
+      return;
+    }
+
+    await proceedToVerification();
   };
 
   const handleCaptureAndSubmit = async (photoUri: string) => {
@@ -237,18 +228,29 @@ export function CheckOutScreen() {
           </View>
         </View>
 
-        {/* Network Info */}
+        {/* Network Info & Realtime Ping */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Mạng hiện tại</Text>
+          <Text style={styles.sectionTitle}>Chất lượng mạng (Độ trễ Ping)</Text>
+          <LiveNetworkPingBadge
+            quality={qualityInfo}
+            isChecking={isPingChecking}
+            onRefresh={measurePing}
+          />
           <View style={styles.wifiBox}>
             <View style={styles.wifiIconBox}>
               <MaterialCommunityIcons name="wifi" size={24} color="#111827" />
             </View>
             <View style={styles.wifiInfoBox}>
-              <Text style={styles.wifiName}>Mạng: {networkType}</Text>
-              <Text style={styles.wifiBssid}>Đang kết nối</Text>
+              <Text style={styles.wifiName}>Kết nối: {qualityInfo.connectionType}</Text>
+              <Text style={styles.wifiBssid}>
+                {qualityInfo.level === 'OFFLINE' ? 'Không có internet' : 'Đã kết nối máy chủ'}
+              </Text>
             </View>
-            <MaterialCommunityIcons name="check-circle" size={20} color="#111827" />
+            <MaterialCommunityIcons
+              name={qualityInfo.isWeak ? "alert-circle" : "check-circle"}
+              size={20}
+              color={qualityInfo.color}
+            />
           </View>
         </View>
 
@@ -298,6 +300,19 @@ export function CheckOutScreen() {
           onClose={() => setCameraVisible(false)} 
         />
       </Modal>
+
+      {/* Network Quality Warning Modal (Lien Quan Style) */}
+      <NetworkQualityWarningModal
+        visible={isWeakNetworkModalVisible}
+        quality={qualityInfo}
+        isRetesting={isPingChecking}
+        onRetest={measurePing}
+        onProceed={() => {
+          setWeakNetworkModalVisible(false);
+          void proceedToVerification();
+        }}
+        onCancel={() => setWeakNetworkModalVisible(false)}
+      />
     </Screen>
   );
 }

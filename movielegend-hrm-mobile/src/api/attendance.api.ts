@@ -15,6 +15,18 @@ import type {
   Coordinates,
 } from '../types/attendance.types';
 
+export async function pingAttendanceServer(): Promise<{ pingMs: number; success: boolean }> {
+  const start = Date.now();
+  try {
+    await apiClient.get('/attendance/ping', { timeout: 8_000 });
+    const pingMs = Math.max(1, Date.now() - start);
+    return { pingMs, success: true };
+  } catch (error) {
+    const pingMs = Date.now() - start;
+    return { pingMs, success: false };
+  }
+}
+
 export async function checkIn(payload: CheckInPayload): Promise<AttendanceRecord> {
   const response = await apiClient.post<ApiResponse<AttendanceRecord>>('/attendance/check-in', payload, {
     timeout: 45_000,
