@@ -516,7 +516,7 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
       <View style={styles.fourGridContainer}>
         {/* Top Banner */}
         <View style={styles.fourTopBanner}>
-          <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)} activeOpacity={0.9}>
+          <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)}>
             <Image source={{ uri: resolvedImages[0] }} style={styles.fillImage} resizeMode="cover" />
           </Pressable>
           {renderDeleteBtn(0)}
@@ -527,21 +527,21 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
         {/* Bottom 3 Photos with +N on 3rd */}
         <View style={styles.bottomRow}>
           <View style={styles.bottomThird}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)}>
               <Image source={{ uri: resolvedImages[1] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(1)}
           </View>
           <View style={styles.gapSpacer} />
           <View style={styles.bottomThird}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)}>
               <Image source={{ uri: resolvedImages[2] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(2)}
           </View>
           <View style={styles.gapSpacer} />
           <View style={styles.bottomThird}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(3)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(3)}>
               <Image source={{ uri: resolvedImages[3] }} style={styles.fillImage} resizeMode="cover" />
               <View style={styles.moreOverlay}>
                 <Text style={styles.moreOverlayText}>+{remainingCount + 1}</Text>
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
 
   // Overlay Count for 5+
   moreOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',

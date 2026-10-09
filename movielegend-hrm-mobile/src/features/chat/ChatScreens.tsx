@@ -458,7 +458,10 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
       <View style={adminChatStyles.curvedSheet}>
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={adminChatStyles.sheetScrollContent}
+          contentContainerStyle={[
+            adminChatStyles.sheetScrollContent,
+            { paddingBottom: Math.max(insets.bottom, 16) + 84 },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={groups.isRefetching} onRefresh={() => void groups.refetch()} />}
         >
@@ -2505,7 +2508,7 @@ const adminChatStyles = StyleSheet.create({
   sheetScrollContent: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 36,
+    paddingBottom: 110,
   },
 
   /* Section 1: Trưởng phòng */

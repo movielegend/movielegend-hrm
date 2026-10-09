@@ -14,9 +14,11 @@ import {
   RefreshControl,
   TouchableOpacity,
   Keyboard,
-  KeyboardAvoidingView} from 'react-native';
+  KeyboardAvoidingView,
+  StatusBar,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -63,7 +65,7 @@ function getCommentReactionSummary(reactions?: Record<string, string> | null) {
       countMap[e] = (countMap[e] || 0) + 1;
     }
   }
-  const emojis = Object.keys(countMap).sort((a, b) => countMap[b] - countMap[a]).slice(0, 3);
+  const emojis = Object.keys(countMap).sort((a, b) => (countMap[b] ?? 0) - (countMap[a] ?? 0)).slice(0, 3);
   return { total: entries.length, emojis };
 }
 
@@ -132,15 +134,29 @@ function extractPostLayout(post?: NewsfeedPostDto | null): FacebookGridLayoutTyp
 
 export function NewsfeedListScreen({ canModerate = false }: { canModerate?: boolean }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showAlert, showConfirm } = useAppAlert();
   
+  const [activeTab, setActiveTab] = useState<'latest' | 'following'>('latest');
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
 
   const posts = useNewsfeedPosts();
+  const pendingPostsQuery = usePendingNewsfeedPosts();
   const likePost = useLikePost();
   const removePost = useDeletePost();
+
+  const isModerator = canModerate || user?.roles?.some((r: any) => {
+    const code = typeof r === 'string' ? r : r.role?.code || r.name || '';
+    const upper = String(code).toUpperCase();
+    return upper.includes('ADMIN') || upper.includes('LEADER') || upper.includes('HR');
+  });
+
+  const pendingItems = Array.isArray(pendingPostsQuery.data)
+    ? pendingPostsQuery.data
+    : (pendingPostsQuery.data as any)?.items ?? [];
+  const pendingCount = pendingItems.length;
 
   function confirmDelete(postId: string) {
     showConfirm({
@@ -158,7 +174,11 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
     });
   }
 
-  const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as { items?: NewsfeedPostDto[] })?.items ?? [];
+  const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as any)?.items ?? [];
+
+  const displayedPosts = activeTab === 'following'
+    ? postItems.filter((p: NewsfeedPostDto) => (p as any).isFollowing || (p as any).isBookmarked)
+    : postItems;
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -169,160 +189,214 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
   }, [queryClient]);
 
   return (
-    <Screen>
-      <ScrollView 
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-      >
-        <PageHeader
-          title="Bảng tin công ty"
-          subtitle="Tin tức và thông báo nội bộ"
-          showBack={false}
-        />
+    <View style={newsStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
 
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
-          {(user?.roles?.includes('ADMIN') || user?.roles?.includes('LEADER') || user?.roles?.includes('HR')) && (
+      {/* Header Container */}
+      <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={newsStyles.headerTopRow}>
+          <Text style={newsStyles.headerBrand}>MOVIE LEGEND</Text>
+          {isModerator && (
             <Pressable
-              style={[styles.addBtn, { backgroundColor: colors.warning, flex: 1, justifyContent: 'center' }]}
+              style={newsStyles.pendingPill}
               onPress={() => {
                 router.push(`${roleBase(user)}/newsfeed/pending` as any);
               }}
             >
-              <MaterialCommunityIcons name="clock-outline" size={20} color="#fff" />
-              <Text style={styles.addBtnText}>Chờ duyệt</Text>
+              <MaterialCommunityIcons name="clock-outline" size={14} color="#FFFFFF" />
+              <Text style={newsStyles.pendingPillText}>Chờ duyệt [{pendingCount}]</Text>
             </Pressable>
           )}
+        </View>
+
+        <Text style={newsStyles.headerTitle}>Bảng tin công ty</Text>
+        <Text style={newsStyles.headerSubtitle}>Tin tức & thông báo nội bộ</Text>
+      </View>
+
+      {/* Main Curved White Sheet */}
+      <View style={newsStyles.curvedSheet}>
+        {/* Sub-tabs: Mới nhất & Theo dõi */}
+        <View style={newsStyles.tabRow}>
           <Pressable
-            style={[styles.addBtn, { flex: 1, justifyContent: 'center' }]}
+            style={newsStyles.tabItem}
+            onPress={() => setActiveTab('latest')}
+          >
+            <MaterialCommunityIcons
+              name="clock-outline"
+              size={16}
+              color={activeTab === 'latest' ? '#1B3B2B' : '#94A3B8'}
+            />
+            <Text style={[newsStyles.tabText, activeTab === 'latest' && newsStyles.tabTextActive]}>
+              Mới nhất
+            </Text>
+            {activeTab === 'latest' && <View style={newsStyles.tabIndicator} />}
+          </Pressable>
+
+          <Pressable
+            style={newsStyles.tabItem}
+            onPress={() => setActiveTab('following')}
+          >
+            <MaterialCommunityIcons
+              name="star-outline"
+              size={16}
+              color={activeTab === 'following' ? '#1B3B2B' : '#94A3B8'}
+            />
+            <Text style={[newsStyles.tabText, activeTab === 'following' && newsStyles.tabTextActive]}>
+              Theo dõi
+            </Text>
+            {activeTab === 'following' && <View style={newsStyles.tabIndicator} />}
+          </Pressable>
+        </View>
+
+        {/* Post List / Feed */}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: Math.max(insets.bottom, 16) + 84,
+          }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#1B3B2B" />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {displayedPosts.length > 0 ? (
+            <View style={{ gap: 14 }}>
+              {displayedPosts.map((post: NewsfeedPostDto) => {
+                const authorName = getUserDisplayName(post.author);
+                const initials = getInitials(authorName);
+                const likeCount = post._count?.likes ?? post.likes?.length ?? 0;
+                const commentCount = post._count?.comments ?? post.comments?.length ?? 0;
+                const isLiked = post.likes?.some((l: PostLikeDto) => l.userId === user?.id) ?? false;
+
+                return (
+                  <Pressable
+                    key={post.id}
+                    style={styles.postCard}
+                    onPress={() => {
+                      router.push(`${roleBase(user)}/newsfeed/${post.id}` as never);
+                    }}
+                  >
+                    {/* Author row */}
+                    <View style={styles.authorRow}>
+                      <View style={newsStyles.avatarCircle}>
+                        <Text style={newsStyles.avatarText}>{initials}</Text>
+                      </View>
+                      <View style={styles.authorInfo}>
+                        <Text style={styles.authorName}>{authorName}</Text>
+                        <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
+                      </View>
+                      {post.department && (
+                        <StatusBadge label={post.department.name} tone="info" />
+                      )}
+                    </View>
+
+                    {/* Title */}
+                    {post.title ? (
+                      <Text style={styles.postTitle}>{post.title}</Text>
+                    ) : null}
+
+                    {/* Content */}
+                    <Text style={styles.postContent} numberOfLines={4}>
+                      {post.content}
+                    </Text>
+
+                    {/* Images - Facebook Multi-Photo Grid */}
+                    {post.images && post.images.length > 0 ? (
+                      <FacebookPhotoGrid
+                        images={post.images}
+                        resolveUrl={resolveImageUrl}
+                        layoutType={extractPostLayout(post)}
+                      />
+                    ) : null}
+
+                    {/* Divider */}
+                    <View style={styles.postDivider} />
+
+                    {/* Actions row */}
+                    <View style={styles.actionsRow}>
+                      <Pressable
+                        style={styles.actionItem}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          likePost.mutate(post.id);
+                        }}
+                      >
+                        <MaterialCommunityIcons
+                          name={isLiked ? 'heart' : 'heart-outline'}
+                          size={20}
+                          color={isLiked ? '#EF4444' : '#64748B'}
+                        />
+                        <Text style={[styles.actionLabel, isLiked && { color: '#EF4444' }]}>
+                          {likeCount}
+                        </Text>
+                      </Pressable>
+
+                      <View style={styles.actionItem}>
+                        <MaterialCommunityIcons
+                          name="comment-outline"
+                          size={20}
+                          color="#64748B"
+                        />
+                        <Text style={styles.actionLabel}>{commentCount}</Text>
+                      </View>
+
+                      {isModerator && (
+                        <Pressable
+                          style={[styles.actionItem, styles.deleteAction]}
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            confirmDelete(post.id);
+                          }}
+                        >
+                          <MaterialCommunityIcons name="trash-can-outline" size={20} color="#94A3B8" />
+                        </Pressable>
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : !posts.isLoading ? (
+            <View style={newsStyles.emptyWrap}>
+              <View style={newsStyles.emptyIconCircle}>
+                <MaterialCommunityIcons name="newspaper-variant-outline" size={48} color="#1B3B2B" />
+              </View>
+              <Text style={newsStyles.emptyTitle}>
+                {activeTab === 'following' ? 'Chưa có bài viết theo dõi' : 'Chưa có bài đăng'}
+              </Text>
+              <Text style={newsStyles.emptySubtitle}>
+                {activeTab === 'following'
+                  ? 'Các bài viết từ đồng nghiệp theo dõi sẽ xuất hiện tại đây.'
+                  : 'Chia sẻ thông tin đầu tiên với công ty.'}
+              </Text>
+              <Pressable
+                style={newsStyles.createPostBtn}
+                onPress={() => {
+                  router.push(`${roleBase(user)}/newsfeed/create` as any);
+                }}
+              >
+                <MaterialCommunityIcons name="plus" size={18} color="#FFFFFF" />
+                <Text style={newsStyles.createPostBtnText}>Đăng bài</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        {/* Floating Add Post Button when list is populated */}
+        {displayedPosts.length > 0 && (
+          <Pressable
+            style={[newsStyles.fabBtn, { bottom: Math.max(insets.bottom, 16) + 72 }]}
             onPress={() => {
               router.push(`${roleBase(user)}/newsfeed/create` as any);
             }}
           >
-            <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-            <Text style={styles.addBtnText}>Đăng bài</Text>
+            <MaterialCommunityIcons name="pencil-outline" size={18} color="#FFFFFF" />
+            <Text style={newsStyles.fabBtnText}>Đăng bài</Text>
           </Pressable>
-        </View>
-
-        <View style={styles.filterRow}>
-          <Pressable style={[styles.filterBtn, styles.filterBtnActive]}>
-            <MaterialCommunityIcons name="clock-outline" size={16} color="#fff" />
-            <Text style={[styles.filterBtnText, styles.filterBtnTextActive]}>Mới nhất</Text>
-          </Pressable>
-          <Pressable style={styles.filterBtn}>
-            <MaterialCommunityIcons name="star-outline" size={16} color="#475569" />
-            <Text style={styles.filterBtnText}>Theo dõi</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.postList}>
-          {postItems.length > 0 ? (
-            postItems.map((post: NewsfeedPostDto) => {
-              const authorName = getUserDisplayName(post.author);
-              const initials = getInitials(authorName);
-              const likeCount = post._count?.likes ?? post.likes?.length ?? 0;
-              const commentCount = post._count?.comments ?? post.comments?.length ?? 0;
-              const isLiked = post.likes?.some((l: PostLikeDto) => l.userId === user?.id) ?? false;
-
-              return (
-                <Pressable
-                  key={post.id}
-                  style={styles.postCard}
-                  onPress={() => {
-                    router.push(`${roleBase(user)}/newsfeed/${post.id}` as never);
-                  }}
-                >
-                  {/* Author row */}
-                  <View style={styles.authorRow}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{initials}</Text>
-                    </View>
-                    <View style={styles.authorInfo}>
-                      <Text style={styles.authorName}>{authorName}</Text>
-                      <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
-                    </View>
-                    {post.department && (
-                      <StatusBadge label={post.department.name} tone="info" />
-                    )}
-                  </View>
-
-                  {/* Title */}
-                  {post.title ? (
-                    <Text style={styles.postTitle}>{post.title}</Text>
-                  ) : null}
-
-                  {/* Content */}
-                  <Text style={styles.postContent} numberOfLines={4}>
-                    {post.content}
-                  </Text>
-
-                  {/* Images - Facebook Multi-Photo Grid */}
-                  {post.images && post.images.length > 0 ? (
-                    <FacebookPhotoGrid
-                      images={post.images}
-                      resolveUrl={resolveImageUrl}
-                      layoutType={extractPostLayout(post)}
-                    />
-                  ) : null}
-
-                  {/* Divider */}
-                  <View style={styles.postDivider} />
-
-                  {/* Actions row */}
-                  <View style={styles.actionsRow}>
-                    <Pressable
-                      style={styles.actionItem}
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        likePost.mutate(post.id);
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name={isLiked ? 'heart' : 'heart-outline'}
-                        size={20}
-                        color={isLiked ? '#111827' : colors.muted}
-                      />
-                      <Text style={[styles.actionLabel, isLiked && { color: '#111827' }]}>
-                        {likeCount}
-                      </Text>
-                    </Pressable>
-
-                    <View style={styles.actionItem}>
-                      <MaterialCommunityIcons
-                        name="comment-outline"
-                        size={20}
-                        color={colors.muted}
-                      />
-                      <Text style={styles.actionLabel}>{commentCount}</Text>
-                    </View>
-
-                    {!canModerate && (
-                      <View style={[styles.actionItem, styles.deleteAction]}>
-                        <MaterialCommunityIcons name="bookmark-outline" size={20} color={colors.muted} />
-                      </View>
-                    )}
-                    {canModerate && (
-                      <Pressable
-                        style={[styles.actionItem, styles.deleteAction]}
-                        onPress={(e) => {
-                          e.stopPropagation?.();
-                          confirmDelete(post.id);
-                        }}
-                      >
-                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="#111827" />
-                      </Pressable>
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })
-          ) : !posts.isLoading ? (
-            <EmptyState
-              title="Chưa có bài đăng"
-              message="Nhấn Đăng bài để tạo bảng tin đầu tiên"
-            />
-          ) : null}
-        </View>
-      </ScrollView>
+        )}
+      </View>
 
       <ImageView
         images={viewerImages}
@@ -330,7 +404,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
         visible={viewerVisible}
         onRequestClose={() => setViewerVisible(false)}
       />
-    </Screen>
+    </View>
   );
 }
 
@@ -392,35 +466,53 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
   const post = postQuery.data;
 
-  const comments: PostCommentDto[] = post?.comments ?? [];
-
-  const totalCommentsCount = useMemo(() => {
-    return comments.reduce((sum, c) => sum + 1 + (c.replies?.length ?? 0), 0);
-  }, [comments]);
-
   if (postQuery.isLoading) {
     return (
-      <Screen>
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
-          <PageHeader title="Chi tiết bài đăng" showBack={false} />
+      <View style={newsStyles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+        <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+          <View style={newsStyles.headerRow}>
+            <Pressable style={newsStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+            </Pressable>
+            <View style={newsStyles.headerTextWrap}>
+              <Text style={newsStyles.headerTitleInline}>Chi tiết bài đăng</Text>
+            </View>
+          </View>
         </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: colors.muted }}>Đang tải...</Text>
+        <View style={[newsStyles.curvedSheetWhite, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator color="#1B3B2B" size="large" />
         </View>
-      </Screen>
+      </View>
     );
   }
 
   if (!post) {
     return (
-      <Screen>
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
-          <PageHeader title="Chi tiết bài đăng" showBack={false} />
+      <View style={newsStyles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+        <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+          <View style={newsStyles.headerRow}>
+            <Pressable style={newsStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+            </Pressable>
+            <View style={newsStyles.headerTextWrap}>
+              <Text style={newsStyles.headerTitleInline}>Chi tiết bài đăng</Text>
+            </View>
+          </View>
         </View>
-        <EmptyState title="Không tìm thấy bài đăng" />
-      </Screen>
+        <View style={newsStyles.curvedSheetWhite}>
+          <View style={newsStyles.emptyWrap}>
+            <EmptyState title="Không tìm thấy bài đăng" />
+          </View>
+        </View>
+      </View>
     );
   }
+
+  const comments: PostCommentDto[] = (post.comments as any) ?? [];
+
+  const totalCommentsCount = comments.reduce((sum, c) => sum + 1 + (c.replies?.length ?? 0), 0);
 
   const authorName = getUserDisplayName(post.author);
   const likedNames = post.likes?.map((l: any) => getUserDisplayName(l.user)).filter(Boolean) || [];
@@ -438,22 +530,22 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
   function handleToggleOrReact(commentId: string, currentEmoji?: string | null) {
     if (currentEmoji) {
-      reactCommentMutation.mutate({ postId: post.id, commentId, emoji: currentEmoji });
+      reactCommentMutation.mutate({ postId, commentId, emoji: currentEmoji });
     } else {
-      reactCommentMutation.mutate({ postId: post.id, commentId, emoji: '👍' });
+      reactCommentMutation.mutate({ postId, commentId, emoji: '👍' });
     }
   }
 
   function handleSelectReaction(commentId: string, emoji: string) {
     setReactionPickerCommentId(null);
-    reactCommentMutation.mutate({ postId: post.id, commentId, emoji });
+    reactCommentMutation.mutate({ postId, commentId, emoji });
   }
 
   async function handleComment() {
     if (!commentText.trim()) return;
     try {
       await addComment.mutateAsync({
-        postId: post.id,
+        postId,
         content: commentText.trim(),
         parentId: replyingTo?.id,
       });
@@ -467,33 +559,41 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
-      <StatusBar style="dark" />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        enabled={Platform.OS === 'ios' ? true : isKeyboardVisible}
-      >
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
-          <PageHeader
-            title="Chi tiết bài đăng"
-            showBack={false}
-            right={
-              canModerate ? (
-                <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
-                  <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-                </Pressable>
-              ) : undefined
-            }
-          />
+    <View style={newsStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+
+      {/* Header Container */}
+      <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={newsStyles.headerRow}>
+          <Pressable style={newsStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <View style={newsStyles.headerTextWrap}>
+            <Text style={newsStyles.headerTitleInline}>Chi tiết bài đăng</Text>
+            <Text style={newsStyles.headerSubtitleInline}>Bình luận & tương tác</Text>
+          </View>
+          {canModerate && (
+            <Pressable style={newsStyles.headerIconBtn} onPress={confirmDelete} hitSlop={10}>
+              <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FFFFFF" />
+            </Pressable>
+          )}
         </View>
-        <ScrollView
-          contentContainerStyle={styles.content}
+      </View>
+
+      {/* Main Curved White Sheet */}
+      <View style={newsStyles.curvedSheetWhite}>
+        <KeyboardAvoidingView
           style={{ flex: 1 }}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+          enabled={Platform.OS === 'ios' ? true : isKeyboardVisible}
         >
+          <ScrollView
+            contentContainerStyle={styles.content}
+            style={{ flex: 1 }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+          >
           <View style={styles.postCard}>
             <View style={styles.authorRow}>
               <View style={styles.avatar}>
@@ -509,11 +609,11 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
             <Text style={styles.postContentFull}>{post.content}</Text>
 
             {/* Images - Facebook Multi-Photo Grid */}
-            {post.images && post.images.length > 0 ? (
+            {(post as any).images && (post as any).images.length > 0 ? (
               <FacebookPhotoGrid
-                images={post.images}
+                images={(post as any).images}
                 resolveUrl={resolveImageUrl}
-                layoutType={extractPostLayout(post)}
+                layoutType={extractPostLayout(post as any)}
               />
             ) : null}
 
@@ -748,7 +848,8 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
         visible={viewerVisible}
         onRequestClose={() => setViewerVisible(false)}
       />
-    </SafeAreaView>
+      </View>
+    </View>
   );
 }
 
@@ -756,6 +857,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
 export function CreatePostScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const createPost = useCreatePost();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -822,7 +924,7 @@ export function CreatePostScreen() {
     setImages((prev) => {
       const next = [...prev];
       const [selected] = next.splice(indexToPrimary, 1);
-      next.unshift(selected);
+      if (selected) next.unshift(selected);
       return next;
     });
   }
@@ -843,7 +945,7 @@ export function CreatePostScreen() {
         content: content.trim(),
         ...(images.length > 0 ? { images } : {}),
         attachments: [`layout:${selectedLayout}`],
-      });
+      } as any);
       showAlert('Thành công', 'Đã đăng bài mới');
       router.back();
     } catch (error) {
@@ -853,210 +955,256 @@ export function CreatePostScreen() {
   }
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Đăng bài mới" subtitle="Chia sẻ thông tin với công ty" />
+    <View style={newsStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
 
-        <View style={styles.formCard}>
-          <Field label="Tiêu đề (không bắt buộc)">
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập tiêu đề bài đăng"
-              placeholderTextColor={colors.muted}
-              value={title}
-              onChangeText={setTitle}
-            />
-          </Field>
-
-          <Field label="Nội dung">
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Nhập nội dung bài đăng..."
-              placeholderTextColor={colors.muted}
-              value={content}
-              onChangeText={setContent}
-              multiline
-              numberOfLines={6}
-              textAlignVertical="top"
-            />
-          </Field>
-          
-          <Field label={`Hình ảnh ${images.length > 0 ? `(${images.length})` : ''}`}>
-            <Pressable
-              style={styles.imagePickerBtn}
-              onPress={() => void pickImages()}
-              disabled={uploading}
-            >
-              <MaterialCommunityIcons name="image-plus" size={24} color="#111827" />
-              <Text style={styles.imagePickerText}>
-                {uploading
-                  ? 'Đang tải ảnh lên...'
-                  : images.length > 0
-                  ? '+ Thêm hình ảnh khác'
-                  : 'Thêm hình ảnh'}
-              </Text>
-            </Pressable>
-
-            {images.length >= 2 && (
-              <View style={styles.layoutSelectorCard}>
-                <View style={styles.layoutSelectorHeader}>
-                  <MaterialCommunityIcons name="view-dashboard-variant-outline" size={18} color="#0F172A" />
-                  <Text style={styles.layoutSelectorTitle}>Bố cục hiển thị (Facebook style):</Text>
-                </View>
-
-                <View style={styles.layoutChipsRow}>
-                  <Pressable
-                    style={[
-                      styles.layoutChip,
-                      selectedLayout === 'CLASSIC' && styles.layoutChipActive,
-                    ]}
-                    onPress={() => setSelectedLayout('CLASSIC')}
-                  >
-                    <MaterialCommunityIcons
-                      name="view-agenda-outline"
-                      size={18}
-                      color={selectedLayout === 'CLASSIC' ? '#FFFFFF' : '#334155'}
-                    />
-                    <Text
-                      style={[
-                        styles.layoutChipText,
-                        selectedLayout === 'CLASSIC' && styles.layoutChipTextActive,
-                      ]}
-                    >
-                      Cổ điển
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={[
-                      styles.layoutChip,
-                      selectedLayout === 'COLUMN' && styles.layoutChipActive,
-                    ]}
-                    onPress={() => setSelectedLayout('COLUMN')}
-                  >
-                    <MaterialCommunityIcons
-                      name="view-split-vertical"
-                      size={18}
-                      color={selectedLayout === 'COLUMN' ? '#FFFFFF' : '#334155'}
-                    />
-                    <Text
-                      style={[
-                        styles.layoutChipText,
-                        selectedLayout === 'COLUMN' && styles.layoutChipTextActive,
-                      ]}
-                    >
-                      Cột dọc
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={[
-                      styles.layoutChip,
-                      selectedLayout === 'GRID' && styles.layoutChipActive,
-                    ]}
-                    onPress={() => setSelectedLayout('GRID')}
-                  >
-                    <MaterialCommunityIcons
-                      name="view-grid-outline"
-                      size={18}
-                      color={selectedLayout === 'GRID' ? '#FFFFFF' : '#334155'}
-                    />
-                    <Text
-                      style={[
-                        styles.layoutChipText,
-                        selectedLayout === 'GRID' && styles.layoutChipTextActive,
-                      ]}
-                    >
-                      Lưới đều
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={[
-                      styles.layoutChip,
-                      selectedLayout === 'CAROUSEL' && styles.layoutChipActive,
-                    ]}
-                    onPress={() => setSelectedLayout('CAROUSEL')}
-                  >
-                    <MaterialCommunityIcons
-                      name="view-carousel-outline"
-                      size={18}
-                      color={selectedLayout === 'CAROUSEL' ? '#FFFFFF' : '#334155'}
-                    />
-                    <Text
-                      style={[
-                        styles.layoutChipText,
-                        selectedLayout === 'CAROUSEL' && styles.layoutChipTextActive,
-                      ]}
-                    >
-                      Trình chiếu
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
-
-            {images.length > 0 && (
-              <View style={{ marginTop: 12 }}>
-                <View style={styles.previewHeaderRow}>
-                  <Text style={styles.previewHeaderLabel}>Xem trước bố cục ({images.length} ảnh):</Text>
-                  <Text style={styles.previewHintText}>Chạm ảnh để phóng to</Text>
-                </View>
-                <FacebookPhotoGrid
-                  images={images}
-                  resolveUrl={resolveImageUrl}
-                  showDeleteButton={true}
-                  onDeleteImage={handleRemoveImage}
-                  layoutType={selectedLayout}
-                />
-
-                {images.length > 1 && (
-                  <View style={styles.thumbnailStripSection}>
-                    <Text style={styles.thumbnailStripTitle}>
-                      Quản lý thứ tự ảnh (Chạm ⭐ để chọn làm ảnh chính/ảnh bìa):
-                    </Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailStrip}>
-                      {images.map((img, idx) => (
-                        <View key={`thumb-${idx}`} style={styles.thumbnailItemWrapper}>
-                          <Image source={{ uri: resolveImageUrl(img) || img }} style={styles.thumbnailImg} />
-                          {idx === 0 ? (
-                            <View style={styles.primaryBadge}>
-                              <Text style={styles.primaryBadgeText}>Ảnh chính</Text>
-                            </View>
-                          ) : (
-                            <Pressable
-                              style={styles.setPrimaryBtn}
-                              onPress={() => handleSetPrimaryImage(idx)}
-                            >
-                              <MaterialCommunityIcons name="star-outline" size={12} color="#FFFFFF" />
-                              <Text style={styles.setPrimaryBtnText}>Làm ảnh chính</Text>
-                            </Pressable>
-                          )}
-                          <Pressable
-                            style={styles.thumbDeleteBtn}
-                            onPress={() => handleRemoveImage(idx)}
-                          >
-                            <MaterialCommunityIcons name="close" size={12} color="#FFFFFF" />
-                          </Pressable>
-                        </View>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-            )}
-          </Field>
-
-          <PrimaryButton
-            onPress={() => void submit()}
-            loading={createPost.isPending || uploading}
-            disabled={uploading}
-          >
-            Đăng bài
-          </PrimaryButton>
+      {/* Header Container */}
+      <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={newsStyles.headerRow}>
+          <Pressable style={newsStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <View style={newsStyles.headerTextWrap}>
+            <Text style={newsStyles.headerTitleInline}>Đăng bài mới</Text>
+            <Text style={newsStyles.headerSubtitleInline}>Chia sẻ thông tin với công ty</Text>
+          </View>
         </View>
-      </ScrollView>
-    </Screen>
+      </View>
+
+      {/* Main Curved White Sheet */}
+      <View style={newsStyles.curvedSheetWhite}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 20, paddingBottom: 24 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={newsStyles.sectionTitle}>Nội dung bài đăng</Text>
+
+            <View style={newsStyles.fieldGroup}>
+              <Text style={newsStyles.fieldLabel}>Tiêu đề (không bắt buộc)</Text>
+              <TextInput
+                style={newsStyles.input}
+                placeholder="Nhập tiêu đề bài đăng"
+                placeholderTextColor="#94A3B8"
+                value={title}
+                onChangeText={setTitle}
+              />
+            </View>
+
+            <View style={newsStyles.fieldGroup}>
+              <Text style={newsStyles.fieldLabel}>Nội dung</Text>
+              <TextInput
+                style={[newsStyles.input, newsStyles.textArea]}
+                placeholder="Bạn muốn chia sẻ điều gì?"
+                placeholderTextColor="#94A3B8"
+                value={content}
+                onChangeText={setContent}
+                multiline
+                numberOfLines={6}
+              />
+            </View>
+
+            <View style={newsStyles.fieldGroup}>
+              <Text style={newsStyles.fieldLabel}>
+                Hình ảnh {images.length > 0 ? `(${images.length})` : ''}
+              </Text>
+
+              <Pressable
+                style={newsStyles.dropzone}
+                onPress={() => void pickImages()}
+                disabled={uploading}
+              >
+                <View style={newsStyles.dropzoneIconWrap}>
+                  <MaterialCommunityIcons name="image-outline" size={24} color="#1B3B2B" />
+                </View>
+                <Text style={newsStyles.dropzoneText}>
+                  {uploading
+                    ? 'Đang tải ảnh lên...'
+                    : images.length > 0
+                    ? '+ Thêm hình ảnh khác'
+                    : 'Thêm hình ảnh'}
+                </Text>
+              </Pressable>
+
+              {images.length >= 2 && (
+                <View style={styles.layoutSelectorCard}>
+                  <View style={styles.layoutSelectorHeader}>
+                    <MaterialCommunityIcons name="view-dashboard-variant-outline" size={18} color="#0F172A" />
+                    <Text style={styles.layoutSelectorTitle}>Bố cục hiển thị (Facebook style):</Text>
+                  </View>
+
+                  <View style={styles.layoutChipsRow}>
+                    <Pressable
+                      style={[
+                        styles.layoutChip,
+                        selectedLayout === 'CLASSIC' && styles.layoutChipActive,
+                      ]}
+                      onPress={() => setSelectedLayout('CLASSIC')}
+                    >
+                      <MaterialCommunityIcons
+                        name="view-agenda-outline"
+                        size={18}
+                        color={selectedLayout === 'CLASSIC' ? '#FFFFFF' : '#334155'}
+                      />
+                      <Text
+                        style={[
+                          styles.layoutChipText,
+                          selectedLayout === 'CLASSIC' && styles.layoutChipTextActive,
+                        ]}
+                      >
+                        Cổ điển
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={[
+                        styles.layoutChip,
+                        selectedLayout === 'COLUMN' && styles.layoutChipActive,
+                      ]}
+                      onPress={() => setSelectedLayout('COLUMN')}
+                    >
+                      <MaterialCommunityIcons
+                        name="view-split-vertical"
+                        size={18}
+                        color={selectedLayout === 'COLUMN' ? '#FFFFFF' : '#334155'}
+                      />
+                      <Text
+                        style={[
+                          styles.layoutChipText,
+                          selectedLayout === 'COLUMN' && styles.layoutChipTextActive,
+                        ]}
+                      >
+                        Cột dọc
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={[
+                        styles.layoutChip,
+                        selectedLayout === 'GRID' && styles.layoutChipActive,
+                      ]}
+                      onPress={() => setSelectedLayout('GRID')}
+                    >
+                      <MaterialCommunityIcons
+                        name="view-grid-outline"
+                        size={18}
+                        color={selectedLayout === 'GRID' ? '#FFFFFF' : '#334155'}
+                      />
+                      <Text
+                        style={[
+                          styles.layoutChipText,
+                          selectedLayout === 'GRID' && styles.layoutChipTextActive,
+                        ]}
+                      >
+                        Lưới đều
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={[
+                        styles.layoutChip,
+                        selectedLayout === 'CAROUSEL' && styles.layoutChipActive,
+                      ]}
+                      onPress={() => setSelectedLayout('CAROUSEL')}
+                    >
+                      <MaterialCommunityIcons
+                        name="view-carousel-outline"
+                        size={18}
+                        color={selectedLayout === 'CAROUSEL' ? '#FFFFFF' : '#334155'}
+                      />
+                      <Text
+                        style={[
+                          styles.layoutChipText,
+                          selectedLayout === 'CAROUSEL' && styles.layoutChipTextActive,
+                        ]}
+                      >
+                        Trình chiếu
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {images.length > 0 && (
+                <View style={{ marginTop: 12 }}>
+                  <View style={styles.previewHeaderRow}>
+                    <Text style={styles.previewHeaderLabel}>Xem trước bố cục ({images.length} ảnh):</Text>
+                    <Text style={styles.previewHintText}>Chạm ảnh để phóng to</Text>
+                  </View>
+                  <FacebookPhotoGrid
+                    images={images}
+                    resolveUrl={resolveImageUrl}
+                    showDeleteButton={true}
+                    onDeleteImage={handleRemoveImage}
+                    layoutType={selectedLayout}
+                  />
+
+                  {images.length > 1 && (
+                    <View style={styles.thumbnailStripSection}>
+                      <Text style={styles.thumbnailStripTitle}>
+                        Quản lý thứ tự ảnh (Chạm ⭐ để chọn làm ảnh chính/ảnh bìa):
+                      </Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailStrip}>
+                        {images.map((img, idx) => (
+                          <View key={`thumb-${idx}`} style={styles.thumbnailItemWrapper}>
+                            <Image source={{ uri: resolveImageUrl(img) || img }} style={styles.thumbnailImg} />
+                            {idx === 0 ? (
+                              <View style={styles.primaryBadge}>
+                                <Text style={styles.primaryBadgeText}>Ảnh chính</Text>
+                              </View>
+                            ) : (
+                              <Pressable
+                                style={styles.setPrimaryBtn}
+                                onPress={() => handleSetPrimaryImage(idx)}
+                              >
+                                <MaterialCommunityIcons name="star-outline" size={12} color="#FFFFFF" />
+                                <Text style={styles.setPrimaryBtnText}>Làm ảnh chính</Text>
+                              </Pressable>
+                            )}
+                            <Pressable
+                              style={styles.thumbDeleteBtn}
+                              onPress={() => handleRemoveImage(idx)}
+                            >
+                              <MaterialCommunityIcons name="close" size={12} color="#FFFFFF" />
+                            </Pressable>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          </ScrollView>
+
+          {/* Fixed Submit Button */}
+          <View style={[newsStyles.fixedFooter, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+            <Pressable
+              style={[
+                newsStyles.primarySubmitBtn,
+                (uploading || createPost.isPending) && newsStyles.btnDisabled,
+              ]}
+              onPress={() => void submit()}
+              disabled={uploading || createPost.isPending}
+            >
+              {createPost.isPending || uploading ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
+                  <Text style={newsStyles.primarySubmitBtnText}>Đăng bài</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </View>
   );
 }
 
@@ -1073,12 +1221,14 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 export function PendingNewsfeedListScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const posts = usePendingNewsfeedPosts();
+  const approvePost = useApprovePost();
+  const { showAlert, showConfirm } = useAppAlert();
 
-  const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as { items?: NewsfeedPostDto[] })?.items ?? [];
+  const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as any)?.items ?? [];
 
   const { user } = useAuth();
-  const isAdmin = user?.roles?.includes('ADMIN');
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -1088,68 +1238,175 @@ export function PendingNewsfeedListScreen() {
     setRefreshing(false);
   }, [queryClient]);
 
+  function handleQuickApprove(postId: string) {
+    showConfirm({
+      title: 'Duyệt bài đăng',
+      message: 'Bạn có chắc muốn phê duyệt bài đăng này lên bảng tin?',
+      confirmLabel: 'Duyệt bài',
+      onConfirm: () => {
+        approvePost.mutate(
+          { postId, status: 'APPROVED' },
+          {
+            onSuccess: () => {
+              showAlert('Thành công', 'Đã duyệt bài đăng');
+            },
+            onError: (error) => {
+              showAlert('Lỗi', normalizeApiError(error).message);
+            },
+          }
+        );
+      },
+    });
+  }
+
+  function handleQuickReject(postId: string) {
+    showConfirm({
+      title: 'Từ chối bài đăng',
+      message: 'Bạn có chắc muốn từ chối bài đăng này?',
+      confirmLabel: 'Từ chối',
+      onConfirm: () => {
+        approvePost.mutate(
+          { postId, status: 'REJECTED' },
+          {
+            onSuccess: () => {
+              showAlert('Thành công', 'Đã từ chối bài đăng');
+            },
+            onError: (error) => {
+              showAlert('Lỗi', normalizeApiError(error).message);
+            },
+          }
+        );
+      },
+    });
+  }
+
   return (
-    <Screen>
-      <ScrollView 
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-      >
-        <PageHeader
-          title="Bài đăng chờ duyệt"
-          subtitle="Các bài đăng từ nhân viên"
-        />
+    <View style={newsStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
 
-        <View style={styles.postList}>
-          {postItems.length > 0 ? (
-            postItems.map((post: NewsfeedPostDto) => {
-              const authorName = getUserDisplayName(post.author);
-              const initials = getInitials(authorName);
-
-              return (
-                <Pressable
-                  key={post.id}
-                  style={styles.postCard}
-                  onPress={() => {
-                    router.push(`${roleBase(user)}/newsfeed/pending/${post.id}` as any);
-                  }}
-                >
-                  <View style={styles.authorRow}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{initials}</Text>
-                    </View>
-                    <View style={styles.authorInfo}>
-                      <Text style={styles.authorName}>{authorName}</Text>
-                      <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
-                    </View>
-                    <StatusBadge label="Chờ duyệt" tone="warning" />
-                  </View>
-
-                  {post.title ? (
-                    <Text style={styles.postTitle}>{post.title}</Text>
-                  ) : null}
-                  <Text style={styles.postContent} numberOfLines={4}>
-                    {post.content}
-                  </Text>
-                  
-                  {post.images && post.images.length > 0 ? (
-                    <FacebookPhotoGrid
-                      images={post.images}
-                      resolveUrl={resolveImageUrl}
-                      layoutType={extractPostLayout(post)}
-                    />
-                  ) : null}
-                </Pressable>
-              );
-            })
-          ) : !posts.isLoading ? (
-            <EmptyState
-              title="Không có bài viết"
-              message="Chưa có bài viết nào cần duyệt"
-            />
-          ) : null}
+      {/* Header Container */}
+      <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={newsStyles.headerRow}>
+          <Pressable style={newsStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <View style={newsStyles.headerTextWrap}>
+            <Text style={newsStyles.headerTitleInline}>Bài đăng chờ duyệt</Text>
+            <Text style={newsStyles.headerSubtitleInline}>Các bài đăng từ nhân viên</Text>
+          </View>
         </View>
-      </ScrollView>
-    </Screen>
+      </View>
+
+      {/* Main Curved White Sheet */}
+      <View style={newsStyles.curvedSheet}>
+        <View style={newsStyles.pendingListHeader}>
+          <Text style={newsStyles.pendingListTitle}>Danh sách chờ duyệt</Text>
+          <Text style={newsStyles.pendingListCount}>{postItems.length} bài đăng</Text>
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 8,
+            paddingBottom: Math.max(insets.bottom, 16) + 24,
+          }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#1B3B2B" />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {postItems.length > 0 ? (
+            <View style={{ gap: 14 }}>
+              {postItems.map((post: NewsfeedPostDto) => {
+                const authorName = getUserDisplayName(post.author);
+                const initials = getInitials(authorName);
+
+                return (
+                  <Pressable
+                    key={post.id}
+                    style={newsStyles.pendingCard}
+                    onPress={() => {
+                      router.push(`${roleBase(user)}/newsfeed/pending/${post.id}` as any);
+                    }}
+                  >
+                    <View style={styles.authorRow}>
+                      <View style={newsStyles.avatarCircle}>
+                        <Text style={newsStyles.avatarText}>{initials}</Text>
+                      </View>
+                      <View style={styles.authorInfo}>
+                        <Text style={styles.authorName}>{authorName}</Text>
+                        <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
+                      </View>
+                      <View style={newsStyles.pendingStatusBadge}>
+                        <Text style={newsStyles.pendingStatusBadgeText}>Chờ duyệt</Text>
+                      </View>
+                    </View>
+
+                    {post.title ? (
+                      <Text style={styles.postTitle}>{post.title}</Text>
+                    ) : null}
+                    <Text style={styles.postContent} numberOfLines={3}>
+                      {post.content}
+                    </Text>
+
+                    {post.images && post.images.length > 0 ? (
+                      <View style={{ marginTop: 10 }}>
+                        <FacebookPhotoGrid
+                          images={post.images}
+                          resolveUrl={resolveImageUrl}
+                          layoutType={extractPostLayout(post)}
+                        />
+                      </View>
+                    ) : null}
+
+                    <View style={newsStyles.cardDivider} />
+
+                    <View style={newsStyles.pendingCardActions}>
+                      <Pressable
+                        style={newsStyles.rejectBtn}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          handleQuickReject(post.id);
+                        }}
+                      >
+                        <MaterialCommunityIcons name="close" size={16} color="#DC2626" />
+                        <Text style={newsStyles.rejectBtnText}>Từ chối</Text>
+                      </Pressable>
+                      <Pressable
+                        style={newsStyles.approveBtn}
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          handleQuickApprove(post.id);
+                        }}
+                      >
+                        <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
+                        <Text style={newsStyles.approveBtnText}>Duyệt bài</Text>
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : !posts.isLoading ? (
+            <View style={newsStyles.emptyWrap}>
+              <View style={newsStyles.emptyIconCircle}>
+                <MaterialCommunityIcons name="file-document-check-outline" size={48} color="#1B3B2B" />
+              </View>
+              <Text style={newsStyles.emptyTitle}>Không có bài viết chờ duyệt</Text>
+              <Text style={newsStyles.emptySubtitle}>Bài viết cần phê duyệt sẽ hiển thị tại đây.</Text>
+              <Pressable
+                style={newsStyles.outlineBackBtn}
+                onPress={() => router.back()}
+              >
+                <MaterialCommunityIcons name="arrow-left" size={16} color="#0F172A" />
+                <Text style={newsStyles.outlineBackBtnText}>Về bảng tin</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
@@ -1157,6 +1414,7 @@ export function PendingNewsfeedListScreen() {
 
 export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const base = roleBase(user);
   
@@ -1208,71 +1466,89 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
 
   const post = postQuery.data;
 
-  if (postQuery.isLoading) {
-    return (
-      <Screen>
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
-          <PageHeader title="Chi tiết bài đăng" showBack={false} />
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: colors.muted }}>Đang tải...</Text>
-        </View>
-      </Screen>
-    );
-  }
-
-  if (!post) {
-    return (
-      <Screen>
-        <View style={{ paddingHorizontal: spacing.lg, paddingTop: 4 }}>
-          <PageHeader title="Chi tiết bài đăng" showBack={false} />
-        </View>
-        <EmptyState title="Không tìm thấy bài đăng" />
-      </Screen>
-    );
-  }
-
-  const authorName = getUserDisplayName(post.author);
-
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Chi tiết bài viết" showBack={false} />
+    <View style={newsStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
 
-        <View style={styles.postCard}>
-          <View style={styles.authorRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getInitials(authorName)}</Text>
-            </View>
-            <View style={styles.authorInfo}>
-              <Text style={styles.authorName}>{authorName}</Text>
-              <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
-            </View>
-            <StatusBadge label={post.status || 'Chờ duyệt'} tone="warning" />
+      {/* Header Container */}
+      <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={newsStyles.headerRow}>
+          <Pressable style={newsStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <View style={newsStyles.headerTextWrap}>
+            <Text style={newsStyles.headerTitleInline}>Chi tiết bài viết</Text>
+            <Text style={newsStyles.headerSubtitleInline}>Phê duyệt hoặc từ chối bài đăng</Text>
           </View>
-
-          {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
-          <Text style={styles.postContentFull}>{post.content}</Text>
-
-          {/* Images - Facebook Multi-Photo Grid */}
-          {(post as any).images && (post as any).images.length > 0 ? (
-            <FacebookPhotoGrid
-              images={(post as any).images}
-              resolveUrl={resolveImageUrl}
-              layoutType={extractPostLayout(post as any)}
-            />
-          ) : null}
-
-          <View style={styles.postDivider} />
-          
-          {post.status === 'PENDING' && (
-            <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.md }}>
-               <PrimaryButton onPress={handleReject} style={{ flex: 1, backgroundColor: colors.danger }}>Từ chối</PrimaryButton>
-               <PrimaryButton onPress={handleApprove} style={{ flex: 1, backgroundColor: colors.success }}>Duyệt bài</PrimaryButton>
-            </View>
-          )}
         </View>
-      </ScrollView>
+      </View>
+
+      {/* Main Curved White Sheet */}
+      <View style={newsStyles.curvedSheetWhite}>
+        {postQuery.isLoading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator color="#1B3B2B" size="large" />
+          </View>
+        ) : !post ? (
+          <View style={newsStyles.emptyWrap}>
+            <EmptyState title="Không tìm thấy bài đăng" />
+          </View>
+        ) : (
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 20, paddingBottom: Math.max(insets.bottom, 16) + 24 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.postCard}>
+              <View style={styles.authorRow}>
+                <View style={newsStyles.avatarCircle}>
+                  <Text style={newsStyles.avatarText}>{getInitials(getUserDisplayName(post.author))}</Text>
+                </View>
+                <View style={styles.authorInfo}>
+                  <Text style={styles.authorName}>{getUserDisplayName(post.author)}</Text>
+                  <Text style={styles.postTime}>{timeAgo(post.createdAt)}</Text>
+                </View>
+                <View style={newsStyles.pendingStatusBadge}>
+                  <Text style={newsStyles.pendingStatusBadgeText}>{post.status || 'Chờ duyệt'}</Text>
+                </View>
+              </View>
+
+              {post.title ? <Text style={styles.postTitle}>{post.title}</Text> : null}
+              <Text style={styles.postContentFull}>{post.content}</Text>
+
+              {/* Images - Facebook Multi-Photo Grid */}
+              {(post as any).images && (post as any).images.length > 0 ? (
+                <FacebookPhotoGrid
+                  images={(post as any).images}
+                  resolveUrl={resolveImageUrl}
+                  layoutType={extractPostLayout(post as any)}
+                />
+              ) : null}
+
+              <View style={styles.postDivider} />
+              
+              {post.status === 'PENDING' && (
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                  <Pressable
+                    style={newsStyles.rejectBtn}
+                    onPress={handleReject}
+                  >
+                    <MaterialCommunityIcons name="close" size={16} color="#DC2626" />
+                    <Text style={newsStyles.rejectBtnText}>Từ chối</Text>
+                  </Pressable>
+                  <Pressable
+                    style={newsStyles.approveBtn}
+                    onPress={handleApprove}
+                  >
+                    <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
+                    <Text style={newsStyles.approveBtnText}>Duyệt bài</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        )}
+      </View>
 
       <ImageView
         images={viewerImages}
@@ -1280,7 +1556,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
         visible={viewerVisible}
         onRequestClose={() => setViewerVisible(false)}
       />
-    </Screen>
+    </View>
   );
 }
 
@@ -1940,5 +2216,410 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+});
+
+const newsStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#1B3B2B',
+  },
+  headerWrap: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: '#1B3B2B',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  headerBrand: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.7)',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  pendingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  pendingPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -4,
+  },
+  headerTextWrap: {
+    flex: 1,
+  },
+  headerTitleInline: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 1,
+  },
+  headerSubtitleInline: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  curvedSheet: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
+  curvedSheetWhite: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
+  tabRow: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingHorizontal: 20,
+  },
+  tabItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    marginRight: 24,
+    position: 'relative',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  tabTextActive: {
+    color: '#1B3B2B',
+    fontWeight: '700',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2.5,
+    backgroundColor: '#1B3B2B',
+    borderRadius: 2,
+  },
+  emptyWrap: {
+    paddingVertical: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  createPostBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1B3B2B',
+    paddingHorizontal: 22,
+    paddingVertical: 11,
+    borderRadius: 22,
+    shadowColor: '#1B3B2B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  createPostBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  outlineBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  outlineBackBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  fabBtn: {
+    position: 'absolute',
+    right: 20,
+    backgroundColor: '#1B3B2B',
+    borderRadius: 28,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  fabBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  pendingListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  pendingListTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  pendingListCount: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 16,
+  },
+  fieldGroup: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  textArea: {
+    minHeight: 120,
+    textAlignVertical: 'top',
+  },
+  dropzone: {
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  dropzoneIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dropzoneText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1B3B2B',
+  },
+  fixedFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  primarySubmitBtn: {
+    backgroundColor: '#1B3B2B',
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#1B3B2B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primarySubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
+  pendingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  avatarCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1B3B2B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  authorName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  postTime: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  pendingStatusBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  pendingStatusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  pendingCardActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  rejectBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
+  },
+  rejectBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  approveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#1B3B2B',
+  },
+  approveBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

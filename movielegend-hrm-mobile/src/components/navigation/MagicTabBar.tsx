@@ -6,13 +6,13 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
-  Platform} from 'react-native';
-import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+  Platform,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 
-const AURA_WIDTH = 52;
-const AURA_HEIGHT = 38;
+const AURA_WIDTH = 48;
+const AURA_HEIGHT = 32;
 const TOP_PILL_WIDTH = 24;
 
 export const MagicTabBar = React.memo(function MagicTabBar({
@@ -117,7 +117,7 @@ export const MagicTabBar = React.memo(function MagicTabBar({
         />
       )}
 
-      {/* Vầng hào quang xanh chuyển sắc (Ambient Aura Glow) nằm gọn gàng sau icon active */}
+      {/* Vầng hào quang / Pill nền xanh nhạt sau icon active */}
       {tabWidth > 0 && isCurrentRouteVisible && (
         <Animated.View
           style={[
@@ -131,26 +131,7 @@ export const MagicTabBar = React.memo(function MagicTabBar({
           ]}
           pointerEvents="none"
         >
-          <View style={styles.auraPod}>
-            <Svg width={AURA_WIDTH} height={AURA_HEIGHT} viewBox={`0 0 ${AURA_WIDTH} ${AURA_HEIGHT}`}>
-              <Defs>
-                <RadialGradient id="auraGradient" cx="50%" cy="45%" rx="50%" ry="50%">
-                  <Stop offset="0%" stopColor="#2563EB" stopOpacity="0.20" />
-                  <Stop offset="50%" stopColor="#93C5FD" stopOpacity="0.10" />
-                  <Stop offset="100%" stopColor="#EFF6FF" stopOpacity="0.0" />
-                </RadialGradient>
-              </Defs>
-              <Rect
-                x="1"
-                y="1"
-                width={AURA_WIDTH - 2}
-                height={AURA_HEIGHT - 2}
-                rx="18"
-                ry="18"
-                fill="url(#auraGradient)"
-              />
-            </Svg>
-          </View>
+          <View style={styles.auraPod} />
         </Animated.View>
       )}
 
@@ -199,7 +180,7 @@ export const MagicTabBar = React.memo(function MagicTabBar({
                 <View style={styles.iconBox}>
                   {options.tabBarIcon
                     ? options.tabBarIcon({
-                        color: isFocused ? '#2563EB' : '#94A3B8',
+                        color: isFocused ? '#1B3B2B' : '#94A3B8',
                         focused: isFocused,
                         size: 24,
                       })
@@ -261,13 +242,13 @@ const styles = StyleSheet.create({
     width: TOP_PILL_WIDTH,
     height: 2.5,
     borderRadius: 1.5,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#1B3B2B',
     zIndex: 20,
   },
-  // Vầng hào quang xanh chuyển sắc sau icon active
+  // Vầng hào quang / Pill nền xanh nhạt sau icon active
   auraGlowWrapper: {
     position: 'absolute',
-    top: 5,
+    top: 6,
     width: AURA_WIDTH,
     height: AURA_HEIGHT,
     zIndex: 5,
@@ -275,11 +256,8 @@ const styles = StyleSheet.create({
   auraPod: {
     width: AURA_WIDTH,
     height: AURA_HEIGHT,
-    borderRadius: 19,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-    overflow: 'hidden',
+    borderRadius: 16,
+    backgroundColor: '#D8E9DC',
   },
   tabsRow: {
     flexDirection: 'row',
@@ -330,7 +308,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   tabLabelActive: {
-    color: '#2563EB',
+    color: '#1B3B2B',
     fontWeight: '700',
   },
   tabLabelInactive: {
