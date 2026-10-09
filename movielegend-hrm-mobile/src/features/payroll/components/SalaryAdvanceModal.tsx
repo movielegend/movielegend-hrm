@@ -78,9 +78,8 @@ export function SalaryAdvanceModal({
   }, [visible, user]);
 
   const parsedAmount = parseInt(rawAmount.replace(/\D/g, ''), 10) || 0;
-  const isOverLimit = parsedAmount > remainingAdvanceLimit;
   const isZeroOrNegative = parsedAmount <= 0;
-  const canSubmit = !isZeroOrNegative && !isOverLimit && reason.trim().length > 0 && bankAccount.trim().length > 0;
+  const canSubmit = !isZeroOrNegative && reason.trim().length > 0 && bankAccount.trim().length > 0;
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
@@ -97,21 +96,12 @@ export function SalaryAdvanceModal({
   };
 
   const handleQuickPick = (amount: number) => {
-    const validAmount = Math.min(amount, remainingAdvanceLimit);
-    setRawAmount(validAmount.toLocaleString('vi-VN'));
+    setRawAmount(amount.toLocaleString('vi-VN'));
   };
 
   const handleSubmit = async () => {
     if (parsedAmount <= 0) {
       CustomAlert.alert('Lỗi', 'Vui lòng nhập số tiền muốn tạm ứng');
-      return;
-    }
-
-    if (parsedAmount > remainingAdvanceLimit) {
-      CustomAlert.alert(
-        'Vượt quá hạn mức',
-        `Số tiền đề xuất (${formatCurrency(parsedAmount)}) vượt quá hạn mức tạm ứng còn lại (${formatCurrency(remainingAdvanceLimit)}). Quy định tối đa 50% lương.`
-      );
       return;
     }
 
@@ -165,10 +155,6 @@ export function SalaryAdvanceModal({
     }
   };
 
-  const usedPercentage = maxAdvanceLimit > 0
-    ? Math.min(100, Math.round((currentMonthAdvancedAmount / maxAdvanceLimit) * 100))
-    : 0;
-
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -193,45 +179,15 @@ export function SalaryAdvanceModal({
           </View>
 
           <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-            {/* Limit Banner Card */}
-            <View style={styles.limitCard}>
-              <View style={styles.limitCardHeader}>
-                <MaterialCommunityIcons name="shield-check-outline" size={18} color="#059669" />
-                <Text style={styles.limitCardTitle}>Hạn mức tạm ứng (Quy định 50% Lương)</Text>
+            {/* Policy & Notice Banner Card */}
+            <View style={styles.noticeCard}>
+              <View style={styles.noticeCardHeader}>
+                <MaterialCommunityIcons name="shield-alert-outline" size={20} color="#D97706" />
+                <Text style={styles.noticeCardTitle}>Quy định tạm ứng lương (Tối đa 50%)</Text>
               </View>
-
-              <View style={styles.limitGrid}>
-                <View style={styles.limitGridItem}>
-                  <Text style={styles.gridItemLabel}>Lương cơ sở</Text>
-                  <Text style={styles.gridItemVal}>{formatCurrency(baseSalary)}</Text>
-                </View>
-                <View style={styles.limitGridItem}>
-                  <Text style={styles.gridItemLabel}>Hạn mức 50%</Text>
-                  <Text style={[styles.gridItemVal, { color: '#059669' }]}>
-                    {formatCurrency(maxAdvanceLimit)}
-                  </Text>
-                </View>
-                <View style={styles.limitGridItem}>
-                  <Text style={styles.gridItemLabel}>Đã ứng tháng này</Text>
-                  <Text style={[styles.gridItemVal, { color: '#D97706' }]}>
-                    {formatCurrency(currentMonthAdvancedAmount)}
-                  </Text>
-                </View>
-                <View style={styles.limitGridItem}>
-                  <Text style={styles.gridItemLabel}>Khả dụng còn lại</Text>
-                  <Text style={[styles.gridItemVal, { color: '#2563EB', fontWeight: '800' }]}>
-                    {formatCurrency(remainingAdvanceLimit)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Progress Bar */}
-              <View style={styles.progressWrap}>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressBar, { width: `${usedPercentage}%` }]} />
-                </View>
-                <Text style={styles.progressText}>Đã dùng {usedPercentage}% hạn mức tháng này</Text>
-              </View>
+              <Text style={styles.noticeCardText}>
+                Theo quy định công ty, số tiền tạm ứng khuyến nghị không quá 50% mức lương. Đề xuất của bạn sẽ được gửi tới Trưởng bộ phận (Leader) xem xét tính hợp lý và phê duyệt trước khi Kế toán trưởng tiến hành giải ngân.
+              </Text>
             </View>
 
             {/* Workflow 3-Steps Visual */}
@@ -269,7 +225,7 @@ export function SalaryAdvanceModal({
               <Text style={styles.inputLabel}>
                 Số tiền muốn tạm ứng <Text style={styles.reqStar}>*</Text>
               </Text>
-              <View style={[styles.amountInputWrap, isOverLimit && styles.amountInputError]}>
+              <View style={styles.amountInputWrap}>
                 <TextInput
                   style={styles.amountInput}
                   value={rawAmount}
@@ -281,38 +237,24 @@ export function SalaryAdvanceModal({
                 <Text style={styles.amountUnit}>VNĐ</Text>
               </View>
 
-              {isOverLimit && (
-                <View style={styles.errorRow}>
-                  <MaterialCommunityIcons name="alert-circle" size={14} color="#DC2626" />
-                  <Text style={styles.errorText}>
-                    Vượt quá hạn mức còn lại ({formatCurrency(remainingAdvanceLimit)})
-                  </Text>
-                </View>
-              )}
-
               {/* Quick Pick Chips */}
               <View style={styles.chipsRow}>
-                {maxAdvanceLimit > 0 && (
-                  <>
-                    <Pressable
-                      style={styles.chip}
-                      onPress={() => handleQuickPick(Math.floor(maxAdvanceLimit * 0.5))}
-                    >
-                      <Text style={styles.chipText}>25% Lương</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.chip, styles.chipMax]}
-                      onPress={() => handleQuickPick(remainingAdvanceLimit)}
-                    >
-                      <Text style={styles.chipTextMax}>Tối đa (50%)</Text>
-                    </Pressable>
-                  </>
+                {baseSalary > 0 && (
+                  <Pressable
+                    style={[styles.chip, styles.chipMax]}
+                    onPress={() => handleQuickPick(Math.floor(baseSalary * 0.5))}
+                  >
+                    <Text style={styles.chipTextMax}>50% Lương ({formatCurrency(baseSalary * 0.5)})</Text>
+                  </Pressable>
                 )}
                 <Pressable style={styles.chip} onPress={() => handleQuickPick(1000000)}>
                   <Text style={styles.chipText}>1.000.000đ</Text>
                 </Pressable>
                 <Pressable style={styles.chip} onPress={() => handleQuickPick(2000000)}>
                   <Text style={styles.chipText}>2.000.000đ</Text>
+                </Pressable>
+                <Pressable style={styles.chip} onPress={() => handleQuickPick(3000000)}>
+                  <Text style={styles.chipText}>3.000.000đ</Text>
                 </Pressable>
                 <Pressable style={styles.chip} onPress={() => handleQuickPick(5000000)}>
                   <Text style={styles.chipText}>5.000.000đ</Text>
@@ -487,67 +429,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
   },
-  limitCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
+  noticeCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#FEF3C7',
     marginBottom: 16,
   },
-  limitCardHeader: {
+  noticeCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
-  },
-  limitCardTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  limitGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 6,
   },
-  limitGridItem: {
-    width: '48%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  gridItemLabel: {
-    fontSize: 11,
-    color: '#64748B',
-    marginBottom: 4,
-  },
-  gridItemVal: {
+  noticeCardTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#92400E',
   },
-  progressWrap: {
-    marginTop: 10,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#E2E8F0',
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#059669',
-    borderRadius: 3,
-  },
-  progressText: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 4,
-    textAlign: 'right',
+  noticeCardText: {
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 18,
   },
   workflowBox: {
     backgroundColor: '#F0FDF4',

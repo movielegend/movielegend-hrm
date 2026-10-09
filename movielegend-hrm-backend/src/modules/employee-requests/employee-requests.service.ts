@@ -88,52 +88,10 @@ export class EmployeeRequestsService {
     const amountVal = Number(dto.amount || 0);
     const NON_VAT_ADMIN_THRESHOLD = 2000000; // 2.000.000 VNĐ theo sơ đồ (Trên 2tr: A Kiên)
 
-    // Validation riêng cho Đơn Tạm ứng Lương (ADVANCE) - Tối đa 50% lương
+    // Xử lý riêng cho Đơn Tạm ứng Lương (ADVANCE) - Leader sẽ trực tiếp xét duyệt
     if (isAdvance) {
       if (amountVal <= 0) {
         throw badRequest('INVALID_ADVANCE_AMOUNT', 'Số tiền tạm ứng lương phải lớn hơn 0');
-      }
-
-      // Lấy lương cơ bản của nhân sự
-      const salaryProfile = await this.prisma.salaryProfile.findFirst({
-        where: { userId: actor.userId },
-        orderBy: { effectiveFrom: 'desc' },
-      });
-      let baseSalary = salaryProfile ? Number(salaryProfile.baseSalary) : 0;
-      if (baseSalary <= 0) {
-        const latestPayroll = await this.prisma.payroll.findFirst({
-          where: { userId: actor.userId },
-          orderBy: { calculatedAt: 'desc' },
-        });
-        if (latestPayroll) {
-          baseSalary = Number(latestPayroll.baseSalary);
-        }
-      }
-
-      if (baseSalary > 0) {
-        const nowTime = new Date();
-        const startOfMonth = new Date(Date.UTC(nowTime.getFullYear(), nowTime.getMonth(), 1, 0, 0, 0));
-        const endOfMonth = new Date(Date.UTC(nowTime.getFullYear(), nowTime.getMonth() + 1, 0, 23, 59, 59, 999));
-
-        const existingAdvances = await this.prisma.employeeRequest.findMany({
-          where: {
-            userId: actor.userId,
-            type: EmployeeRequestType.ADVANCE,
-            status: { in: [EmployeeRequestStatus.PENDING, EmployeeRequestStatus.APPROVED] },
-            createdAt: { gte: startOfMonth, lte: endOfMonth },
-          },
-        });
-
-        const currentAdvancedTotal = existingAdvances.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-        const maxAdvanceLimit = Math.floor(baseSalary * 0.5);
-        const remainingAdvanceLimit = Math.max(0, maxAdvanceLimit - currentAdvancedTotal);
-
-        if (amountVal > remainingAdvanceLimit) {
-          throw badRequest(
-            'ADVANCE_LIMIT_EXCEEDED',
-            `Số tiền đề xuất tạm ứng (${amountVal.toLocaleString('vi-VN')} đ) vượt quá hạn mức cho phép. Quy định: Tối đa 50% lương (${maxAdvanceLimit.toLocaleString('vi-VN')} đ). Hạn mức còn lại trong tháng: ${remainingAdvanceLimit.toLocaleString('vi-VN')} đ.`,
-          );
-        }
       }
 
       if (!requestTitle || requestTitle === 'Tạm ứng' || requestTitle === 'Yêu cầu') {

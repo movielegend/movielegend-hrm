@@ -31,6 +31,7 @@ import { CustomAlert } from '../../components/CustomAlert';
 import { DepartmentBatchUploadModal } from './components/DepartmentBatchUploadModal';
 import { DepartmentLabelingModal } from './components/DepartmentLabelingModal';
 import { SalaryAdvanceModal } from './components/SalaryAdvanceModal';
+import { resolveFileUrl } from '../../utils/url';
 
 export function EmployeePayslipScreen() {
   const insets = useSafeAreaInsets();
@@ -139,7 +140,8 @@ export function EmployeePayslipScreen() {
   };
 
   const openViewer = (uri: string) => {
-    setViewerImages([{ uri }]);
+    const fullUrl = resolveFileUrl(uri) || uri;
+    setViewerImages([{ uri: fullUrl }]);
     setIsImageViewerVisible(true);
   };
 
@@ -276,7 +278,7 @@ export function EmployeePayslipScreen() {
                 onPress={() => openViewer(item.finalOfficialImageUrl!)}
               >
                 <Image
-                  source={{ uri: item.finalOfficialImageUrl }}
+                  source={{ uri: resolveFileUrl(item.finalOfficialImageUrl) || item.finalOfficialImageUrl }}
                   style={styles.empThumbImage}
                   resizeMode="cover"
                 />
@@ -449,7 +451,7 @@ export function EmployeePayslipScreen() {
                     onPress={() => openViewer(payslip.finalOfficialImageUrl!)}
                   >
                     <Image
-                      source={{ uri: payslip.finalOfficialImageUrl }}
+                      source={{ uri: resolveFileUrl(payslip.finalOfficialImageUrl) || payslip.finalOfficialImageUrl }}
                       style={styles.snapshotImage}
                       resizeMode="cover"
                     />

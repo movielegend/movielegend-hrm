@@ -13,6 +13,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ImageView from '../../../components/ImageViewer/ImageViewer';
 import { CustomAlert } from '../../../components/CustomAlert';
+import { resolveFileUrl } from '../../../utils/url';
 import {
   getDepartmentPayslipBatch,
   assignDepartmentPayslipImage,
@@ -262,7 +263,7 @@ export function DepartmentLabelingModal({
                     onPress={() => setIsImageViewerVisible(true)}
                   >
                     <Image
-                      source={{ uri: currentImage.imageUrl }}
+                      source={{ uri: resolveFileUrl(currentImage.imageUrl) || currentImage.imageUrl }}
                       style={styles.mainImage}
                       resizeMode="contain"
                     />
@@ -380,7 +381,7 @@ export function DepartmentLabelingModal({
           {/* Image Fullscreen Viewer */}
           {allImages.length > 0 && (
             <ImageView
-              images={allImages.map((img) => ({ uri: img.imageUrl }))}
+              images={allImages.map((img) => ({ uri: resolveFileUrl(img.imageUrl) || img.imageUrl }))}
               imageIndex={selectedImageIndex}
               visible={isImageViewerVisible}
               onRequestClose={() => setIsImageViewerVisible(false)}
