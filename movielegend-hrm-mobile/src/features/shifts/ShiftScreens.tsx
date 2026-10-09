@@ -518,14 +518,9 @@ export function AdminShiftsScreen() {
           >
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.brandTagline}>MOVIE LEGEND</Text>
-          <View style={{ width: 36 }} />
-        </View>
-
-        <View style={styles.headerTitleWrap}>
           <Text style={styles.screenTitle}>Ca làm việc</Text>
-          <Text style={styles.screenSubtitle}>Quản lý ca trong hệ thống</Text>
         </View>
+        <Text style={styles.screenSubtitle}>Quản lý ca trong hệ thống</Text>
       </View>
 
       <ScrollView
@@ -778,14 +773,9 @@ export function CreateShiftScreen() {
           >
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.brandTagline}>MOVIE LEGEND</Text>
-          <View style={{ width: 36 }} />
-        </View>
-
-        <View style={styles.headerTitleWrap}>
           <Text style={styles.screenTitle}>Tạo ca làm việc</Text>
-          <Text style={styles.screenSubtitle}>Thiết lập thông tin và khung giờ</Text>
         </View>
+        <Text style={styles.screenSubtitle}>Thiết lập thông tin và khung giờ</Text>
       </View>
 
       <ScrollView
@@ -960,14 +950,9 @@ export function EditShiftScreen() {
           >
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.brandTagline}>MOVIE LEGEND</Text>
-          <View style={{ width: 36 }} />
-        </View>
-
-        <View style={styles.headerTitleWrap}>
           <Text style={styles.screenTitle}>Cập nhật ca làm việc</Text>
-          <Text style={styles.screenSubtitle}>Thiết lập thông tin và khung giờ</Text>
         </View>
+        <Text style={styles.screenSubtitle}>Thiết lập thông tin và khung giờ</Text>
       </View>
 
       <ScrollView
@@ -1544,8 +1529,7 @@ const styles = StyleSheet.create({
   modernHeaderTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 4,
   },
   headerBackBtn: {
     width: 36,
@@ -1553,19 +1537,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: -4,
-  },
-  brandTagline: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.7)',
-    letterSpacing: 2,
-  },
-  headerTitleWrap: {
-    marginTop: 2,
+    marginLeft: -6,
+    marginRight: 6,
   },
   screenTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.3,
@@ -1573,7 +1549,8 @@ const styles = StyleSheet.create({
   screenSubtitle: {
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
+    marginTop: 2,
+    marginLeft: 36,
   },
   modernScroll: {
     flex: 1,
