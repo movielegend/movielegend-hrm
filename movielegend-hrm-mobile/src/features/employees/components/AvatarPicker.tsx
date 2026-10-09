@@ -1,14 +1,43 @@
 import React, { useState } from 'react';
-import {View, Text, StyleSheet, Pressable, Image, ActivityIndicator, Modal} from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Image,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../../providers/AuthProvider';
 import { updateMe } from '../../../api/users.api';
 import { uploadFile } from '../../../api/uploads.api';
-import { requestCameraPermissionWithFallback, requestMediaLibraryPermissionWithFallback } from '../../../utils/mediaPermissions';
+import {
+  requestCameraPermissionWithFallback,
+  requestMediaLibraryPermissionWithFallback,
+} from '../../../utils/mediaPermissions';
 import { CustomAlert } from '../../../components/CustomAlert';
 
-export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => string }) {
+interface AvatarPickerProps {
+  getInitials: (name?: string) => string;
+  size?: number;
+  bgColor?: string;
+  textColor?: string;
+  badgeBgColor?: string;
+  badgeIconColor?: string;
+  badgeBorderColor?: string;
+}
+
+export function AvatarPicker({
+  getInitials,
+  size = 56,
+  bgColor = '#E8F5E9',
+  textColor = '#1B3B2B',
+  badgeBgColor = '#FFFFFF',
+  badgeIconColor = '#64748B',
+  badgeBorderColor = '#E2E8F0',
+}: AvatarPickerProps) {
   const { user, reloadProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -40,13 +69,13 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setLoading(true);
         const selectedAsset = result.assets[0];
-        
+
         // 1. Upload to server
         const uploadedFile = await uploadFile({
           uri: selectedAsset.uri,
           mimeType: selectedAsset.mimeType || 'image/jpeg',
           name: selectedAsset.fileName || 'avatar.jpg',
-          purpose: 'EMPLOYEE_DOCUMENT' // Using EMPLOYEE_DOCUMENT to bypass backend enum validation
+          purpose: 'EMPLOYEE_DOCUMENT',
         });
 
         if (!uploadedFile || !uploadedFile.fileUrl) {
@@ -55,7 +84,7 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
 
         // 2. Update user profile
         await updateMe({
-          avatarUrl: uploadedFile.fileUrl
+          avatarUrl: uploadedFile.fileUrl,
         });
 
         // 3. Reload auth context
@@ -68,22 +97,63 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
     }
   };
 
+  const radius = size / 2;
+  const badgeSize = Math.max(20, Math.round(size * 0.38));
+  const badgeRadius = badgeSize / 2;
+
   return (
     <View style={styles.container}>
-      <Pressable onPress={() => setMenuVisible(true)} style={styles.avatarContainer}>
+      <Pressable
+        onPress={() => setMenuVisible(true)}
+        style={[
+          styles.avatarContainer,
+          {
+            width: size,
+            height: size,
+            borderRadius: radius,
+            backgroundColor: bgColor,
+          },
+        ]}
+      >
         {user?.avatarUrl ? (
-          <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+          <Image
+            source={{ uri: user.avatarUrl }}
+            style={[styles.avatarImage, { borderRadius: radius }]}
+          />
         ) : (
-          <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
+          <Text
+            style={[
+              styles.avatarText,
+              { color: textColor, fontSize: Math.round(size * 0.35) },
+            ]}
+          >
+            {getInitials(user?.fullName)}
+          </Text>
         )}
-        
-        <View style={styles.editBadge}>
-          <MaterialCommunityIcons name="camera-outline" size={14} color="#FFF" />
+
+        {/* Camera edit badge */}
+        <View
+          style={[
+            styles.editBadge,
+            {
+              width: badgeSize,
+              height: badgeSize,
+              borderRadius: badgeRadius,
+              backgroundColor: badgeBgColor,
+              borderColor: badgeBorderColor,
+            },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name="camera-outline"
+            size={Math.round(badgeSize * 0.58)}
+            color={badgeIconColor}
+          />
         </View>
 
         {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator color="#FFF" />
+          <View style={[styles.loadingOverlay, { borderRadius: radius }]}>
+            <ActivityIndicator color="#FFF" size="small" />
           </View>
         )}
       </Pressable>
@@ -92,7 +162,7 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
         <Pressable style={styles.modalOverlay} onPress={() => setMenuVisible(false)}>
           <View style={styles.menuContainer}>
             <Text style={styles.menuTitle}>Cập nhật ảnh đại diện</Text>
-            
+
             <Pressable style={styles.menuItem} onPress={() => handlePickImage('camera')}>
               <MaterialCommunityIcons name="camera" size={24} color="#374151" />
               <Text style={styles.menuItemText}>Chụp ảnh mới</Text>
@@ -112,50 +182,36 @@ export function AvatarPicker({ getInitials }: { getInitials: (name?: string) => 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#E0E7FF',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#FFF',
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   avatarText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#4F46E5',
+    fontWeight: '800',
   },
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 40,
   },
   editBadge: {
     position: 'absolute',
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#4F46E5',
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    right: -2,
+    bottom: -2,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFF',
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

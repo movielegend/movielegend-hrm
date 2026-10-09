@@ -167,7 +167,9 @@ export function AdminProfileScreen() {
                 style={styles.utilityCard}
                 onPress={() => router.push('/admin/timesheet' as any)}
               >
-                <Ionicons name="calendar-outline" size={24} color="#0F172A" />
+                <View style={styles.utilityIconWrap}>
+                  <Ionicons name="calendar-outline" size={24} color="#0F172A" />
+                </View>
                 <Text style={styles.utilityTitle}>Bảng công</Text>
               </Pressable>
 
@@ -176,7 +178,11 @@ export function AdminProfileScreen() {
                 style={styles.utilityCard}
                 onPress={() => router.push('/admin/payslip' as any)}
               >
-                <MaterialCommunityIcons name="cash-multiple" size={24} color="#0F172A" />
+                <View style={styles.utilityIconWrap}>
+                  <View style={styles.payslipIconBox}>
+                    <Text style={styles.payslipDollarText}>$</Text>
+                  </View>
+                </View>
                 <Text style={styles.utilityTitle}>Phiếu lương</Text>
               </Pressable>
 
@@ -185,7 +191,9 @@ export function AdminProfileScreen() {
                 style={styles.utilityCard}
                 onPress={() => router.push('/admin/attendance' as any)}
               >
-                <Ionicons name="time-outline" size={24} color="#0F172A" />
+                <View style={styles.utilityIconWrap}>
+                  <Ionicons name="time-outline" size={24} color="#0F172A" />
+                </View>
                 <Text style={styles.utilityTitle}>Chấm công</Text>
                 <Text style={styles.utilitySubtitle}>Lịch sử</Text>
               </Pressable>
@@ -223,22 +231,26 @@ export function AdminProfileScreen() {
                     <Text style={styles.subGroupTitle}>Tổ chức & phát triển</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
-                        icon="account-tree"
+                        icon="sitemap-outline"
+                        iconType="mci"
                         title="Cơ cấu tổ chức"
                         onPress={() => router.push('/admin/branches')}
                       />
                       <FeatureItem
                         icon="layers-outline"
+                        iconType="mci"
                         title="Cấp bậc & Dự án"
                         onPress={() => router.push('/admin/levels' as any)}
                       />
                       <FeatureItem
-                        icon="trending-up"
+                        icon="stats-chart-outline"
+                        iconType="ionicons"
                         title="Duyệt thăng cấp"
                         onPress={() => router.push('/admin/competition/review' as any)}
                       />
                       <FeatureItem
-                        icon="wallet-giftcard"
+                        icon="gift-outline"
+                        iconType="ionicons"
                         title="Ví thưởng"
                         onPress={() => router.push('/admin/tet-wallet' as any)}
                       />
@@ -252,22 +264,26 @@ export function AdminProfileScreen() {
                     <Text style={styles.subGroupTitle}>Chấm công & phê duyệt</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
-                        icon="clock-outline"
+                        icon="time-outline"
+                        iconType="ionicons"
                         title="Dữ liệu chấm công"
                         onPress={() => router.push('/admin/attendance')}
                       />
                       <FeatureItem
-                        icon="calendar-clock"
+                        icon="calendar-outline"
+                        iconType="ionicons"
                         title="Ca làm việc"
                         onPress={() => router.push('/admin/shifts')}
                       />
                       <FeatureItem
                         icon="file-document-outline"
+                        iconType="mci"
                         title="Duyệt đơn"
                         onPress={() => router.push('/leader/employee-requests')}
                       />
                       <FeatureItem
-                        icon="account-check-outline"
+                        icon="account-outline"
+                        iconType="mci"
                         title="Duyệt tài khoản"
                         onPress={() => router.push('/admin/approvals')}
                       />
@@ -282,21 +298,25 @@ export function AdminProfileScreen() {
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="swap-horizontal"
+                        iconType="mci"
                         title="Luân chuyển phòng ban"
                         onPress={() => router.push('/admin/cross-department')}
                       />
                       <FeatureItem
-                        icon="file-document-edit-outline"
+                        icon="file-document-outline"
+                        iconType="mci"
                         title="Hợp đồng"
                         onPress={() => router.push('/admin/contracts')}
                       />
                       <FeatureItem
                         icon="folder-outline"
+                        iconType="ionicons"
                         title="Tài liệu nội bộ"
                         onPress={() => router.push('/admin/documents' as any)}
                       />
                       <FeatureItem
-                        icon="comment-text-multiple-outline"
+                        icon="message-plus-outline"
+                        iconType="mci"
                         title="Quản lý góp ý"
                         onPress={() => router.push('/admin/feedbacks' as any)}
                       />
@@ -332,22 +352,26 @@ export function AdminProfileScreen() {
                     <Text style={styles.subGroupTitle}>Công việc & trao đổi</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
-                        icon="newspaper-variant-outline"
+                        icon="newspaper-outline"
+                        iconType="ionicons"
                         title="Bảng tin"
                         onPress={() => router.push('/admin/newsfeed')}
                       />
                       <FeatureItem
-                        icon="chat-outline"
+                        icon="chatbubbles-outline"
+                        iconType="ionicons"
                         title="Nhóm chat"
                         onPress={() => router.push('/admin/chat')}
                       />
                       <FeatureItem
-                        icon="briefcase-check-outline"
+                        icon="briefcase-outline"
+                        iconType="ionicons"
                         title="Công việc"
                         onPress={() => router.push('/admin/tasks')}
                       />
                       <FeatureItem
-                        icon="alert-octagon-outline"
+                        icon="alert-circle-outline"
+                        iconType="ionicons"
                         title="Báo cáo sự cố"
                         onPress={() => router.push('/admin/asset-incidents')}
                       />
@@ -361,11 +385,13 @@ export function AdminProfileScreen() {
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="cube-outline"
+                        iconType="mci"
                         title="Vật tư"
                         onPress={() => router.push('/admin/materials')}
                       />
                       <FeatureItem
                         icon="warehouse"
+                        iconType="mci"
                         title="Kho hàng"
                         onPress={() => router.push('/admin/warehouses')}
                       />
@@ -401,17 +427,20 @@ export function AdminProfileScreen() {
                     <Text style={styles.subGroupTitle}>Tài khoản & hệ thống</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
-                        icon="information-outline"
+                        icon="help-circle-outline"
+                        iconType="ionicons"
                         title="Hướng dẫn sử dụng"
                         onPress={showGuideManual}
                       />
                       <FeatureItem
-                        icon="lock-outline"
+                        icon="lock-closed-outline"
+                        iconType="ionicons"
                         title="Đổi mật khẩu"
                         onPress={() => setIsChangingPassword(true)}
                       />
                       <FeatureItem
-                        icon="account-remove-outline"
+                        icon="shield-outline"
+                        iconType="ionicons"
                         title="Quyền & Xóa tài khoản"
                         onPress={() => setIsDeleting(true)}
                       />
@@ -514,10 +543,23 @@ export function AdminProfileScreen() {
   );
 }
 
-function FeatureItem({ icon, title, onPress }: { icon: any; title: string; onPress: () => void }) {
+interface FeatureItemProps {
+  icon: string;
+  iconType?: 'mci' | 'ionicons';
+  title: string;
+  onPress: () => void;
+}
+
+function FeatureItem({ icon, iconType = 'mci', title, onPress }: FeatureItemProps) {
   return (
     <Pressable style={styles.featureItem} onPress={onPress}>
-      <MaterialCommunityIcons name={icon} size={18} color="#0F172A" />
+      <View style={styles.featureIconWrap}>
+        {iconType === 'ionicons' ? (
+          <Ionicons name={icon as any} size={20} color="#0F172A" />
+        ) : (
+          <MaterialCommunityIcons name={icon as any} size={20} color="#0F172A" />
+        )}
+      </View>
       <Text style={styles.featureItemText} numberOfLines={1}>
         {title}
       </Text>
@@ -740,6 +782,27 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 90,
+  },
+  utilityIconWrap: {
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  payslipIconBox: {
+    width: 20,
+    height: 26,
+    borderRadius: 4,
+    borderWidth: 1.8,
+    borderColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  payslipDollarText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: -1,
   },
   utilityTitle: {
     fontSize: 13,
@@ -814,9 +877,14 @@ const styles = StyleSheet.create({
     width: '50%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 6,
+    paddingVertical: 7,
     paddingRight: 6,
+  },
+  featureIconWrap: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
   featureItemText: {
     fontSize: 13,
