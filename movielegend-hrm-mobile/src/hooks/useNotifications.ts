@@ -122,10 +122,15 @@ export function usePushNotificationSetup() {
         // Handle voice call notification tap
         if (data && data.type === 'VOICE_CALL_INCOMING') {
           const { DeviceEventEmitter } = require('react-native');
+          const createdAt = Number(data.createdAt || data.timestamp || 0);
+          if (createdAt > 0 && Date.now() - createdAt > 45000) {
+            DeviceEventEmitter.emit('voice_call:expired', data);
+            return;
+          }
           if (actionId === 'ACCEPT') {
-            DeviceEventEmitter.emit('voice_call:action_accept', data.callerId);
+            DeviceEventEmitter.emit('voice_call:action_accept', { callerId: data.callerId, callId: data.callId });
           } else if (actionId === 'REJECT') {
-            DeviceEventEmitter.emit('voice_call:action_reject', data.callerId);
+            DeviceEventEmitter.emit('voice_call:action_reject', { callerId: data.callerId, callId: data.callId });
           } else {
             // Just opened the notification
             DeviceEventEmitter.emit('voice_call:action_open', data);

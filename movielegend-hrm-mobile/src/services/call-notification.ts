@@ -54,7 +54,13 @@ export async function setupCallNotificationChannel() {
  * Show a high-priority local notification for an incoming call.
  * Auto-dismissed after 40 seconds if not interacted with.
  */
-export async function showIncomingCallNotification(callerName: string, callerId: string, callerAvatar?: string | null) {
+export async function showIncomingCallNotification(
+  callerName: string,
+  callerId: string,
+  callerAvatar?: string | null,
+  callId?: string,
+  createdAt?: number,
+) {
   if (!Notifications) return;
   try {
     await Notifications.scheduleNotificationAsync({
@@ -68,9 +74,11 @@ export async function showIncomingCallNotification(callerName: string, callerId:
         categoryIdentifier: 'VOICE_CALL_INCOMING',
         data: {
           type: 'VOICE_CALL_INCOMING',
+          callId: callId || null,
           callerId,
           callerName,
           callerAvatar: callerAvatar || null,
+          createdAt: createdAt || Date.now(),
         },
         ...(Platform.OS === 'android' ? { channelId: 'incoming_calls_v4' } : {}),
       },
