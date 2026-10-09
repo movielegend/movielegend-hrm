@@ -74,6 +74,37 @@ function getInitials(name: string): string {
   return name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
 }
 
+function getAvatarColor(name: string) {
+  const bgColors = [
+    { bg: '#E0F2FE', text: '#0369A1' }, // sky
+    { bg: '#DCFCE7', text: '#15803D' }, // green
+    { bg: '#FEF3C7', text: '#B45309' }, // amber
+    { bg: '#F3E8FF', text: '#7E22CE' }, // purple
+    { bg: '#FFE4E6', text: '#BE123C' }, // rose
+    { bg: '#E0E7FF', text: '#4338CA' }, // indigo
+    { bg: '#CCFBF1', text: '#0F766E' }, // teal
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return bgColors[Math.abs(hash) % bgColors.length];
+}
+
+function getShortDeptName(deptName?: string) {
+  if (!deptName) return 'Leader';
+  const clean = deptName.replace(/^Trưởng phòng\s*/i, '').trim();
+  if (/hành chính nhân sự|nhân sự/i.test(clean)) return 'HCNS';
+  if (/livestream|live/i.test(clean)) return 'Live';
+  if (/kế toán/i.test(clean)) return 'Kế toán';
+  if (/kinh doanh/i.test(clean)) return 'Kinh doanh';
+  if (/marketing/i.test(clean)) return 'MKT';
+  if (/cskh|chăm sóc/i.test(clean)) return 'CSKH';
+  if (/phát triển thị trường/i.test(clean)) return 'PTTT';
+  if (/it|dev|kỹ thuật/i.test(clean)) return 'Kỹ thuật';
+  return clean.length > 10 ? clean.slice(0, 9) + '…' : clean;
+}
+
 // ── Mock Stickers ──
 
 import axios from 'axios';
@@ -462,59 +493,98 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={groups.isRefetching} onRefresh={() => void groups.refetch()} />}
         >
-          {/* Section 1: Trưởng phòng */}
+          {/* Section 1: Trưởng phòng (Messenger Stories / Active Style) */}
           {departmentLeaders.length > 0 && (
             <View style={adminChatStyles.leadersSection}>
               <View style={adminChatStyles.sectionHeaderRow}>
-                <Text style={adminChatStyles.sectionTitle}>Trưởng phòng</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={adminChatStyles.sectionTitle}>Trưởng phòng</Text>
+                  <View style={adminChatStyles.onlineCountBadge}>
+                    <View style={adminChatStyles.onlineCountDot} />
+                    <Text style={adminChatStyles.onlineCountText}>{departmentLeaders.length}</Text>
+                  </View>
+                </View>
                 <TouchableOpacity
                   onPress={() => setLeaderModalVisible(true)}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
+                  activeOpacity={0.7}
                 >
-                  <Text style={adminChatStyles.seeAllLeadersText}>
-                    Tất cả ({departmentLeaders.length})
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-right" size={16} color="#2563EB" />
+                  <Text style={adminChatStyles.seeAllLeadersText}>Tất cả</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={16} color="#1B3B2B" />
                 </TouchableOpacity>
               </View>
 
-              {/* Vertical list of top 3 leaders */}
-              <View style={adminChatStyles.leaderListContainer}>
-                {departmentLeaders.slice(0, 3).map((leader) => (
-                  <TouchableOpacity
-                    key={leader.userId}
-                    style={adminChatStyles.leaderItemRow}
-                    activeOpacity={0.7}
-                    disabled={connectingLeaderId === leader.userId}
-                    onPress={() => handleOpenDirectChat(leader)}
-                  >
-                    <View style={adminChatStyles.leaderAvatarCircle}>
-                      <Text style={adminChatStyles.leaderAvatarInitials}>
-                        {getInitials(leader.fullName)}
-                      </Text>
-                    </View>
+              {/* Horizontal Story / Active Bubbles */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={adminChatStyles.leaderHorizontalScroll}
+                nestedScrollEnabled
+              >
+                {departmentLeaders.map((leader) => {
+                  const colorScheme = getAvatarColor(leader.fullName);
+                  const isConnecting = connectingLeaderId === leader.userId;
 
-                    <View style={adminChatStyles.leaderInfoWrap}>
-                      <Text style={adminChatStyles.leaderName} numberOfLines={1}>
+                  return (
+                    <TouchableOpacity
+                      key={leader.userId}
+                      style={adminChatStyles.leaderBubbleItem}
+                      activeOpacity={0.75}
+                      disabled={isConnecting}
+                      onPress={() => handleOpenDirectChat(leader)}
+                    >
+                      <View style={adminChatStyles.leaderAvatarWrap}>
+                        {leader.avatarUrl ? (
+                          <Image
+                            source={{ uri: leader.avatarUrl }}
+                            style={adminChatStyles.leaderBubbleAvatar}
+                          />
+                        ) : (
+                          <View style={[adminChatStyles.leaderBubbleAvatar, { backgroundColor: colorScheme.bg }]}>
+                            <Text style={[adminChatStyles.leaderBubbleInitials, { color: colorScheme.text }]}>
+                              {getInitials(leader.fullName)}
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Online Green Badge */}
+                        <View style={adminChatStyles.activeOnlineDot} />
+
+                        {/* Loading Spinner overlay if connecting */}
+                        {isConnecting && (
+                          <View style={adminChatStyles.leaderBubbleLoadingOverlay}>
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          </View>
+                        )}
+                      </View>
+
+                      <Text style={adminChatStyles.leaderBubbleName} numberOfLines={1}>
                         {leader.fullName}
                       </Text>
-                      <Text style={adminChatStyles.leaderDept} numberOfLines={2}>
-                        {leader.departmentName.startsWith('Trưởng phòng')
-                          ? leader.departmentName
-                          : `Trưởng phòng ${leader.departmentName}`}
+                      <Text style={adminChatStyles.leaderBubbleDept} numberOfLines={1}>
+                        {getShortDeptName(leader.departmentName)}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
+                  );
+                })}
 
-                    <View style={adminChatStyles.leaderChatBtn}>
-                      {connectingLeaderId === leader.userId ? (
-                        <ActivityIndicator size="small" color="#1B3B2B" />
-                      ) : (
-                        <MaterialCommunityIcons name="chat-outline" size={20} color="#334155" />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                {/* Button: Xem tất cả */}
+                <TouchableOpacity
+                  style={adminChatStyles.leaderBubbleItem}
+                  activeOpacity={0.75}
+                  onPress={() => setLeaderModalVisible(true)}
+                >
+                  <View style={adminChatStyles.seeAllBubbleCircle}>
+                    <MaterialCommunityIcons name="dots-horizontal" size={24} color="#1B3B2B" />
+                  </View>
+                  <Text style={adminChatStyles.leaderBubbleName} numberOfLines={1}>
+                    Xem thêm
+                  </Text>
+                  <Text style={adminChatStyles.leaderBubbleDept} numberOfLines={1}>
+                    Tất cả ({departmentLeaders.length})
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           )}
 
@@ -895,38 +965,52 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                 keyExtractor={(item) => item.userId}
                 contentContainerStyle={{ paddingBottom: 24, paddingTop: 8 }}
                 showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={adminChatStyles.leaderItemRow}
-                    activeOpacity={0.7}
-                    disabled={connectingLeaderId === item.userId}
-                    onPress={() => handleOpenDirectChat(item)}
-                  >
-                    <View style={adminChatStyles.leaderAvatarCircle}>
-                      <Text style={adminChatStyles.leaderAvatarInitials}>
-                        {getInitials(item.fullName)}
-                      </Text>
-                    </View>
+                renderItem={({ item }) => {
+                  const colorScheme = getAvatarColor(item.fullName);
+                  return (
+                    <TouchableOpacity
+                      style={adminChatStyles.leaderModalItemRow}
+                      activeOpacity={0.7}
+                      disabled={connectingLeaderId === item.userId}
+                      onPress={() => handleOpenDirectChat(item)}
+                    >
+                      <View style={adminChatStyles.leaderModalAvatarWrap}>
+                        {item.avatarUrl ? (
+                          <Image source={{ uri: item.avatarUrl }} style={adminChatStyles.leaderModalAvatar} />
+                        ) : (
+                          <View style={[adminChatStyles.leaderModalAvatar, { backgroundColor: colorScheme.bg }]}>
+                            <Text style={[adminChatStyles.leaderAvatarInitials, { color: colorScheme.text }]}>
+                              {getInitials(item.fullName)}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={adminChatStyles.activeOnlineDotSmall} />
+                      </View>
 
-                    <View style={adminChatStyles.leaderInfoWrap}>
-                      <Text style={adminChatStyles.leaderName}>{item.fullName}</Text>
-                      <Text style={adminChatStyles.leaderDept}>
-                        {item.departmentName.startsWith('Trưởng phòng')
-                          ? item.departmentName
-                          : `Trưởng phòng ${item.departmentName}`}
-                      </Text>
-                    </View>
+                      <View style={adminChatStyles.leaderInfoWrap}>
+                        <Text style={adminChatStyles.leaderName}>{item.fullName}</Text>
+                        <Text style={adminChatStyles.leaderDept} numberOfLines={1}>
+                          {item.departmentName.startsWith('Trưởng phòng')
+                            ? item.departmentName
+                            : `Trưởng phòng ${item.departmentName}`}
+                          {item.branchName ? ` (${item.branchName})` : ''}
+                        </Text>
+                      </View>
 
-                    <View style={adminChatStyles.leaderChatBtn}>
-                      {connectingLeaderId === item.userId ? (
-                        <ActivityIndicator size="small" color="#1B3B2B" />
-                      ) : (
-                        <MaterialCommunityIcons name="chat-outline" size={20} color="#334155" />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                )}
-                ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                      <View style={adminChatStyles.leaderChatPillBtn}>
+                        {connectingLeaderId === item.userId ? (
+                          <ActivityIndicator size="small" color="#1B3B2B" />
+                        ) : (
+                          <>
+                            <MaterialCommunityIcons name="chat-outline" size={16} color="#1B3B2B" />
+                            <Text style={adminChatStyles.leaderChatPillText}>Nhắn tin</Text>
+                          </>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+                ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
               />
             </View>
           </View>
@@ -2508,28 +2592,165 @@ const adminChatStyles = StyleSheet.create({
     paddingBottom: 36,
   },
 
-  /* Section 1: Trưởng phòng */
+  /* Section 1: Trưởng phòng (Messenger Stories / Active Contacts Style) */
   leadersSection: {
-    marginBottom: 8,
+    marginBottom: 16,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  onlineCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 12,
+    gap: 4,
+  },
+  onlineCountDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  onlineCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
   },
   seeAllLeadersText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2563EB',
+    color: '#1B3B2B',
   },
-  leaderListContainer: {
+  leaderHorizontalScroll: {
+    paddingVertical: 4,
+    gap: 14,
+    alignItems: 'flex-start',
+  },
+  leaderBubbleItem: {
+    alignItems: 'center',
+    width: 68,
+  },
+  leaderAvatarWrap: {
+    position: 'relative',
+    marginBottom: 6,
+  },
+  leaderBubbleAvatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E2E8F0',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+  },
+  leaderBubbleInitials: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  activeOnlineDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#10B981',
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+  },
+  leaderBubbleLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  leaderBubbleName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    width: '100%',
+  },
+  leaderBubbleDept: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 1,
+    width: '100%',
+  },
+  seeAllBubbleCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+
+  /* Leader list in modal */
+  leaderModalItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
     gap: 12,
+  },
+  leaderModalAvatarWrap: {
+    position: 'relative',
+  },
+  leaderModalAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E2E8F0',
+  },
+  activeOnlineDotSmall: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  leaderChatPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 20,
+  },
+  leaderChatPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1B3B2B',
   },
   leaderItemRow: {
     flexDirection: 'row',
