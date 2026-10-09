@@ -8,6 +8,7 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -37,6 +38,8 @@ export function DepartmentBatchUploadModal({
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isDeptDropdownOpen, setIsDeptDropdownOpen] = useState(false);
+  const [deptSearchQuery, setDeptSearchQuery] = useState('');
 
   const handlePickImages = async () => {
     try {
@@ -153,30 +156,102 @@ export function DepartmentBatchUploadModal({
             </Pressable>
           </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* 1. Chọn phòng ban */}
+          <ScrollView style={styles.body} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
+            {/* 1. Chọn phòng ban (Dropdown) */}
             <Text style={styles.sectionLabel}>1. Chọn phòng ban nhận ảnh:</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.deptScroll}>
-              {departments.map((dept) => {
-                const isSelected = selectedDeptId === dept.id;
-                return (
-                  <Pressable
-                    key={dept.id}
-                    style={[styles.deptChip, isSelected && styles.deptChipActive]}
-                    onPress={() => setSelectedDeptId(dept.id)}
+
+            <View style={styles.dropdownContainer}>
+              <Pressable
+                style={[styles.dropdownButton, isDeptDropdownOpen && styles.dropdownButtonActive]}
+                onPress={() => setIsDeptDropdownOpen((prev) => !prev)}
+              >
+                <View style={styles.dropdownButtonLeft}>
+                  <View style={styles.deptIconBadge}>
+                    <MaterialCommunityIcons name="office-building" size={18} color="#059669" />
+                  </View>
+                  <Text style={styles.dropdownButtonText} numberOfLines={1}>
+                    {departments.find((d) => d.id === selectedDeptId)?.name || 'Chọn phòng ban...'}
+                  </Text>
+                </View>
+                <MaterialCommunityIcons
+                  name={isDeptDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#64748B"
+                />
+              </Pressable>
+
+              {isDeptDropdownOpen && (
+                <View style={styles.dropdownListContainer}>
+                  {departments.length > 4 && (
+                    <View style={styles.dropdownSearchWrap}>
+                      <MaterialCommunityIcons name="magnify" size={18} color="#94A3B8" />
+                      <TextInput
+                        style={styles.dropdownSearchInput}
+                        placeholder="Tìm tên phòng ban..."
+                        placeholderTextColor="#94A3B8"
+                        value={deptSearchQuery}
+                        onChangeText={setDeptSearchQuery}
+                      />
+                      {deptSearchQuery ? (
+                        <Pressable onPress={() => setDeptSearchQuery('')} hitSlop={6}>
+                          <MaterialCommunityIcons name="close-circle" size={16} color="#94A3B8" />
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  )}
+
+                  <ScrollView
+                    style={styles.dropdownScrollView}
+                    nestedScrollEnabled={true}
+                    showsVerticalScrollIndicator={true}
                   >
-                    <MaterialCommunityIcons
-                      name={isSelected ? 'check-circle' : 'office-building'}
-                      size={15}
-                      color={isSelected ? '#059669' : '#64748B'}
-                    />
-                    <Text style={[styles.deptChipText, isSelected && styles.deptChipTextActive]}>
-                      {dept.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+                    {departments
+                      .filter((d) =>
+                        d.name.toLowerCase().includes(deptSearchQuery.toLowerCase().trim())
+                      )
+                      .map((dept) => {
+                        const isSelected = selectedDeptId === dept.id;
+                        return (
+                          <Pressable
+                            key={dept.id}
+                            style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]}
+                            onPress={() => {
+                              setSelectedDeptId(dept.id);
+                              setIsDeptDropdownOpen(false);
+                              setDeptSearchQuery('');
+                            }}
+                          >
+                            <View style={{ flex: 1, marginRight: 8 }}>
+                              <Text
+                                style={[
+                                  styles.dropdownItemText,
+                                  isSelected && styles.dropdownItemTextActive,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {dept.name}
+                              </Text>
+                              {dept.branch?.name && (
+                                <Text style={styles.dropdownItemSubText}>
+                                  {dept.branch.name}
+                                  {dept.branch.region?.name ? ` • ${dept.branch.region.name}` : ''}
+                                </Text>
+                              )}
+                            </View>
+                            {isSelected && (
+                              <MaterialCommunityIcons
+                                name="check-circle"
+                                size={18}
+                                color="#059669"
+                              />
+                            )}
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
 
             {/* 2. Chọn ảnh */}
             <View style={styles.pickSectionHeader}>
@@ -322,34 +397,103 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginBottom: 8,
   },
-  deptScroll: {
-    flexDirection: 'row',
+  dropdownContainer: {
     marginBottom: 16,
+    zIndex: 10,
   },
-  deptChip: {
+  dropdownButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
+    justifyContent: 'space-between',
     backgroundColor: '#F8FAFC',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  dropdownButtonActive: {
+    borderColor: '#059669',
+    backgroundColor: '#ECFDF5',
+  },
+  dropdownButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
     marginRight: 8,
   },
-  deptChipActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#059669',
+  deptIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#E6F4EA',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  deptChipText: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
+  dropdownButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    flex: 1,
   },
-  deptChipTextActive: {
+  dropdownListContainer: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    marginTop: 6,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  dropdownSearchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
+  },
+  dropdownSearchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0F172A',
+    padding: 0,
+  },
+  dropdownScrollView: {
+    maxHeight: 180,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  dropdownItemActive: {
+    backgroundColor: '#F0FDF4',
+  },
+  dropdownItemText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  dropdownItemTextActive: {
     color: '#059669',
     fontWeight: '700',
+  },
+  dropdownItemSubText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
   },
   pickSectionHeader: {
     flexDirection: 'row',
