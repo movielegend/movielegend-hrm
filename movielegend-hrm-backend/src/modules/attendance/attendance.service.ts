@@ -252,7 +252,19 @@ export class AttendanceService {
         orderBy: { checkInAt: 'desc' },
       });
       if (concurrentOpen) {
-        throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước rồi mới được check-in ca mới!');
+        const isSameWorkDate = concurrentOpen.workDate.toISOString().slice(0, 10) === workDate.toISOString().slice(0, 10);
+        if (isLiveDepartment || isSameWorkDate) {
+          throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước rồi mới được check-in ca mới!');
+        } else {
+          // Đối với phòng ban thường: Ca mở của ngày hôm trước bị quên check-out -> Tự động đóng ca cũ thành MISSING (Thiếu check-out) để nhân viên vào ca hôm nay bình thường
+          await tx.attendanceRecord.update({
+            where: { id: concurrentOpen.id },
+            data: {
+              status: AttendanceStatus.MISSING,
+              notes: 'Tự động đóng ca ngày trước do nhân viên quên check-out khi vào ca mới hôm nay',
+            },
+          });
+        }
       }
 
       if (photo) {
