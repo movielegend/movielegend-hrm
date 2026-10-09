@@ -341,10 +341,13 @@ export function LeaderApprovalScreen() {
   let approveButtonLabel = 'Phê duyệt';
   let approveSubtext = '';
   if (isFinancial) {
-    if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
+    if (isAdmin) {
+      approveButtonLabel = 'Duyệt & Giải ngân';
+      approveSubtext = 'Ban Giám Đốc duyệt chi & hoàn tất giải ngân';
+    } else if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
       approveButtonLabel = 'Duyệt & Giải ngân';
       approveSubtext = 'Kế toán trưởng phê duyệt chi & hoàn tất';
-    } else if (stage === 'PENDING_ADMIN' || isAdmin) {
+    } else if (stage === 'PENDING_ADMIN') {
       approveButtonLabel = 'Duyệt & Giải ngân';
       approveSubtext = 'Ban Giám Đốc duyệt chi & hoàn tất giải ngân';
     } else if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
@@ -987,7 +990,7 @@ export function LeaderApprovalScreen() {
             ) : null}
 
             {/* Button Row */}
-            {isNonVatOver2M && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') ? (
+            {!isAdmin && isNonVatOver2M && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') ? (
               <View style={{ gap: 8 }}>
                 <View style={styles.actionButtonsRow}>
                   <Pressable 
