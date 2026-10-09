@@ -108,6 +108,11 @@ export class ApprovalsService {
           isActive: true,
         },
       });
+      // Tự động phê duyệt Face Profile đã đăng ký lúc tạo tài khoản
+      await tx.faceProfile.updateMany({
+        where: { userId: request.userId },
+        data: { status: 'APPROVED' },
+      });
       // Nếu nhân viên đã nhập ngày vào làm lúc đăng ký thì giữ nguyên, nếu chưa có thì tự động tính từ thời điểm duyệt
       const existingProfile = await tx.employeeProfile.findUnique({
         where: { userId: request.userId },

@@ -107,7 +107,7 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      // 1. Get user's registered face
+      // 1. Get user's registered face (prioritize FRONT pose image)
       const profile = await this.prisma.faceProfile.findUnique({
         where: { userId: input.userId },
         include: { images: true },
@@ -117,11 +117,13 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
         return {
           matched: false,
           provider: 'local-face-api-worker',
-          reason: 'Người dùng chưa có khuôn mặt đăng ký được phê duyệt.',
+          reason: 'Người dùng chưa có khuôn mặt đăng ký được phê duyệt. Vui lòng vào hồ sơ để thiết lập khuôn mặt.',
         };
       }
 
-      const registeredImageUrl = profile.images[0].imageUrl;
+      // Luôn ưu tiên lấy ảnh chụp chính diện (FRONT) để làm ảnh gốc so sánh khuôn mặt
+      const frontImage = profile.images.find(img => img.pose === 'FRONT') || profile.images[0];
+      const registeredImageUrl = frontImage.imageUrl;
       let sourceDescriptor: Float32Array | undefined;
       let sourceBuffer: Buffer | undefined;
       
@@ -130,15 +132,27 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
         sourceDescriptor = cached.descriptor;
       } else {
         try {
-          if (registeredImageUrl.startsWith('http')) {
+          // Ưu tiên trích xuất storageKey để đọc trực tiếp từ ổ cứng/Storage nội bộ (tránh lỗi đổi IP/mạng khi fetch HTTP loopback)
+          const storageKey = this.storage.extractKeyFromUrl(registeredImageUrl) || registeredImageUrl;
+          try {
+            sourceBuffer = await this.storage.read(storageKey);
+          } catch {
+            sourceBuffer = undefined;
+          }
+
+          if (!sourceBuffer && registeredImageUrl.startsWith('http')) {
             const response = await fetch(registeredImageUrl);
-            sourceBuffer = Buffer.from(await response.arrayBuffer());
-          } else {
-            sourceBuffer = await this.storage.read(registeredImageUrl);
+            if (response.ok) {
+              sourceBuffer = Buffer.from(await response.arrayBuffer());
+            }
+          }
+
+          if (!sourceBuffer) {
+            throw new Error(`Cannot locate physical image for key: ${storageKey} or url: ${registeredImageUrl}`);
           }
         } catch (e) {
           this.logger.error('Failed to read registered face image', e);
-          return { matched: false, reason: 'Không thể tải dữ liệu khuôn mặt đã đăng ký của bạn. Vui lòng cập nhật lại khuôn mặt.' };
+          return { matched: false, reason: 'Không thể tải dữ liệu khuôn mặt đã đăng ký của bạn. Vui lòng cập nhật lại khuôn mặt trong hồ sơ cá nhân.' };
         }
       }
 
