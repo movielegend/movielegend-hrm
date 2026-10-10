@@ -836,8 +836,24 @@ model User {
   departmentDocuments             DepartmentDocument[]         @relation("DeptDocUploader")
   dailyReports                    DailyReport[]                @relation("UserDailyReports")
   reviewedDailyReports            DailyReport[]                @relation("ReportReviewer")
+  pinnedApps                      UserPinnedApp[]
 
   @@map("users")
+}
+
+model UserPinnedApp {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  appKey    String   @db.VarChar(50)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, appKey])
+  @@index([userId])
+  @@map("user_pinned_apps")
 }
 
 model UploadedFile {

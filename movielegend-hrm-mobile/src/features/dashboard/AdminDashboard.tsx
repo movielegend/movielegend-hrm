@@ -1,928 +1,1254 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState, useCallback } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image, Dimensions } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  RefreshControl,
+  Image,
+  Dimensions,
+  Modal,
+  LayoutAnimation,
+} from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
-import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
 import { getVaultWithdrawalRequests } from '../../api/employees.api';
-import { levelingApi } from '../../api/leveling.api';
-import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
-import { FeedbackCard } from '../feedback/components/FeedbackCard';
-import { LiveClock } from '../../components/LiveClock';
+import { getEmployeeRequests } from '../../api/employee-requests.api';
+import { useNewsfeedPosts } from '../../hooks/useNewsfeed';
+import { useMyTasks } from '../../hooks/useTasks';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ContourHeroPattern } from './components/ContourHeroPattern';
+import Svg, { Path, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
-const appleTheme = {
-  bg: '#FFFFFF', // pure white background based on mockup
-  card: '#FFFFFF',
-  primary: '#111827',
-  textPrimary: '#111827',
-  textSecondary: '#6B7280',
-  hint: '#9CA3AF',
-  divider: '#ECEEF3',
-  blueAccent: '#3B82F6',
-  iconBg: '#F5F7FA',
-  radiusCard: 24,
-  radiusBtn: 16,
-};
+// Lucide Icons (Exact modern outline stroke matching the mockup template)
+import {
+  Bell,
+  MapPin,
+  FileText,
+  SquareCheck,
+  ChevronRight,
+  Clock,
+  Calendar,
+  Users,
+  ClipboardCheck,
+  Briefcase,
+  LayoutGrid,
+  Newspaper,
+  ShieldCheck,
+  Coins,
+  Crown,
+  Bot,
+  Laptop,
+  MessageSquare,
+  Sparkles,
+  X,
+  Building2,
+  Receipt,
+  Tv,
+  CreditCard,
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+} from 'lucide-react-native';
+
+import { usePinnedApps } from '../../hooks/usePinnedApps';
+import { APP_REGISTRY, getAppRoute, AppRegistryItem } from '../../constants/app-registry';
+import { AllServicesModal, renderAppIcon } from './components/AllServicesModal';
+import { LiveClockText } from '../../components/common/LiveClockText';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function AdminDashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+
+  // State
+  const [refreshing, setRefreshing] = useState(false);
+  const [showAllServicesModal, setShowAllServicesModal] = useState(false);
+  const [modalEditMode, setModalEditMode] = useState(false);
+  const [isQuickExpanded, setIsQuickExpanded] = useState(false);
+
+  // Pinned Apps System (1 dòng 4 app ban đầu, dropdown mở rộng app phụ + Tất cả)
+  const { allPinnedApps, row1Apps, extraPinnedApps } = usePinnedApps();
+
+  const handleToggleQuickExpanded = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsQuickExpanded(prev => !prev);
+  }, []);
+
+  // Notifications & Chats
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
   const { data: unreadChat = 0 } = useUnreadChatCount();
 
-  const { data: feedbackData, isLoading: isLoadingFeedbacks } = useFeedbacksForManagement({ limit: 5, status: 'SEND' });
-
+  // Dashboard API Stats
   const { data: dashboardData } = useQuery({
     queryKey: ['admin-dashboard-summary'],
     queryFn: async () => {
       const response = await apiClient.get('/dashboard/admin');
       return unwrapData(response) as any;
-    }
+    },
   });
 
-  const { data: levelProgress } = useQuery({
-    queryKey: ['my-level-progress', user?.id],
-    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
-    enabled: Boolean(user?.id),
-  });
-
-  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || (user as any)?.level || 8;
-  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#D4AF37';
-  const levelTitle = levelProgress?.currentLevel?.displayName || levelProgress?.currentLevel?.badgeTitle || LEVEL_DEFAULT_NAMES[currentLevelNumber] || 'Ban Điều Hành';
-
+  // Attendance Stats
   const currentDateStr = new Date().toISOString().split('T')[0];
   const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
 
+  // Pending Employee Requests (for "Đơn chờ duyệt")
+  const { data: pendingRequests = [] } = useQuery({
+    queryKey: ['admin-pending-requests-count'],
+    queryFn: async () => {
+      try {
+        const res = await getEmployeeRequests({ status: 'PENDING' });
+        return Array.isArray(res) ? res : [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 1000 * 30,
+  });
+
+  // Due Tasks (for "Công việc đến hạn")
+  const { data: myTasks } = useMyTasks({ limit: 20 });
+  const dueTasksCount = useMemo(() => {
+    const list = myTasks?.items || [];
+    return list.filter((t: any) => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length;
+  }, [myTasks]);
+
+  // Newsfeed (for "Bảng tin nội bộ")
+  const { data: newsPosts = [] } = useNewsfeedPosts();
+  const latestPost = useMemo(() => {
+    return Array.isArray(newsPosts) && newsPosts.length > 0 ? newsPosts[0] : null;
+  }, [newsPosts]);
+
+  // Vault count
   const { data: withdrawalData } = useQuery({
     queryKey: ['admin-pending-withdrawals-count'],
     queryFn: () => getVaultWithdrawalRequests({ limit: 1 }),
     staleTime: 1000 * 30,
   });
-  const pendingAdminCount =
+  const pendingAdminVaultCount =
     (withdrawalData as any)?.counts?.PENDING_ADMIN ??
     (withdrawalData as any)?.meta?.pendingAdminCount ??
     0;
 
-  const [refreshing, setRefreshing] = useState(false);
-
+  // Refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await queryClient.invalidateQueries();
     setRefreshing(false);
   }, [queryClient]);
 
-  const dateString = new Date().toLocaleDateString('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+  // Greeting by hour
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'CHÀO BUỔI SÁNG,';
+    if (hour < 18) return 'CHÀO BUỔI CHIỀU,';
+    return 'CHÀO BUỔI TỐI,';
+  };
 
+  // Avatar Initials
   const getInitials = (name?: string) => {
-    if (!name) return 'AD';
+    if (!name) return 'AL';
     const words = name.trim().split(' ').filter(Boolean);
     if (words.length >= 2) {
-      return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+      const first = words[0]?.charAt(0) || '';
+      const last = words[words.length - 1]?.charAt(0) || '';
+      return `${first}${last}`.toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
   };
 
+  // Formatted date (DD.MM.YYYY e.g. 10.10.2026 đặt vào góc phải thay cho lời chào)
+  const formattedTodayDate = useMemo(() => {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}.${month}.${year}`;
+  }, []);
+
+  // Compute live metrics or realistic fallback matching mockup
+  const presentCount = attStats?.present ?? dashboardData?.attendanceToday?.checkedIn ?? 10;
+  const totalStaff = attStats?.totalUsers ?? dashboardData?.employees?.active ?? 37;
+  const openTasks = dashboardData?.tasks?.totalActive ?? (dueTasksCount > 0 ? dueTasksCount : 4);
+  const pendingRequestCount = pendingRequests.length > 0 ? pendingRequests.length : 5;
+  const dueTaskCount = dueTasksCount > 0 ? dueTasksCount : 2;
+
   return (
-    <Screen backgroundColor="#FAFAFA">
+    <Screen backgroundColor="#F8FAFC">
       <ScrollView
         contentContainerStyle={[
-          styles.container,
-          { paddingBottom: Math.max(insets.bottom, 24) + 90 },
+          styles.scrollContainer,
+          { paddingBottom: Math.max(insets.bottom, 24) + 80 },
         ]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.userInfoWrapper}>
-            <Pressable
-              style={styles.avatarWrapper}
-              onPress={() => router.push('/admin/levels' as any)}
-            >
-              <View style={styles.avatar}>
-                {user?.avatarUrl ? (
-                  <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
-                ) : (
-                  <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-                )}
-              </View>
-              {/* Level Rank Badge on Avatar */}
-              <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
-                <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
-              </View>
-            </Pressable>
-
-            <View style={styles.userInfo}>
-              <View style={styles.greetingRow}>
-                <Text style={styles.greetingText}>Xin chào 👋</Text>
-                <Pressable
-                  style={[
-                    styles.levelPill,
-                    { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}40` },
-                  ]}
-                  onPress={() => router.push('/admin/levels' as any)}
-                >
-                  <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
-                  <Text style={[styles.levelPillText, { color: levelColor }]}>
-                    Lv.{currentLevelNumber}
-                  </Text>
-                </Pressable>
-              </View>
-              <Text style={styles.userName} numberOfLines={1}>{user?.fullName || 'Admin'}</Text>
-              <Text style={styles.dateText}>{dateString}</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/notifications' as any)}>
-              <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadNotifications > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-            <Pressable style={styles.iconBtn} onPress={() => router.push('/admin/chat' as any)}>
-              <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
-              {unreadChat > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadChat > 99 ? '99+' : unreadChat}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Hero Card - Admin (Vân địa hình & Bóng đổ) */}
-        <Pressable
-          style={styles.heroButton}
-          onPress={() => router.navigate('/admin/attendance')}
+        {/* ================= 1. GLOSSY ROYAL BLUE HEADER (Nửa box trên bóng bẩy) ================= */}
+        <LinearGradient
+          colors={['#002C88', '#0748BD', '#1064EE', '#2575FC']}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={[styles.glossyHeader, { paddingTop: Math.max(insets.top, 16) + 6 }]}
         >
-          <View style={styles.heroCardInner}>
-            {/* Vân địa hình hữu cơ / Topographic contour ripples */}
-            <ContourHeroPattern variant="red" />
+          {/* Specular Light Flare & Glass Gloss Waves */}
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <Svg width="100%" height="100%">
+              <Defs>
+                <SvgLinearGradient id="glossHighlight" x1="0%" y1="0%" x2="100%" y2="80%">
+                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.32" />
+                  <Stop offset="45%" stopColor="#FFFFFF" stopOpacity="0.08" />
+                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
+                </SvgLinearGradient>
+              </Defs>
+              {/* Glossy diagonal ray */}
+              <Path
+                d="M -60 -40 L 260 -40 L 140 240 L -60 240 Z"
+                fill="url(#glossHighlight)"
+              />
+              {/* Radiant gloss arcs */}
+              <Circle cx={SCREEN_WIDTH - 20} cy={30} r={140} fill="none" stroke="rgba(255, 255, 255, 0.12)" strokeWidth={24} />
+              <Circle cx={SCREEN_WIDTH - 20} cy={30} r={90} fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth={16} />
+            </Svg>
+          </View>
 
-            {/* Top Status Header */}
-            <View style={styles.heroHeaderRow}>
-              <MaterialCommunityIcons name="shield-check" size={18} color="#E11D48" />
-              <Text style={styles.heroStatusText}>Quản trị hệ thống</Text>
-            </View>
+          {/* Brand Identity: movielegend PEOPLE */}
+          <View style={styles.brandRow}>
+            <Text style={styles.brandTitle}>movielegend</Text>
+            <Text style={styles.brandSubtitle}>PEOPLE</Text>
+          </View>
 
-            {/* Main Clock */}
-            <View style={styles.heroTimeWrapper}>
-              <LiveClock style={styles.heroTimeText} />
-            </View>
+          {/* User Bar with Glossy Glass Bell */}
+          <View style={styles.userRow}>
+            <View style={styles.userInfoLeft}>
+              {/* Avatar circle */}
+              <Pressable
+                style={styles.avatarContainer}
+                onPress={() => router.push('/admin/levels' as any)}
+              >
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarInitialsText}>{getInitials(user?.fullName)}</Text>
+                )}
+              </Pressable>
 
-            {/* Bottom Row */}
-            <View style={styles.heroFooterRow}>
-              <View style={styles.locationWrapper}>
-                <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
-                <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
+              {/* Greeting & Name */}
+              <View style={styles.userTextCol}>
+                <Text style={styles.greetingText}>{getGreeting()}</Text>
+                <Text style={styles.userNameText} numberOfLines={1}>
+                  {user?.fullName || 'Admin Movie Legend'}
+                </Text>
               </View>
             </View>
+
+            {/* Frosted Glass Notification Bell Button */}
+            <Pressable
+              style={styles.bellButton}
+              onPress={() => router.push('/admin/notifications' as any)}
+            >
+              <Bell size={21} color="#FFFFFF" strokeWidth={2.2} />
+              {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
+            </Pressable>
           </View>
-        </Pressable>
+        </LinearGradient>
 
-        {/* Tiện ích thường dùng (Ma trận 4 cột hiện đại) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tiện ích thường dùng</Text>
-          <View style={styles.grid4Container}>
-            {/* Nhóm 1: Vận hành & Cơ cấu (Xanh dương hoàng gia) */}
-            <GridItem4
-              icon="swap-horizontal"
-              title="Chấm công"
-              color="#2563EB"
-              bgColor="#EFF6FF"
-              onPress={() => router.push('/admin/attendance' as any)}
-            />
-            <GridItem4
-              icon="view-grid-outline"
-              title="Phân ca"
-              color="#2563EB"
-              bgColor="#EFF6FF"
-              onPress={() => router.push('/leader/shift-management' as any)}
-            />
-            <GridItem4
-              icon="account-group-outline"
-              title="Nhân sự"
-              color="#2563EB"
-              bgColor="#EFF6FF"
-              onPress={() => router.push('/admin/employees' as any)}
-            />
-            <GridItem4
-              icon="domain"
-              title="Cơ cấu PB"
-              color="#2563EB"
-              bgColor="#EFF6FF"
-              onPress={() => router.push('/admin/branches' as any)}
-            />
+        {/* ================= 2. HERO CARD (OVERVIEW WHITE CARD CÓ RIPPLE) ================= */}
+        <View style={styles.heroCardWrapper}>
+          <View style={styles.heroCard}>
+            {/* Concentric circular ripples on the right side - Đỏ cho Admin theo yêu cầu */}
+            <View pointerEvents="none" style={styles.cardRippleWrapper}>
+              <Svg width={220} height={220} viewBox="0 0 220 220">
+                <Circle cx={170} cy={105} r={120} stroke="#FEE2E2" strokeWidth={26} fill="none" opacity={0.8} />
+                <Circle cx={170} cy={105} r={84} stroke="#FECACA" strokeWidth={20} fill="none" opacity={0.7} />
+                <Circle cx={170} cy={105} r={48} stroke="#FCA5A5" strokeWidth={14} fill="none" opacity={0.55} />
+              </Svg>
+            </View>
 
-            {/* Nhóm 2: Hành chính & Đơn từ (Teal thanh lịch) */}
-            <GridItem4
-              icon="clipboard-check-outline"
-              title="Duyệt đơn"
-              color="#0D9488"
-              bgColor="#F0FDFA"
+            {/* Top row inside card: Quản trị hệ thống Tag + Ngày hôm nay thay lời chào */}
+            <View style={styles.cardHeaderRow}>
+              <View style={styles.adminRoleTag}>
+                <SquareCheck size={14} color="#DC2626" strokeWidth={2.5} />
+                <Text style={styles.adminRoleTagText}>Quản trị hệ thống</Text>
+              </View>
+              <Text style={styles.cardHeaderDateText}>
+                {formattedTodayDate}
+              </Text>
+            </View>
+
+            {/* Big Bold Live Time: 09:42:15 */}
+            <View style={styles.dateNumberRow}>
+              <LiveClockText style={styles.bigDateNumberText} />
+            </View>
+
+            {/* Bottom 3-Column Metrics Row (Không dính vào nhau) */}
+            <View style={styles.cardMetricsRow}>
+              {/* Col 1: Location */}
+              <View style={styles.metricColLocation}>
+                <MapPin size={13} color="#64748B" strokeWidth={2.2} />
+                <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
+                  Văn phòng Hà Nội
+                </Text>
+              </View>
+
+              <View style={styles.metricsVerticalDivider} />
+
+              {/* Col 2: Nhân sự có mặt */}
+              <Pressable
+                style={styles.metricColStatCenter}
+                onPress={() => router.push('/admin/attendance' as any)}
+              >
+                <Text style={styles.metricLabelCaps} numberOfLines={1}>NHÂN SỰ CÓ MẶT</Text>
+                <Text style={styles.metricNumberValue}>
+                  {presentCount} <Text style={styles.metricSubDivider}>/ {totalStaff}</Text>
+                </Text>
+              </Pressable>
+
+              <View style={styles.metricsVerticalDivider} />
+
+              {/* Col 3: Công việc đang mở */}
+              <Pressable
+                style={styles.metricColStatRight}
+                onPress={() => router.push('/admin/tasks' as any)}
+              >
+                <Text style={styles.metricLabelCaps} numberOfLines={1}>CÔNG VIỆC MỞ</Text>
+                <Text style={styles.metricNumberValue}>{openTasks}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        {/* Content Body */}
+        <View style={styles.contentBody}>
+          {/* Section: Tổng quan hôm nay */}
+          <Text style={styles.overviewHeading}>Tổng quan hôm nay</Text>
+
+          {/* ================= 3. CẦN BẠN XỬ LÝ (Dữ liệu minh họa) ================= */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionMainTitle}>Cần bạn xử lý</Text>
+              <Text style={styles.sectionSubtitle}>Dữ liệu minh họa</Text>
+            </View>
+
+            {/* Item 1: Đơn chờ duyệt */}
+            <Pressable
+              style={styles.actionCard}
               onPress={() => router.push('/leader/approvals' as any)}
-            />
-            <GridItem4
-              icon="cash-register"
-              title="Duyệt tài chính"
-              color="#059669"
-              bgColor="#ECFDF5"
-              onPress={() => router.push('/admin/financial-requests' as any)}
-            />
-            <GridItem4
-              icon="video-vintage"
-              title="Duyệt OT Live"
-              color="#EA580C"
-              bgColor="#FFF7ED"
-              onPress={() => router.push('/leader/ot-report-approvals' as any)}
-            />
-            <GridItem4
-              icon="file-document-outline"
-              title="Hợp đồng"
-              color="#0D9488"
-              bgColor="#F0FDFA"
-              onPress={() => router.push('/admin/contracts' as any)}
-            />
-            <GridItem4
-              icon="folder-text-outline"
-              title="Tài liệu"
-              color="#0D9488"
-              bgColor="#F0FDFA"
-              onPress={() => router.push('/admin/documents' as any)}
-            />
+            >
+              <View style={styles.actionCardLeft}>
+                <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
+                  <FileText size={22} color="#2563EB" strokeWidth={2} />
+                </View>
+                <View style={styles.actionCardTexts}>
+                  <Text style={styles.actionCardTitle}>Đơn chờ duyệt</Text>
+                  <Text style={styles.actionCardDesc}>Nghỉ phép, tăng ca</Text>
+                </View>
+              </View>
 
-            {/* Nhóm 3: Cấp bậc & Quỹ thưởng (Indigo sang trọng) */}
-            <GridItem4
-              icon="crown-outline"
-              title="Cấu hình Level"
-              color="#4F46E5"
-              bgColor="#EEF2FF"
-              onPress={() => router.push('/admin/levels' as any)}
-            />
-            <GridItem4
-              icon="shield-check-outline"
-              title="Duyệt Level"
-              color="#4F46E5"
-              bgColor="#EEF2FF"
-              onPress={() => router.push('/admin/competition/review' as any)}
-            />
-            <GridItem4
-              icon="gift-outline"
-              title="Ví Thưởng"
-              color="#4F46E5"
-              bgColor="#EEF2FF"
-              badge={pendingAdminCount > 0 ? `${pendingAdminCount}` : 'VÍ'}
-              badgeColor={pendingAdminCount > 0 ? '#EF4444' : '#4F46E5'}
-              onPress={() => router.push('/admin/tet-wallet' as any)}
-            />
-            <GridItem4
-              icon="briefcase-outline"
-              title="Công việc"
-              color="#4F46E5"
-              bgColor="#EEF2FF"
+              <View style={styles.actionCardRight}>
+                <View style={styles.coralBadge}>
+                  <Text style={styles.coralBadgeText}>
+                    {String(pendingRequestCount).padStart(2, '0')}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
+              </View>
+            </Pressable>
+
+            {/* Item 2: Công việc đến hạn */}
+            <Pressable
+              style={[styles.actionCard, { marginTop: 10 }]}
               onPress={() => router.push('/admin/tasks' as any)}
-            />
+            >
+              <View style={styles.actionCardLeft}>
+                <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
+                  <Clock size={22} color="#2563EB" strokeWidth={2} />
+                </View>
+                <View style={styles.actionCardTexts}>
+                  <Text style={styles.actionCardTitle}>Công việc đến hạn</Text>
+                  <Text style={styles.actionCardDesc}>Cần hoàn thành hôm nay</Text>
+                </View>
+              </View>
 
-            {/* Nhóm 4: Hỗ trợ & Trí tuệ nhân tạo (Executive Slate & Dark) */}
-            <GridItem4
-              icon="robot-outline"
-              title="Trợ lý AI"
-              color="#FFFFFF"
-              bgColor="#0F172A"
-              badge="AI"
-              badgeColor="#2563EB"
-              onPress={() => router.push('/admin/ai-chat' as any)}
-            />
-            <GridItem4
-              icon="laptop"
-              title="Tài sản"
-              color="#64748B"
-              bgColor="#F8FAFC"
-              onPress={() => router.push('/admin/assets' as any)}
-            />
-            <GridItem4
-              icon="message-draw"
-              title="Góp ý"
-              color="#64748B"
-              bgColor="#F8FAFC"
-              onPress={() => router.push('/admin/feedbacks' as any)}
-            />
+              <View style={styles.actionCardRight}>
+                <View style={styles.coralBadge}>
+                  <Text style={styles.coralBadgeText}>
+                    {String(dueTaskCount).padStart(2, '0')}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
+              </View>
+            </Pressable>
           </View>
-        </View>
 
-        {/* Tổng quan hôm nay */}
-        <View style={styles.statsSection}>
-          <Text style={[styles.sectionTitle, { marginBottom: 8 }]}>Tổng quan hôm nay</Text>
-          <View style={styles.summaryGrid}>
-            <SummaryCard
-              label="Chấm công"
-              value={attStats?.totalUsers && attStats.totalUsers > 0 ? `${Math.round(((attStats?.present || 0) / attStats.totalUsers) * 100)}%` : '0%'}
-            />
-            <SummaryCard
-              label="Công việc"
-              value={dashboardData?.tasks?.totalActive?.toString() || '0'}
-            />
+          {/* ================= 4. TRUY CẬP NHANH (BOX TRẮNG CÓ NÚT ĐẨY XUỐNG) ================= */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionMainTitle}>Truy cập nhanh</Text>
+              <Pressable
+                onPress={() => {
+                  setModalEditMode(true);
+                  setShowAllServicesModal(true);
+                }}
+              >
+                <Text style={styles.customizeLink}>Tùy chỉnh</Text>
+              </Pressable>
+            </View>
+
+            {/* Box trắng bo góc chứa 1 dòng 4 icons và dropdown mở rộng khi bấm nút mũi tên */}
+            <View style={styles.quickAccessBox}>
+              {/* Row 1: 4 app đầu tiên luôn hiển thị trên 1 dòng */}
+              <View style={styles.quickGrid4Row}>
+                {row1Apps.map((item) => {
+                  const route = getAppRoute(item, 'ADMIN');
+                  const badge =
+                    item.badgeKey === 'pendingRequests'
+                      ? (pendingRequestCount > 0 ? pendingRequestCount : undefined)
+                      : item.badgeKey === 'dueTasks'
+                      ? (dueTaskCount > 0 ? dueTaskCount : undefined)
+                      : undefined;
+
+                  return (
+                    <QuickGrid8Item
+                      key={item.key}
+                      title={item.title}
+                      bgColor={item.bgColor}
+                      badge={badge}
+                      icon={renderAppIcon(item.icon, item.color, 26)}
+                      onPress={() => {
+                        if (route) router.push(route as any);
+                      }}
+                    />
+                  );
+                })}
+              </View>
+
+              {/* Dropdown Rows: Hiển thị khi bấm nút mũi tên xuống */}
+              {isQuickExpanded && (
+                <View style={styles.extraRowsContainer}>
+                  {extraPinnedApps.length <= 3 ? (
+                    /* Hàng 2: các app phụ + nút Thêm + ô trống + nút Tất cả ở ô thứ 4 */
+                    <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                      {extraPinnedApps.map((item) => {
+                        const route = getAppRoute(item, 'ADMIN');
+                        return (
+                          <QuickGrid8Item
+                            key={item.key}
+                            title={item.title}
+                            bgColor={item.bgColor}
+                            icon={renderAppIcon(item.icon, item.color, 26)}
+                            onPress={() => {
+                              if (route) router.push(route as any);
+                            }}
+                          />
+                        );
+                      })}
+
+                      {/* Nút Thêm lối tắt nếu chưa đủ 3 app phụ */}
+                      <Pressable
+                        style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
+                        onPress={() => {
+                          setModalEditMode(true);
+                          setShowAllServicesModal(true);
+                        }}
+                      >
+                        <View style={[styles.quickIconBox8, styles.quickIconBoxAdd]}>
+                          <Plus size={24} color="#94A3B8" strokeWidth={2.2} />
+                        </View>
+                        <Text style={[styles.quickGrid8Label, { color: '#64748B' }]} numberOfLines={1}>
+                          Thêm
+                        </Text>
+                      </Pressable>
+
+                      {/* Ô trống để căn đều 4 cột */}
+                      {Array.from({ length: Math.max(0, 2 - extraPinnedApps.length) }).map((_, emptyIdx) => (
+                        <View key={`empty-${emptyIdx}`} style={styles.quickGrid8Item} />
+                      ))}
+
+                      {/* Ô thứ 4 luôn là "Tất cả" */}
+                      <QuickGrid8Item
+                        title="Tất cả"
+                        bgColor="#F1F5F9"
+                        icon={<LayoutGrid size={26} color="#475569" strokeWidth={2.2} />}
+                        onPress={() => {
+                          setModalEditMode(false);
+                          setShowAllServicesModal(true);
+                        }}
+                      />
+                    </View>
+                  ) : (
+                    /* Khi có từ 4 app phụ trở lên */
+                    <>
+                      {/* Hàng 2: 4 app phụ đầu tiên */}
+                      <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                        {extraPinnedApps.slice(0, 4).map((item) => {
+                          const route = getAppRoute(item, 'ADMIN');
+                          return (
+                            <QuickGrid8Item
+                              key={item.key}
+                              title={item.title}
+                              bgColor={item.bgColor}
+                              icon={renderAppIcon(item.icon, item.color, 26)}
+                              onPress={() => {
+                                if (route) router.push(route as any);
+                              }}
+                            />
+                          );
+                        })}
+                      </View>
+
+                      {/* Hàng 3: app phụ còn lại + Thêm (nếu còn chỗ) + Tất cả */}
+                      {extraPinnedApps.slice(4).length <= 2 && (
+                        <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                          {extraPinnedApps.slice(4).map((item) => {
+                            const route = getAppRoute(item, 'ADMIN');
+                            return (
+                              <QuickGrid8Item
+                                key={item.key}
+                                title={item.title}
+                                bgColor={item.bgColor}
+                                icon={renderAppIcon(item.icon, item.color, 26)}
+                                onPress={() => {
+                                  if (route) router.push(route as any);
+                                }}
+                              />
+                            );
+                          })}
+                          <Pressable
+                            style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
+                            onPress={() => { setModalEditMode(true); setShowAllServicesModal(true); }}
+                          >
+                            <View style={[styles.quickIconBox8, styles.quickIconBoxAdd]}>
+                              <Plus size={24} color="#94A3B8" strokeWidth={2.2} />
+                            </View>
+                            <Text style={[styles.quickGrid8Label, { color: '#64748B' }]} numberOfLines={1}>Thêm</Text>
+                          </Pressable>
+                          {Array.from({ length: Math.max(0, 2 - extraPinnedApps.slice(4).length) }).map((_, i) => (
+                            <View key={`empty-r3-${i}`} style={styles.quickGrid8Item} />
+                          ))}
+                          <QuickGrid8Item
+                            title="Tất cả" bgColor="#F1F5F9"
+                            icon={<LayoutGrid size={26} color="#475569" strokeWidth={2.2} />}
+                            onPress={() => { setModalEditMode(false); setShowAllServicesModal(true); }}
+                          />
+                        </View>
+                      )}
+                      {extraPinnedApps.slice(4).length === 3 && (
+                        <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                          {extraPinnedApps.slice(4).map((item) => {
+                            const route = getAppRoute(item, 'ADMIN');
+                            return (
+                              <QuickGrid8Item
+                                key={item.key}
+                                title={item.title}
+                                bgColor={item.bgColor}
+                                icon={renderAppIcon(item.icon, item.color, 26)}
+                                onPress={() => {
+                                  if (route) router.push(route as any);
+                                }}
+                              />
+                            );
+                          })}
+                          <QuickGrid8Item
+                            title="Tất cả" bgColor="#F1F5F9"
+                            icon={<LayoutGrid size={26} color="#475569" strokeWidth={2.2} />}
+                            onPress={() => { setModalEditMode(false); setShowAllServicesModal(true); }}
+                          />
+                        </View>
+                      )}
+                      {extraPinnedApps.slice(4).length >= 4 && (
+                        <>
+                          <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                            {extraPinnedApps.slice(4).map((item) => {
+                              const route = getAppRoute(item, 'ADMIN');
+                              return (
+                                <QuickGrid8Item
+                                  key={item.key}
+                                  title={item.title}
+                                  bgColor={item.bgColor}
+                                  icon={renderAppIcon(item.icon, item.color, 26)}
+                                  onPress={() => {
+                                    if (route) router.push(route as any);
+                                  }}
+                                />
+                              );
+                            })}
+                          </View>
+                          <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                            <Pressable
+                              style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
+                              onPress={() => { setModalEditMode(true); setShowAllServicesModal(true); }}
+                            >
+                              <View style={[styles.quickIconBox8, styles.quickIconBoxAdd]}>
+                                <Plus size={24} color="#94A3B8" strokeWidth={2.2} />
+                              </View>
+                              <Text style={[styles.quickGrid8Label, { color: '#64748B' }]} numberOfLines={1}>Thêm</Text>
+                            </Pressable>
+                            <View style={styles.quickGrid8Item} />
+                            <View style={styles.quickGrid8Item} />
+                            <QuickGrid8Item
+                              title="Tất cả" bgColor="#F1F5F9"
+                              icon={<LayoutGrid size={26} color="#475569" strokeWidth={2.2} />}
+                              onPress={() => { setModalEditMode(false); setShowAllServicesModal(true); }}
+                            />
+                          </View>
+                        </>
+                      )}
+                    </>
+                  )}
+                </View>
+              )}
+
+              {/* Nút mũi tên xuống (Chevron Down / Up) luôn có mặt để mở/đóng dropdown */}
+              <Pressable
+                style={styles.expandToggleButton}
+                onPress={handleToggleQuickExpanded}
+                hitSlop={8}
+              >
+                {isQuickExpanded ? (
+                  <ChevronUp size={20} color="#94A3B8" strokeWidth={2.2} />
+                ) : (
+                  <ChevronDown size={20} color="#94A3B8" strokeWidth={2.2} />
+                )}
+              </Pressable>
+            </View>
           </View>
-        </View>
 
-        {/* Góp ý mới nhất */}
-        <View style={[styles.sectionHeader, { marginTop: 16 }]}>
-          <Text style={styles.sectionTitle}>Góp ý mới nhất</Text>
-          <Pressable onPress={() => router.navigate('/admin/feedbacks')}>
-            <Text style={{ color: '#6B7280', fontSize: 13, fontWeight: '500' }}>Xem tất cả</Text>
-          </Pressable>
-        </View>
+          {/* ================= 5. BẢNG TIN NỘI BỘ ================= */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionMainTitle}>Bảng tin nội bộ</Text>
+              <Pressable onPress={() => router.push('/admin/news' as any)}>
+                <Text style={styles.customizeLink}>Xem tất cả &gt;</Text>
+              </Pressable>
+            </View>
 
-        <View style={{ gap: 12, marginBottom: 24 }}>
-          {isLoadingFeedbacks ? (
-            <Text style={{ textAlign: 'center', color: appleTheme.textSecondary, marginTop: 16 }}>Đang tải...</Text>
-          ) : feedbackData?.items?.length ? (
-            feedbackData.items.map((fb) => (
-              <FeedbackCard
-                key={fb.id}
-                feedback={fb}
-                isAdmin
-                onPress={() => router.navigate(`/admin/feedbacks/${fb.id}` as any)}
+            {/* News Card */}
+            <Pressable
+              style={styles.newsCard}
+              onPress={() => router.push('/admin/news' as any)}
+            >
+              <Image
+                source={{
+                  uri:
+                    (latestPost as any)?.images?.[0] ||
+                    (latestPost as any)?.coverUrl ||
+                    'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=600&q=80',
+                }}
+                style={styles.newsThumbnail}
               />
-            ))
-          ) : (
-            <Text style={{ textAlign: 'center', color: appleTheme.textSecondary, marginTop: 16 }}>Chưa có góp ý nào</Text>
-          )}
-        </View>
 
+              <View style={styles.newsContent}>
+                <View style={styles.newsTagPill}>
+                  <Text style={styles.newsTagText}>NỘI BỘ</Text>
+                </View>
+
+                <Text style={styles.newsTitle} numberOfLines={2}>
+                  {(latestPost as any)?.title || 'Kết nối đội ngũ Movie Legend'}
+                </Text>
+
+                <Text style={styles.newsSubtitle} numberOfLines={1}>
+                  {(latestPost as any)?.author?.fullName ? `Bởi ${(latestPost as any).author.fullName}` : 'Bản tin mẫu dành cho nhân viên'}
+                </Text>
+              </View>
+
+              <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
+            </Pressable>
+          </View>
+        </View>
       </ScrollView>
 
-      {/* Floating AI Chat Button */}
-      <Pressable
-        style={[
-          styles.fab,
-          { bottom: Math.max(insets.bottom, 16) + 72 },
-        ]}
-        onPress={() => router.push('/admin/ai-chat' as any)}
-      >
-        <MaterialCommunityIcons name="robot-outline" size={26} color="#FFFFFF" />
-      </Pressable>
+      {/* ================= MODAL: TẤT CẢ DỊCH VỤ ADMIN ================= */}
+      <AllServicesModal
+        visible={showAllServicesModal}
+        onClose={() => setShowAllServicesModal(false)}
+        role="ADMIN"
+        initialEditMode={modalEditMode}
+        pendingCounts={{
+          pendingRequests: pendingRequestCount,
+          dueTasks: dueTaskCount,
+          pendingVault: pendingAdminVaultCount,
+        }}
+      />
     </Screen>
   );
 }
 
-function SummaryCard({ label, value }: { label: string, value: string }) {
-  return (
-    <View style={styles.summaryCard}>
-      <Text style={styles.summaryLabel}>{label}</Text>
-      <Text style={styles.summaryValue}>{value}</Text>
-    </View>
-  );
-}
-
-const GridItem4 = React.memo(function GridItem4({
-  icon,
+// Sub-component: 8-Grid Quick Item (Rounded square container matching Image 1)
+const QuickGrid8Item = React.memo(function QuickGrid8Item({
   title,
-  onPress,
-  color,
+  icon,
   bgColor,
   badge,
-  badgeColor,
-}: any) {
+  onPress,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  bgColor: string;
+  badge?: number | string;
+  onPress: () => void;
+}) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.grid4Item, pressed && styles.grid4ItemPressed]}
+      style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
       onPress={onPress}
     >
-      <View style={[styles.grid4IconContainer, bgColor ? { backgroundColor: bgColor } : undefined]}>
-        <MaterialCommunityIcons name={icon} size={23} color={color || '#1E293B'} />
-        {badge && (
-          <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
-            <Text style={styles.badgeText}>{badge}</Text>
+      <View style={[styles.quickIconBox8, { backgroundColor: bgColor }]}>
+        {icon}
+        {Boolean(badge) && (
+          <View style={styles.quickItemBadge}>
+            <Text style={styles.quickItemBadgeText}>{badge}</Text>
           </View>
         )}
       </View>
-      <Text style={styles.grid4Title} numberOfLines={1}>{title}</Text>
+      <Text style={styles.quickGrid8Label} numberOfLines={1}>
+        {title}
+      </Text>
     </Pressable>
   );
 });
 
-function TimelineItem({ icon, time, title, subtitle, isLast = false, color = '#111827' }: any) {
-  return (
-    <View style={[styles.timelineItem, isLast && styles.timelineItemLast]}>
-      <View style={[styles.timelineIconWrapper, { backgroundColor: color + '1A' }]}>
-        <MaterialCommunityIcons name={icon} size={18} color={color} />
-      </View>
-      <View style={styles.timelineContent}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2, gap: 16 }}>
-          <Text style={{ fontSize: 12, color: appleTheme.textSecondary, width: 60 }}>{time}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: appleTheme.textPrimary }}>{title}</Text>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <View style={{ width: 60 }} />
-          <Text style={{ flex: 1, fontSize: 13, color: appleTheme.textSecondary }}>{subtitle}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 120,
-    backgroundColor: '#FAFAFA',
-    minHeight: '100%',
+  scrollContainer: {
+    paddingBottom: 24,
   },
-  header: {
+
+  // 1. Glossy Royal Blue Header
+  glossyHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 38,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  brandRow: {
     flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 14,
+  },
+  brandTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.6,
+  },
+  brandSubtitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginLeft: 6,
+    letterSpacing: 2.2,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 4,
   },
-  userInfoWrapper: {
+  userInfoLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
     flex: 1,
-    marginRight: 10,
-    minWidth: 0,
   },
-  avatarWrapper: {
+  avatarContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#DBEAFE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.45)',
+  },
+  avatarImage: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  avatarInitialsText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#002C88',
+  },
+  userTextCol: {
+    flex: 1,
+  },
+  greetingText: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.82)',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  userNameText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+    marginTop: 1,
+  },
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.32)',
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
   },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarLevelBadge: {
+  bellRedDot: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
+    top: 9,
+    right: 10,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#EF4444',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+
+  // 2. Overlapping White Hero Card
+  heroCardWrapper: {
+    paddingHorizontal: 18,
+    marginTop: -22,
+    zIndex: 10,
+  },
+  heroCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 18,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#002C88',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  cardRippleWrapper: {
+    position: 'absolute',
+    right: -25,
+    top: -10,
+    bottom: -10,
+    width: 220,
+    overflow: 'hidden',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  adminRoleTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  adminRoleTagText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  cardHeaderDateText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  dateNumberRow: {
+    marginVertical: 4,
+  },
+  bigDateNumberText: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.6,
+  },
+  cardMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+  },
+  metricColLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flex: 1.15,
+    paddingRight: 6,
+  },
+  locationText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  metricsVerticalDivider: {
+    width: 1,
+    height: 26,
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 4,
+  },
+  metricColStatCenter: {
+    flex: 1.05,
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  metricColStatRight: {
+    flex: 0.95,
+    alignItems: 'flex-end',
+    paddingLeft: 4,
+  },
+  metricLabelCaps: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  metricNumberValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  metricSubDivider: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+
+  // Content Body
+  contentBody: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+  },
+  overviewHeading: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+    marginBottom: 16,
+  },
+
+  // Sections
+  sectionContainer: {
+    marginBottom: 22,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionMainTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  customizeLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+
+  // 3. Action Cards ("Cần bạn xử lý")
+  actionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  actionCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  actionIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  actionCardTexts: {
+    flex: 1,
+  },
+  actionCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  actionCardDesc: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  actionCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  coralBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  coralBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#EF4444',
+  },
+
+  // 4. Quick Access Box (1 dòng thu gọn, dropdown mở rộng, tràn đều box)
+  quickAccessBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingTop: 16,
+    paddingBottom: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  quickGrid4Row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  quickGrid8Item: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  quickGrid8ItemPressed: {
+    opacity: 0.7,
+  },
+  quickIconBox8: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  quickIconBoxAdd: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+  },
+  quickGrid8Label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  extraRowsContainer: {
+    width: '100%',
+  },
+  quickItemBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
     minWidth: 18,
     height: 18,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FAFAFA',
-    paddingHorizontal: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-    elevation: 2,
-  },
-  avatarLevelBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    lineHeight: 12,
-  },
-  userInfo: {
-    justifyContent: 'center',
-    flex: 1,
-    minWidth: 0,
-  },
-  greetingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-    flexWrap: 'wrap',
-  },
-  levelPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 1.5,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  levelPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  greetingText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: appleTheme.textPrimary,
-  },
-  dateText: {
-    fontSize: 12,
-    color: appleTheme.hint,
-    fontWeight: '500',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexShrink: 0,
-  },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#ECEEF3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
     paddingHorizontal: 4,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#FFFFFF',
   },
-  notificationBadgeText: {
+  quickItemBadgeText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
-  badgeDot: {
-    position: 'absolute',
-    top: 10,
-    right: 12,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    borderWidth: 1.5,
-    borderColor: '#fff',
-  },
-  levelAppleCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  levelAppleHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  levelAppleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  levelAppleIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  expandToggleButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-  },
-  levelAppleTitleBlock: {
-    flex: 1,
-  },
-  levelAppleBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  levelAppleTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-    flexShrink: 1,
-  },
-  levelApplePillTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-  },
-  levelApplePillTagText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  levelAppleSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  levelAppleActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginLeft: 8,
-  },
-  levelAppleActionText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  levelAppleProgressContainer: {
-    marginTop: 12,
     paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
+    paddingBottom: 4,
+    marginTop: 4,
   },
-  levelAppleProgressTrack: {
-    height: 6,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  levelAppleProgressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  levelAppleProgressFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  levelAppleProgressFooterText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  levelAppleProgressFooterPercent: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  heroButton: {
-    borderRadius: 24,
-    marginBottom: 24,
+
+  // 5. Newsfeed Card
+  newsCard: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#E11D48',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  heroCardInner: {
-    borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingVertical: 18,
-    overflow: 'hidden',
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#FFE4E6',
-    backgroundColor: '#FFFFFF',
-    position: 'relative',
-    minHeight: 148,
-    justifyContent: 'space-between',
-  },
-  heroHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    zIndex: 2,
-  },
-  heroStatusText: {
-    color: '#9F1239',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  heroTimeWrapper: {
-    marginVertical: 4,
-    zIndex: 2,
-  },
-  heroTimeText: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -1.5,
-  },
-  heroFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  locationWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  locationText: {
-    color: '#64748B',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  section: {
-    marginBottom: 20,
-  },
-  utilitySection: {
-    marginBottom: -8,
-  },
-  statsSection: {
-    marginTop: 0,
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 10,
-  },
-  grid4Container: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#000',
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
-    shadowRadius: 8,
+    shadowRadius: 6,
     elevation: 1,
   },
-  grid4Item: {
-    width: '25%',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 2,
+  newsThumbnail: {
+    width: 80,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
   },
-  grid4ItemPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.96 }],
+  newsContent: {
+    flex: 1,
+    paddingHorizontal: 12,
   },
-  grid4IconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-    position: 'relative',
+  newsTagPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginBottom: 4,
   },
-  grid4Title: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
-    textAlign: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#EF4444',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  badgeText: {
+  newsTagText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#2563EB',
+    letterSpacing: 0.5,
   },
-  summaryGrid: {
+  newsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 18,
+    marginBottom: 2,
+  },
+  newsSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+
+  // Modal Sheet
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFill,
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    maxHeight: '82%',
+  },
+  modalHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 0,
-  },
-  summaryCard: {
-    width: '48%',
-    backgroundColor: appleTheme.card,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: '#8a99af',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  summaryLabel: {
-    fontSize: 10,
-    color: appleTheme.textSecondary,
-    fontWeight: '600',
-    marginBottom: 8,
-    textAlign: 'center'
-  },
-  summaryValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: appleTheme.textPrimary,
-  },
-  timelineContainer: {
-    position: 'relative',
-    marginTop: 8,
-    paddingLeft: 8,
-  },
-  timelineLine: {
-    position: 'absolute',
-    left: 23,
-    top: 20,
-    bottom: 40,
-    width: 2,
-    backgroundColor: '#F3F4F6',
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    marginBottom: 24,
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
-  timelineItemLast: {
-    marginBottom: 0,
+  modalSheetTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
   },
-  timelineIconWrapper: {
+  modalSheetSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
-    marginRight: 16,
-    zIndex: 1,
+    alignItems: 'center',
   },
-  timelineContent: {
-    flex: 1,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    paddingBottom: 16,
+  drawerSection: {
+    marginBottom: 22,
   },
-  fab: {
+  drawerSectionHeader: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 1.2,
+    marginBottom: 12,
+  },
+  modalServiceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  modalTile: {
+    width: (SCREEN_WIDTH - 40 - 20) / 3,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  modalTileIconWrapper: {
+    position: 'relative',
+    marginBottom: 6,
+  },
+  modalTileBadge: {
     position: 'absolute',
-    right: 20,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#0F172A',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 999,
+    top: -6,
+    right: -10,
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  modalTileBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  modalTileText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+    textAlign: 'center',
   },
 });

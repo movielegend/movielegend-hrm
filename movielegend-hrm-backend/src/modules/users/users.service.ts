@@ -5,6 +5,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { StorageService } from '../storage/storage.service';
 import { UpdateFaceDto, UpdateMeDto } from './dto/update-me.dto';
+import { DEFAULT_PINNED_APPS, UpdatePinnedAppsDto } from './dto/update-pinned-apps.dto';
 import { FacePoseType, UploadPurpose } from '@prisma/client';
 import { badRequest } from '../../common/utils/error.util';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
@@ -166,5 +167,61 @@ export class UsersService {
 
       return { success: true, message: 'Cap nhat hinh anh thanh cong' };
     });
+  }
+
+  async getMyPinnedApps(actor: AuthenticatedUser) {
+    const pinned = await this.prisma.userPinnedApp.findMany({
+      where: { userId: actor.userId },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    if (!pinned || pinned.length === 0) {
+      return {
+        isCustomized: false,
+        pinnedApps: DEFAULT_PINNED_APPS,
+      };
+    }
+
+    return {
+      isCustomized: true,
+      pinnedApps: pinned.map((p) => p.appKey),
+    };
+  }
+
+  async updateMyPinnedApps(dto: UpdatePinnedAppsDto, actor: AuthenticatedUser) {
+    const uniqueKeys = Array.from(new Set(dto.appKeys.filter(Boolean)));
+    if (uniqueKeys.length < 4) {
+      throw badRequest('MIN_PINNED_APPS', 'Trang chủ cần tối thiểu 4 ứng dụng');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userPinnedApp.deleteMany({
+        where: { userId: actor.userId },
+      });
+
+      await tx.userPinnedApp.createMany({
+        data: uniqueKeys.map((appKey, index) => ({
+          userId: actor.userId,
+          appKey,
+          sortOrder: index,
+        })),
+      });
+    });
+
+    return {
+      isCustomized: true,
+      pinnedApps: uniqueKeys,
+    };
+  }
+
+  async resetMyPinnedApps(actor: AuthenticatedUser) {
+    await this.prisma.userPinnedApp.deleteMany({
+      where: { userId: actor.userId },
+    });
+
+    return {
+      isCustomized: false,
+      pinnedApps: DEFAULT_PINNED_APPS,
+    };
   }
 }
