@@ -216,7 +216,7 @@ export function ContractTemplatesScreen() {
           </View>
 
           <Pressable
-            style={[cStyles.templateBtn, { backgroundColor: '#1E3E2F', borderColor: '#1E3E2F' }]}
+            style={[cStyles.templateBtn, { backgroundColor: '#102739', borderColor: '#102739' }]}
             onPress={() => setCreateModalVisible(true)}
           >
             <Ionicons name="add" size={18} color="#FFFFFF" />
@@ -273,11 +273,11 @@ export function ContractTemplatesScreen() {
                 delayLongPress={500}
               >
                 <View style={styles.templateHeader}>
-                  <View style={[styles.templateIcon, { backgroundColor: '#D9E4DD' }]}>
+                  <View style={[styles.templateIcon, { backgroundColor: '#E7F0F7' }]}>
                     <MaterialCommunityIcons
                       name="file-document-outline"
                       size={22}
-                      color="#1E3E2F"
+                      color="#102739"
                     />
                   </View>
                   <View style={styles.templateInfo}>
@@ -360,7 +360,7 @@ export function ContractTemplatesScreen() {
                     style={({ pressed }) => [
                       {
                         flex: 1,
-                        backgroundColor: "#1E3E2F",
+                        backgroundColor: "#102739",
                         borderRadius: 10,
                         paddingVertical: 9,
                         alignItems: "center",
@@ -600,7 +600,7 @@ export function ContractListScreen() {
             style={cStyles.templateBtn}
             onPress={() => router.push(`${roleBase(user)}/contracts/templates` as any)}
           >
-            <MaterialCommunityIcons name="file-document-outline" size={16} color="#1E3E2F" />
+            <MaterialCommunityIcons name="file-document-outline" size={16} color="#102739" />
             <Text style={cStyles.templateBtnText}>Mẫu HĐ</Text>
           </Pressable>
         </View>
@@ -646,7 +646,7 @@ export function ContractListScreen() {
       >
         {contracts.isLoading ? (
           <View style={{ paddingVertical: 40, alignItems: "center" }}>
-            <ActivityIndicator color="#1E3E2F" size="small" />
+            <ActivityIndicator color="#102739" size="small" />
             <Text style={{ marginTop: 8, fontSize: 13, color: "#64748B" }}>
               Đang tải danh sách hợp đồng...
             </Text>
@@ -1554,13 +1554,13 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
                 width: 52,
                 height: 52,
                 borderRadius: 26,
-                backgroundColor: "#D9E4DD",
+                backgroundColor: "#E7F0F7",
                 alignItems: "center",
                 justifyContent: "center",
                 marginBottom: 12,
               }}
             >
-              <MaterialCommunityIcons name="draw-pen" size={26} color="#1E3E2F" />
+              <MaterialCommunityIcons name="draw-pen" size={26} color="#102739" />
             </View>
             <Text
               style={{
@@ -1599,7 +1599,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
                   width: "100%",
                   height: 48,
                   borderRadius: 12,
-                  backgroundColor: "#1E3E2F",
+                  backgroundColor: "#102739",
                   alignItems: "center",
                   justifyContent: "center",
                 },
@@ -1936,12 +1936,12 @@ export function CreateContractScreen() {
                 width: 42,
                 height: 42,
                 borderRadius: 12,
-                backgroundColor: "#D9E4DD",
+                backgroundColor: "#E7F0F7",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <MaterialCommunityIcons name="file-document-outline" size={22} color="#1E3E2F" />
+              <MaterialCommunityIcons name="file-document-outline" size={22} color="#102739" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 11, color: "#64748B", fontWeight: "600", textTransform: "uppercase" }}>
@@ -2063,7 +2063,7 @@ export function CreateContractScreen() {
                 {
                   height: 48,
                   borderRadius: 12,
-                  backgroundColor: "#1E3E2F",
+                  backgroundColor: "#102739",
                   alignItems: "center",
                   justifyContent: "center",
                   flexDirection: "row",
@@ -2382,7 +2382,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: '#E7F0F7',
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
@@ -2646,8 +2646,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   templateOptionSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+    backgroundColor: '#E7F0F7',
+    borderColor: '#102739',
   },
   templateOptionText: {
     fontSize: 13,
@@ -2655,14 +2655,14 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   templateOptionTextSelected: {
-    color: colors.primary,
+    color: '#102739',
   },
 });
 
 const cStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     paddingHorizontal: 16,
@@ -2686,7 +2686,7 @@ const cStyles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
   },
   backBtn: {
     padding: 4,
@@ -2697,7 +2697,7 @@ const cStyles = StyleSheet.create({
   brandTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1E3E2F',
+    color: '#102739',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
@@ -2733,7 +2733,7 @@ const cStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1.2,
-    borderColor: '#1E3E2F',
+    borderColor: '#102739',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -2742,7 +2742,7 @@ const cStyles = StyleSheet.create({
   templateBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E3E2F',
+    color: '#102739',
   },
   searchFilterContainer: {
     paddingHorizontal: 16,
@@ -2806,14 +2806,14 @@ const cStyles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#D9E4DD',
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1E3E2F',
+    color: '#102739',
   },
   cardTopInfo: {
     flex: 1,
@@ -2887,7 +2887,7 @@ const cStyles = StyleSheet.create({
   cardDetailLinkText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E3E2F',
+    color: '#102739',
   },
   cardMoreBtn: {
     padding: 4,
@@ -2977,7 +2977,7 @@ const cStyles = StyleSheet.create({
   viewSigBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E3E2F',
+    color: '#102739',
   },
   fileCardRow: {
     flexDirection: 'row',
@@ -3017,7 +3017,7 @@ const cStyles = StyleSheet.create({
   openPdfLinkText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E3E2F',
+    color: '#102739',
   },
   deleteContractRow: {
     flexDirection: 'row',
@@ -3047,7 +3047,7 @@ const cStyles = StyleSheet.create({
     marginBottom: 8,
   },
   companySignBtn: {
-    backgroundColor: '#1E3E2F',
+    backgroundColor: '#102739',
     borderRadius: 12,
     height: 48,
     flexDirection: 'row',
@@ -3417,7 +3417,7 @@ export function LeaderContractListScreen() {
                 <MaterialCommunityIcons
                   name="folder-open"
                   size={52}
-                  color="#8EAF9D"
+                  color="#94B5CB"
                 />
               </View>
               <Text style={leaderContractStyles.emptyTitle}>
@@ -3777,7 +3777,7 @@ export function HRContractListScreen() {
                     <MaterialCommunityIcons
                       name="folder-open"
                       size={52}
-                      color="#8EAF9D"
+                      color="#94B5CB"
                     />
                   </View>
                   <Text style={leaderContractStyles.emptyTitle}>
@@ -3903,7 +3903,7 @@ export function HRContractListScreen() {
                   <MaterialCommunityIcons
                     name="folder-open"
                     size={52}
-                    color="#8EAF9D"
+                    color="#94B5CB"
                   />
                 </View>
                 <Text style={leaderContractStyles.emptyTitle}>

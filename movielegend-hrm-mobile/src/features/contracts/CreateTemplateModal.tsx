@@ -131,7 +131,7 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
                   <MaterialCommunityIcons
                     name={contractType === 'FIXED_TERM' ? 'radiobox-marked' : 'radiobox-blank'}
                     size={20}
-                    color={contractType === 'FIXED_TERM' ? '#1E3E2F' : '#94A3B8'}
+                    color={contractType === 'FIXED_TERM' ? '#102739' : '#94A3B8'}
                   />
                   <Text
                     style={[
@@ -153,7 +153,7 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
                   <MaterialCommunityIcons
                     name={contractType === 'INDEFINITE_TERM' ? 'radiobox-marked' : 'radiobox-blank'}
                     size={20}
-                    color={contractType === 'INDEFINITE_TERM' ? '#1E3E2F' : '#94A3B8'}
+                    color={contractType === 'INDEFINITE_TERM' ? '#102739' : '#94A3B8'}
                   />
                   <Text
                     style={[
@@ -182,7 +182,7 @@ export function CreateTemplateModal({ visible, onClose }: CreateTemplateModalPro
                   <MaterialCommunityIcons
                     name={file ? 'file-pdf-box' : 'cloud-upload-outline'}
                     size={26}
-                    color={file ? '#DC2626' : '#1E3E2F'}
+                    color={file ? '#DC2626' : '#102739'}
                   />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
@@ -337,8 +337,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   typeBtnActive: {
-    borderColor: '#1E3E2F',
-    backgroundColor: '#D9E4DD',
+    borderColor: '#102739',
+    backgroundColor: '#E7F0F7',
   },
   typeText: {
     fontSize: 14,
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   typeTextActive: {
-    color: '#1E3E2F',
+    color: '#102739',
     fontWeight: '700',
   },
   fileBox: {
@@ -360,8 +360,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   fileBoxSelected: {
-    borderColor: '#1E3E2F',
-    backgroundColor: '#D9E4DD',
+    borderColor: '#102739',
+    backgroundColor: '#E7F0F7',
   },
   fileIconCircle: {
     width: 44,
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   submitBtn: {
-    backgroundColor: '#1E3E2F',
+    backgroundColor: '#102739',
     borderRadius: 12,
     height: 48,
     flexDirection: 'row',
