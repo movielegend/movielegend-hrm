@@ -464,7 +464,7 @@ export function NotificationListScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* ── Top Header (#1B3B2B) ── */}
+      {/* ── Top Header (#102739) ── */}
       <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTextCol}>
@@ -580,8 +580,8 @@ export function NotificationListScreen() {
           <RefreshControl
             refreshing={notifications.isRefetching}
             onRefresh={() => void notifications.refetch()}
-            colors={['#1B3B2B']}
-            tintColor="#1B3B2B"
+            colors={['#102739']}
+            tintColor="#102739"
           />
         }
         ListEmptyComponent={
@@ -630,13 +630,13 @@ export function NotificationListScreen() {
                           <MaterialCommunityIcons
                             name={visual.iconName as any}
                             size={22}
-                            color="#1B3B2B"
+                            color="#102739"
                           />
                         ) : (
                           <Ionicons
                             name={visual.iconName as any}
                             size={22}
-                            color="#1B3B2B"
+                            color="#102739"
                           />
                         )}
                       </View>
@@ -696,7 +696,7 @@ export function NotificationListScreen() {
                   void markAll.mutateAsync();
                 }}
               >
-                <Ionicons name="checkmark-done-outline" size={20} color="#1B3B2B" />
+                <Ionicons name="checkmark-done-outline" size={20} color="#102739" />
                 <Text style={styles.modalMenuItemText}>Đánh dấu tất cả đã đọc</Text>
               </Pressable>
             )}
@@ -708,7 +708,7 @@ export function NotificationListScreen() {
                 void notifications.refetch();
               }}
             >
-              <Ionicons name="refresh-outline" size={20} color="#1B3B2B" />
+              <Ionicons name="refresh-outline" size={20} color="#102739" />
               <Text style={styles.modalMenuItemText}>Làm mới danh sách</Text>
             </Pressable>
 
@@ -771,7 +771,7 @@ export function NotificationListScreen() {
                   void markRead.mutateAsync(id);
                 }}
               >
-                <Ionicons name="checkmark-outline" size={20} color="#1B3B2B" />
+                <Ionicons name="checkmark-outline" size={20} color="#102739" />
                 <Text style={styles.modalMenuItemText}>Đánh dấu đã đọc</Text>
               </Pressable>
             )}
@@ -784,7 +784,7 @@ export function NotificationListScreen() {
                 if (target) void openNotification(target);
               }}
             >
-              <Ionicons name="open-outline" size={20} color="#1B3B2B" />
+              <Ionicons name="open-outline" size={20} color="#102739" />
               <Text style={styles.modalMenuItemText}>Xem chi tiết</Text>
             </Pressable>
 
@@ -832,9 +832,9 @@ export function NotificationItemRow({
     <Pressable style={styles.itemRow} onPress={onPress}>
       <View style={styles.itemIconBox}>
         {visual.isMaterialCommunity ? (
-          <MaterialCommunityIcons name={visual.iconName as any} size={22} color="#1B3B2B" />
+          <MaterialCommunityIcons name={visual.iconName as any} size={22} color="#102739" />
         ) : (
-          <Ionicons name={visual.iconName as any} size={22} color="#1B3B2B" />
+          <Ionicons name={visual.iconName as any} size={22} color="#102739" />
         )}
       </View>
       <View style={styles.itemContentCol}>
@@ -852,9 +852,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F6F4',
   },
 
-  /* ── Header (#1B3B2B) ── */
+  /* ── Header (#102739) ── */
   headerContainer: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 20,
     paddingBottom: 22,
     borderBottomLeftRadius: 28,
@@ -915,10 +915,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabPillActive: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   tabPillInactive: {
-    backgroundColor: '#E8F2EC',
+    backgroundColor: '#E7F0F7',
   },
   tabPillText: {
     fontSize: 13.5,
@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   tabPillTextInactive: {
-    color: '#1B3B2B',
+    color: '#102739',
   },
   tabCountPill: {
     paddingHorizontal: 7,
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
   tabCountPillInactive: {
-    backgroundColor: '#D6E7DC',
+    backgroundColor: '#D1E1EC',
   },
   tabCountPillText: {
     fontSize: 11.5,
@@ -949,7 +949,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   tabCountPillTextInactive: {
-    color: '#1B3B2B',
+    color: '#102739',
   },
 
   /* ── List & Group Sections ── */

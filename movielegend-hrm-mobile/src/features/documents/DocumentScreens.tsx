@@ -319,9 +319,9 @@ export function DocumentListScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
-      {/* ── Top Header (#1B3B2B) ── */}
+      {/* ── Top Header (#102739) ── */}
       <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={styles.headerMainRow}>
           <Pressable
@@ -387,7 +387,7 @@ export function DocumentListScreen() {
           <View style={styles.deptFilterSection}>
             <Pressable style={styles.deptFilterCard} onPress={() => setShowDeptModal(true)}>
               <View style={styles.deptFilterLeft}>
-                <MaterialCommunityIcons name="filter-variant" size={18} color="#1B3B2B" />
+                <MaterialCommunityIcons name="filter-variant" size={18} color="#102739" />
                 <Text style={styles.deptFilterText} numberOfLines={1}>
                   {selectedDeptLabel}
                 </Text>
@@ -406,7 +406,7 @@ export function DocumentListScreen() {
         {/* Documents List */}
         {isLoading && !isRefetching ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator size="small" color="#1B3B2B" />
+            <ActivityIndicator size="small" color="#102739" />
             <Text style={styles.loadingText}>Đang tải danh sách tài liệu...</Text>
           </View>
         ) : (
@@ -489,14 +489,14 @@ export function DocumentListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
 
-  /* ── Header Wrap (#1B3B2B) ── */
+  /* ── Header Wrap (#102739) ── */
   headerWrap: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   headerMainRow: {
     flexDirection: 'row',
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#A7F3D0',
+    color: '#94B5CB',
     marginTop: 2,
     fontWeight: '500',
   },
@@ -574,8 +574,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   categoryBtnActive: {
-    backgroundColor: '#1B3B2B',
-    borderColor: '#1B3B2B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   categoryBtnText: {
     fontSize: 13,
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   categoryPill: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   categoryPillText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   metaRow: {
     flexDirection: 'row',
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     height: 48,
     borderRadius: 12,
   },

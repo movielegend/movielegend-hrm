@@ -192,7 +192,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -226,7 +226,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
             <MaterialCommunityIcons
               name="clock-outline"
               size={16}
-              color={activeTab === 'latest' ? '#1B3B2B' : '#94A3B8'}
+              color={activeTab === 'latest' ? '#102739' : '#94A3B8'}
             />
             <Text style={[newsStyles.tabText, activeTab === 'latest' && newsStyles.tabTextActive]}>
               Mới nhất
@@ -241,7 +241,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
             <MaterialCommunityIcons
               name="star-outline"
               size={16}
-              color={activeTab === 'following' ? '#1B3B2B' : '#94A3B8'}
+              color={activeTab === 'following' ? '#102739' : '#94A3B8'}
             />
             <Text style={[newsStyles.tabText, activeTab === 'following' && newsStyles.tabTextActive]}>
               Theo dõi
@@ -261,7 +261,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
           onScroll={tabBarScroll.onScroll}
           scrollEventThrottle={16}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#1B3B2B" />
+            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#102739" />
           }
           showsVerticalScrollIndicator={false}
         >
@@ -365,7 +365,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
           ) : !posts.isLoading ? (
             <View style={newsStyles.emptyWrap}>
               <View style={newsStyles.emptyIconCircle}>
-                <MaterialCommunityIcons name="newspaper-variant-outline" size={48} color="#1B3B2B" />
+                <MaterialCommunityIcons name="newspaper-variant-outline" size={48} color="#102739" />
               </View>
               <Text style={newsStyles.emptyTitle}>
                 {activeTab === 'following' ? 'Chưa có bài viết theo dõi' : 'Chưa có bài đăng'}
@@ -473,7 +473,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   if (postQuery.isLoading) {
     return (
       <View style={newsStyles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
         <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
           <View style={newsStyles.headerRow}>
             <Pressable style={newsStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
@@ -485,7 +485,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
           </View>
         </View>
         <View style={[newsStyles.curvedSheetWhite, { justifyContent: 'center', alignItems: 'center' }]}>
-          <ActivityIndicator color="#1B3B2B" size="large" />
+          <ActivityIndicator color="#102739" size="large" />
         </View>
       </View>
     );
@@ -494,7 +494,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   if (!post) {
     return (
       <View style={newsStyles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
         <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
           <View style={newsStyles.headerRow}>
             <Pressable style={newsStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
@@ -564,7 +564,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -960,7 +960,7 @@ export function CreatePostScreen() {
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -1024,7 +1024,7 @@ export function CreatePostScreen() {
                 disabled={uploading}
               >
                 <View style={newsStyles.dropzoneIconWrap}>
-                  <MaterialCommunityIcons name="image-outline" size={24} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="image-outline" size={24} color="#102739" />
                 </View>
                 <Text style={newsStyles.dropzoneText}>
                   {uploading
@@ -1286,7 +1286,7 @@ export function PendingNewsfeedListScreen() {
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -1316,7 +1316,7 @@ export function PendingNewsfeedListScreen() {
             paddingBottom: Math.max(insets.bottom, 16) + 24,
           }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#1B3B2B" />
+            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#102739" />
           }
           showsVerticalScrollIndicator={false}
         >
@@ -1395,7 +1395,7 @@ export function PendingNewsfeedListScreen() {
           ) : !posts.isLoading ? (
             <View style={newsStyles.emptyWrap}>
               <View style={newsStyles.emptyIconCircle}>
-                <MaterialCommunityIcons name="file-document-check-outline" size={48} color="#1B3B2B" />
+                <MaterialCommunityIcons name="file-document-check-outline" size={48} color="#102739" />
               </View>
               <Text style={newsStyles.emptyTitle}>Không có bài viết chờ duyệt</Text>
               <Text style={newsStyles.emptySubtitle}>Bài viết cần phê duyệt sẽ hiển thị tại đây.</Text>
@@ -1472,7 +1472,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -1491,7 +1491,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
       <View style={newsStyles.curvedSheetWhite}>
         {postQuery.isLoading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator color="#1B3B2B" size="large" />
+            <ActivityIndicator color="#102739" size="large" />
           </View>
         ) : !post ? (
           <View style={newsStyles.emptyWrap}>
@@ -2226,12 +2226,12 @@ const styles = StyleSheet.create({
 const newsStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   headerWrap: {
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   headerMainRow: {
     flexDirection: 'row',
@@ -2345,7 +2345,7 @@ const newsStyles = StyleSheet.create({
     color: '#64748B',
   },
   tabTextActive: {
-    color: '#1B3B2B',
+    color: '#102739',
     fontWeight: '700',
   },
   tabIndicator: {
@@ -2354,7 +2354,7 @@ const newsStyles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2.5,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     borderRadius: 2,
   },
   emptyWrap: {
@@ -2367,7 +2367,7 @@ const newsStyles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -2390,11 +2390,11 @@ const newsStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 22,
     paddingVertical: 11,
     borderRadius: 22,
-    shadowColor: '#1B3B2B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -2424,7 +2424,7 @@ const newsStyles = StyleSheet.create({
   fabBtn: {
     position: 'absolute',
     right: 20,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     borderRadius: 28,
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -2512,7 +2512,7 @@ const newsStyles = StyleSheet.create({
   dropzoneText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   fixedFooter: {
     paddingHorizontal: 20,
@@ -2522,14 +2522,14 @@ const newsStyles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
   },
   primarySubmitBtn: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     borderRadius: 14,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#1B3B2B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -2559,7 +2559,7 @@ const newsStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -2624,7 +2624,7 @@ const newsStyles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   approveBtnText: {
     fontSize: 13,

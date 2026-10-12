@@ -4075,7 +4075,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   leaderToggleTextActive: {
-    color: '#123826',
+    color: '#102739',
     fontWeight: '700',
   },
   leaderPendingBadge: {
@@ -4119,13 +4119,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   ladderActiveCard: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#123826',
+    shadowColor: '#102739',
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
@@ -4143,7 +4143,7 @@ const styles = StyleSheet.create({
   ladderActiveSquareText: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#123826',
+    color: '#102739',
   },
   ladderActiveContent: {
     flex: 1,
@@ -4167,11 +4167,11 @@ const styles = StyleSheet.create({
   ladderActiveBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#123826',
+    color: '#102739',
   },
   ladderActiveDesc: {
     fontSize: 12,
-    color: '#A7D8BE',
+    color: '#94B5CB',
     marginTop: 4,
     lineHeight: 16,
   },

@@ -199,9 +199,9 @@ export function AdminLevelReviewScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
-      {/* ── Top Header: Back button and Title on the same row (#1B3B2B) ── */}
+      {/* ── Top Header: Back button and Title on the same row (#102739) ── */}
       <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={styles.headerMainRow}>
           <Pressable
@@ -223,7 +223,7 @@ export function AdminLevelReviewScreen() {
           <Pressable style={styles.deptSelectCard} onPress={() => setShowDeptModal(true)}>
             <View style={styles.deptCardLeft}>
               <View style={styles.deptIconBox}>
-                <MaterialCommunityIcons name="office-building" size={20} color="#1B3B2B" />
+                <MaterialCommunityIcons name="office-building" size={20} color="#102739" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.deptNameText}>{activeDeptName}</Text>
@@ -314,7 +314,7 @@ export function AdminLevelReviewScreen() {
         >
           {isLoading && !isRefreshing ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator size="small" color="#1B3B2B" />
+              <ActivityIndicator size="small" color="#102739" />
               <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
             </View>
           ) : (
@@ -331,7 +331,7 @@ export function AdminLevelReviewScreen() {
                   {submittedDeptProjects.length === 0 ? (
                     <View style={styles.emptyCard}>
                       <View style={styles.emptyIconCircle}>
-                        <Ionicons name="folder-outline" size={36} color="#1B3B2B" />
+                        <Ionicons name="folder-outline" size={36} color="#102739" />
                       </View>
                       <Text style={styles.emptyTitle}>Chưa có dự án cần nghiệm thu</Text>
                       <Text style={styles.emptySubtitle}>
@@ -359,7 +359,7 @@ export function AdminLevelReviewScreen() {
                                 <Ionicons
                                   name="trophy-outline"
                                   size={12}
-                                  color="#1B3B2B"
+                                  color="#102739"
                                   style={{ marginRight: 4 }}
                                 />
                                 <Text style={styles.projectLevelBadgeText}>
@@ -387,7 +387,7 @@ export function AdminLevelReviewScreen() {
                                   }
                                   size={12}
                                   color={
-                                    isApproved ? '#059669' : isSubmitted ? '#D97706' : '#1B3B2B'
+                                    isApproved ? '#059669' : isSubmitted ? '#D97706' : '#102739'
                                   }
                                 />
                                 <Text
@@ -398,7 +398,7 @@ export function AdminLevelReviewScreen() {
                                         ? '#059669'
                                         : isSubmitted
                                         ? '#D97706'
-                                        : '#1B3B2B',
+                                        : '#102739',
                                     },
                                   ]}
                                 >
@@ -431,7 +431,7 @@ export function AdminLevelReviewScreen() {
                                         ? '#059669'
                                         : isSubmitted
                                         ? '#D97706'
-                                        : '#1B3B2B',
+                                        : '#102739',
                                     },
                                   ]}
                                 />
@@ -440,7 +440,7 @@ export function AdminLevelReviewScreen() {
 
                             {proj.leaderReportNote ? (
                               <View style={styles.projectLeaderNoteBox}>
-                                <Ionicons name="chatbubble-ellipses-outline" size={13} color="#1B3B2B" />
+                                <Ionicons name="chatbubble-ellipses-outline" size={13} color="#102739" />
                                 <Text style={styles.projectLeaderNoteText} numberOfLines={2}>
                                   <Text style={{ fontWeight: '700' }}>Báo cáo Leader: </Text>
                                   {proj.leaderReportNote}
@@ -460,7 +460,7 @@ export function AdminLevelReviewScreen() {
                               <Ionicons
                                 name={isSubmitted ? 'shield-checkmark-outline' : 'eye-outline'}
                                 size={15}
-                                color={isSubmitted ? '#FFFFFF' : '#1B3B2B'}
+                                color={isSubmitted ? '#FFFFFF' : '#102739'}
                                 style={{ marginRight: 6 }}
                               />
                               <Text
@@ -499,7 +499,7 @@ export function AdminLevelReviewScreen() {
                         <MaterialCommunityIcons
                           name="file-document-check-outline"
                           size={36}
-                          color="#1B3B2B"
+                          color="#102739"
                         />
                       </View>
                       <Text style={styles.emptyTitle}>Không có đề xuất chờ duyệt</Text>
@@ -510,7 +510,7 @@ export function AdminLevelReviewScreen() {
                   ) : (
                     <View style={styles.requestsList}>
                       {promotionRequests.map((req) => {
-                        const reqColor = LEVEL_COLORS[req.toLevelNumber] || '#1B3B2B';
+                        const reqColor = LEVEL_COLORS[req.toLevelNumber] || '#102739';
                         const memberName =
                           req.user?.profile?.fullName || req.user?.userCode || 'Nhân sự';
                         const memberCode = req.user?.userCode || '';
@@ -582,7 +582,7 @@ export function AdminLevelReviewScreen() {
 
                             <View style={styles.requestCardFooter}>
                               <View style={styles.evidenceCountBadge}>
-                                <Ionicons name="images-outline" size={13} color="#1B3B2B" />
+                                <Ionicons name="images-outline" size={13} color="#102739" />
                                 <Text style={styles.evidenceCountText}>
                                   {req.evidenceImages?.length || 0} ảnh bằng chứng
                                 </Text>
@@ -603,7 +603,7 @@ export function AdminLevelReviewScreen() {
                                 }}
                               >
                                 <Text style={styles.reviewBtnText}>Xem & Thẩm định</Text>
-                                <Ionicons name="chevron-forward" size={14} color="#1B3B2B" />
+                                <Ionicons name="chevron-forward" size={14} color="#102739" />
                               </Pressable>
                             </View>
                           </View>
@@ -646,7 +646,7 @@ export function AdminLevelReviewScreen() {
                         <MaterialCommunityIcons
                           name="account-group-outline"
                           size={36}
-                          color="#1B3B2B"
+                          color="#102739"
                         />
                       </View>
                       <Text style={styles.emptyTitle}>Chưa có nhân sự</Text>
@@ -709,7 +709,7 @@ export function AdminLevelReviewScreen() {
                                   });
                                 }}
                               >
-                                <Ionicons name="arrow-up" size={14} color="#1B3B2B" />
+                                <Ionicons name="arrow-up" size={14} color="#102739" />
                                 <Text style={styles.changeLevelBtnText}>Đổi cấp bậc</Text>
                               </Pressable>
                             </View>
@@ -778,14 +778,14 @@ export function AdminLevelReviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
 
-  /* ── Header Wrap (#1B3B2B) ── */
+  /* ── Header Wrap (#102739) ── */
   headerWrap: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   headerMainRow: {
     flexDirection: 'row',
@@ -846,7 +846,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -931,7 +931,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   tabPillBtnActive: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
   },
   tabPillText: {
     fontSize: 12,
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   tabPillTextActive: {
-    color: '#1B3B2B',
+    color: '#102739',
     fontWeight: '700',
   },
   tabIndicator: {
@@ -948,7 +948,7 @@ const styles = StyleSheet.create({
     left: '20%',
     right: '20%',
     height: 3,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     borderRadius: 2,
   },
 
@@ -1013,7 +1013,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -1052,14 +1052,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   memberAvatarText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   memberMetaCol: {
     flex: 1,
@@ -1075,7 +1075,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   memberLevelPill: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1085,7 +1085,7 @@ const styles = StyleSheet.create({
   memberLevelPillText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   memberDivider: {
     height: 1,
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: '#1B3B2B',
+    borderColor: '#102739',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1115,7 +1115,7 @@ const styles = StyleSheet.create({
   changeLevelBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
 
   /* ── Projects List (Screen 3) ── */
@@ -1138,7 +1138,7 @@ const styles = StyleSheet.create({
   projectLevelBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -1146,7 +1146,7 @@ const styles = StyleSheet.create({
   projectLevelBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   projectStatusBadge: {
     flexDirection: 'row',
@@ -1163,7 +1163,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
   },
   statusInProgress: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
   },
   projectStatusText: {
     fontSize: 11,
@@ -1223,7 +1223,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   projectActionBtnActive: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   projectActionBtnNormal: {
     backgroundColor: '#F8FAFC',
@@ -1238,7 +1238,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   projectActionBtnTextNormal: {
-    color: '#1B3B2B',
+    color: '#102739',
   },
 
   /* ── Requests List (Screen 4) ── */
@@ -1267,14 +1267,14 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitialText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   requestUserName: {
     fontSize: 14,
@@ -1364,6 +1364,6 @@ const styles = StyleSheet.create({
   reviewBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
 });

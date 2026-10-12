@@ -436,7 +436,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 
   return (
     <View style={adminChatStyles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
       <View style={[adminChatStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -514,7 +514,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 
                     <View style={adminChatStyles.leaderChatBtn}>
                       {connectingLeaderId === leader.userId ? (
-                        <ActivityIndicator size="small" color="#1B3B2B" />
+                        <ActivityIndicator size="small" color="#102739" />
                       ) : (
                         <MaterialCommunityIcons name="chat-outline" size={20} color="#334155" />
                       )}
@@ -583,7 +583,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                         <MaterialCommunityIcons
                           name={isDirect ? 'account' : 'account-group'}
                           size={22}
-                          color="#1B3B2B"
+                          color="#102739"
                         />
                       </View>
 
@@ -627,8 +627,8 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
           if (!isCreatingGroup) setCreateGroupModalVisible(false);
         }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#1B3B2B' }} edges={['top']}>
-          <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#102739' }} edges={['top']}>
+          <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
           {/* Modal Header */}
           <View style={adminChatStyles.modalHeaderWrap}>
@@ -808,11 +808,11 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                   setDeptPickerOpen(false);
                 }}
               >
-                <Text style={{ fontSize: 15, fontWeight: filterDeptId === 'all' ? '700' : '500', color: filterDeptId === 'all' ? '#1B3B2B' : '#0F172A' }}>
+                <Text style={{ fontSize: 15, fontWeight: filterDeptId === 'all' ? '700' : '500', color: filterDeptId === 'all' ? '#102739' : '#0F172A' }}>
                   Tất cả phòng ban · {candidateEmployees.length}
                 </Text>
                 {filterDeptId === 'all' && (
-                  <MaterialCommunityIcons name="check" size={20} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="check" size={20} color="#102739" />
                 )}
               </TouchableOpacity>
 
@@ -836,11 +836,11 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                       setDeptPickerOpen(false);
                     }}
                   >
-                    <Text style={{ fontSize: 15, fontWeight: isSelected ? '700' : '500', color: isSelected ? '#1B3B2B' : '#0F172A' }}>
+                    <Text style={{ fontSize: 15, fontWeight: isSelected ? '700' : '500', color: isSelected ? '#102739' : '#0F172A' }}>
                       {dept.name} · {count}
                     </Text>
                     {isSelected && (
-                      <MaterialCommunityIcons name="check" size={20} color="#1B3B2B" />
+                      <MaterialCommunityIcons name="check" size={20} color="#102739" />
                     )}
                   </TouchableOpacity>
                 );
@@ -856,8 +856,8 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
         animationType="slide"
         onRequestClose={() => setLeaderModalVisible(false)}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#1B3B2B' }} edges={['top']}>
-          <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#102739' }} edges={['top']}>
+          <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
           {/* Modal Header */}
           <View style={adminChatStyles.modalHeaderWrap}>
@@ -926,7 +926,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
 
                     <View style={adminChatStyles.leaderChatBtn}>
                       {connectingLeaderId === item.userId ? (
-                        <ActivityIndicator size="small" color="#1B3B2B" />
+                        <ActivityIndicator size="small" color="#102739" />
                       ) : (
                         <MaterialCommunityIcons name="chat-outline" size={20} color="#334155" />
                       )}
@@ -1397,8 +1397,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#1B3B2B' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1418,7 +1418,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               <MaterialCommunityIcons
                 name={currentGroup?.type === 'DIRECT' ? 'account' : 'account-group'}
                 size={20}
-                color="#1B3B2B"
+                color="#102739"
               />
             </View>
 
@@ -1502,7 +1502,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                           {msg.sender?.profile?.avatarUrl ? (
                             <Image source={{ uri: msg.sender.profile.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
                           ) : (
-                            <Text style={[styles.messageBubbleAvatarText, { color: '#1B3B2B' }]}>
+                            <Text style={[styles.messageBubbleAvatarText, { color: '#102739' }]}>
                               {getInitials(senderName || 'U')}
                             </Text>
                           )}
@@ -1552,7 +1552,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                           {msg.sender?.profile?.avatarUrl ? (
                             <Image source={{ uri: msg.sender.profile.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
                           ) : (
-                            <Text style={[styles.messageBubbleAvatarText, { color: '#1B3B2B' }]}>
+                            <Text style={[styles.messageBubbleAvatarText, { color: '#102739' }]}>
                               {getInitials(senderName || 'U')}
                             </Text>
                           )}
@@ -2461,10 +2461,10 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
 const adminChatStyles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   headerWrap: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 20,
     paddingBottom: 18,
   },
@@ -2554,7 +2554,7 @@ const adminChatStyles = StyleSheet.create({
   leaderAvatarInitials: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   leaderInfoWrap: {
     flex: 1,
@@ -2632,7 +2632,7 @@ const adminChatStyles = StyleSheet.create({
 
   /* Modal: Tạo nhóm chat */
   modalHeaderWrap: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 16,
@@ -2755,8 +2755,8 @@ const adminChatStyles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   checkboxBoxSelected: {
-    backgroundColor: '#1B3B2B',
-    borderColor: '#1B3B2B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   memberAvatarCircle: {
     width: 38,
@@ -2769,7 +2769,7 @@ const adminChatStyles = StyleSheet.create({
   memberAvatarInitials: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   memberInfoWrap: {
     flex: 1,
@@ -2794,7 +2794,7 @@ const adminChatStyles = StyleSheet.create({
   createGroupSubmitBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2815,7 +2815,7 @@ const adminChatStyles = StyleSheet.create({
 
   /* Chat Room Top Header */
   roomHeaderWrap: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -3002,7 +3002,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   messageBubbleMine: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     borderBottomRightRadius: 4,
   },
   messageBubbleOther: {
@@ -3127,7 +3127,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3138,7 +3138,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3445,7 +3445,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   quoteIndicatorOther: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   quoteSender: {
     fontSize: 12,
@@ -3456,7 +3456,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   quoteSenderOther: {
-    color: '#1B3B2B',
+    color: '#102739',
   },
   quoteText: {
     fontSize: 13,
@@ -3492,12 +3492,12 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   replyPreviewSender: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   replyPreviewText: {
     fontSize: 13,

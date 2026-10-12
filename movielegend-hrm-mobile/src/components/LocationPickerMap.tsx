@@ -149,7 +149,7 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
             onSubmitEditing={handleSearch}
             returnKeyType="search"
           />
-          {searching && <ActivityIndicator size="small" color="#166534" style={{ marginRight: 8 }} />}
+          {searching && <ActivityIndicator size="small" color="#102739" style={{ marginRight: 8 }} />}
           {searchQuery.length > 0 && !searching && (
             <Pressable onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
               <Ionicons name="close-circle" size={18} color="#94A3B8" />
@@ -166,7 +166,7 @@ export function LocationPickerMap({ visible, onClose, onSelect, initialLocation 
             showsUserLocation
           >
             {selectedCoordinate && (
-              <Marker coordinate={selectedCoordinate} pinColor="#166534" />
+              <Marker coordinate={selectedCoordinate} pinColor="#102739" />
             )}
           </MapView>
 
@@ -364,12 +364,12 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#1B382B', // Deep forest green
+    backgroundColor: '#102739', // Deep forest green
     justifyContent: 'center',
     alignItems: 'center',
   },
   confirmBtnDisabled: {
-    backgroundColor: '#8FA89B',
+    backgroundColor: '#94A3B8',
   },
   confirmBtnText: {
     fontSize: 14,

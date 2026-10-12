@@ -56,12 +56,12 @@ function UserInitialAvatar({ name, size = 64 }: { name: string; size?: number })
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: '#DCFCE7',
+        backgroundColor: '#E7F0F7',
         justifyContent: 'center',
         alignItems: 'center',
       }}
     >
-      <Text style={{ color: '#166534', fontSize: 22, fontWeight: '900' }}>{initials}</Text>
+      <Text style={{ color: '#102739', fontSize: 22, fontWeight: '900' }}>{initials}</Text>
     </View>
   );
 }
@@ -238,7 +238,7 @@ export function EmployeeDetailScreen() {
             {/* Phone */}
             <View style={styles.infoRow}>
               <View style={styles.infoIconWrap}>
-                <Ionicons name="call-outline" size={18} color="#166534" />
+                <Ionicons name="call-outline" size={18} color="#102739" />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.infoLabel}>Số điện thoại</Text>
@@ -251,7 +251,7 @@ export function EmployeeDetailScreen() {
             {/* Email */}
             <View style={styles.infoRow}>
               <View style={styles.infoIconWrap}>
-                <Ionicons name="mail-outline" size={18} color="#166534" />
+                <Ionicons name="mail-outline" size={18} color="#102739" />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.infoLabel}>Email</Text>
@@ -264,7 +264,7 @@ export function EmployeeDetailScreen() {
             {/* CCCD */}
             <View style={styles.infoRow}>
               <View style={styles.infoIconWrap}>
-                <Ionicons name="card-outline" size={18} color="#166534" />
+                <Ionicons name="card-outline" size={18} color="#102739" />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.infoLabel}>CCCD</Text>
@@ -281,7 +281,7 @@ export function EmployeeDetailScreen() {
             <View style={styles.tableRow}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="business-outline" size={16} color="#166534" />
+                  <Ionicons name="business-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Phòng ban</Text>
               </View>
@@ -292,7 +292,7 @@ export function EmployeeDetailScreen() {
             <View style={styles.tableRow}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="person-outline" size={16} color="#166534" />
+                  <Ionicons name="person-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Vị trí</Text>
               </View>
@@ -303,7 +303,7 @@ export function EmployeeDetailScreen() {
             <View style={styles.tableRow}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="shield-checkmark-outline" size={16} color="#166534" />
+                  <Ionicons name="shield-checkmark-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Phân quyền</Text>
               </View>
@@ -314,7 +314,7 @@ export function EmployeeDetailScreen() {
             <View style={styles.tableRow}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="calendar-outline" size={16} color="#166534" />
+                  <Ionicons name="calendar-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Ngày vào làm</Text>
               </View>
@@ -325,11 +325,11 @@ export function EmployeeDetailScreen() {
             <View style={styles.tableRow}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="time-outline" size={16} color="#166534" />
+                  <Ionicons name="time-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Thâm niên</Text>
               </View>
-              <Text style={[styles.tableValue, { color: '#166534', fontWeight: '800' }]}>
+              <Text style={[styles.tableValue, { color: '#102739', fontWeight: '800' }]}>
                 {seniorityStr}
               </Text>
             </View>
@@ -338,7 +338,7 @@ export function EmployeeDetailScreen() {
             <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="scan-outline" size={16} color="#166534" />
+                  <Ionicons name="scan-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Dữ liệu khuôn mặt</Text>
               </View>
@@ -471,7 +471,7 @@ export function EmployeeDetailScreen() {
           <Pressable style={styles.selectPill} onPress={() => setDeptModalVisible(true)}>
             <View style={styles.selectLeft}>
               <View style={styles.infoIconWrap}>
-                <Ionicons name="business-outline" size={18} color="#166534" />
+                <Ionicons name="business-outline" size={18} color="#102739" />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.selectText}>{selectedDeptName || 'Chưa xếp phòng'}</Text>
@@ -492,7 +492,7 @@ export function EmployeeDetailScreen() {
           </View>
           <Pressable style={styles.selectPill} onPress={() => setShowDatePicker(true)}>
             <View style={styles.selectLeft}>
-              <Ionicons name="calendar-outline" size={18} color="#166534" />
+              <Ionicons name="calendar-outline" size={18} color="#102739" />
               <Text style={[styles.selectText, { marginLeft: 10 }]}>{formattedJoinDateShort}</Text>
             </View>
             <Ionicons name="chevron-down" size={16} color="#64748B" />
@@ -516,7 +516,7 @@ export function EmployeeDetailScreen() {
               <Ionicons
                 name="checkmark-circle"
                 size={18}
-                color={selectedAccountStatus === 'ACTIVE' ? '#166534' : '#94A3B8'}
+                color={selectedAccountStatus === 'ACTIVE' ? '#102739' : '#94A3B8'}
               />
               <Text
                 style={[
@@ -602,7 +602,7 @@ export function EmployeeDetailScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
 
   header: {
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
   heroActiveText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -785,12 +785,12 @@ const styles = StyleSheet.create({
   ctaPrimaryBtn: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#1B382B', // Dark forest green
+    backgroundColor: '#102739', // Dark forest green
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
@@ -905,8 +905,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   statusToggleBtnActive: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#166534',
+    backgroundColor: '#E7F0F7',
+    borderColor: '#102739',
   },
   statusToggleBtnSuspended: {
     backgroundColor: '#FEE2E2',
@@ -918,7 +918,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   statusToggleTextActive: {
-    color: '#166534',
+    color: '#102739',
   },
   statusToggleTextSuspended: {
     color: '#DC2626',

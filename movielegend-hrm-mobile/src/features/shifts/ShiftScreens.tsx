@@ -294,7 +294,7 @@ export function EmployeeScheduleScreen() {
 
   return (
     <View style={employeeScheduleStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#123826" translucent={Platform.OS === 'android'} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
 
       {/* Top Header */}
       <View style={[employeeScheduleStyles.headerBanner, { paddingTop: safeTopInset }]}>
@@ -314,7 +314,7 @@ export function EmployeeScheduleScreen() {
       <View style={employeeScheduleStyles.bodyContainer}>
         <ScrollView 
           contentContainerStyle={employeeScheduleStyles.scrollContent}
-          refreshControl={<RefreshControl refreshing={schedule.isRefetching} onRefresh={() => void schedule.refetch()} colors={['#123826']} />}
+          refreshControl={<RefreshControl refreshing={schedule.isRefetching} onRefresh={() => void schedule.refetch()} colors={['#102739']} />}
           showsVerticalScrollIndicator={false}
         >
           {/* Card 1: Ca làm việc hôm nay */}
@@ -332,7 +332,7 @@ export function EmployeeScheduleScreen() {
                 onPress={() => router.push(attendanceRoute as any)}
               >
                 <View style={employeeScheduleStyles.todayShiftIconBox}>
-                  <MaterialCommunityIcons name="briefcase-clock-outline" size={26} color="#123826" />
+                  <MaterialCommunityIcons name="briefcase-clock-outline" size={26} color="#102739" />
                 </View>
                 <View style={employeeScheduleStyles.todayShiftInfo}>
                   <Text style={employeeScheduleStyles.todayShiftName}>{todayShift.shift.name}</Text>
@@ -347,7 +347,7 @@ export function EmployeeScheduleScreen() {
                   </View>
                 </View>
                 <View style={employeeScheduleStyles.todayAttendanceBtn}>
-                  <MaterialCommunityIcons name="fingerprint" size={22} color="#123826" />
+                  <MaterialCommunityIcons name="fingerprint" size={22} color="#102739" />
                   <Text style={employeeScheduleStyles.todayAttendanceBtnText}>
                     {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
                   </Text>
@@ -356,7 +356,7 @@ export function EmployeeScheduleScreen() {
             ) : (
               <View style={employeeScheduleStyles.emptyBlock}>
                 <View style={employeeScheduleStyles.emptyIconCircle}>
-                  <Ionicons name="calendar-outline" size={36} color="#123826" />
+                  <Ionicons name="calendar-outline" size={36} color="#102739" />
                 </View>
                 <Text style={employeeScheduleStyles.emptyTitle}>Không có lịch làm việc</Text>
                 <Text style={employeeScheduleStyles.emptySubtitle}>Hôm nay bạn chưa được xếp ca làm việc.</Text>
@@ -506,7 +506,7 @@ export function EmployeeScheduleScreen() {
                   <MaterialCommunityIcons
                     name={activeTab === 'upcoming' ? 'calendar-check-outline' : 'history'}
                     size={38}
-                    color="#123826"
+                    color="#102739"
                   />
                 </View>
                 <Text style={employeeScheduleStyles.emptyTitle}>
@@ -589,9 +589,9 @@ export function AdminShiftsScreen() {
 
   return (
     <View style={styles.modernContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
-      {/* ── Top Header (#1B3B2B) ── */}
+      {/* ── Top Header (#102739) ── */}
       <View style={[styles.modernHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={styles.decorativeCurve} />
 
@@ -619,7 +619,7 @@ export function AdminShiftsScreen() {
           <RefreshControl
             refreshing={shifts.isRefetching}
             onRefresh={() => void shifts.refetch()}
-            tintColor="#1B3B2B"
+            tintColor="#102739"
           />
         }
         showsVerticalScrollIndicator={false}
@@ -631,7 +631,7 @@ export function AdminShiftsScreen() {
             onPress={() => router.push('/admin/shifts/assign')}
           >
             <View style={styles.assignIconBox}>
-              <MaterialCommunityIcons name="calendar-account-outline" size={24} color="#1B3B2B" />
+              <MaterialCommunityIcons name="calendar-account-outline" size={24} color="#102739" />
             </View>
             <View style={styles.assignMetaCol}>
               <Text style={styles.assignTitle}>Phân ca nhân viên</Text>
@@ -658,9 +658,9 @@ export function AdminShiftsScreen() {
                   <View style={[styles.sparkleLine, { transform: [{ rotate: '15deg' }], top: 7, right: -2 }]} />
                 </View>
                 <View style={styles.emptyIconGroup}>
-                  <MaterialCommunityIcons name="calendar-month-outline" size={48} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="calendar-month-outline" size={48} color="#102739" />
                   <View style={styles.emptyClockBadge}>
-                    <Ionicons name="time-outline" size={20} color="#1B3B2B" />
+                    <Ionicons name="time-outline" size={20} color="#102739" />
                   </View>
                 </View>
               </View>
@@ -690,7 +690,7 @@ export function AdminShiftsScreen() {
               <View key={shift.id} style={styles.modernShiftCard}>
                 <View style={styles.shiftCardHeader}>
                   <View style={styles.shiftCardIconBox}>
-                    <Ionicons name="time-outline" size={22} color="#1B3B2B" />
+                    <Ionicons name="time-outline" size={22} color="#102739" />
                   </View>
                   <View style={styles.shiftCardMetaCol}>
                     <Text style={styles.shiftCardName}>{shift.name}</Text>
@@ -747,7 +747,7 @@ export function AdminShiftsScreen() {
                   return (
                     <View style={styles.assignmentSection}>
                       <View style={styles.assignmentHeader}>
-                        <MaterialCommunityIcons name="account-group-outline" size={16} color="#1B3B2B" />
+                        <MaterialCommunityIcons name="account-group-outline" size={16} color="#102739" />
                         <Text style={styles.assignmentLabel}>Nhân sự đã phân ca</Text>
                         <View style={styles.assignmentCount}>
                           <Text style={styles.assignmentCountText}>{uniqueAssignments.length}</Text>
@@ -844,9 +844,9 @@ export function CreateShiftScreen() {
 
   return (
     <View style={styles.modernContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
-      {/* ── Top Header (#1B3B2B) ── */}
+      {/* ── Top Header (#102739) ── */}
       <View style={[styles.modernHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={styles.decorativeCurve} />
 
@@ -876,7 +876,7 @@ export function CreateShiftScreen() {
         <View style={styles.formCard}>
           <View style={styles.formCardHeader}>
             <View style={styles.formCardIconBox}>
-              <MaterialCommunityIcons name="file-document-outline" size={20} color="#1B3B2B" />
+              <MaterialCommunityIcons name="file-document-outline" size={20} color="#102739" />
             </View>
             <Text style={styles.formCardTitle}>Thông tin ca</Text>
           </View>
@@ -905,7 +905,7 @@ export function CreateShiftScreen() {
         <View style={styles.formCard}>
           <View style={styles.formCardHeader}>
             <View style={styles.formCardIconBox}>
-              <Ionicons name="time-outline" size={20} color="#1B3B2B" />
+              <Ionicons name="time-outline" size={20} color="#102739" />
             </View>
             <Text style={styles.formCardTitle}>Thời gian làm việc</Text>
           </View>
@@ -921,7 +921,7 @@ export function CreateShiftScreen() {
           {/* Duration info banner */}
           <View style={styles.durationInfoBox}>
             <View style={styles.durationIconCircle}>
-              <Ionicons name="time-outline" size={18} color="#1B3B2B" />
+              <Ionicons name="time-outline" size={18} color="#102739" />
             </View>
             <View style={styles.durationTextCol}>
               <Text style={styles.durationMainText}>
@@ -1021,9 +1021,9 @@ export function EditShiftScreen() {
 
   return (
     <View style={styles.modernContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
-      {/* ── Top Header (#1B3B2B) ── */}
+      {/* ── Top Header (#102739) ── */}
       <View style={[styles.modernHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={styles.decorativeCurve} />
 
@@ -1053,7 +1053,7 @@ export function EditShiftScreen() {
         <View style={styles.formCard}>
           <View style={styles.formCardHeader}>
             <View style={styles.formCardIconBox}>
-              <MaterialCommunityIcons name="file-document-outline" size={20} color="#1B3B2B" />
+              <MaterialCommunityIcons name="file-document-outline" size={20} color="#102739" />
             </View>
             <Text style={styles.formCardTitle}>Thông tin ca</Text>
           </View>
@@ -1082,7 +1082,7 @@ export function EditShiftScreen() {
         <View style={styles.formCard}>
           <View style={styles.formCardHeader}>
             <View style={styles.formCardIconBox}>
-              <Ionicons name="time-outline" size={20} color="#1B3B2B" />
+              <Ionicons name="time-outline" size={20} color="#102739" />
             </View>
             <Text style={styles.formCardTitle}>Thời gian làm việc</Text>
           </View>
@@ -1098,7 +1098,7 @@ export function EditShiftScreen() {
           {/* Duration info banner */}
           <View style={styles.durationInfoBox}>
             <View style={styles.durationIconCircle}>
-              <Ionicons name="time-outline" size={18} color="#1B3B2B" />
+              <Ionicons name="time-outline" size={18} color="#102739" />
             </View>
             <View style={styles.durationTextCol}>
               <Text style={styles.durationMainText}>
@@ -1595,7 +1595,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   modernHeader: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingBottom: 20,
     position: 'relative',
@@ -1666,7 +1666,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1729,7 +1729,7 @@ const styles = StyleSheet.create({
     width: 104,
     height: 104,
     borderRadius: 52,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -1746,7 +1746,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 2,
     borderRadius: 1,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   emptyIconGroup: {
     position: 'relative',
@@ -1759,7 +1759,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     borderRadius: 12,
   },
   emptyTitle: {
@@ -1780,7 +1780,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     height: 48,
     borderRadius: 12,
     width: '100%',
@@ -1881,7 +1881,7 @@ const styles = StyleSheet.create({
   durationBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   shiftCardActions: {
     flexDirection: 'row',
@@ -1920,7 +1920,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     height: 48,
     borderRadius: 12,
     marginTop: 8,
@@ -1954,7 +1954,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -2013,7 +2013,7 @@ const styles = StyleSheet.create({
   durationInfoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     borderRadius: 12,
     padding: 12,
     marginTop: 14,
@@ -2022,7 +2022,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(27, 59, 43, 0.12)',
+    backgroundColor: 'rgba(16, 39, 57, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -2033,7 +2033,7 @@ const styles = StyleSheet.create({
   durationMainText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   durationSubText: {
     fontSize: 11,
@@ -2078,7 +2078,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   submitBtnActive: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   submitBtnDisabled: {
     backgroundColor: '#CBD5E1',
@@ -2098,10 +2098,10 @@ const styles = StyleSheet.create({
 const employeeScheduleStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   headerBanner: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
@@ -2130,7 +2130,7 @@ const employeeScheduleStyles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#A7D8BE',
+    color: '#94B5CB',
     marginTop: 2,
   },
   headerRightPlaceholder: {
@@ -2252,14 +2252,14 @@ const employeeScheduleStyles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     borderRadius: 10,
     marginLeft: 8,
   },
   todayAttendanceBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#123826',
+    color: '#102739',
     marginTop: 2,
   },
   utilitiesGrid: {
@@ -2308,7 +2308,7 @@ const employeeScheduleStyles = StyleSheet.create({
     borderRadius: 11,
   },
   segmentBtnActive: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -2334,7 +2334,7 @@ const employeeScheduleStyles = StyleSheet.create({
   dateBox: {
     width: 48,
     height: 48,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2346,7 +2346,7 @@ const employeeScheduleStyles = StyleSheet.create({
   dateDayText: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#123826',
+    color: '#102739',
   },
   dateDayTextPast: {
     color: '#64748B',
@@ -2354,7 +2354,7 @@ const employeeScheduleStyles = StyleSheet.create({
   dateMonthText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#123826',
+    color: '#102739',
   },
   dateMonthTextPast: {
     color: '#94A3B8',

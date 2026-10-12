@@ -868,7 +868,7 @@ export function EmployeeContractListScreen() {
 
   return (
     <View style={employeeContractStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#123826" translucent={Platform.OS === 'android'} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
 
       {/* Header Banner */}
       <View style={[employeeContractStyles.headerBanner, { paddingTop: safeTopInset }]}>
@@ -901,7 +901,7 @@ export function EmployeeContractListScreen() {
             <RefreshControl
               refreshing={contracts.isRefetching}
               onRefresh={() => void contracts.refetch()}
-              colors={['#123826']}
+              colors={['#102739']}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -921,7 +921,7 @@ export function EmployeeContractListScreen() {
                       <Ionicons
                         name="document-text-outline"
                         size={22}
-                        color="#123826"
+                        color="#102739"
                       />
                     </View>
                     <View style={employeeContractStyles.cardHeaderInfo}>
@@ -1007,7 +1007,7 @@ export function EmployeeContractListScreen() {
                 <MaterialCommunityIcons
                   name="file-document-outline"
                   size={46}
-                  color="#123826"
+                  color="#102739"
                 />
               </View>
               <Text style={employeeContractStyles.emptyTitle}>
@@ -1020,7 +1020,7 @@ export function EmployeeContractListScreen() {
           ) : (
             <ActivityIndicator
               size="large"
-              color="#123826"
+              color="#102739"
               style={{ marginTop: 40 }}
             />
           )}
@@ -3258,7 +3258,7 @@ export function LeaderContractListScreen() {
 
   return (
     <View style={leaderContractStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#123826" translucent={Platform.OS === "android"} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === "android"} />
 
       {/* Dark Forest Green Header Banner */}
       <View style={leaderContractStyles.headerBanner}>
@@ -3462,7 +3462,7 @@ export function LeaderContractListScreen() {
                       <Ionicons
                         name="document-text"
                         size={24}
-                        color="#123826"
+                        color="#102739"
                       />
                     </View>
 
@@ -3625,7 +3625,7 @@ export function HRContractListScreen() {
 
   return (
     <View style={leaderContractStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#123826" translucent={Platform.OS === "android"} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === "android"} />
 
       {/* Dark Forest Green Header Banner */}
       <View style={leaderContractStyles.headerBanner}>
@@ -3924,10 +3924,10 @@ export function HRContractListScreen() {
 const leaderContractStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#123826",
+    backgroundColor: "#102739",
   },
   headerBanner: {
-    backgroundColor: "#123826",
+    backgroundColor: "#102739",
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
@@ -3948,7 +3948,7 @@ const leaderContractStyles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 13,
-    color: "#A7D8BE",
+    color: "#94B5CB",
     marginTop: 4,
     fontWeight: "500",
   },
@@ -3970,7 +3970,7 @@ const leaderContractStyles = StyleSheet.create({
   },
   bodyContainer: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#F5F7FA",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     marginTop: -8,
@@ -3992,7 +3992,7 @@ const leaderContractStyles = StyleSheet.create({
     borderRadius: 10,
   },
   segmentBtnActive: {
-    backgroundColor: "#123826",
+    backgroundColor: "#102739",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12,
@@ -4025,7 +4025,7 @@ const leaderContractStyles = StyleSheet.create({
   },
   filterChipActive: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#123826",
+    borderColor: "#102739",
     borderWidth: 1.5,
   },
   filterChipText: {
@@ -4034,7 +4034,7 @@ const leaderContractStyles = StyleSheet.create({
     color: "#71717A",
   },
   filterChipTextActive: {
-    color: "#123826",
+    color: "#102739",
     fontWeight: "700",
   },
   sectionHeaderRow: {
@@ -4079,7 +4079,7 @@ const leaderContractStyles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: "#E8F5E9",
+    backgroundColor: "#E7F0F7",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -4142,7 +4142,7 @@ const leaderContractStyles = StyleSheet.create({
     color: "#18181B",
   },
   detailBtn: {
-    backgroundColor: "#123826",
+    backgroundColor: "#102739",
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -4181,7 +4181,7 @@ const leaderContractStyles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: "#E8F5E9",
+    backgroundColor: "#E7F0F7",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -4205,10 +4205,10 @@ const leaderContractStyles = StyleSheet.create({
 const employeeContractStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#123826",
+    backgroundColor: "#102739",
   },
   headerBanner: {
-    backgroundColor: "#123826",
+    backgroundColor: "#102739",
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
@@ -4237,12 +4237,12 @@ const employeeContractStyles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12.5,
-    color: "#A7D8BE",
+    color: "#94B5CB",
     marginTop: 2,
   },
   bodyContainer: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#F5F7FA",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     marginTop: -8,
@@ -4284,7 +4284,7 @@ const employeeContractStyles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: "#E8F5E9",
+    backgroundColor: "#E7F0F7",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -4324,7 +4324,7 @@ const employeeContractStyles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: "#E8F5E9",
+    backgroundColor: "#E7F0F7",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -4368,7 +4368,7 @@ const employeeContractStyles = StyleSheet.create({
     color: "#18181B",
   },
   detailBtn: {
-    backgroundColor: "#123826",
+    backgroundColor: "#102739",
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,

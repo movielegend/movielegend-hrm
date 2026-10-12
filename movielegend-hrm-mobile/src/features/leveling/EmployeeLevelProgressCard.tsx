@@ -82,7 +82,7 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
         </View>
       </View>
 
-      {/* 2. Hero Dark Green Card (#123826) */}
+      {/* 2. Hero Dark Green Card (#102739) */}
       <View style={styles.heroCard}>
         <View style={styles.heroLeft}>
           <Text style={styles.heroSubHeader}>CẤP HIỆN TẠI</Text>
@@ -333,7 +333,7 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
         </View>
       )}
 
-      {/* 6. Sticky Bottom Action Button (#123826) */}
+      {/* 6. Sticky Bottom Action Button (#102739) */}
       <TouchableOpacity
         style={[
           styles.submitBtn,
@@ -353,7 +353,7 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
             {isPending ? 'Cập Nhật / Bổ Sung Báo Cáo' : 'Nộp báo cáo thành tích lên cấp'}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={17} color="#A7D8BE" />
+        <Ionicons name="chevron-forward" size={17} color="#94B5CB" />
       </TouchableOpacity>
 
       {/* Perks Appendix Modal */}
@@ -423,9 +423,9 @@ const styles = StyleSheet.create({
     color: '#71717A',
   },
 
-  /* Hero Card (#123826) */
+  /* Hero Card (#102739) */
   heroCard: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     borderRadius: 20,
     marginHorizontal: 16,
     padding: 20,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 18,
-    shadowColor: '#123826',
+    shadowColor: '#102739',
     shadowOpacity: 0.25,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   heroSubHeader: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#A7D8BE',
+    color: '#94B5CB',
     letterSpacing: 1,
     marginBottom: 2,
   },
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   },
   heroNextLevel: {
     fontSize: 13,
-    color: '#A7D8BE',
+    color: '#94B5CB',
     marginTop: 5,
     fontWeight: '500',
   },
@@ -659,9 +659,9 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  /* Submit Button (#123826) */
+  /* Submit Button (#102739) */
   submitBtn: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     borderRadius: 14,
     height: 50,
     marginHorizontal: 16,
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
-    shadowColor: '#123826',
+    shadowColor: '#102739',
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

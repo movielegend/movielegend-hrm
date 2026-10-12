@@ -60,7 +60,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#123826" />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
         <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
           {/* Header */}
           <View style={styles.header}>
@@ -125,7 +125,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionIconBg}>
-                <Ionicons name="gift-outline" size={18} color="#123826" />
+                <Ionicons name="gift-outline" size={18} color="#102739" />
               </View>
               <Text style={styles.sectionTitle}>Phần Thưởng Khi Bổ Nhiệm</Text>
             </View>
@@ -169,7 +169,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionIconBg}>
-                <Ionicons name="shield-checkmark-outline" size={18} color="#123826" />
+                <Ionicons name="shield-checkmark-outline" size={18} color="#102739" />
               </View>
               <Text style={styles.sectionTitle}>Quyền Lợi & Đặc Quyền Cấp Bậc</Text>
             </View>
@@ -311,10 +311,10 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   topSafeArea: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   bodyWrapper: {
     flex: 1,
@@ -331,11 +331,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   headerSub: {
     fontSize: 12,
-    color: '#A7D8BE',
+    color: '#94B5CB',
     fontWeight: '500',
     marginBottom: 4,
   },
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     borderWidth: 1,
     borderColor: '#C8E6C9',
     alignItems: 'center',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
   levelCircleBigText: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#123826',
+    color: '#102739',
   },
   heroFromText: {
     fontSize: 12,
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   rewardCardCash: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#123826',
+    color: '#102739',
     marginTop: 2,
   },
   rewardCardGift: {
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E8F5E9',
+    borderColor: '#E7F0F7',
   },
   perkStatValue: {
     fontSize: 15,
@@ -648,10 +648,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     borderRadius: 14,
     paddingVertical: 14,
-    shadowColor: '#123826',
+    shadowColor: '#102739',
     shadowOpacity: 0.15,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },

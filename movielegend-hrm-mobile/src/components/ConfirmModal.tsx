@@ -78,7 +78,7 @@ export function ConfirmModal({
               <Ionicons
                 name="log-out-outline"
                 size={32}
-                color="#1B3B2B"
+                color="#102739"
                 style={{ marginLeft: 3 }}
               />
             </View>
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   logoutAvatarInitials: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   logoutUserName: {
     fontSize: 13.5,
@@ -370,20 +370,20 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#EAEFEB',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stayBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   logoutConfirmBtn: {
     flex: 1,
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

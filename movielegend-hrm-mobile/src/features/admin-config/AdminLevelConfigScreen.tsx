@@ -101,7 +101,7 @@ export function AdminLevelConfigScreen() {
         customLevelName: defName,
         displayName: defName,
         badgeTitle: defName,
-        colorHex: '#1B3B2B',
+        colorHex: '#102739',
         minTenureMonths: lvl * 3,
         targetShiftsCount: lvl * 15,
         rewardType: 'HYBRID',
@@ -179,7 +179,7 @@ export function AdminLevelConfigScreen() {
       customLevelName: defName,
       displayName: defName,
       badgeTitle: defName,
-      colorHex: '#1B3B2B',
+      colorHex: '#102739',
       minTenureMonths: nextNum * 3,
       targetShiftsCount: nextNum * 15,
       rewardType: 'HYBRID',
@@ -219,7 +219,7 @@ export function AdminLevelConfigScreen() {
         levelNumber: lvl.levelNumber,
         customLevelName: lvl.customLevelName?.trim() || lvl.displayName || lvl.defaultName,
         displayName: lvl.customLevelName?.trim() || lvl.displayName || lvl.defaultName,
-        colorHex: lvl.colorHex || '#1B3B2B',
+        colorHex: lvl.colorHex || '#102739',
         minTenureMonths: lvl.minTenureMonths || lvl.levelNumber * 3,
         targetShiftsCount: lvl.targetShiftsCount || lvl.levelNumber * 15,
         rewardType: lvl.rewardType || 'HYBRID',
@@ -401,7 +401,7 @@ export function AdminLevelConfigScreen() {
         levels: projects.map((p, idx) => ({
           levelNumber: idx + 1,
           customLevelName: p.projectName,
-          colorHex: '#1B3B2B',
+          colorHex: '#102739',
           rewardType: p.rewardType,
           promotionBonusAmount: p.promotionBonusAmount,
           physicalItemName: p.physicalItemName,
@@ -436,9 +436,9 @@ export function AdminLevelConfigScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
-      {/* ── Top Forest Green Header (#1B3B2B) ── */}
+      {/* ── Top Forest Green Header (#102739) ── */}
       <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         {/* Header Title Row */}
         <View style={styles.headerMainRow}>
@@ -461,7 +461,7 @@ export function AdminLevelConfigScreen() {
           <Pressable style={styles.deptSelectCard} onPress={() => setShowDeptModal(true)}>
             <View style={styles.deptCardLeft}>
               <View style={styles.deptIconBox}>
-                <MaterialCommunityIcons name="office-building" size={20} color="#1B3B2B" />
+                <MaterialCommunityIcons name="office-building" size={20} color="#102739" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.deptNameText}>{activeDeptName}</Text>
@@ -524,7 +524,7 @@ export function AdminLevelConfigScreen() {
 
               {isLoadingLevels ? (
                 <View style={styles.loadingBox}>
-                  <ActivityIndicator size="small" color="#1B3B2B" />
+                  <ActivityIndicator size="small" color="#102739" />
                   <Text style={styles.loadingText}>Đang tải cấu hình cấp bậc...</Text>
                 </View>
               ) : (
@@ -655,7 +655,7 @@ export function AdminLevelConfigScreen() {
                                       <Ionicons
                                         name="gift-outline"
                                         size={18}
-                                        color="#1B3B2B"
+                                        color="#102739"
                                         style={styles.inputLeftIcon}
                                       />
                                       <TextInput
@@ -678,7 +678,7 @@ export function AdminLevelConfigScreen() {
 
                   {/* Button Thêm cấp bậc */}
                   <Pressable style={styles.addLevelBtn} onPress={handleAddLevel}>
-                    <Ionicons name="add" size={18} color="#1B3B2B" />
+                    <Ionicons name="add" size={18} color="#102739" />
                     <Text style={styles.addLevelBtnText}>Thêm cấp bậc</Text>
                   </Pressable>
                 </>
@@ -735,14 +735,14 @@ export function AdminLevelConfigScreen() {
 
               {isLoadingProjects ? (
                 <View style={styles.loadingBox}>
-                  <ActivityIndicator size="small" color="#1B3B2B" />
+                  <ActivityIndicator size="small" color="#102739" />
                   <Text style={styles.loadingText}>Đang tải dự án...</Text>
                 </View>
               ) : currentFilteredProjects.length === 0 ? (
                 /* Empty state matching Screen 2 */
                 <View style={styles.emptyProjWrapper}>
                   <View style={styles.emptyFolderCircle}>
-                    <MaterialCommunityIcons name="folder-plus-outline" size={36} color="#1B3B2B" />
+                    <MaterialCommunityIcons name="folder-plus-outline" size={36} color="#102739" />
                   </View>
                   <Text style={styles.emptyProjTitle}>Chưa có dự án</Text>
                   <Text style={styles.emptyProjSubtitle}>
@@ -785,7 +785,7 @@ export function AdminLevelConfigScreen() {
                       <View style={styles.projSubtasksList}>
                         {proj.subTasks.slice(0, 3).map((st, idx) => (
                           <View key={idx} style={styles.subtaskSnippetRow}>
-                            <Ionicons name="checkmark-circle-outline" size={14} color="#1B3B2B" />
+                            <Ionicons name="checkmark-circle-outline" size={14} color="#102739" />
                             <Text style={styles.subtaskSnippetText} numberOfLines={1}>
                               {st}
                             </Text>
@@ -874,7 +874,7 @@ export function AdminLevelConfigScreen() {
             {/* Department Tag Pill */}
             <View style={styles.modalDeptTagRow}>
               <View style={styles.modalDeptTagPill}>
-                <Ionicons name="business-outline" size={13} color="#1B3B2B" />
+                <Ionicons name="business-outline" size={13} color="#102739" />
                 <Text style={styles.modalDeptTagText}>{activeDeptName}</Text>
               </View>
             </View>
@@ -928,7 +928,7 @@ export function AdminLevelConfigScreen() {
 
                 {/* Button Thêm đầu việc */}
                 <Pressable style={styles.addSubtaskDashedBtn} onPress={handleAddSubTaskInput}>
-                  <Ionicons name="add" size={16} color="#1B3B2B" />
+                  <Ionicons name="add" size={16} color="#102739" />
                   <Text style={styles.addSubtaskDashedBtnText}>Thêm đầu việc</Text>
                 </Pressable>
               </View>
@@ -957,14 +957,14 @@ export function AdminLevelConfigScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
 
-  /* ── Header Wrap (#1B3B2B) ── */
+  /* ── Header Wrap (#102739) ── */
   headerWrap: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   headerMainRow: {
     flexDirection: 'row',
@@ -1024,7 +1024,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1071,7 +1071,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   tabPillActive: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   tabPillText: {
     fontSize: 13,
@@ -1138,14 +1138,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   levelNumBadgeText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   levelHeaderMiddle: {
     flex: 1,
@@ -1224,7 +1224,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rewardPillActive: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   rewardPillText: {
     fontSize: 12,
@@ -1302,7 +1302,7 @@ const styles = StyleSheet.create({
   addLevelBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1B3B2B',
+    color: '#102739',
   },
 
   /* Sticky Footer Bar */
@@ -1320,7 +1320,7 @@ const styles = StyleSheet.create({
   saveLevelsBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1343,7 +1343,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
   },
   subFilterPillActive: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   subFilterText: {
     fontSize: 12,
@@ -1368,7 +1368,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -1390,7 +1390,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     height: 46,
     width: '100%',
     borderRadius: 12,
@@ -1501,7 +1501,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
@@ -1509,7 +1509,7 @@ const styles = StyleSheet.create({
   modalDeptTagText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   modalField: {
     marginBottom: 14,
@@ -1548,14 +1548,14 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   subtaskIndexCircleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   modalSubtaskInput: {
     flex: 1,
@@ -1585,7 +1585,7 @@ const styles = StyleSheet.create({
   addSubtaskDashedBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   modalFooter: {
     flexDirection: 'row',
@@ -1609,7 +1609,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 46,
     borderRadius: 12,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
   },

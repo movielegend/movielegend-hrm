@@ -104,7 +104,7 @@ export function CreateEmployeeScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={styles.iconCircle}>
-              <Ionicons name="person" size={16} color="#166534" />
+              <Ionicons name="person" size={16} color="#102739" />
             </View>
             <Text style={styles.cardTitle}>Thông tin tài khoản</Text>
           </View>
@@ -210,7 +210,7 @@ export function CreateEmployeeScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={styles.iconCircle}>
-              <Ionicons name="business" size={16} color="#166534" />
+              <Ionicons name="business" size={16} color="#102739" />
             </View>
             <Text style={styles.cardTitle}>Thông tin công việc</Text>
           </View>
@@ -226,7 +226,7 @@ export function CreateEmployeeScreen() {
             disabled={!!fixedDepartmentId}
           >
             <View style={styles.selectLeft}>
-              <Ionicons name="business-outline" size={18} color="#166534" />
+              <Ionicons name="business-outline" size={18} color="#102739" />
               <Text
                 style={[
                   styles.selectText,
@@ -280,7 +280,7 @@ export function CreateEmployeeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     paddingHorizontal: 20,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -460,12 +460,12 @@ const styles = StyleSheet.create({
   },
   createBtn: {
     flex: 1.6,
-    backgroundColor: '#1B382B', // Deep forest green matching template
+    backgroundColor: '#102739', // Deep forest green matching template
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 5,

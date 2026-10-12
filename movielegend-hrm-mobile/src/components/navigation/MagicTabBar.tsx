@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     height: DOCK_HEIGHT,
-    backgroundColor: '#1B3B2B', // Màu xanh rêu đậm thương hiệu Movie Legend
+    backgroundColor: '#102739', // Màu xanh đen / Deep Navy sang trọng đồng bộ với màu chủ đạo
     borderRadius: DOCK_HEIGHT / 2, // Bo tròn dạng viên thuốc hoàn hảo
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: '#1B3B2B',
+    borderColor: '#102739',
   },
   badgeText: {
     color: '#FFFFFF',

@@ -42,12 +42,12 @@ function UserInitialAvatar({ name, size = 48 }: { name: string; size?: number })
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: '#DCFCE7', // soft mint green
+        backgroundColor: '#E7F0F7',
         justifyContent: 'center',
         alignItems: 'center',
       }}
     >
-      <Text style={{ color: '#166534', fontSize: 16, fontWeight: '800' }}>{initials}</Text>
+      <Text style={{ color: '#102739', fontSize: 16, fontWeight: '800' }}>{initials}</Text>
     </View>
   );
 }
@@ -216,7 +216,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
         {/* Employee Cards List */}
         {adminUsers.isLoading ? (
           <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator color="#1B382B" size="small" />
+            <ActivityIndicator color="#102739" size="small" />
             <Text style={{ marginTop: 8, fontSize: 13, color: '#64748B' }}>Đang tải danh sách nhân viên...</Text>
           </View>
         ) : employees.length === 0 ? (
@@ -779,7 +779,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
 
   header: {
@@ -806,11 +806,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#1B382B', // Dark forest green matching template
+    backgroundColor: '#102739',
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 12,
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -861,7 +861,7 @@ const styles = StyleSheet.create({
   },
   statusSegmentRow: {
     flexDirection: 'row',
-    backgroundColor: '#EAEFEA',
+    backgroundColor: '#E7F0F7',
     borderRadius: 14,
     padding: 4,
     marginBottom: 12,
@@ -874,7 +874,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   statusSegmentBtnActive: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
   },
   statusSegmentText: {
     fontSize: 13,
@@ -980,7 +980,7 @@ const styles = StyleSheet.create({
   viewProfileText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#102739',
   },
   cardActionsRight: {
     flexDirection: 'row',

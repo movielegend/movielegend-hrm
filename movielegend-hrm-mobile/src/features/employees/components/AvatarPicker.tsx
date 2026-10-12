@@ -33,9 +33,9 @@ interface AvatarPickerProps {
 export function AvatarPicker({
   getInitials,
   size = 56,
-  bgColor = '#E8F5E9',
-  textColor = '#1B3B2B',
-  badgeBgColor = '#1B3B2B',
+  bgColor = '#E7F0F7',
+  textColor = '#102739',
+  badgeBgColor = '#102739',
   badgeIconColor = '#FFFFFF',
   badgeBorderColor = '#FFFFFF',
 }: AvatarPickerProps) {
@@ -215,7 +215,7 @@ export function AvatarPicker({
               onPress={() => handlePickImage('camera')}
             >
               <View style={styles.optionIconBox}>
-                <MaterialCommunityIcons name="camera" size={22} color="#1B3B2B" />
+                <MaterialCommunityIcons name="camera" size={22} color="#102739" />
               </View>
               <View style={styles.optionMetaCol}>
                 <Text style={styles.optionTitle}>Chụp ảnh mới</Text>
@@ -233,7 +233,7 @@ export function AvatarPicker({
               onPress={() => handlePickImage('gallery')}
             >
               <View style={styles.optionIconBox}>
-                <MaterialCommunityIcons name="image" size={22} color="#1B3B2B" />
+                <MaterialCommunityIcons name="image" size={22} color="#102739" />
               </View>
               <View style={styles.optionMetaCol}>
                 <Text style={styles.optionTitle}>Chọn từ thư viện</Text>
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
     textAlign: 'center',
     letterSpacing: -0.3,
   },
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     padding: 2,
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#E8F2EC',
+    borderColor: '#E7F0F7',
   },
   previewImage: {
     width: 74,
@@ -375,14 +375,14 @@ const styles = StyleSheet.create({
     width: 74,
     height: 74,
     borderRadius: 37,
-    backgroundColor: '#E8F2EC',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   previewInitials: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   previewBadge: {
     position: 'absolute',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 12,
-    backgroundColor: '#E8F2EC',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -457,6 +457,6 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
 });

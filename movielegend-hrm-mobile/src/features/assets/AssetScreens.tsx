@@ -124,10 +124,10 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       {/* Top Forest Green Header */}
       <View style={{
-        backgroundColor: '#1B3B2B',
+        backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,
@@ -177,7 +177,7 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
               width: 44,
               height: 44,
               borderRadius: 12,
-              backgroundColor: '#E8F5E9',
+              backgroundColor: '#E7F0F7',
               alignItems: 'center',
               justifyContent: 'center',
             }}>
@@ -198,7 +198,7 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
               width: 44,
               height: 44,
               borderRadius: 12,
-              backgroundColor: '#E8F5E9',
+              backgroundColor: '#E7F0F7',
               alignItems: 'center',
               justifyContent: 'center',
             }}>
@@ -218,9 +218,9 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
               paddingVertical: 8,
               paddingHorizontal: 18,
               borderRadius: 20,
-              backgroundColor: activeTab === 'ALL' ? '#1B3B2B' : '#FFFFFF',
+              backgroundColor: activeTab === 'ALL' ? '#102739' : '#FFFFFF',
               borderWidth: 1,
-              borderColor: activeTab === 'ALL' ? '#1B3B2B' : '#E2E8F0',
+              borderColor: activeTab === 'ALL' ? '#102739' : '#E2E8F0',
             }}
             onPress={() => setActiveTab('ALL')}
           >
@@ -238,9 +238,9 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
               paddingVertical: 8,
               paddingHorizontal: 18,
               borderRadius: 20,
-              backgroundColor: activeTab === 'ACTIVE' ? '#1B3B2B' : '#FFFFFF',
+              backgroundColor: activeTab === 'ACTIVE' ? '#102739' : '#FFFFFF',
               borderWidth: 1,
-              borderColor: activeTab === 'ACTIVE' ? '#1B3B2B' : '#E2E8F0',
+              borderColor: activeTab === 'ACTIVE' ? '#102739' : '#E2E8F0',
             }}
             onPress={() => setActiveTab('ACTIVE')}
           >
@@ -258,9 +258,9 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
               paddingVertical: 8,
               paddingHorizontal: 18,
               borderRadius: 20,
-              backgroundColor: activeTab === 'PENDING' ? '#1B3B2B' : '#FFFFFF',
+              backgroundColor: activeTab === 'PENDING' ? '#102739' : '#FFFFFF',
               borderWidth: 1,
-              borderColor: activeTab === 'PENDING' ? '#1B3B2B' : '#E2E8F0',
+              borderColor: activeTab === 'PENDING' ? '#102739' : '#E2E8F0',
             }}
             onPress={() => setActiveTab('PENDING')}
           >
@@ -289,7 +289,7 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
                     flex: 1,
                     height: 42,
                     borderRadius: 10,
-                    backgroundColor: '#1B3B2B',
+                    backgroundColor: '#102739',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -441,7 +441,7 @@ export function AssetListScreen({ area }: { area: AssetArea }) {
 
   return (
     <View style={adminAssetStyles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
       
       {/* Header Container */}
       <View style={[adminAssetStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -476,7 +476,7 @@ export function AssetListScreen({ area }: { area: AssetArea }) {
             <RefreshControl 
               refreshing={assets.isRefetching} 
               onRefresh={() => void assets.refetch()} 
-              tintColor="#1B3B2B" 
+              tintColor="#102739" 
             />
           }
           showsVerticalScrollIndicator={false}
@@ -516,7 +516,7 @@ export function AssetListScreen({ area }: { area: AssetArea }) {
                         : 'devices'
                     } 
                     size={24} 
-                    color="#1B3B2B" 
+                    color="#102739" 
                   />
                 </View>
                 <View style={adminAssetStyles.assetItemInfo}>
@@ -913,7 +913,7 @@ export function AssetCreateScreen() {
 
   return (
     <View style={adminAssetStyles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
       <View style={[adminAssetStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -1025,7 +1025,7 @@ export function AssetCreateScreen() {
                 disabled={isUploading}
               >
                 {isUploading ? (
-                  <ActivityIndicator size="small" color="#1B3B2B" />
+                  <ActivityIndicator size="small" color="#102739" />
                 ) : (
                   <>
                     <MaterialCommunityIcons name="camera-plus-outline" size={32} color="#475569" />
@@ -1078,7 +1078,7 @@ export function AssetCreateScreen() {
                     disabled={isUploading}
                   >
                     {isUploading ? (
-                      <ActivityIndicator size="small" color="#1B3B2B" />
+                      <ActivityIndicator size="small" color="#102739" />
                     ) : (
                       <>
                         <MaterialCommunityIcons name="camera-plus-outline" size={26} color="#64748B" />
@@ -1544,10 +1544,10 @@ const styles = StyleSheet.create({
 const adminAssetStyles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   headerWrap: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
@@ -1677,7 +1677,7 @@ const adminAssetStyles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
   },
   primaryCreateBtn: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     height: 52,
     borderRadius: 14,
     flexDirection: 'row',
@@ -1844,7 +1844,7 @@ const adminAssetStyles = StyleSheet.create({
     flex: 2,
     height: 50,
     borderRadius: 12,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     justifyContent: 'center',
     alignItems: 'center',
   },

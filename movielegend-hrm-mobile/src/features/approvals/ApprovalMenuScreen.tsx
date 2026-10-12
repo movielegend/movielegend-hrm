@@ -79,7 +79,7 @@ export function ApprovalMenuScreen() {
               <MaterialCommunityIcons
                 name="file-document-outline"
                 size={22}
-                color="#166534"
+                color="#102739"
               />
             </View>
             <View style={styles.menuCardInfo}>
@@ -107,7 +107,7 @@ export function ApprovalMenuScreen() {
               <MaterialCommunityIcons
                 name="account-group-outline"
                 size={22}
-                color="#166534"
+                color="#102739"
               />
             </View>
             <View style={styles.menuCardInfo}>
@@ -129,7 +129,7 @@ export function ApprovalMenuScreen() {
               <MaterialCommunityIcons
                 name="share-variant-outline"
                 size={22}
-                color="#166534"
+                color="#102739"
               />
             </View>
             <View style={styles.menuCardInfo}>
@@ -148,11 +148,11 @@ export function ApprovalMenuScreen() {
               onPress={() => router.push(`${roleBase(user)}/financial-requests` as any)}
               android_ripple={{ color: '#F1F5F9' }}
             >
-              <View style={[styles.iconCircle, { backgroundColor: '#ECFDF5' }]}>
+              <View style={[styles.iconCircle, { backgroundColor: '#E7F0F7' }]}>
                 <MaterialCommunityIcons
                   name="cash-register"
                   size={22}
-                  color="#059669"
+                  color="#102739"
                 />
               </View>
               <View style={styles.menuCardInfo}>
@@ -173,7 +173,7 @@ export function ApprovalMenuScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     paddingHorizontal: 20,
@@ -210,12 +210,12 @@ const styles = StyleSheet.create({
   heroCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1B382B', // Deep forest green
+    backgroundColor: '#102739',
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
     gap: 16,
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#EAF5EE', // Soft mint green
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },

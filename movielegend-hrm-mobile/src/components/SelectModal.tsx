@@ -99,7 +99,7 @@ export function SelectModal({
                       <MaterialCommunityIcons 
                         name={isMulti ? "checkbox-marked" : "radiobox-marked"} 
                         size={24} 
-                        color="#1B382B" 
+                        color="#102739" 
                       />
                     ) : (
                       <MaterialCommunityIcons 
@@ -177,8 +177,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   optionRowSelected: {
-    borderColor: '#1B382B',
-    backgroundColor: '#F8FAF8',
+    borderColor: '#102739',
+    backgroundColor: '#F5F7FA',
   },
   optionContent: {
     flex: 1,
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   optionLabelSelected: {
-    color: '#1B382B',
+    color: '#102739',
   },
   optionSubtitle: {
     fontSize: 12,
@@ -210,11 +210,11 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   confirmBtn: {
-    backgroundColor: '#1B382B', // Deep forest green matching template
+    backgroundColor: '#102739', // Deep forest green matching template
     paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,

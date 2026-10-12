@@ -78,7 +78,7 @@ export function HRProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       <ScrollView
         style={styles.scrollBody}
@@ -90,7 +90,7 @@ export function HRProfileScreen() {
         onScroll={tabBarScroll.onScroll}
         scrollEventThrottle={16}
       >
-        {/* ── Top Header (#1B3B2B) ── */}
+        {/* ── Top Header (#102739) ── */}
         <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
           {/* Subtle Decorative Wave Curve Background */}
           <View style={styles.decorativeCurve} />
@@ -158,7 +158,7 @@ export function HRProfileScreen() {
             onPress={() => setShowPersonalInfoModal(true)}
           >
             <View style={styles.personalIconBox}>
-              <MaterialCommunityIcons name="card-account-details-outline" size={22} color="#1B3B2B" />
+              <MaterialCommunityIcons name="card-account-details-outline" size={22} color="#102739" />
             </View>
             <View style={styles.personalTextWrap}>
               <Text style={styles.personalTitle}>Thông tin cá nhân</Text>
@@ -220,7 +220,7 @@ export function HRProfileScreen() {
                 onPress={() => toggleGroup('dept')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="account-group-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="account-group-outline" size={22} color="#102739" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Quản lý phòng ban</Text>
@@ -309,7 +309,7 @@ export function HRProfileScreen() {
                 onPress={() => toggleGroup('ops')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="cube-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="cube-outline" size={22} color="#102739" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Vận hành & Trao đổi</Text>
@@ -384,7 +384,7 @@ export function HRProfileScreen() {
                 onPress={() => toggleGroup('settings')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="cog-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="cog-outline" size={22} color="#102739" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Cài đặt</Text>
@@ -575,9 +575,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {},
 
-  /* ── Header (#1B3B2B) ── */
+  /* ── Header (#102739) ── */
   headerContainer: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingBottom: 24,
     position: 'relative',
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -971,7 +971,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     height: 46,
     borderRadius: 12,
     marginTop: 4,

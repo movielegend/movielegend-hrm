@@ -287,7 +287,7 @@ export const PromotionSubmissionScreen: React.FC = () => {
 
             {isUploadingImage && (
               <View style={styles.uploadingBox}>
-                <ActivityIndicator size="small" color="#123826" />
+                <ActivityIndicator size="small" color="#102739" />
                 <Text style={styles.uploadingText}>Đang tải ảnh lên máy chủ...</Text>
               </View>
             )}
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1.5,
-    borderColor: '#123826',
+    borderColor: '#102739',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   levelBadgeOutlinedText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#123826',
+    color: '#102739',
   },
   levelNameText: {
     fontSize: 14,
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 48,
     borderRadius: 14,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   btnSubmitText: {
     fontSize: 14.5,

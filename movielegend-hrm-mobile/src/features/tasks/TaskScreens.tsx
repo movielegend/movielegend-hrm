@@ -191,10 +191,10 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   if (area === 'employee') {
     return (
       <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
         {/* Screen 1: Top Dark Forest Green Banner */}
         <View style={{
-          backgroundColor: '#1B3B2B',
+          backgroundColor: '#102739',
           paddingTop: Math.max(insets.top, 16),
           paddingBottom: 16,
           paddingHorizontal: 16,
@@ -285,9 +285,9 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
                       paddingHorizontal: 16,
                       paddingVertical: 7,
                       borderRadius: 20,
-                      backgroundColor: isActive ? '#1B3B2B' : '#F1F5F9',
+                      backgroundColor: isActive ? '#102739' : '#F1F5F9',
                       borderWidth: 1,
-                      borderColor: isActive ? '#1B3B2B' : '#E2E8F0',
+                      borderColor: isActive ? '#102739' : '#E2E8F0',
                     }}
                     onPress={() => setStatus(tab.value)}
                   >
@@ -350,10 +350,10 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       {/* Screen 1: Top Dark Forest Green Banner */}
       <View style={{
-        backgroundColor: '#1B3B2B',
+        backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,
@@ -450,7 +450,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 6,
-                  backgroundColor: '#1B3B2B',
+                  backgroundColor: '#102739',
                   borderRadius: 12,
                   height: 44,
                 }}
@@ -498,9 +498,9 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
                   paddingHorizontal: 16,
                   paddingVertical: 8,
                   borderRadius: 20,
-                  backgroundColor: isActive ? '#1B3B2B' : '#FFFFFF',
+                  backgroundColor: isActive ? '#102739' : '#FFFFFF',
                   borderWidth: 1,
-                  borderColor: isActive ? '#1B3B2B' : '#E2E8F0',
+                  borderColor: isActive ? '#102739' : '#E2E8F0',
                 }}
                 onPress={() => setStatus(tab.value)}
               >
@@ -641,9 +641,9 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   if (subView === 'comments') {
     return (
       <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
         <View style={{
-          backgroundColor: '#1B3B2B',
+          backgroundColor: '#102739',
           paddingTop: Math.max(insets.top, 16),
           paddingBottom: 20,
           paddingHorizontal: 16,
@@ -751,9 +751,9 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   if (subView === 'history') {
     return (
       <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
         <View style={{
-          backgroundColor: '#1B3B2B',
+          backgroundColor: '#102739',
           paddingTop: Math.max(insets.top, 16),
           paddingBottom: 20,
           paddingHorizontal: 16,
@@ -853,10 +853,10 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       {/* Top Dark Forest Green Banner */}
       <View style={{
-        backgroundColor: '#1B3B2B',
+        backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,
@@ -3193,10 +3193,10 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       {/* Top Dark Forest Green Banner */}
       <View style={{
-        backgroundColor: '#1B3B2B',
+        backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,
@@ -3362,9 +3362,9 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                     flex: 1,
                     height: 40,
                     borderRadius: 10,
-                    backgroundColor: isActive ? '#1B3B2B' : '#FFFFFF',
+                    backgroundColor: isActive ? '#102739' : '#FFFFFF',
                     borderWidth: 1,
-                    borderColor: isActive ? '#1B3B2B' : '#E2E8F0',
+                    borderColor: isActive ? '#102739' : '#E2E8F0',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -3733,7 +3733,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                         width: 36,
                         height: 36,
                         borderRadius: 18,
-                        backgroundColor: '#1B3B2B',
+                        backgroundColor: '#102739',
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}>
@@ -3895,7 +3895,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
           style={{
             height: 48,
             borderRadius: 12,
-            backgroundColor: isSubmitDisabled() ? '#94A3B8' : '#1B3B2B',
+            backgroundColor: isSubmitDisabled() ? '#94A3B8' : '#102739',
             alignItems: 'center',
             justifyContent: 'center',
           }}

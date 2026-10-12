@@ -315,10 +315,10 @@ export function EmployeeRequestDetailScreen() {
 
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#123826' }} 
+      style={{ flex: 1, backgroundColor: '#102739' }} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#123826" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
         <View style={styles.topHeader}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
@@ -359,7 +359,7 @@ export function EmployeeRequestDetailScreen() {
         {/* NỘI DUNG YÊU CẦU */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="file-document-outline" size={22} color="#123826" />
+            <MaterialCommunityIcons name="file-document-outline" size={22} color="#102739" />
             <Text style={styles.sectionTitle}>Nội dung yêu cầu</Text>
           </View>
           <View style={styles.contentCard}>
@@ -415,7 +415,7 @@ export function EmployeeRequestDetailScreen() {
             {request.type === 'LEAVE' && (
               <View style={styles.metaCard}>
                 <View style={styles.metaCardHeader}>
-                  <MaterialCommunityIcons name="calendar-clock" size={20} color="#123826" style={{ marginRight: 8 }} />
+                  <MaterialCommunityIcons name="calendar-clock" size={20} color="#102739" style={{ marginRight: 8 }} />
                   <Text style={styles.metaCardTitle}>
                     Thông tin nghỉ phép
                   </Text>
@@ -743,7 +743,7 @@ export function EmployeeRequestDetailScreen() {
         {/* TIẾN ĐỘ PHÊ DUYỆT */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="clock-outline" size={22} color="#123826" />
+            <MaterialCommunityIcons name="clock-outline" size={22} color="#102739" />
             <Text style={styles.sectionTitle}>Tiến độ phê duyệt</Text>
           </View>
           <View style={styles.timelineCard}>
@@ -1074,7 +1074,7 @@ export function EmployeeRequestDetailScreen() {
 
 const styles = StyleSheet.create({
   topSafeArea: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   topHeader: {
     flexDirection: 'row',
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   backBtn: {
     width: 32,
@@ -1144,7 +1144,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1178,7 +1178,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#123826',
+    color: '#102739',
     letterSpacing: -0.2,
   },
   contentCard: {
@@ -1212,7 +1212,7 @@ const styles = StyleSheet.create({
   amountValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#123826',
+    color: '#102739',
   },
   amountCurrency: {
     fontSize: 14,
@@ -1249,7 +1249,7 @@ const styles = StyleSheet.create({
   metaCardTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#123826',
+    color: '#102739',
   },
   metaRow: {
     flexDirection: 'row',

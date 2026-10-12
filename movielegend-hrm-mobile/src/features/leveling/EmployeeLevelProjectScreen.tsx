@@ -187,7 +187,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#123826" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
         {/* Top Header */}
         <View style={styles.topHeader}>
@@ -231,7 +231,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                   <Ionicons
                     name={areAllCollapsed ? 'chevron-down-circle-outline' : 'chevron-up-circle-outline'}
                     size={14}
-                    color="#123826"
+                    color="#102739"
                   />
                   <Text style={styles.toggleAllBtnText}>
                     {areAllCollapsed ? 'Mở tất cả' : 'Thu gọn'}
@@ -281,7 +281,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
           {involvedProjects.length === 0 ? (
             <View style={styles.emptyCard}>
               <View style={styles.emptyIconCircle}>
-                <MaterialCommunityIcons name="folder-outline" size={44} color="#123826" />
+                <MaterialCommunityIcons name="folder-outline" size={44} color="#102739" />
               </View>
               <Text style={styles.emptyTitle}>Chưa có dự án hoặc đầu việc được giao</Text>
               <Text style={styles.emptySub}>
@@ -611,7 +611,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
       {/* FULL PAGE DETAIL & SUBMISSION MODAL */}
       <Modal visible={activeItem !== null} animationType="slide" transparent={false}>
         <View style={styles.container}>
-          <StatusBar barStyle="light-content" backgroundColor="#123826" />
+          <StatusBar barStyle="light-content" backgroundColor="#102739" />
           <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
             {/* Top Page Header */}
             <View style={styles.fullPageHeader}>
@@ -845,10 +845,10 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   topSafeArea: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   bodyWrapper: {
     flex: 1,
@@ -864,7 +864,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   backBtn: {
     width: 32,
@@ -886,7 +886,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#A7D8BE',
+    color: '#94B5CB',
     marginTop: 2,
     fontWeight: '500',
   },
@@ -943,7 +943,7 @@ const styles = StyleSheet.create({
   toggleAllBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#123826',
+    color: '#102739',
   },
   progressTrack: {
     height: 6,
@@ -1514,12 +1514,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   fullPageLevelTag: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#A7D8BE',
+    color: '#94B5CB',
     marginBottom: 2,
   },
   fullPageTitle: {

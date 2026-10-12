@@ -124,7 +124,7 @@ export function ApprovalListScreen({ title, detailRoute }: { title: string, deta
       {/* 4. List / State */}
       {approvals.isLoading ? (
         <View style={localStyles.centerBox}>
-          <ActivityIndicator size="large" color="#1B382B" />
+          <ActivityIndicator size="large" color="#102739" />
         </View>
       ) : approvals.isError ? (
         <View style={localStyles.centerBox}>
@@ -289,7 +289,7 @@ export function ApprovalDetailScreen() {
         {/* 3. Registration Info Card */}
         <View style={localStyles.detailInfoCard}>
           <View style={localStyles.detailCardHeader}>
-            <MaterialCommunityIcons name="file-document-outline" size={18} color="#166534" />
+            <MaterialCommunityIcons name="file-document-outline" size={18} color="#102739" />
             <Text style={localStyles.detailCardTitle}>Thông tin đăng ký</Text>
           </View>
 
@@ -537,7 +537,7 @@ const localStyles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
   },
   filterPillActive: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
   },
   filterPillText: {
     fontSize: 13,
@@ -555,7 +555,7 @@ const localStyles = StyleSheet.create({
     padding: 24,
   },
   retryBtn: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -659,7 +659,7 @@ const localStyles = StyleSheet.create({
     marginLeft: 8,
   },
   detailButton: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     borderRadius: 10,
     paddingVertical: 10,
     alignItems: 'center',
@@ -923,7 +923,7 @@ const localStyles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     gap: 6,
   },
   btnApproveActionText: {

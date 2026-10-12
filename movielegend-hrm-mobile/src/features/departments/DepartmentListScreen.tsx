@@ -154,7 +154,7 @@ export function DepartmentListScreen() {
           android_ripple={{ color: '#F1F5F9' }}
         >
           <View style={styles.branchSelectLeft}>
-            <MaterialCommunityIcons name="office-building" size={18} color="#166534" />
+            <MaterialCommunityIcons name="office-building" size={18} color="#102739" />
             <Text style={styles.branchSelectText} numberOfLines={1}>
               {selectedBranchLabel}
             </Text>
@@ -201,7 +201,7 @@ export function DepartmentListScreen() {
                     <MaterialCommunityIcons
                       name="sitemap"
                       size={22}
-                      color="#166534"
+                      color="#102739"
                     />
                   </View>
 
@@ -314,7 +314,7 @@ export function DepartmentListScreen() {
                 <MaterialCommunityIcons
                   name="sitemap"
                   size={20}
-                  color="#166534"
+                  color="#102739"
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -374,8 +374,8 @@ export function DepartmentListScreen() {
                     }
                   }}
                 >
-                  <View style={[styles.sheetOptionIcon, { backgroundColor: '#F0FDF4' }]}>
-                    <Ionicons name="pencil" size={16} color="#166534" />
+                  <View style={[styles.sheetOptionIcon, { backgroundColor: '#E7F0F7' }]}>
+                    <Ionicons name="pencil" size={16} color="#102739" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.sheetOptionText}>Chỉnh sửa phòng ban</Text>
@@ -418,7 +418,7 @@ export function DepartmentListScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     paddingHorizontal: 20,
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1B382B', // Deep forest green
+    backgroundColor: '#102739', // Deep forest green
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#EAF5EE', // soft mint
+    backgroundColor: '#E7F0F7', // soft mint
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   statusBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 20,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   managerBox: {
     flexDirection: 'row',
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#EAF5EE',
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },

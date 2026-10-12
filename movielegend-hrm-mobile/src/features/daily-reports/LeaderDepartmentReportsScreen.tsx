@@ -547,10 +547,10 @@ export function LeaderDepartmentReportsScreen() {
         hideHeaderTitle
         headerSlot={({ currentStep }: { currentStep: number }) => (
           <View>
-            <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+            <StatusBar barStyle="light-content" backgroundColor="#102739" />
             {/* Dark Forest Green Banner */}
             <View style={{
-              backgroundColor: '#1B3B2B',
+              backgroundColor: '#102739',
               paddingTop: Math.max(insets.top, 16),
               paddingBottom: 16,
               paddingHorizontal: 16,
@@ -636,11 +636,11 @@ export function LeaderDepartmentReportsScreen() {
   // -------------------------------------------------------------
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
       {/* Screen 2: Dark Forest Green Banner */}
       <View style={{
-        backgroundColor: '#1B3B2B',
+        backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 16,
         paddingHorizontal: 16,
@@ -978,7 +978,7 @@ export function LeaderDepartmentReportsScreen() {
       }}>
         <Pressable
           style={{
-            backgroundColor: '#1B3B2B',
+            backgroundColor: '#102739',
             height: 48,
             borderRadius: 12,
             alignItems: 'center',

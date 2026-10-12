@@ -347,7 +347,7 @@ export function AssignShiftScreen() {
               disabled={!isGlobalAdmin}
             >
               <View style={styles.selectLeft}>
-                <Ionicons name="location-outline" size={18} color="#166534" />
+                <Ionicons name="location-outline" size={18} color="#102739" />
                 <Text style={styles.selectText} numberOfLines={1}>
                   {regionOptions.find(r => r.id === effectiveRegionId)?.label || 'Tất cả các miền'}
                 </Text>
@@ -359,7 +359,7 @@ export function AssignShiftScreen() {
             <Text style={styles.fieldLabel}>Chi nhánh</Text>
             <Pressable style={styles.selectPill} onPress={() => setBranchModalVisible(true)}>
               <View style={styles.selectLeft}>
-                <Ionicons name="business-outline" size={18} color="#166534" />
+                <Ionicons name="business-outline" size={18} color="#102739" />
                 <Text style={styles.selectText} numberOfLines={1}>
                   {branchOptions.find(b => b.id === selectedBranchId)?.label || 'Tất cả chi nhánh'}
                 </Text>
@@ -371,7 +371,7 @@ export function AssignShiftScreen() {
             <Text style={styles.fieldLabel}>Phòng ban</Text>
             <Pressable style={styles.selectPill} onPress={() => setDeptModalVisible(true)}>
               <View style={styles.selectLeft}>
-                <Ionicons name="git-network-outline" size={18} color="#166534" />
+                <Ionicons name="git-network-outline" size={18} color="#102739" />
                 <Text style={styles.selectText} numberOfLines={1}>
                   {deptOptions.find(d => d.id === selectedDeptId)?.label || 'Tất cả phòng ban'}
                 </Text>
@@ -390,7 +390,7 @@ export function AssignShiftScreen() {
 
             <View style={styles.deptInfoBanner}>
               <View style={styles.deptIconBox}>
-                <Ionicons name="business-outline" size={20} color="#166534" />
+                <Ionicons name="business-outline" size={20} color="#102739" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.deptNameText}>{leaderDeptName}</Text>
@@ -420,7 +420,7 @@ export function AssignShiftScreen() {
           </Text>
           <Pressable style={styles.selectPill} onPress={() => setEmployeeModalVisible(true)}>
             <View style={styles.selectLeft}>
-              <Ionicons name="person-outline" size={18} color="#166534" />
+              <Ionicons name="person-outline" size={18} color="#102739" />
               <Text
                 style={[
                   styles.selectText,
@@ -442,7 +442,7 @@ export function AssignShiftScreen() {
           <Text style={styles.fieldLabel}>Ca làm việc</Text>
           <Pressable style={styles.selectPill} onPress={() => setShiftModalVisible(true)}>
             <View style={styles.selectLeft}>
-              <Ionicons name="time-outline" size={18} color="#166534" />
+              <Ionicons name="time-outline" size={18} color="#102739" />
               <Text
                 style={[styles.selectText, !selectedShift && styles.placeholderText]}
                 numberOfLines={1}
@@ -467,7 +467,7 @@ export function AssignShiftScreen() {
           <Text style={styles.fieldLabel}>Tuần làm việc</Text>
           <Pressable style={styles.selectPill} onPress={() => setShowDatePicker(true)}>
             <View style={styles.selectLeft}>
-              <Ionicons name="calendar-outline" size={18} color="#166534" />
+              <Ionicons name="calendar-outline" size={18} color="#102739" />
               <Text style={styles.selectText}>{weekInfo.rangeStr}</Text>
             </View>
             <Ionicons name="pencil-outline" size={16} color="#64748B" />
@@ -510,7 +510,7 @@ export function AssignShiftScreen() {
 
           {/* Status tick below */}
           <View style={styles.weekSelectedStatusRow}>
-            <Ionicons name="checkmark-circle" size={16} color="#166534" />
+            <Ionicons name="checkmark-circle" size={16} color="#102739" />
             <Text style={styles.weekSelectedStatusText}>
               Đã chọn {selectedWeekdays.length} ngày trong tuần
             </Text>
@@ -635,7 +635,7 @@ export function AssignShiftScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     paddingHorizontal: 16,
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   stepBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
   stepBadgeText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#166534',
+    color: '#102739',
   },
   cardTitle: {
     fontSize: 16,
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   deptInfoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -734,7 +734,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   deptScopeBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -742,7 +742,7 @@ const styles = StyleSheet.create({
   deptScopeBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   fieldLabel: {
     fontSize: 12,
@@ -808,8 +808,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   dayCardActive: {
-    backgroundColor: '#1B382B', // Dark forest green matching template
-    borderColor: '#1B382B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   dayCardLabel: {
     fontSize: 11,
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   dayCardLabelActive: {
-    color: '#A7F3D0',
+    color: '#94B5CB',
   },
   dayCardNum: {
     fontSize: 13,
@@ -837,7 +837,7 @@ const styles = StyleSheet.create({
   weekSelectedStatusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#166534',
+    color: '#102739',
   },
   bottomBar: {
     position: 'absolute',
@@ -864,8 +864,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   submitBtnActive: {
-    backgroundColor: '#1B382B', // Deep forest green
-    shadowColor: '#1B382B',
+    backgroundColor: '#102739',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,

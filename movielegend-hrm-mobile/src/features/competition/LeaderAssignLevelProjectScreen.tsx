@@ -389,7 +389,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   if (!currentProject || projects.length === 0) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#123826" />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
         <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
           <View style={styles.topHeader}>
             <TouchableOpacity
@@ -422,7 +422,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
           {/* Empty Illustration & Text matching template */}
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
-              <Ionicons name="folder-open-outline" size={54} color="#123826" />
+              <Ionicons name="folder-open-outline" size={54} color="#102739" />
             </View>
             <Text style={styles.emptyTitle}>Chưa có dự án nào</Text>
             <Text style={styles.emptySubtitle}>
@@ -439,7 +439,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#123826" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
         <View style={styles.topHeader}>
           <TouchableOpacity
@@ -1538,10 +1538,10 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   topSafeArea: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   topHeader: {
     flexDirection: 'row',
@@ -1549,7 +1549,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   backBtn: {
     width: 32,
@@ -1571,7 +1571,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#A7D8BE',
+    color: '#94B5CB',
     marginTop: 2,
   },
   bodyWrapper: {
@@ -1616,7 +1616,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -1647,7 +1647,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   headerSubmitBtnText: {
-    color: '#123826',
+    color: '#102739',
     fontSize: 13,
     fontWeight: 'bold',
   },

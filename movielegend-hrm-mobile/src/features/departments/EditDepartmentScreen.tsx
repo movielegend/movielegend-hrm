@@ -160,7 +160,7 @@ export function EditDepartmentScreen() {
             android_ripple={{ color: '#F1F5F9' }}
           >
             <View style={styles.selectLeft}>
-              <MaterialCommunityIcons name="office-building" size={18} color="#166534" />
+              <MaterialCommunityIcons name="office-building" size={18} color="#102739" />
               <Text
                 style={[
                   styles.selectText,
@@ -235,7 +235,7 @@ export function EditDepartmentScreen() {
             android_ripple={{ color: '#F1F5F9' }}
           >
             <View style={styles.selectLeft}>
-              <MaterialCommunityIcons name="sitemap" size={18} color="#166534" />
+              <MaterialCommunityIcons name="sitemap" size={18} color="#102739" />
               <Text
                 style={[
                   styles.selectText,
@@ -309,7 +309,7 @@ export function EditDepartmentScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     paddingHorizontal: 20,
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     flex: 1.5,
-    backgroundColor: '#1B382B', // Deep forest green
+    backgroundColor: '#102739', // Deep forest green
     height: 48,
     borderRadius: 12,
     justifyContent: 'center',

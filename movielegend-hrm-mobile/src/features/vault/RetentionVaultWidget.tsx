@@ -1900,7 +1900,7 @@ const styles = StyleSheet.create({
   },
 
   actionWithdrawBtn: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     borderRadius: 12,
     height: 48,
     flexDirection: 'row',

@@ -474,10 +474,10 @@ export function LeaderApprovalScreen() {
 
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#123826' }} 
+      style={{ flex: 1, backgroundColor: '#102739' }} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#123826" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
         <View style={styles.topHeader}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
@@ -1340,7 +1340,7 @@ export function LeaderApprovalScreen() {
 
 const styles = StyleSheet.create({
   topSafeArea: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   topHeader: {
     flexDirection: 'row',
@@ -1348,7 +1348,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   backBtn: {
     width: 32,
@@ -1396,14 +1396,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#D9E4DD',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitials: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1B382B',
+    color: '#102739',
   },
   profileInfo: {
     flex: 1,

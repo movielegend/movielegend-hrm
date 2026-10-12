@@ -1994,7 +1994,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepCircleActive: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   stepCircleDone: {
     backgroundColor: '#166534',
@@ -2014,7 +2014,7 @@ const styles = StyleSheet.create({
   },
   stepLabelTextActive: {
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   stepConnectorLine: {
     flex: 1,
@@ -2491,7 +2491,7 @@ const styles = StyleSheet.create({
   },
   footerPrimaryBtn: {
     flex: 1.5,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     borderRadius: 12,
     paddingVertical: 13,
     paddingHorizontal: 12,

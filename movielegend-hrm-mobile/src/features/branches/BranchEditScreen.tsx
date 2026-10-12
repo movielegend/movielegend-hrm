@@ -247,7 +247,7 @@ export function BranchEditScreen() {
             <Switch
               value={isHeadquarters}
               onValueChange={setIsHeadquarters}
-              trackColor={{ false: '#E2E8F0', true: '#166534' }}
+              trackColor={{ false: '#E2E8F0', true: '#102739' }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -278,9 +278,9 @@ export function BranchEditScreen() {
             disabled={isFetchingIp}
           >
             {isFetchingIp ? (
-              <ActivityIndicator size="small" color="#166534" />
+              <ActivityIndicator size="small" color="#102739" />
             ) : (
-              <Ionicons name="refresh" size={16} color="#166534" />
+              <Ionicons name="refresh" size={16} color="#102739" />
             )}
             <Text style={styles.refreshNetworkText}>Làm mới mạng</Text>
           </Pressable>
@@ -295,7 +295,7 @@ export function BranchEditScreen() {
             style={styles.locationPill}
             onPress={() => setMapVisible(true)}
           >
-            <Ionicons name="location" size={18} color="#166534" />
+            <Ionicons name="location" size={18} color="#102739" />
             <Text
               style={[
                 styles.locationPillText,
@@ -312,9 +312,9 @@ export function BranchEditScreen() {
           <Pressable
             style={styles.mapOutlineBtn}
             onPress={() => setMapVisible(true)}
-            android_ripple={{ color: '#F0FDF4' }}
+            android_ripple={{ color: '#E7F0F7' }}
           >
-            <Ionicons name="location-outline" size={18} color="#166534" />
+            <Ionicons name="location-outline" size={18} color="#102739" />
             <Text style={styles.mapOutlineBtnText}>Chọn vị trí trên bản đồ</Text>
           </Pressable>
         </View>
@@ -456,7 +456,7 @@ export function BranchEditScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     paddingHorizontal: 20,
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
   refreshNetworkText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   locationPill: {
     flexDirection: 'row',
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#166534',
+    borderColor: '#102739',
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     height: 46,
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   mapOutlineBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   // Bottom Bar
   bottomBar: {
@@ -631,14 +631,14 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   submitBtn: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     height: 48,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   submitBtnDisabled: {
-    backgroundColor: '#8FA89B',
+    backgroundColor: '#94A3B8',
   },
   submitBtnText: {
     color: '#FFFFFF',
@@ -703,9 +703,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   regionOptionCardSelected: {
-    borderColor: '#166534',
+    borderColor: '#102739',
     borderWidth: 1.5,
-    backgroundColor: '#EAF5EE',
+    backgroundColor: '#E7F0F7',
   },
   radioOuter: {
     width: 20,
@@ -717,13 +717,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radioOuterSelected: {
-    borderColor: '#166534',
+    borderColor: '#102739',
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#166534',
+    backgroundColor: '#102739',
   },
   regionOptionName: {
     fontSize: 15,
@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   applyBtn: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     height: 48,
     borderRadius: 12,
     justifyContent: 'center',
