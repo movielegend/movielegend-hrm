@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#A7F3D0',
+    color: '#94B5CB',
     marginTop: 2,
     fontWeight: '500',
   },
@@ -865,7 +865,7 @@ const styles = StyleSheet.create({
 
   /* ── Dark Stats Card ── */
   statsCardDark: {
-    backgroundColor: '#142E21',
+    backgroundColor: '#0B1B27',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',

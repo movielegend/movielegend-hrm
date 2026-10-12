@@ -991,7 +991,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#A7F3D0',
+    color: '#94B5CB',
     marginTop: 2,
     fontWeight: '500',
   },
