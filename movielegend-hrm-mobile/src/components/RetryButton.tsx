@@ -18,7 +18,7 @@ export function RetryButton({ onPress, label = 'Thử lại' }: RetryButtonProps
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     borderRadius: 8,
     minHeight: 44,
     justifyContent: 'center',

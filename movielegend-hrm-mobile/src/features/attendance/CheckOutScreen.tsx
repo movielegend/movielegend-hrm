@@ -177,7 +177,7 @@ export function CheckOutScreen() {
     <Screen>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-          <MaterialCommunityIcons name="chevron-left" size={28} color="#111827" />
+          <MaterialCommunityIcons name="chevron-left" size={28} color="#102739" />
         </Pressable>
         <Text style={styles.title}>Ra ca</Text>
         <View style={styles.iconBtnPlaceholder} />
@@ -219,9 +219,9 @@ export function CheckOutScreen() {
               disabled={isRefreshingLocation}
             >
               {isRefreshingLocation ? (
-                <ActivityIndicator size="small" color="#111827" />
+                <ActivityIndicator size="small" color="#102739" />
               ) : (
-                <MaterialCommunityIcons name="refresh" size={16} color="#111827" />
+                <MaterialCommunityIcons name="refresh" size={16} color="#102739" />
               )}
               <Text style={styles.refreshText}>{isRefreshingLocation ? 'Đang tải...' : 'Làm mới vị trí'}</Text>
             </Pressable>
@@ -238,7 +238,7 @@ export function CheckOutScreen() {
           />
           <View style={styles.wifiBox}>
             <View style={styles.wifiIconBox}>
-              <MaterialCommunityIcons name="wifi" size={24} color="#111827" />
+              <MaterialCommunityIcons name="wifi" size={24} color="#102739" />
             </View>
             <View style={styles.wifiInfoBox}>
               <Text style={styles.wifiName}>Kết nối: {qualityInfo.connectionType}</Text>
@@ -261,7 +261,7 @@ export function CheckOutScreen() {
             <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
           ) : todayShift ? (
             <Pressable style={styles.shiftCard}>
-              <MaterialCommunityIcons name="radiobox-marked" size={24} color="#111827" style={styles.radioIcon} />
+              <MaterialCommunityIcons name="radiobox-marked" size={24} color="#102739" style={styles.radioIcon} />
               <View>
                 <Text style={styles.shiftName}>{todayShift.shift?.name}</Text>
                 <Text style={styles.shiftTime}>{todayShift.shift?.startTime} - {todayShift.shift?.endTime}</Text>
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   mapContainerWrapper: {
     marginHorizontal: spacing.md,
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   },
   refreshText: {
     fontSize: 13,
-    color: '#111827',
+    color: '#102739',
     fontWeight: '600',
   },
   sectionContainer: {
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: spacing.md,
   },
   wifiBox: {
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   wifiName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 2,
   },
   wifiBssid: {
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   shiftName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 4,
   },
   shiftTime: {
@@ -489,11 +489,11 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   confirmBtn: {
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     paddingVertical: spacing.lg,
     borderRadius: 24,
     alignItems: 'center',
-    shadowColor: '#111827',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,

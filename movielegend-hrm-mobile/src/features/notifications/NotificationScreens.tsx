@@ -965,7 +965,7 @@ const styles = StyleSheet.create({
   groupLabel: {
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginHorizontal: 18,
     marginBottom: 8,
   },
@@ -1013,7 +1013,7 @@ const styles = StyleSheet.create({
   },
   itemSubject: {
     fontSize: 15,
-    color: '#111827',
+    color: '#102739',
     fontWeight: '700',
     marginBottom: 2,
   },
@@ -1059,7 +1059,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 6,
     textAlign: 'center',
   },
@@ -1093,7 +1093,7 @@ const styles = StyleSheet.create({
   modalMenuTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 14,
     textAlign: 'center',
   },

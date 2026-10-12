@@ -78,7 +78,7 @@ export function LeaderProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       <ScrollView
         style={styles.scrollBody}
@@ -90,7 +90,7 @@ export function LeaderProfileScreen() {
         onScroll={tabBarScroll.onScroll}
         scrollEventThrottle={16}
       >
-        {/* ── Top Header (#1B3B2B) ── */}
+        {/* ── Top Header (#102739) ── */}
         <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
           {/* Subtle Decorative Wave Curve Background */}
           <View style={styles.decorativeCurve} />
@@ -158,7 +158,7 @@ export function LeaderProfileScreen() {
             onPress={() => setShowPersonalInfoModal(true)}
           >
             <View style={styles.personalIconBox}>
-              <MaterialCommunityIcons name="card-account-details-outline" size={22} color="#1B3B2B" />
+              <MaterialCommunityIcons name="card-account-details-outline" size={22} color="#102739" />
             </View>
             <View style={styles.personalTextWrap}>
               <Text style={styles.personalTitle}>Thông tin cá nhân</Text>
@@ -220,7 +220,7 @@ export function LeaderProfileScreen() {
                 onPress={() => toggleGroup('dept')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="account-group-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="account-group-outline" size={22} color="#102739" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Quản lý phòng ban</Text>
@@ -309,7 +309,7 @@ export function LeaderProfileScreen() {
                 onPress={() => toggleGroup('ops')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="cube-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="cube-outline" size={22} color="#102739" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Vận hành & Trao đổi</Text>
@@ -384,7 +384,7 @@ export function LeaderProfileScreen() {
                 onPress={() => toggleGroup('settings')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="cog-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="cog-outline" size={22} color="#102739" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Cài đặt</Text>
@@ -509,6 +509,7 @@ export function LeaderProfileScreen() {
       <EditProfileModal
         visible={isEditing}
         onClose={() => setIsEditing(false)}
+        initialFullName={user?.fullName || ''}
         initialPhone={user?.phone || ''}
         initialEmail={user?.email || ''}
       />
@@ -568,16 +569,16 @@ function InfoItem({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
   },
   scrollBody: {
     flex: 1,
   },
   scrollContent: {},
 
-  /* ── Header (#1B3B2B) ── */
+  /* ── Header (#102739) ── */
   headerContainer: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingBottom: 24,
     position: 'relative',
@@ -724,7 +725,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -819,7 +820,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -942,7 +943,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   infoModalCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -971,7 +972,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     height: 46,
     borderRadius: 12,
     marginTop: 4,

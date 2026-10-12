@@ -238,7 +238,7 @@ export function IncidentReportScreen() {
               <Text style={{ fontSize: 15, fontWeight: '700', color: '#64748B' }}>Hủy</Text>
             </Pressable>
             <Pressable 
-              style={[{ flex: 1, backgroundColor: '#111827', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }, (!assetId || description.trim().length < 3) && { opacity: 0.5 }]} 
+              style={[{ flex: 1, backgroundColor: '#102739', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }, (!assetId || description.trim().length < 3) && { opacity: 0.5 }]} 
               onPress={submit} 
               disabled={!assetId || description.trim().length < 3 || report.isPending}
             >

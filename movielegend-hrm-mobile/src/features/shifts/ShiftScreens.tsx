@@ -1222,7 +1222,7 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
@@ -1336,7 +1336,7 @@ const styles = StyleSheet.create({
   assignmentCountText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   assignmentList: {
     flexDirection: 'row',
@@ -1366,7 +1366,7 @@ const styles = StyleSheet.create({
   assignmentAvatarText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   assignmentName: {
     fontSize: 13,
@@ -1388,7 +1388,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
   },
   statusText: {
     color: '#4B5563',

@@ -12,8 +12,6 @@ import {
   LayoutAnimation,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Path, Defs, LinearGradient as SvgLinearGradient, RadialGradient as SvgRadialGradient, Stop, Rect, Line } from 'react-native-svg';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
@@ -255,103 +253,10 @@ export function EmployeeDashboardScreen() {
         {/* Top overscroll guard: màu xanh khớp đỉnh header khi kéo xuống */}
         <View pointerEvents="none" style={styles.topOverscrollFill} />
 
-        {/* ================= 1. GLOSSY HEADER (Navy #102739 Gradient) ================= */}
-        <LinearGradient
-          colors={['#102739', '#143147', '#183B55', '#225275']}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
-          style={[styles.glossyHeader, { paddingTop: Math.max(insets.top, 16) + 6 }]}
-        >
-          {/* Specular Light Flare & Glass Gloss Waves */}
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <Svg width="100%" height="100%">
-              <Defs>
-                {/* 1. Loang loang: Vùng sáng cực quang (Aura light bleed) góc trên bên phải */}
-                <SvgRadialGradient
-                  id="empHeaderAuraRight"
-                  cx="85%"
-                  cy="20%"
-                  rx="60%"
-                  ry="50%"
-                  fx="85%"
-                  fy="20%"
-                >
-                  <Stop offset="0%" stopColor="#38BDF8" stopOpacity="0.22" />
-                  <Stop offset="50%" stopColor="#0EA5E9" stopOpacity="0.08" />
-                  <Stop offset="100%" stopColor="#102739" stopOpacity="0" />
-                </SvgRadialGradient>
-
-                {/* 2. Loang loang: Vệt sáng chìm góc dưới trái */}
-                <SvgRadialGradient
-                  id="empHeaderAuraLeft"
-                  cx="15%"
-                  cy="85%"
-                  rx="50%"
-                  ry="50%"
-                  fx="15%"
-                  fy="85%"
-                >
-                  <Stop offset="0%" stopColor="#60A5FA" stopOpacity="0.18" />
-                  <Stop offset="60%" stopColor="#3B82F6" stopOpacity="0.06" />
-                  <Stop offset="100%" stopColor="#102739" stopOpacity="0" />
-                </SvgRadialGradient>
-
-                {/* 3. Dải vệt sáng chéo mờ (Diagonal light beam) */}
-                <SvgLinearGradient id="empGlossHighlight" x1="0%" y1="0%" x2="100%" y2="80%">
-                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.22" />
-                  <Stop offset="45%" stopColor="#FFFFFF" stopOpacity="0.06" />
-                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
-                </SvgLinearGradient>
-
-                {/* 4. Sọc chéo vi tế (Subtle diagonal accent line) */}
-                <SvgLinearGradient id="empLineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.0" />
-                  <Stop offset="35%" stopColor="#FFFFFF" stopOpacity="0.18" />
-                  <Stop offset="70%" stopColor="#38BDF8" stopOpacity="0.22" />
-                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
-                </SvgLinearGradient>
-              </Defs>
-
-              {/* Lớp nền loang ánh sáng (Ambient Aura Blurs - hiệu ứng loang mềm mại) */}
-              <Rect x="0" y="0" width="100%" height="100%" fill="url(#empHeaderAuraRight)" />
-              <Rect x="0" y="0" width="100%" height="100%" fill="url(#empHeaderAuraLeft)" />
-
-              {/* Dải phản chiếu chéo bóng bẩy */}
-              <Path
-                d="M -60 -40 L 260 -40 L 140 240 L -60 240 Z"
-                fill="url(#empGlossHighlight)"
-              />
-
-              {/* Các đường sọc chéo vi tế thanh mảnh thay cho vòng tròn */}
-              <Line
-                x1={SCREEN_WIDTH - 120}
-                y1={-10}
-                x2={SCREEN_WIDTH + 80}
-                y2={190}
-                stroke="url(#empLineGrad)"
-                strokeWidth={2}
-                strokeDasharray="6, 6"
-              />
-              <Line
-                x1={SCREEN_WIDTH - 60}
-                y1={-10}
-                x2={SCREEN_WIDTH + 140}
-                y2={190}
-                stroke="url(#empLineGrad)"
-                strokeWidth={1.5}
-              />
-              <Line
-                x1={SCREEN_WIDTH - 180}
-                y1={-10}
-                x2={SCREEN_WIDTH + 20}
-                y2={190}
-                stroke="url(#empLineGrad)"
-                strokeWidth={1}
-                strokeDasharray="4, 8"
-                opacity={0.6}
-              />
-            </Svg>
-          </View>
+        {/* ================= 1. HEADER (#102739 - Matching Profile Screen) ================= */}
+        <View style={[styles.glossyHeader, { paddingTop: Math.max(insets.top, 16) + 6 }]}>
+          {/* Subtle Decorative Wave Curve Background - Matching Profile */}
+          <View style={styles.decorativeCurve} />
 
           {/* Brand Identity: movielegend PEOPLE */}
           <View style={styles.brandRow}>
@@ -395,7 +300,7 @@ export function EmployeeDashboardScreen() {
               {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
             </Pressable>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* ================= 2. HERO CARD (OVERVIEW WHITE CARD CÓ RIPPLE) ================= */}
         <View style={styles.heroCardWrapper}>
@@ -425,41 +330,17 @@ export function EmployeeDashboardScreen() {
               <LiveClockText style={styles.bigDateNumberText} />
             </View>
 
-            {/* Bottom 3-Column Metrics Row (Không dính vào nhau) */}
+            {/* Bottom 2-Column Metrics Row */}
             <View style={styles.cardMetricsRow}>
               {/* Col 1: Location */}
               <View style={styles.metricColLocation}>
-                <MapPin size={13} color="#64748B" strokeWidth={2.2} />
+                <MapPin size={13} color="#000000" strokeWidth={2.2} />
                 <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
                   {user?.department?.branch?.name || (user?.department as any)?.branchName || 'MOVIELEGEND-HÀ NỘI'}
                 </Text>
               </View>
 
-              <View style={styles.metricsVerticalDivider} />
-
-              {/* Col 2: Trạng thái ca làm */}
-              <Pressable
-                style={styles.metricColStatCenter}
-                onPress={handleAttendancePress}
-              >
-                <Text style={styles.metricLabelCaps} numberOfLines={1}>TRẠNG THÁI CA LÀM</Text>
-                <Text
-                  style={[
-                    styles.metricNumberValue,
-                    {
-                      fontSize: 14,
-                      color: currentAttendance?.state === 'CHECKED_IN' ? '#059669' : '#0F172A',
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {currentAttendance?.state === 'CHECKED_IN' ? 'Đang làm việc' : 'Chưa vào ca'}
-                </Text>
-              </Pressable>
-
-              <View style={styles.metricsVerticalDivider} />
-
-              {/* Col 3: Công việc đang mở */}
+              {/* Col 2: Công việc đang mở */}
               <Pressable
                 style={styles.metricColStatRight}
                 onPress={() => router.push('/employee/tasks' as any)}
@@ -473,66 +354,82 @@ export function EmployeeDashboardScreen() {
 
         {/* Content Body */}
         <View style={styles.contentBody}>
-          {/* Section: Tổng quan hôm nay */}
-          <Text style={styles.overviewHeading}>Tổng quan hôm nay</Text>
-
-          {/* ================= 3. CẦN BẠN XỬ LÝ ================= */}
+          {/* ================= 3. HÀNH TRÌNH & QUỸ THƯỞNG ================= */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionMainTitle}>Cần bạn xử lý</Text>
+              <Text style={styles.sectionMainTitle}>Hành trình &amp; Quỹ thưởng</Text>
             </View>
 
-            {/* Item 1: Đơn chờ duyệt */}
-            <Pressable
-              style={styles.actionCard}
-              onPress={() => router.push('/employee/requests' as any)}
-            >
-              <View style={styles.actionCardLeft}>
-                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
-                  <View pointerEvents="none" style={styles.actionIconGloss} />
-                  <FileText size={22} color="#102739" strokeWidth={2.2} />
+            <View style={styles.hubCard}>
+              <Pressable
+                style={styles.hubSegment}
+                onPress={() => router.push('/employee/leveling' as any)}
+              >
+                <View style={styles.hubRow}>
+                  <View style={[styles.hubIconCircle, { backgroundColor: `${levelColor}15` }]}>
+                    <Crown size={20} color={levelColor} />
+                  </View>
+                  <View style={styles.hubInfoBlock}>
+                    <View style={styles.hubTitleRow}>
+                      <Text style={styles.hubTitle} numberOfLines={1}>
+                        Level {currentLevelNumber}: {levelTitle}
+                      </Text>
+                      <View style={[styles.hubTag, { backgroundColor: `${levelColor}15` }]}>
+                        <Text style={[styles.hubTagText, { color: levelColor }]}>Lv.{currentLevelNumber}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.hubSubtitle}>
+                      {levelProgress?.nextLevel
+                        ? `Tiến độ lên Lv.${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
+                        : 'Cấp bậc danh dự tối cao'}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color="#94A3B8" />
                 </View>
-                <View style={styles.actionCardTexts}>
-                  <Text style={styles.actionCardTitle}>Đơn từ &amp; Phép</Text>
-                  <Text style={styles.actionCardDesc}>Nghỉ phép, tăng ca, giải trình</Text>
-                </View>
-              </View>
 
-              <View style={styles.actionCardRight}>
-                <View style={styles.coralBadge}>
-                  <Text style={styles.coralBadgeText}>
-                    {String(pendingRequestsCount).padStart(2, '0')}
-                  </Text>
+                {/* Progress Bar */}
+                <View style={styles.hubProgressTrack}>
+                  <View
+                    style={[
+                      styles.hubProgressFill,
+                      {
+                        width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
+                        backgroundColor: levelColor,
+                      },
+                    ]}
+                  />
                 </View>
-                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
-              </View>
-            </Pressable>
+              </Pressable>
 
-            {/* Item 2: Công việc đến hạn */}
-            <Pressable
-              style={[styles.actionCard, { marginTop: 10 }]}
-              onPress={() => router.push('/employee/tasks' as any)}
-            >
-              <View style={styles.actionCardLeft}>
-                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
-                  <View pointerEvents="none" style={styles.actionIconGloss} />
-                  <Clock size={22} color="#102739" strokeWidth={2.2} />
-                </View>
-                <View style={styles.actionCardTexts}>
-                  <Text style={styles.actionCardTitle}>Công việc đến hạn</Text>
-                  <Text style={styles.actionCardDesc}>Cần hoàn thành hôm nay</Text>
-                </View>
-              </View>
-
-              <View style={styles.actionCardRight}>
-                <View style={styles.coralBadge}>
-                  <Text style={styles.coralBadgeText}>
-                    {String(uncompletedTasksCount).padStart(2, '0')}
-                  </Text>
-                </View>
-                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
-              </View>
-            </Pressable>
+              {isVaultEnabled && (
+                <>
+                  <View style={styles.hubDivider} />
+                  <Pressable
+                    style={styles.hubSegment}
+                    onPress={() => router.push('/employee/vault' as any)}
+                  >
+                    <View style={styles.hubRow}>
+                      <View style={[styles.hubIconCircle, { backgroundColor: '#E7F0F7' }]}>
+                        <Coins size={20} color="#102739" />
+                      </View>
+                      <View style={styles.hubInfoBlock}>
+                        <View style={styles.hubTitleRow}>
+                          <Text style={styles.hubTitle} numberOfLines={1}>Ví Thưởng Tích Lũy</Text>
+                          <View style={styles.vaultBadge}>
+                            <Text style={styles.vaultBadgeText}>Đặc quyền</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.hubSubtitle}>
+                          Khả dụng: <Text style={styles.hubSubtitleGreen}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
+                          {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                        </Text>
+                      </View>
+                      <ChevronRight size={18} color="#94A3B8" />
+                    </View>
+                  </Pressable>
+                </>
+              )}
+            </View>
           </View>
 
           {/* ================= 4. TRUY CẬP NHANH (BOX TRẮNG CÓ NÚT ĐẨY XUỐNG) ================= */}
@@ -795,82 +692,63 @@ export function EmployeeDashboardScreen() {
             </View>
           </View>
 
-          {/* ================= 5. HÀNH TRÌNH & QUỸ THƯỞNG ================= */}
+          {/* ================= 5. CẦN BẠN XỬ LÝ ================= */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionMainTitle}>Hành trình &amp; Quỹ thưởng</Text>
+              <Text style={styles.sectionMainTitle}>Cần bạn xử lý</Text>
             </View>
 
-            <View style={styles.hubCard}>
-              <Pressable
-                style={styles.hubSegment}
-                onPress={() => router.push('/employee/leveling' as any)}
-              >
-                <View style={styles.hubRow}>
-                  <View style={[styles.hubIconCircle, { backgroundColor: `${levelColor}15` }]}>
-                    <Crown size={20} color={levelColor} />
-                  </View>
-                  <View style={styles.hubInfoBlock}>
-                    <View style={styles.hubTitleRow}>
-                      <Text style={styles.hubTitle} numberOfLines={1}>
-                        Level {currentLevelNumber}: {levelTitle}
-                      </Text>
-                      <View style={[styles.hubTag, { backgroundColor: `${levelColor}15` }]}>
-                        <Text style={[styles.hubTagText, { color: levelColor }]}>Lv.{currentLevelNumber}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.hubSubtitle}>
-                      {levelProgress?.nextLevel
-                        ? `Tiến độ lên Lv.${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
-                        : 'Cấp bậc danh dự tối cao'}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color="#94A3B8" />
+            {/* Item 1: Đơn chờ duyệt */}
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => router.push('/employee/requests' as any)}
+            >
+              <View style={styles.actionCardLeft}>
+                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
+                  <View pointerEvents="none" style={styles.actionIconGloss} />
+                  <FileText size={22} color="#102739" strokeWidth={2.2} />
                 </View>
-
-                {/* Progress Bar */}
-                <View style={styles.hubProgressTrack}>
-                  <View
-                    style={[
-                      styles.hubProgressFill,
-                      {
-                        width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
-                        backgroundColor: levelColor,
-                      },
-                    ]}
-                  />
+                <View style={styles.actionCardTexts}>
+                  <Text style={styles.actionCardTitle}>Đơn từ &amp; Phép</Text>
+                  <Text style={styles.actionCardDesc}>Nghỉ phép, tăng ca, giải trình</Text>
                 </View>
-              </Pressable>
+              </View>
 
-              {isVaultEnabled && (
-                <>
-                  <View style={styles.hubDivider} />
-                  <Pressable
-                    style={styles.hubSegment}
-                    onPress={() => router.push('/employee/vault' as any)}
-                  >
-                    <View style={styles.hubRow}>
-                      <View style={[styles.hubIconCircle, { backgroundColor: '#E7F0F7' }]}>
-                        <Coins size={20} color="#102739" />
-                      </View>
-                      <View style={styles.hubInfoBlock}>
-                        <View style={styles.hubTitleRow}>
-                          <Text style={styles.hubTitle} numberOfLines={1}>Ví Thưởng Tích Lũy</Text>
-                          <View style={styles.vaultBadge}>
-                            <Text style={styles.vaultBadgeText}>Đặc quyền</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.hubSubtitle}>
-                          Khả dụng: <Text style={styles.hubSubtitleGreen}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
-                          {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
-                        </Text>
-                      </View>
-                      <ChevronRight size={18} color="#94A3B8" />
-                    </View>
-                  </Pressable>
-                </>
-              )}
-            </View>
+              <View style={styles.actionCardRight}>
+                <View style={styles.coralBadge}>
+                  <Text style={styles.coralBadgeText}>
+                    {String(pendingRequestsCount).padStart(2, '0')}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
+              </View>
+            </Pressable>
+
+            {/* Item 2: Công việc đến hạn */}
+            <Pressable
+              style={[styles.actionCard, { marginTop: 10 }]}
+              onPress={() => router.push('/employee/tasks' as any)}
+            >
+              <View style={styles.actionCardLeft}>
+                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
+                  <View pointerEvents="none" style={styles.actionIconGloss} />
+                  <Clock size={22} color="#102739" strokeWidth={2.2} />
+                </View>
+                <View style={styles.actionCardTexts}>
+                  <Text style={styles.actionCardTitle}>Công việc đến hạn</Text>
+                  <Text style={styles.actionCardDesc}>Cần hoàn thành hôm nay</Text>
+                </View>
+              </View>
+
+              <View style={styles.actionCardRight}>
+                <View style={styles.coralBadge}>
+                  <Text style={styles.coralBadgeText}>
+                    {String(uncompletedTasksCount).padStart(2, '0')}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
+              </View>
+            </Pressable>
           </View>
 
           {/* ================= 6. HÒM THƯ GÓP Ý ================= */}
@@ -1054,12 +932,24 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
-  // 1. Glossy Royal Blue Header
+  // 1. Deep Navy Header (#102739 - Matching Profile Screen)
   glossyHeader: {
+    backgroundColor: '#102739',
     paddingHorizontal: 20,
     paddingBottom: 86,
     position: 'relative',
     overflow: 'hidden',
+  },
+  decorativeCurve: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   brandRow: {
     flexDirection: 'row',
@@ -1222,8 +1112,8 @@ const styles = StyleSheet.create({
   },
   cardHeaderDateText: {
     fontSize: 13,
-    color: '#64748B',
-    fontWeight: '600',
+    color: '#000000',
+    fontWeight: '800',
   },
   dateNumberRow: {
     marginVertical: 4,
@@ -1231,7 +1121,7 @@ const styles = StyleSheet.create({
   bigDateNumberText: {
     fontSize: 34,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#000000',
     letterSpacing: -0.6,
   },
   cardMetricsRow: {
@@ -1245,41 +1135,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    flex: 1.15,
-    paddingRight: 6,
+    flex: 1,
+    paddingRight: 12,
   },
   locationText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  metricsVerticalDivider: {
-    width: 1,
-    height: 26,
-    backgroundColor: '#F1F5F9',
-    marginHorizontal: 4,
-  },
-  metricColStatCenter: {
-    flex: 1.05,
-    alignItems: 'center',
-    paddingHorizontal: 2,
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#000000',
   },
   metricColStatRight: {
-    flex: 0.95,
     alignItems: 'flex-end',
-    paddingLeft: 4,
+    paddingLeft: 8,
   },
   metricLabelCaps: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#64748B',
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#000000',
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   metricNumberValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#000000',
   },
 
   // Content Body
@@ -1381,7 +1259,7 @@ const styles = StyleSheet.create({
   },
   actionCardDesc: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#334155',
   },
   actionCardRight: {
     flexDirection: 'row',
@@ -1555,7 +1433,7 @@ const styles = StyleSheet.create({
   },
   hubSubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#334155',
     marginTop: 2,
   },
   hubSubtitleGreen: {
@@ -1762,7 +1640,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
   },
   modalSheet: {
     backgroundColor: '#FFFFFF',

@@ -8,8 +8,9 @@ export interface AppRegistryItem {
   adminRoute?: string;
   leaderRoute?: string;
   employeeRoute?: string;
+  hrRoute?: string;
   isCore?: boolean;
-  badgeKey?: 'pendingRequests' | 'dueTasks' | 'pendingVault';
+  badgeKey?: 'pendingRequests' | 'dueTasks' | 'pendingVault' | 'pendingFinancial';
 }
 
 export const CORE_APP_KEYS = ['attendance', 'requests', 'tasks', 'feedbacks'] as const;
@@ -33,6 +34,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/attendance',
     leaderRoute: '/leader/schedule',
     employeeRoute: '/employee/attendance',
+    hrRoute: '/hr/attendance-management',
     isCore: true,
   },
   requests: {
@@ -45,6 +47,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/leader/approvals',
     leaderRoute: '/leader/approvals',
     employeeRoute: '/employee/requests',
+    hrRoute: '/hr/employee-requests',
     badgeKey: 'pendingRequests',
     isCore: true,
   },
@@ -58,6 +61,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/tasks',
     leaderRoute: '/leader/tasks',
     employeeRoute: '/employee/tasks',
+    hrRoute: '/hr/my-tasks',
     badgeKey: 'dueTasks',
     isCore: true,
   },
@@ -71,6 +75,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/feedbacks',
     leaderRoute: '/admin/feedbacks',
     employeeRoute: '/employee/feedbacks',
+    hrRoute: '/hr/feedbacks',
     isCore: true,
   },
 
@@ -85,6 +90,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/leader/shift-management',
     leaderRoute: '/leader/shift-management',
     employeeRoute: '/employee/schedule',
+    hrRoute: '/hr/shifts',
   },
   shift_swaps: {
     key: 'shift_swaps',
@@ -96,6 +102,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/leader/shift-swaps',
     leaderRoute: '/leader/shift-swaps',
     employeeRoute: '/employee/shift-swaps',
+    hrRoute: '/hr/shift-swaps',
   },
   timesheet: {
     key: 'timesheet',
@@ -107,6 +114,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/timesheet',
     leaderRoute: '/leader/timesheet',
     employeeRoute: '/employee/timesheet',
+    hrRoute: '/hr/timesheet',
   },
   employees: {
     key: 'employees',
@@ -118,6 +126,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/employees',
     leaderRoute: '/admin/employees',
     employeeRoute: '/employee/contacts',
+    hrRoute: '/hr/employees',
   },
   departments: {
     key: 'departments',
@@ -175,6 +184,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/contracts',
     leaderRoute: '/admin/contracts',
     employeeRoute: '/employee/contracts',
+    hrRoute: '/hr/contracts',
   },
   documents: {
     key: 'documents',
@@ -186,6 +196,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/documents',
     leaderRoute: '/admin/documents',
     employeeRoute: '/employee/documents',
+    hrRoute: '/hr/documents',
   },
   task_groups: {
     key: 'task_groups',
@@ -219,6 +230,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/newsfeed',
     leaderRoute: '/leader/newsfeed',
     employeeRoute: '/employee/newsfeed',
+    hrRoute: '/hr/newsfeed',
   },
 
   // Tài chính & Đãi ngộ
@@ -232,6 +244,8 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/leader/expenses',
     leaderRoute: '/leader/expenses',
     employeeRoute: '/employee/expenses',
+    hrRoute: '/hr/financial-requests',
+    badgeKey: 'pendingFinancial',
   },
   payslip: {
     key: 'payslip',
@@ -243,6 +257,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/payslip',
     leaderRoute: '/leader/payslip',
     employeeRoute: '/employee/payslip',
+    hrRoute: '/hr/payslip',
   },
   vault: {
     key: 'vault',
@@ -254,6 +269,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/vault',
     leaderRoute: '/leader/vault',
     employeeRoute: '/employee/leveling',
+    hrRoute: '/hr/vault',
     badgeKey: 'pendingVault',
   },
   levels: {
@@ -266,6 +282,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/levels',
     leaderRoute: '/leader/leveling',
     employeeRoute: '/employee/leveling',
+    hrRoute: '/hr/leveling',
   },
   competition: {
     key: 'competition',
@@ -290,6 +307,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/assets',
     leaderRoute: '/admin/assets',
     employeeRoute: '/employee/assets',
+    hrRoute: '/hr/assets',
   },
   incidents: {
     key: 'incidents',
@@ -372,7 +390,8 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
 
 export const ALL_APPS_LIST: AppRegistryItem[] = Object.values(APP_REGISTRY);
 
-export function getAppRoute(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' = 'ADMIN'): string {
+export function getAppRoute(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN'): string {
+  if (role === 'HR') return item.hrRoute || item.adminRoute || item.leaderRoute || item.employeeRoute || '/hr/(tabs)';
   if (role === 'ADMIN') return item.adminRoute || item.leaderRoute || item.employeeRoute || '/admin/(tabs)';
   if (role === 'LEADER') return item.leaderRoute || item.employeeRoute || item.adminRoute || '/leader/(tabs)';
   return item.employeeRoute || item.leaderRoute || item.adminRoute || '/employee/(tabs)';

@@ -585,6 +585,7 @@ export function EmployeeProfileScreen() {
       <EditProfileModal
         visible={isEditing}
         onClose={() => setIsEditing(false)}
+        initialFullName={user?.fullName || ''}
         initialPhone={user?.phone || ''}
         initialEmail={user?.email || ''}
       />

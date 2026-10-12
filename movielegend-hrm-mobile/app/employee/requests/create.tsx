@@ -35,6 +35,19 @@ const REQUEST_TYPES: { type: EmployeeRequestType, label: string, icon: keyof typ
   { type: 'OTHER', label: 'Khác', icon: 'dots-horizontal', color: '#1B382B' },
 ];
 
+const COMMON_BANKS = [
+  'Vietcombank',
+  'MBBank',
+  'Techcombank',
+  'ACB',
+  'VPBank',
+  'BIDV',
+  'VietinBank',
+  'TPBank',
+  'Sacombank',
+  'VIB',
+];
+
 function normalizeSearchText(str?: string | null): string {
   if (!str) return '';
   return str
@@ -68,6 +81,11 @@ export default function CreateRequestScreen() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [amount, setAmount] = useState('');
+
+  // Specific fields for Advance (Tạm ứng lương)
+  const [advanceBankName, setAdvanceBankName] = useState('');
+  const [advanceBankAccount, setAdvanceBankAccount] = useState('');
+  const [advanceAccountHolder, setAdvanceAccountHolder] = useState('');
 
   // Specific fields for Purchase (Đề xuất mua sắm / Đơn mua hàng)
   const [purchaseItemName, setPurchaseItemName] = useState('');
@@ -193,7 +211,25 @@ export default function CreateRequestScreen() {
   const isOvertime = selectedType === 'OVERTIME';
   const isLateOrEarly = selectedType === 'LATE_ARRIVAL' || selectedType === 'EARLY_LEAVE';
   const isPurchase = selectedType === 'PURCHASE';
-  const isFinancial = selectedType === 'ADVANCE' || selectedType === 'EXPENSE';
+  const isAdvance = selectedType === 'ADVANCE';
+  const isExpense = selectedType === 'EXPENSE';
+  const isFinancial = isAdvance || isExpense;
+
+  // Pre-fill user profile bank info when selecting ADVANCE
+  useEffect(() => {
+    if (user) {
+      const userMeta = (user as any)?.profile || user;
+      if (userMeta?.fullName && !advanceAccountHolder) {
+        setAdvanceAccountHolder(userMeta.fullName.toUpperCase());
+      }
+      if (userMeta?.bankName && !advanceBankName) {
+        setAdvanceBankName(userMeta.bankName);
+      }
+      if ((userMeta?.bankAccountNumber || userMeta?.bankAccount) && !advanceBankAccount) {
+        setAdvanceBankAccount(userMeta.bankAccountNumber || userMeta.bankAccount);
+      }
+    }
+  }, [user, isAdvance]);
 
   const userDeptId = user?.department?.id || (user as any)?.departmentId;
   const userDeptName = user?.department?.name || (user as any)?.departmentName || '';
@@ -470,7 +506,10 @@ export default function CreateRequestScreen() {
         generatedTitle = `Nghỉ phép: ${leaveType} - ${dateStr}`;
       } else if (isPurchase) {
         generatedTitle = `[Mua sắm] ${purchaseItemName.trim() || 'Vật tư'} (SL: ${purchaseQuantity.trim() || '1'})`;
-      } else if (isFinancial) {
+      } else if (isAdvance) {
+        const now = fromDate || new Date();
+        generatedTitle = `[TẠM ỨNG LƯƠNG] Đề xuất tạm ứng lương tháng ${now.getMonth() + 1}/${now.getFullYear()}`;
+      } else if (isExpense) {
         generatedTitle = `${typeLabel} - ${amount ? Number(amount).toLocaleString('vi-VN') + ' VNĐ' : ''}`;
       } else {
         generatedTitle = `${typeLabel} - ${dateStr}`;
@@ -519,11 +558,26 @@ export default function CreateRequestScreen() {
       }
     }
 
+    if (isAdvance) {
+      if (!amount.trim() || Number(amount) <= 0) {
+        showAlert('Lỗi', 'Vui lòng nhập số tiền muốn tạm ứng.');
+        return;
+      }
+      if (!content.trim()) {
+        showAlert('Thiếu thông tin', 'Vui lòng nhập lý do tạm ứng lương.');
+        return;
+      }
+      if (!advanceBankAccount.trim()) {
+        showAlert('Thiếu thông tin', 'Vui lòng nhập số tài khoản nhận tiền.');
+        return;
+      }
+    }
+
     if (!content.trim()) {
       showAlert('Lỗi', isBusinessTrip ? 'Vui lòng nhập Mục đích / Kế hoạch công tác chi tiết.' : 'Vui lòng nhập Lý do/Nội dung chi tiết.');
       return;
     }
-    if (isFinancial && !amount.trim()) {
+    if (isExpense && !amount.trim()) {
       showAlert('Lỗi', 'Vui lòng nhập Số tiền cho loại đơn này.');
       return;
     }
@@ -624,6 +678,14 @@ export default function CreateRequestScreen() {
 
       const attachmentMetadata = {
         ...(uploadedUrl ? { image: uploadedUrl } : {}),
+        ...(isAdvance ? {
+          month: (fromDate || new Date()).getMonth() + 1,
+          year: (fromDate || new Date()).getFullYear(),
+          bankName: advanceBankName.trim() || 'Ngân hàng',
+          bankAccount: advanceBankAccount.trim(),
+          accountHolder: advanceAccountHolder.trim(),
+          requestTypeCategory: 'SALARY_ADVANCE_50_PERCENT',
+        } : {}),
         ...(selectedType === 'EXPENSE' ? { hasVat: Boolean(hasVat), vatInvoiceUrl: uploadedUrl || undefined } : {}),
         ...(isPurchase ? {
           itemName: purchaseItemName.trim(),
@@ -1441,13 +1503,194 @@ export default function CreateRequestScreen() {
                 </Text>
               </View>
             </>
-          ) : isFinancial ? (
+          ) : isAdvance ? (
+            <>
+              {/* Policy & Notice Banner Card */}
+              <View style={styles.advanceNoticeCard}>
+                <View style={styles.advanceNoticeCardHeader}>
+                  <MaterialCommunityIcons name="shield-alert-outline" size={20} color="#D97706" />
+                  <Text style={styles.advanceNoticeCardTitle}>Quy định tạm ứng lương (Tối đa 50%)</Text>
+                </View>
+                <Text style={styles.advanceNoticeCardText}>
+                  Theo quy định công ty, số tiền tạm ứng khuyến nghị không quá 50% mức lương. Đề xuất của bạn sẽ được gửi tới Trưởng bộ phận (Leader) xem xét tính hợp lý và phê duyệt trước khi Kế toán trưởng tiến hành giải ngân.
+                </Text>
+              </View>
+
+              {/* Workflow 3-Steps Visual */}
+              <View style={styles.advanceWorkflowBox}>
+                <Text style={styles.advanceWorkflowBoxTitle}>Quy trình xét duyệt tạm ứng 3 bước:</Text>
+                <View style={styles.advanceStepsRow}>
+                  <View style={styles.advanceStepCol}>
+                    <View style={[styles.advanceStepCircle, styles.advanceStepCircleActive]}>
+                      <Text style={styles.advanceStepNum}>1</Text>
+                    </View>
+                    <Text style={styles.advanceStepName}>Đề xuất</Text>
+                    <Text style={styles.advanceStepSub}>Nhân viên (Max 50%)</Text>
+                  </View>
+                  <View style={styles.advanceStepLine} />
+                  <View style={styles.advanceStepCol}>
+                    <View style={styles.advanceStepCircle}>
+                      <Text style={styles.advanceStepNum}>2</Text>
+                    </View>
+                    <Text style={styles.advanceStepName}>Duyệt</Text>
+                    <Text style={styles.advanceStepSub}>Leader bộ phận</Text>
+                  </View>
+                  <View style={styles.advanceStepLine} />
+                  <View style={styles.advanceStepCol}>
+                    <View style={[styles.advanceStepCircle, { backgroundColor: '#ECFDF5', borderColor: '#059669' }]}>
+                      <Text style={[styles.advanceStepNum, { color: '#059669' }]}>3</Text>
+                    </View>
+                    <Text style={styles.advanceStepName}>Đi lương</Text>
+                    <Text style={styles.advanceStepSub}>Kế toán trưởng chi</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Số tiền muốn tạm ứng */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Số tiền muốn tạm ứng <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.advanceAmountInputWrap}>
+                  <TextInput
+                    style={styles.advanceAmountInput}
+                    placeholder="0"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    value={amount ? parseInt(amount, 10).toLocaleString('vi-VN') : ''}
+                    onChangeText={(text) => setAmount(text.replace(/[^0-9]/g, ''))}
+                  />
+                  <Text style={styles.advanceAmountUnit}>VNĐ</Text>
+                </View>
+
+                {/* Quick Pick Chips */}
+                <View style={styles.advanceChipsRow}>
+                  {[1000000, 2000000, 3000000, 5000000].map((quickVal) => (
+                    <Pressable
+                      key={quickVal}
+                      style={[
+                        styles.advanceChip,
+                        amount === String(quickVal) && styles.advanceChipActive
+                      ]}
+                      onPress={() => setAmount(String(quickVal))}
+                    >
+                      <Text
+                        style={[
+                          styles.advanceChipText,
+                          amount === String(quickVal) && styles.advanceChipTextActive
+                        ]}
+                      >
+                        {quickVal.toLocaleString('vi-VN')}đ
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* Tháng tạm ứng / Ngày mong muốn nhận */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Ngày mong muốn nhận lương tạm ứng <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
+                  <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
+                    {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
+                  </Text>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                </Pressable>
+              </View>
+
+              {/* Lý do tạm ứng */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Lý do tạm ứng <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.textAreaBox}>
+                  <TextInput
+                    style={styles.textAreaInput}
+                    placeholder="Ví dụ: Tạm ứng giải quyết việc gia đình, khám sức khỏe..."
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    maxLength={500}
+                    value={content}
+                    onChangeText={setContent}
+                    textAlignVertical="top"
+                    onFocus={() => {
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                    }}
+                  />
+                  <Text style={styles.counterText}>{content.length}/500</Text>
+                </View>
+              </View>
+
+              {/* Bank Info Header */}
+              <View style={styles.advanceSectionHeaderRow}>
+                <MaterialCommunityIcons name="bank-transfer" size={20} color="#059669" />
+                <Text style={styles.advanceSectionHeaderTitle}>Tài khoản nhận tiền (Kế toán chi lương)</Text>
+              </View>
+
+              {/* Ngân hàng thụ hưởng */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>Ngân hàng thụ hưởng</Text>
+                <TextInput
+                  style={styles.advanceTextInput}
+                  value={advanceBankName}
+                  onChangeText={setAdvanceBankName}
+                  placeholder="Ví dụ: Vietcombank, MBBank, Techcombank..."
+                  placeholderTextColor="#94A3B8"
+                />
+
+                {/* Bank quick chips */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.advanceBankChipsScroll}>
+                  {COMMON_BANKS.map((b) => (
+                    <Pressable
+                      key={b}
+                      style={[styles.advanceBankChip, advanceBankName === b && styles.advanceBankChipActive]}
+                      onPress={() => setAdvanceBankName(b)}
+                    >
+                      <Text style={[styles.advanceBankChipText, advanceBankName === b && styles.advanceBankChipTextActive]}>
+                        {b}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Số tài khoản & Chủ tài khoản */}
+              <View style={styles.advanceInputRow}>
+                <View style={[styles.formItem, { flex: 1, marginRight: 8, marginBottom: 0 }]}>
+                  <Text style={styles.formLabel}>
+                    Số tài khoản <Text style={styles.required}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.advanceTextInput}
+                    value={advanceBankAccount}
+                    onChangeText={setAdvanceBankAccount}
+                    placeholder="0123456789"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                  />
+                </View>
+
+                <View style={[styles.formItem, { flex: 1.2, marginBottom: 0 }]}>
+                  <Text style={styles.formLabel}>Tên chủ tài khoản</Text>
+                  <TextInput
+                    style={styles.advanceTextInput}
+                    value={advanceAccountHolder}
+                    onChangeText={(t) => setAdvanceAccountHolder(t.toUpperCase())}
+                    placeholder="NGUYEN VAN A"
+                    placeholderTextColor="#94A3B8"
+                    autoCapitalize="characters"
+                  />
+                </View>
+              </View>
+            </>
+          ) : isExpense ? (
             <>
               {/* Số tiền */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
-                  {selectedType === 'EXPENSE' ? 'Số tiền thanh toán (VNĐ)' : 'Số tiền tạm ứng (VNĐ)'}{' '}
-                  <Text style={styles.required}>*</Text>
+                  Số tiền thanh toán (VNĐ) <Text style={styles.required}>*</Text>
                 </Text>
                 <View style={styles.inputBox}>
                   <TextInput
@@ -1465,8 +1708,7 @@ export default function CreateRequestScreen() {
               {/* Ngày áp dụng */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
-                  {selectedType === 'EXPENSE' ? 'Ngày phát sinh chi phí' : 'Ngày mong muốn nhận'}{' '}
-                  <Text style={styles.required}>*</Text>
+                  Ngày phát sinh chi phí <Text style={styles.required}>*</Text>
                 </Text>
                 <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
                   <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
@@ -1484,7 +1726,7 @@ export default function CreateRequestScreen() {
                 <View style={styles.textAreaBox}>
                   <TextInput
                     style={styles.textAreaInput}
-                    placeholder={selectedType === 'EXPENSE' ? "Nhập hạng mục / lý do thanh toán..." : "Nhập lý do tạm ứng..."}
+                    placeholder="Nhập hạng mục / lý do thanh toán..."
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
@@ -1500,33 +1742,31 @@ export default function CreateRequestScreen() {
               </View>
 
               {/* Phân loại Hóa đơn VAT (chỉ dành cho EXPENSE) */}
-              {selectedType === 'EXPENSE' && (
-                <View style={[styles.formItem, { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' }]}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <View style={{ flex: 1, paddingRight: 12 }}>
-                      <Text style={[styles.formLabel, { marginBottom: 2 }]}>Hóa đơn VAT</Text>
-                      <Text style={{ fontSize: 12, color: '#64748B' }}>
-                        {hasVat 
-                          ? 'Đơn có VAT (Duyệt: Leader ➔ Kế toán giải ngân)' 
-                          : 'Đơn K° VAT (≤ 2tr: Kế toán | > 2tr: Ban Giám Đốc ➔ Kế toán)'}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => setHasVat(!hasVat)}
-                      style={{
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderRadius: 16,
-                        backgroundColor: hasVat ? '#10B981' : '#E2E8F0'
-                      }}
-                    >
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: hasVat ? '#FFFFFF' : '#475569' }}>
-                        {hasVat ? 'CÓ VAT' : 'K° VAT'}
-                      </Text>
-                    </TouchableOpacity>
+              <View style={[styles.formItem, { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text style={[styles.formLabel, { marginBottom: 2 }]}>Hóa đơn VAT</Text>
+                    <Text style={{ fontSize: 12, color: '#64748B' }}>
+                      {hasVat 
+                        ? 'Đơn có VAT (Duyệt: Leader ➔ Kế toán giải ngân)' 
+                        : 'Đơn K° VAT (≤ 2tr: Kế toán | > 2tr: Ban Giám Đốc ➔ Kế toán)'}
+                    </Text>
                   </View>
+                  <TouchableOpacity
+                    onPress={() => setHasVat(!hasVat)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 16,
+                      backgroundColor: hasVat ? '#10B981' : '#E2E8F0'
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: hasVat ? '#FFFFFF' : '#475569' }}>
+                      {hasVat ? 'CÓ VAT' : 'K° VAT'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-              )}
+              </View>
 
               {/* Quy trình duyệt thông minh Movie Legend */}
               <View style={styles.approvalWorkflowBanner}>
@@ -1537,30 +1777,26 @@ export default function CreateRequestScreen() {
                     color={hasVat || Number(amount || 0) <= 2000000 ? '#16A34A' : '#2563EB'} 
                   />
                   <Text style={[styles.approvalWorkflowTitle, { color: hasVat || Number(amount || 0) <= 2000000 ? '#15803D' : '#1E40AF' }]}>
-                    {selectedType === 'EXPENSE'
-                      ? (hasVat 
-                          ? 'Quy trình: Có hóa đơn VAT' 
-                          : Number(amount || 0) > 2000000 
-                            ? 'Quy trình: Không VAT trên 2tr (Ban Giám Đốc duyệt)' 
-                            : 'Quy trình: Không VAT dưới 2tr (Kế toán chi)')
-                      : Number(amount || 0) > 2000000 ? 'Quy trình: Trên 2 triệu' : 'Quy trình: Dưới 2 triệu'}
+                    {hasVat 
+                      ? 'Quy trình: Có hóa đơn VAT' 
+                      : Number(amount || 0) > 2000000 
+                        ? 'Quy trình: Không VAT trên 2tr (Ban Giám Đốc duyệt)' 
+                        : 'Quy trình: Không VAT dưới 2tr (Kế toán chi)'}
                   </Text>
                 </View>
                 <Text style={styles.approvalWorkflowSubtitle}>
-                  {selectedType === 'EXPENSE'
-                    ? (hasVat
-                        ? '1. Leader PB duyệt ➔ 2. Kế toán giải ngân'
-                        : Number(amount || 0) > 2000000
-                          ? '1. Leader PB duyệt ➔ 2. Ban Giám Đốc duyệt ➔ 3. Kế toán chi'
-                          : '1. Leader PB duyệt ➔ 2. Kế toán giải ngân')
-                    : '1. Leader PB duyệt ➔ 2. Kế toán duyệt & giải ngân'}
+                  {hasVat
+                    ? '1. Leader PB duyệt ➔ 2. Kế toán giải ngân'
+                    : Number(amount || 0) > 2000000
+                      ? '1. Leader PB duyệt ➔ 2. Ban Giám Đốc duyệt ➔ 3. Kế toán chi'
+                      : '1. Leader PB duyệt ➔ 2. Kế toán giải ngân'}
                 </Text>
               </View>
 
               {/* Đính kèm minh chứng / hóa đơn */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
-                  Ảnh / Tệp minh chứng {selectedType === 'EXPENSE' ? <Text style={styles.required}>*</Text> : '(Tùy chọn)'}
+                  Ảnh / Tệp minh chứng <Text style={styles.required}>*</Text>
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handlePickPhoto}>
@@ -3175,5 +3411,194 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 20,
+  },
+  // Specific Styles for Tạm Ứng Lương (Matching SalaryAdvanceModal)
+  advanceNoticeCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+    marginBottom: 14,
+  },
+  advanceNoticeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  advanceNoticeCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  advanceNoticeCardText: {
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 18,
+  },
+  advanceWorkflowBox: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+    marginBottom: 14,
+  },
+  advanceWorkflowBoxTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
+    marginBottom: 8,
+  },
+  advanceStepsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  advanceStepCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  advanceStepCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  advanceStepCircleActive: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  advanceStepNum: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  advanceStepName: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  advanceStepSub: {
+    fontSize: 9,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 1,
+  },
+  advanceStepLine: {
+    width: 20,
+    height: 2,
+    backgroundColor: '#CBD5E1',
+    marginBottom: 14,
+  },
+  advanceAmountInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    height: 50,
+  },
+  advanceAmountInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  advanceAmountUnit: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+    marginLeft: 8,
+  },
+  advanceChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  advanceChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  advanceChipActive: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  advanceChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  advanceChipTextActive: {
+    color: '#059669',
+    fontWeight: '700',
+  },
+  advanceSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  advanceSectionHeaderTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  advanceTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    height: 46,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  advanceBankChipsScroll: {
+    marginTop: 8,
+  },
+  advanceBankChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  advanceBankChipActive: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#059669',
+  },
+  advanceBankChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  advanceBankChipTextActive: {
+    color: '#059669',
+    fontWeight: '700',
+  },
+  advanceInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
   },
 });

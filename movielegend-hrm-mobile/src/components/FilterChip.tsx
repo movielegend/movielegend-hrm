@@ -27,8 +27,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   selected: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   selectedText: {
     color: '#FFFFFF',

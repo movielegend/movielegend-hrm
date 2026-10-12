@@ -641,7 +641,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
             {likedNames.length > 0 && (
               <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'flex-start' }}>
-                <MaterialCommunityIcons name="heart" size={16} color="#111827" style={{ marginRight: 6, marginTop: 2 }} />
+                <MaterialCommunityIcons name="heart" size={16} color="#102739" style={{ marginRight: 6, marginTop: 2 }} />
                 <Text style={{ fontSize: 13, color: colors.text, flex: 1, lineHeight: 20 }}>
                   Thích bởi <Text style={{ fontWeight: '600' }}>{likedNames.join(', ')}</Text>
                 </Text>
@@ -1578,7 +1578,7 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
@@ -1604,7 +1604,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterBtnActive: {
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
   },
   filterBtnText: {
     color: '#475569',
@@ -1636,7 +1636,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -1958,7 +1958,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2014,7 +2014,7 @@ const styles = StyleSheet.create({
   },
   imagePickerText: {
     fontSize: 14,
-    color: '#111827',
+    color: '#102739',
     fontWeight: '600',
   },
   previewImage: {

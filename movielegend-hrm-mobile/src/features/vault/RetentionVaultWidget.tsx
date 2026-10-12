@@ -2253,7 +2253,7 @@ const styles = StyleSheet.create({
   shopeeMainStatus: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
   },
   shopeeAvatarCircle: {
     width: 50,

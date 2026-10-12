@@ -1,102 +1,155 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, RefreshControl, Image, Dimensions } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  RefreshControl,
+  Image,
+  Dimensions,
+  LayoutAnimation,
+} from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, unwrapData } from '../../api/client';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
-import { useCurrentAttendance, useAttendanceDashboardStats } from '../../hooks/useAttendance';
-import { useMyTasks, useTasks } from '../../hooks/useTasks';
-import { getMyVault } from '../../api/employees.api';
+import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
+import { getVaultWithdrawalRequests } from '../../api/employees.api';
 import { getEmployeeRequests } from '../../api/employee-requests.api';
-import { getNextVaultMilestone } from '../vault/vault-utils';
-import { levelingApi } from '../../api/leveling.api';
-import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
-import Toast from 'react-native-toast-message';
-import { LiveClock } from '../../components/LiveClock';
-import { ContourHeroPattern } from './components/ContourHeroPattern';
-import { spacing } from '../../theme/spacing';
+import { useNewsfeedPosts } from '../../hooks/useNewsfeed';
+import { useFeedbacksForManagement } from '../../hooks/useFeedback';
+import { FeedbackStatusBadge } from '../feedback/components/FeedbackStatusBadge';
+import { useMyTasks } from '../../hooks/useTasks';
 
-const appleTheme = {
-  bg: '#FFFFFF',
-  card: '#FFFFFF',
-  primary: '#111827',
-  textPrimary: '#111827',
-  textSecondary: '#6B7280',
-  hint: '#9CA3AF',
-  divider: '#ECEEF3',
-  blueAccent: '#3B82F6',
-  iconBg: '#F5F7FA',
-  radiusCard: 24,
-  radiusBtn: 16,
-};
+// Lucide Icons (Exact modern outline stroke matching Admin Dashboard)
+import {
+  Bell,
+  MapPin,
+  FileText,
+  ChevronRight,
+  Clock,
+  LayoutGrid,
+  Newspaper,
+  ShieldCheck,
+  MessageSquare,
+  Receipt,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+} from 'lucide-react-native';
+
+import { usePinnedApps } from '../../hooks/usePinnedApps';
+import { getAppRoute } from '../../constants/app-registry';
+import { AllServicesModal, renderAppIcon } from './components/AllServicesModal';
+import { LiveClockText } from '../../components/common/LiveClockText';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
+import { useBranches } from '../../api/branches.api';
+import { SelectModal, type SelectOption } from '../../components/SelectModal';
+import * as SecureStore from 'expo-secure-store';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function HRDashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
-  const { data: unreadChat = 0 } = useUnreadChatCount();
-  const { data: currentAttendance } = useCurrentAttendance();
-  const [activeTab, setActiveTab] = useState<'TASKS' | 'ACTIVITY'>('TASKS');
-  
-  const { data: myTasks } = useMyTasks({ limit: 10 });
-  const { data: delegatedTasks } = useTasks({ 
-    createdById: user?.id,
-    limit: 10 
-  });
-  const myTasksUncompletedCount = myTasks?.items?.filter(t => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
-  
-  const { data: dashboardData } = useQuery({
-    queryKey: ['admin-dashboard-summary'],
-    queryFn: async () => {
-      const response = await apiClient.get('/dashboard/admin');
-      return unwrapData(response) as any;
-    }
-  });
+  const tabBarScroll = useTabBarScroll();
 
-  const { data: myVault } = useQuery({
-    queryKey: ['my-vault', user?.id],
-    queryFn: getMyVault,
-    enabled: Boolean(user?.id),
-  });
-
-  const { data: levelProgress } = useQuery({
-    queryKey: ['my-level-progress', user?.id],
-    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
-    enabled: Boolean(user?.id),
-  });
-
-  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || 5;
-  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#FF9800';
-  const levelTitle = levelProgress?.currentLevel?.displayName || levelProgress?.currentLevel?.badgeTitle || LEVEL_DEFAULT_NAMES[currentLevelNumber] || `Cấp ${currentLevelNumber}`;
-
-  const isVaultEnabled = Boolean(myVault?.isVaultEnabled || user?.isRewardVaultEnabled);
-  const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
-  const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
-
-  const vaultMilestone = useMemo(() => {
-    return getNextVaultMilestone(myVault, new Date());
-  }, [myVault]);
-
-  const currentDateStr = new Date().toISOString().split('T')[0];
-  const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
-
+  // State
   const [refreshing, setRefreshing] = useState(false);
+  const [showAllServicesModal, setShowAllServicesModal] = useState(false);
+  const [modalEditMode, setModalEditMode] = useState(false);
+  const [isQuickExpanded, setIsQuickExpanded] = useState(false);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await queryClient.invalidateQueries();
-    setRefreshing(false);
-  }, [queryClient]);
-
+  // Role detection
   const isAccountant = Boolean(user?.roles?.includes('ACCOUNTANT'));
   const isOnlyAccountant = isAccountant && !user?.roles?.includes('HR') && !user?.roles?.includes('ADMIN');
 
+  // Branches System
+  const branchesQuery = useBranches();
+  const branches = useMemo(() => branchesQuery.data || [], [branchesQuery.data]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+  const [showBranchModal, setShowBranchModal] = useState(false);
+
+  React.useEffect(() => {
+    SecureStore.getItemAsync('HR_ACTIVE_BRANCH_ID')
+      .then((savedId) => {
+        if (savedId) {
+          setSelectedBranchId(savedId);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const activeBranch = useMemo(() => {
+    if (selectedBranchId) {
+      const found = branches.find((b) => b.id === selectedBranchId);
+      if (found) return found;
+    }
+    if ((user?.department as any)?.branch) return (user?.department as any).branch;
+    const hanoi = branches.find((b) => b.name?.includes('HÀ NỘI') || b.name?.includes('Hà Nội'));
+    return hanoi || branches[0] || null;
+  }, [branches, selectedBranchId, user?.department]);
+
+  const branchOptions: SelectOption[] = useMemo(() => {
+    return branches.map((b) => ({
+      label: b.name,
+      value: b.id,
+      subtitle: b.address,
+    }));
+  }, [branches]);
+
+  const handleSelectBranch = (option: SelectOption) => {
+    setSelectedBranchId(option.value);
+    SecureStore.setItemAsync('HR_ACTIVE_BRANCH_ID', option.value).catch(() => {});
+  };
+
+  // Pinned Apps System (1 dòng 4 app ban đầu, dropdown mở rộng app phụ + Tất cả)
+  const { row1Apps, extraPinnedApps } = usePinnedApps();
+
+  const handleToggleQuickExpanded = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsQuickExpanded(prev => !prev);
+  }, []);
+
+  // Notifications & Chats
+  const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
+  const { data: unreadChat = 0 } = useUnreadChatCount();
+
+  // Dashboard API Stats
+  const { data: dashboardData } = useQuery({
+    queryKey: ['hr-dashboard-summary'],
+    queryFn: async () => {
+      const response = await apiClient.get('/dashboard/admin');
+      return unwrapData(response) as any;
+    },
+  });
+
+  // Attendance Stats
+  const currentDateStr = new Date().toISOString().split('T')[0];
+  const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
+
+  // Pending Employee Requests (for "Đơn chờ duyệt")
+  const { data: pendingRequests = [] } = useQuery({
+    queryKey: ['hr-pending-requests-count'],
+    queryFn: async () => {
+      try {
+        const res = await getEmployeeRequests({ status: 'PENDING' });
+        const list = Array.isArray(res) ? res : [];
+        return list.filter((r: any) => r.status === 'PENDING');
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 1000 * 30,
+  });
+
+  // Financial Requests (for Kế toán / Duyệt tài chính)
   const { data: allFinancialRequests = [] } = useQuery({
     queryKey: ['financial-employee-requests'],
     queryFn: () => getEmployeeRequests(),
@@ -105,1459 +158,1336 @@ export function HRDashboard() {
 
   const pendingFinancialCount = useMemo(() => {
     return (allFinancialRequests || []).filter(
-      (r: any) => ['EXPENSE', 'PURCHASE', 'ADVANCE'].includes(r.type) && ['PENDING', 'PENDING_HR_MANAGER', 'PENDING_LEADER'].includes(r.status)
+      (r: any) =>
+        ['EXPENSE', 'PURCHASE', 'ADVANCE'].includes(r.type) &&
+        ['PENDING', 'PENDING_HR_MANAGER', 'PENDING_LEADER'].includes(r.status)
     ).length;
   }, [allFinancialRequests]);
 
-  const dateString = new Date().toLocaleDateString('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+  // Due Tasks (for "Công việc đến hạn")
+  const { data: myTasks } = useMyTasks({ limit: 20 });
+  const dueTasksCount = useMemo(() => {
+    const list = myTasks?.items || [];
+    return list.filter((t: any) => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length;
+  }, [myTasks]);
 
+  // Feedbacks (for "Hòm thư góp ý")
+  const { data: adminFeedbacksData } = useFeedbacksForManagement({ limit: 5 });
+  const latestFeedback = useMemo(() => {
+    const list = Array.isArray(adminFeedbacksData)
+      ? adminFeedbacksData
+      : (adminFeedbacksData as any)?.items || [];
+    return list.length > 0 ? list[0] : null;
+  }, [adminFeedbacksData]);
+
+  // Newsfeed (for "Bảng tin nội bộ")
+  const { data: newsPosts = [] } = useNewsfeedPosts();
+  const latestPost = useMemo(() => {
+    const list = Array.isArray(newsPosts) ? newsPosts : (newsPosts as any)?.items || [];
+    return list.length > 0 ? list[0] : null;
+  }, [newsPosts]);
+
+  // Vault count
+  const { data: withdrawalData } = useQuery({
+    queryKey: ['hr-pending-withdrawals-count'],
+    queryFn: () => getVaultWithdrawalRequests({ limit: 1 }),
+    staleTime: 1000 * 30,
+  });
+  const pendingAdminVaultCount =
+    (withdrawalData as any)?.counts?.PENDING_ADMIN ??
+    (withdrawalData as any)?.meta?.pendingAdminCount ??
+    0;
+
+  // Refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  }, [queryClient]);
+
+  // Greeting by hour
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'CHÀO BUỔI SÁNG,';
+    if (hour < 18) return 'CHÀO BUỔI CHIỀU,';
+    return 'CHÀO BUỔI TỐI,';
+  };
+
+  // Avatar Initials
   const getInitials = (name?: string) => {
     if (!name) return isOnlyAccountant ? 'KT' : 'HR';
     const words = name.trim().split(' ').filter(Boolean);
-    const firstWord = words[0];
-    const lastWord = words[words.length - 1];
-    if (words.length >= 2 && firstWord && lastWord && firstWord[0] && lastWord[0]) {
-      return (firstWord[0] + lastWord[0]).toUpperCase();
+    if (words.length >= 2) {
+      const first = words[0]?.charAt(0) || '';
+      const last = words[words.length - 1]?.charAt(0) || '';
+      return `${first}${last}`.toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
   };
 
-  return (
-    <Screen backgroundColor="#FAFAFA">
-      <ScrollView
-        contentContainerStyle={[
-          styles.container,
-          { paddingBottom: Math.max(insets.bottom, 24) + 90 },
-        ]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.userInfoWrapper}>
-            <Pressable 
-              style={styles.avatarWrapper}
-              onPress={() => router.push('/hr/leveling' as any)}
-            >
-              <View style={styles.avatar}>
-                {user?.avatarUrl ? (
-                  <Image source={{ uri: user.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
-                ) : (
-                  <Text style={styles.avatarText}>{getInitials(user?.fullName)}</Text>
-                )}
-              </View>
-              {/* Level Rank Badge on Avatar */}
-              <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
-                <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
-              </View>
-            </Pressable>
+  // Formatted date (DD.MM.YYYY e.g. 12.10.2026 đặt vào góc phải thay cho lời chào)
+  const formattedTodayDate = useMemo(() => {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}.${month}.${year}`;
+  }, []);
 
-            <View style={styles.userInfo}>
-              <View style={styles.greetingRow}>
-                <Text style={styles.greetingText}>Xin chào 👋</Text>
-                <Pressable
-                  style={[
-                    styles.levelPill,
-                    { backgroundColor: `${levelColor}15`, borderColor: `${levelColor}40` },
-                  ]}
-                  onPress={() => router.push('/hr/leveling' as any)}
-                >
-                  <MaterialCommunityIcons name="crown" size={12} color={levelColor} />
-                  <Text style={[styles.levelPillText, { color: levelColor }]}>
-                    Lv.{currentLevelNumber}
-                  </Text>
-                </Pressable>
-              </View>
-              <Text style={styles.userName} numberOfLines={1}>{user?.fullName || (isOnlyAccountant ? 'Kế toán viên' : 'HR Manager')}</Text>
-              {isOnlyAccountant ? (
-                <Text style={{ fontSize: 12, color: '#059669', fontWeight: '600', marginTop: 1 }}>Kế toán & Tài chính</Text>
-              ) : (
-                <Text style={styles.dateText}>{dateString}</Text>
-              )}
-            </View>
+  const pendingRequestCount = pendingRequests.length;
+  const dueTaskCount = dueTasksCount;
+  const openTasks = dueTasksCount > 0 ? dueTasksCount : (dashboardData?.tasks?.totalActive ?? 0);
+
+  return (
+    <Screen
+      backgroundColor="#F8FAFC"
+      edges={['left', 'right']}
+      statusBarStyle="light"
+      statusBarTranslucent
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContainer,
+          { paddingBottom: Math.max(insets.bottom, 24) + 80 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+      >
+        {/* Top overscroll guard: màu xanh khớp đỉnh header khi kéo xuống */}
+        <View pointerEvents="none" style={styles.topOverscrollFill} />
+
+        {/* ================= 1. HEADER (#102739 - Matching Profile & Admin Screen) ================= */}
+        <View style={[styles.glossyHeader, { paddingTop: Math.max(insets.top, 16) + 6 }]}>
+          {/* Subtle Decorative Wave Curve Background - Matching Profile */}
+          <View style={styles.decorativeCurve} />
+
+          {/* Brand Identity: movielegend PEOPLE */}
+          <View style={styles.brandRow}>
+            <Text style={styles.brandTitle}>movielegend</Text>
+            <Text style={styles.brandSubtitle}>PEOPLE</Text>
           </View>
-          <View style={styles.headerRight}>
-            <Pressable style={styles.iconBtn} onPress={() => router.navigate('/hr/(tabs)/notifications' as any)}>
-              <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadNotifications > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadNotifications > 99 ? '99+' : unreadNotifications}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-            <Pressable style={styles.iconBtn} onPress={() => router.navigate('/hr/chat' as any)}>
-              <MaterialCommunityIcons name="chat-outline" size={24} color="#111827" />
-              {unreadChat > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {unreadChat > 99 ? '99+' : unreadChat}
-                  </Text>
-                </View>
-              )}
+
+          {/* User Bar with Glossy Glass Bell */}
+          <View style={styles.userRow}>
+            <View style={styles.userInfoLeft}>
+              {/* Avatar circle */}
+              <Pressable
+                style={styles.avatarContainer}
+                onPress={() => router.push('/hr/leveling' as any)}
+              >
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarInitialsText}>{getInitials(user?.fullName)}</Text>
+                )}
+              </Pressable>
+
+              {/* Greeting & Name */}
+              <View style={styles.userTextCol}>
+                <Text style={styles.greetingText}>{getGreeting()}</Text>
+                <Text style={styles.userNameText} numberOfLines={1}>
+                  {user?.fullName || (isOnlyAccountant ? 'Nguyễn Văn Kế Toán' : 'HR Movie Legend')}
+                </Text>
+              </View>
+            </View>
+
+            {/* Frosted Glass Notification Bell Button */}
+            <Pressable
+              style={styles.bellButton}
+              onPress={() => router.push('/hr/notifications' as any)}
+            >
+              <Bell size={22} color="#FFFFFF" strokeWidth={1.5} />
+              {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
             </Pressable>
           </View>
         </View>
 
-        {/* Hero Card (Đã chấm công) */}
-        <Pressable
-          style={styles.heroButton}
-          onPress={async () => {
-            try {
-              if (currentAttendance?.state === 'CHECKED_IN') {
-                router.push('/hr/attendance/check-out');
-              } else {
-                router.push('/hr/attendance/check-in');
-              }
-            } catch (error) {
-              Toast.show({
-                type: 'error',
-                text1: 'Lỗi',
-                text2: 'Không thể kiểm tra kết nối mạng.',
-              });
-            }
-          }}
-        >
-          <View style={styles.heroCardInner}>
+        {/* ================= 2. HERO CARD (OVERVIEW WHITE CARD CÓ RIPPLE) ================= */}
+        <View style={styles.heroCardWrapper}>
+          <View style={styles.heroCard}>
             {/* Vân địa hình hữu cơ / Topographic contour ripples */}
-            <ContourHeroPattern variant="slate" />
-
-            {/* Top Status Header */}
-            <View style={styles.heroHeaderRow}>
-              <MaterialCommunityIcons 
-                name={currentAttendance?.state === 'CHECKED_IN' ? 'clock-check-outline' : currentAttendance?.state === 'CHECKED_OUT' ? 'check-all' : 'clock-outline'} 
-                size={18} 
-                color={currentAttendance?.state === 'CHECKED_IN' ? '#0284C7' : '#475569'} 
+            <View pointerEvents="none" style={styles.heroTopographicWrapper}>
+              <Image
+                source={
+                  isOnlyAccountant
+                    ? require('../../../assets/topographic-contour-accountant-v2.png')
+                    : require('../../../assets/topographic-contour-hr-v2.png')
+                }
+                style={styles.heroTopographicBg}
+                resizeMode="cover"
               />
-              <Text style={[styles.heroStatusText, currentAttendance?.state === 'CHECKED_IN' && { color: '#0284C7', fontWeight: '700' }]}>
-                {currentAttendance?.state === 'CHECKED_IN' ? 'Đang trong ca • Chạm để Ra ca' : currentAttendance?.state === 'CHECKED_OUT' ? 'Đã hoàn thành ca làm' : 'Vào ca / Chấm công'}
+            </View>
+
+            {/* Top row inside card: Role Tag + Ngày hôm nay thay lời chào */}
+            <View style={styles.cardHeaderRow}>
+              <View
+                style={[
+                  styles.adminRoleTag,
+                  isOnlyAccountant ? { backgroundColor: '#ECFDF5' } : { backgroundColor: '#E0F2FE' },
+                ]}
+              >
+                {isOnlyAccountant ? (
+                  <>
+                    <Receipt size={14} color="#059669" strokeWidth={1.8} />
+                    <Text style={[styles.adminRoleTagText, { color: '#059669' }]}>
+                      Kế toán & Tài chính
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={14} color="#0284C7" strokeWidth={1.8} />
+                    <Text style={[styles.adminRoleTagText, { color: '#0284C7' }]}>
+                      Quản trị Nhân sự
+                    </Text>
+                  </>
+                )}
+              </View>
+              <Text style={styles.cardHeaderDateText}>
+                {formattedTodayDate}
               </Text>
             </View>
 
-            {/* Main Clock */}
-            <View style={styles.heroTimeWrapper}>
-              <LiveClock style={styles.heroTimeText} />
+            {/* Big Bold Live Time: 17:50:29 */}
+            <View style={styles.dateNumberRow}>
+              <LiveClockText style={styles.bigDateNumberText} />
             </View>
 
-            {/* Bottom Row */}
-            <View style={styles.heroFooterRow}>
-              <View style={styles.locationWrapper}>
-                <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
-                <Text style={styles.locationText}>Văn phòng Hà Nội</Text>
-              </View>
+            {/* Bottom 2-Column Metrics Row */}
+            <View style={styles.cardMetricsRow}>
+              {/* Col 1: Location / Branch Picker */}
+              <Pressable
+                style={styles.metricColLocation}
+                onPress={() => setShowBranchModal(true)}
+              >
+                <MapPin size={13} color="#000000" strokeWidth={1.8} />
+                <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
+                  {activeBranch?.name || 'MOVIELEGEND-HÀ NỘI'}
+                </Text>
+                <ChevronDown size={11} color="#000000" strokeWidth={2} style={{ marginLeft: 2 }} />
+              </Pressable>
+
+              {/* Col 2: Metric on right (Đơn tài chính hoặc Công việc mở) */}
+              <Pressable
+                style={styles.metricColStatRight}
+                onPress={() => {
+                  if (isOnlyAccountant) {
+                    router.push('/hr/financial-requests' as any);
+                  } else {
+                    router.push('/hr/my-tasks' as any);
+                  }
+                }}
+              >
+                <Text style={styles.metricLabelCaps} numberOfLines={1}>
+                  {isOnlyAccountant ? 'ĐƠN TÀI CHÍNH' : 'CÔNG VIỆC MỞ'}
+                </Text>
+                <Text style={styles.metricNumberValue}>
+                  {isOnlyAccountant ? pendingFinancialCount : openTasks}
+                </Text>
+              </Pressable>
             </View>
           </View>
-        </Pressable>
+        </View>
 
-        {/* Hub Cấp Bậc & Ví Thưởng (Thẻ gộp chung chuẩn Apple UI) */}
-        <View style={styles.hubContainer}>
-          <View style={styles.hubCard}>
-            {/* Segment 1: Cấp Bậc Hiện Tại & Tiến Độ */}
-            <Pressable
-              style={styles.hubSegment}
-              onPress={() => router.push('/hr/leveling' as any)}
-            >
-              <View style={styles.hubRow}>
-                <View style={[styles.hubIconCircle, { backgroundColor: `${levelColor}15` }]}>
-                  <MaterialCommunityIcons name="crown" size={20} color={levelColor} />
-                </View>
-                <View style={styles.hubInfoBlock}>
-                  <View style={styles.hubTitleRow}>
-                    <Text style={styles.hubTitle} numberOfLines={1}>
-                      Level {currentLevelNumber}: {levelTitle}
-                    </Text>
-                    <View style={[styles.hubTag, { backgroundColor: `${levelColor}15` }]}>
-                      <Text style={[styles.hubTagText, { color: levelColor }]}>Lv.{currentLevelNumber}</Text>
-                    </View>
+        {/* Content Body */}
+        <View style={styles.contentBody}>
+          {/* ================= 3. CẦN BẠN XỬ LÝ ================= */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionMainTitle}>Cần bạn xử lý</Text>
+            </View>
+
+            {/* Item 1: Đơn tài chính (Accountant) hoặc Đơn chờ duyệt (HR) */}
+            {isOnlyAccountant ? (
+              <Pressable
+                style={styles.actionCard}
+                onPress={() => router.push('/hr/financial-requests' as any)}
+              >
+                <View style={styles.actionCardLeft}>
+                  <View style={[styles.actionIconBox, { backgroundColor: '#ECFDF5' }]}>
+                    <Receipt size={22} color="#059669" strokeWidth={1.5} />
                   </View>
-                  <Text style={styles.hubSubtitle}>
-                    {levelProgress?.nextLevel
-                      ? `Tiến độ lên Level ${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
-                      : 'Cấp bậc danh dự tối cao'}
+                  <View style={styles.actionCardTexts}>
+                    <Text style={styles.actionCardTitle}>Duyệt chi & Đơn tài chính</Text>
+                    <Text style={styles.actionCardDesc}>Tạm ứng, mua sắm, hoàn ứng</Text>
+                  </View>
+                </View>
+
+                <View style={styles.actionCardRight}>
+                  <View style={styles.coralBadge}>
+                    <Text style={styles.coralBadgeText}>
+                      {String(pendingFinancialCount).padStart(2, '0')}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color="#94A3B8" strokeWidth={1.4} />
+                </View>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.actionCard}
+                onPress={() => router.push('/hr/employee-requests' as any)}
+              >
+                <View style={styles.actionCardLeft}>
+                  <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
+                    <FileText size={22} color="#102739" strokeWidth={1.4} />
+                  </View>
+                  <View style={styles.actionCardTexts}>
+                    <Text style={styles.actionCardTitle}>Đơn chờ duyệt</Text>
+                    <Text style={styles.actionCardDesc}>Nghỉ phép, tăng ca</Text>
+                  </View>
+                </View>
+
+                <View style={styles.actionCardRight}>
+                  <View style={styles.coralBadge}>
+                    <Text style={styles.coralBadgeText}>
+                      {String(pendingRequestCount).padStart(2, '0')}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color="#94A3B8" strokeWidth={1.4} />
+                </View>
+              </Pressable>
+            )}
+
+            {/* Item 2: Công việc đến hạn */}
+            <Pressable
+              style={[styles.actionCard, { marginTop: 10 }]}
+              onPress={() => router.push('/hr/my-tasks' as any)}
+            >
+              <View style={styles.actionCardLeft}>
+                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
+                  <Clock size={22} color="#102739" strokeWidth={1.4} />
+                </View>
+                <View style={styles.actionCardTexts}>
+                  <Text style={styles.actionCardTitle}>Công việc đến hạn</Text>
+                  <Text style={styles.actionCardDesc}>Cần hoàn thành hôm nay</Text>
+                </View>
+              </View>
+
+              <View style={styles.actionCardRight}>
+                <View style={styles.coralBadge}>
+                  <Text style={styles.coralBadgeText}>
+                    {String(dueTaskCount).padStart(2, '0')}
                   </Text>
                 </View>
-                <View style={[styles.hubActionBtn, { backgroundColor: `${levelColor}10` }]}>
-                  <Text style={[styles.hubActionText, { color: levelColor }]}>Lộ trình</Text>
-                  <MaterialCommunityIcons name="chevron-right" size={14} color={levelColor} />
+                <ChevronRight size={18} color="#94A3B8" strokeWidth={1.4} />
+              </View>
+            </Pressable>
+          </View>
+
+          {/* ================= 4. TRUY CẬP NHANH (BOX TRẮNG CÓ NÚT ĐẨY XUỐNG) ================= */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionMainTitle}>Truy cập nhanh</Text>
+              <Pressable
+                onPress={() => {
+                  setModalEditMode(true);
+                  setShowAllServicesModal(true);
+                }}
+              >
+                <Text style={styles.customizeLink}>Tùy chỉnh</Text>
+              </Pressable>
+            </View>
+
+            {/* Box trắng bo góc chứa 1 dòng 4 icons và dropdown mở rộng khi bấm nút mũi tên */}
+            <View style={styles.quickAccessBox}>
+              {/* Row 1: 4 app đầu tiên luôn hiển thị trên 1 dòng */}
+              <View style={styles.quickGrid4Row}>
+                {row1Apps.map((item) => {
+                  const route = getAppRoute(item, 'HR');
+                  const badge =
+                    item.badgeKey === 'pendingRequests'
+                      ? (pendingRequestCount > 0 ? pendingRequestCount : undefined)
+                      : item.badgeKey === 'dueTasks'
+                      ? (dueTaskCount > 0 ? dueTaskCount : undefined)
+                      : item.badgeKey === 'pendingFinancial'
+                      ? (pendingFinancialCount > 0 ? pendingFinancialCount : undefined)
+                      : undefined;
+
+                  return (
+                    <QuickGrid8Item
+                      key={item.key}
+                      title={item.title}
+                      bgColor={item.bgColor}
+                      badge={badge}
+                      icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
+                      onPress={() => {
+                        if (route) router.push(route as any);
+                      }}
+                    />
+                  );
+                })}
+              </View>
+
+              {/* Dropdown Rows: Hiển thị khi bấm nút mũi tên xuống */}
+              {isQuickExpanded && (
+                <View style={styles.extraRowsContainer}>
+                  {extraPinnedApps.length <= 3 ? (
+                    /* Hàng 2: các app phụ + nút Thêm + ô trống + nút Tất cả ở ô thứ 4 */
+                    <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                      {extraPinnedApps.map((item) => {
+                        const route = getAppRoute(item, 'HR');
+                        return (
+                          <QuickGrid8Item
+                            key={item.key}
+                            title={item.title}
+                            bgColor={item.bgColor}
+                            icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
+                            onPress={() => {
+                              if (route) router.push(route as any);
+                            }}
+                          />
+                        );
+                      })}
+
+                      {/* Nút Thêm lối tắt nếu chưa đủ 3 app phụ */}
+                      <Pressable
+                        style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
+                        onPress={() => {
+                          setModalEditMode(true);
+                          setShowAllServicesModal(true);
+                        }}
+                      >
+                        <View style={[styles.quickIconBox8, styles.quickIconBoxAdd]}>
+                          <Plus size={22} color="#94A3B8" strokeWidth={1.4} />
+                        </View>
+                        <Text style={[styles.quickGrid8Label, { color: '#64748B' }]} numberOfLines={1}>
+                          Thêm
+                        </Text>
+                      </Pressable>
+
+                      {/* Ô trống để căn đều 4 cột */}
+                      {Array.from({ length: Math.max(0, 2 - extraPinnedApps.length) }).map((_, emptyIdx) => (
+                        <View key={`empty-${emptyIdx}`} style={styles.quickGrid8Item} />
+                      ))}
+
+                      {/* Ô thứ 4 luôn là "Tất cả" */}
+                      <QuickGrid8Item
+                        title="Tất cả"
+                        bgColor="#F1F5F9"
+                        icon={<LayoutGrid size={22} color="#475569" strokeWidth={1.4} />}
+                        onPress={() => {
+                          setModalEditMode(false);
+                          setShowAllServicesModal(true);
+                        }}
+                      />
+                    </View>
+                  ) : (
+                    /* Khi có từ 4 app phụ trở lên */
+                    <>
+                      {/* Hàng 2: 4 app phụ đầu tiên */}
+                      <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                        {extraPinnedApps.slice(0, 4).map((item) => {
+                          const route = getAppRoute(item, 'HR');
+                          return (
+                            <QuickGrid8Item
+                              key={item.key}
+                              title={item.title}
+                              bgColor={item.bgColor}
+                              icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
+                              onPress={() => {
+                                if (route) router.push(route as any);
+                              }}
+                            />
+                          );
+                        })}
+                      </View>
+
+                      {/* Hàng 3: app phụ còn lại + Thêm (nếu còn chỗ) + Tất cả */}
+                      {extraPinnedApps.slice(4).length <= 2 && (
+                        <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                          {extraPinnedApps.slice(4).map((item) => {
+                            const route = getAppRoute(item, 'HR');
+                            return (
+                              <QuickGrid8Item
+                                key={item.key}
+                                title={item.title}
+                                bgColor={item.bgColor}
+                                icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
+                                onPress={() => {
+                                  if (route) router.push(route as any);
+                                }}
+                              />
+                            );
+                          })}
+                          <Pressable
+                            style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
+                            onPress={() => { setModalEditMode(true); setShowAllServicesModal(true); }}
+                          >
+                            <View style={[styles.quickIconBox8, styles.quickIconBoxAdd]}>
+                              <Plus size={22} color="#94A3B8" strokeWidth={1.4} />
+                            </View>
+                            <Text style={[styles.quickGrid8Label, { color: '#64748B' }]} numberOfLines={1}>Thêm</Text>
+                          </Pressable>
+                          {Array.from({ length: Math.max(0, 2 - extraPinnedApps.slice(4).length) }).map((_, i) => (
+                            <View key={`empty-r3-${i}`} style={styles.quickGrid8Item} />
+                          ))}
+                          <QuickGrid8Item
+                            title="Tất cả" bgColor="#E7F0F7"
+                            icon={<LayoutGrid size={22} color="#102739" strokeWidth={1.4} />}
+                            onPress={() => { setModalEditMode(false); setShowAllServicesModal(true); }}
+                          />
+                        </View>
+                      )}
+                      {extraPinnedApps.slice(4).length === 3 && (
+                        <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                          {extraPinnedApps.slice(4).map((item) => {
+                            const route = getAppRoute(item, 'HR');
+                            return (
+                              <QuickGrid8Item
+                                key={item.key}
+                                title={item.title}
+                                bgColor={item.bgColor}
+                                icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
+                                onPress={() => {
+                                  if (route) router.push(route as any);
+                                }}
+                              />
+                            );
+                          })}
+                          <QuickGrid8Item
+                            title="Tất cả" bgColor="#E7F0F7"
+                            icon={<LayoutGrid size={22} color="#102739" strokeWidth={1.4} />}
+                            onPress={() => { setModalEditMode(false); setShowAllServicesModal(true); }}
+                          />
+                        </View>
+                      )}
+                      {extraPinnedApps.slice(4).length >= 4 && (
+                        <>
+                          <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                            {extraPinnedApps.slice(4).map((item) => {
+                              const route = getAppRoute(item, 'HR');
+                              return (
+                                <QuickGrid8Item
+                                  key={item.key}
+                                  title={item.title}
+                                  bgColor={item.bgColor}
+                                  icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
+                                  onPress={() => {
+                                    if (route) router.push(route as any);
+                                  }}
+                                />
+                              );
+                            })}
+                          </View>
+                          <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                            <Pressable
+                              style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
+                              onPress={() => { setModalEditMode(true); setShowAllServicesModal(true); }}
+                            >
+                              <View style={[styles.quickIconBox8, styles.quickIconBoxAdd]}>
+                                <Plus size={22} color="#94A3B8" strokeWidth={1.4} />
+                              </View>
+                              <Text style={[styles.quickGrid8Label, { color: '#64748B' }]} numberOfLines={1}>Thêm</Text>
+                            </Pressable>
+                            <View style={styles.quickGrid8Item} />
+                            <View style={styles.quickGrid8Item} />
+                            <QuickGrid8Item
+                              title="Tất cả" bgColor="#F1F5F9"
+                              icon={<LayoutGrid size={22} color="#475569" strokeWidth={1.4} />}
+                              onPress={() => { setModalEditMode(false); setShowAllServicesModal(true); }}
+                            />
+                          </View>
+                        </>
+                      )}
+                    </>
+                  )}
+                </View>
+              )}
+
+              {/* Nút mũi tên xuống (Chevron Down / Up) thiết kế capsule tinh tế */}
+              <Pressable
+                style={styles.expandToggleButton}
+                onPress={handleToggleQuickExpanded}
+                hitSlop={8}
+              >
+                <View style={styles.expandTogglePill}>
+                  {isQuickExpanded ? (
+                    <ChevronUp size={18} color="#64748B" strokeWidth={1.5} />
+                  ) : (
+                    <ChevronDown size={18} color="#64748B" strokeWidth={1.5} />
+                  )}
+                </View>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* ================= 5. HÒM THƯ GÓP Ý ================= */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionMainTitle}>Hòm thư góp ý</Text>
+              <Pressable onPress={() => router.push('/hr/feedbacks' as any)}>
+                <Text style={styles.customizeLink}>Xem tất cả &gt;</Text>
+              </Pressable>
+            </View>
+
+            {latestFeedback ? (
+              <Pressable
+                style={styles.feedbackCard}
+                onPress={() => router.push(`/hr/feedbacks/${latestFeedback.id}` as any)}
+              >
+                <View style={styles.feedbackCardHeader}>
+                  <View style={styles.feedbackLeftHeader}>
+                    <View style={styles.feedbackIconCircle}>
+                      <MessageSquare size={16} color="#0284C7" strokeWidth={1.4} />
+                    </View>
+                    <Text style={styles.feedbackTitle} numberOfLines={1}>
+                      {latestFeedback.title}
+                    </Text>
+                  </View>
+                  <FeedbackStatusBadge status={latestFeedback.status} />
+                </View>
+
+                <Text style={styles.feedbackContentSnippet} numberOfLines={2}>
+                  {latestFeedback.content}
+                </Text>
+
+                <View style={styles.feedbackFooter}>
+                  <Text style={styles.feedbackDateText}>
+                    {latestFeedback.senderDisplayName ? `Từ: ${latestFeedback.senderDisplayName} • ` : ''}
+                    {latestFeedback.createdAt ? new Date(latestFeedback.createdAt).toLocaleDateString('vi-VN') : ''}
+                  </Text>
+                  <View style={styles.feedbackActionRow}>
+                    <Text style={styles.feedbackActionHint}>Xử lý</Text>
+                    <ChevronRight size={15} color="#0284C7" strokeWidth={1.4} />
+                  </View>
+                </View>
+              </Pressable>
+            ) : (
+              <View style={styles.feedbackEmptyCard}>
+                <View style={styles.feedbackEmptyIconBox}>
+                  <MessageSquare size={22} color="#0284C7" strokeWidth={1.4} />
+                </View>
+                <View style={styles.feedbackEmptyInfo}>
+                  <Text style={styles.feedbackEmptyTitle}>Chưa có góp ý mới</Text>
+                  <Text style={styles.feedbackEmptyDesc} numberOfLines={2}>
+                    Các góp ý và đề xuất cải tiến từ nhân viên toàn công ty sẽ hiển thị tại đây.
+                  </Text>
                 </View>
               </View>
+            )}
+          </View>
 
-              {/* Progress Bar */}
-              <View style={styles.hubProgressTrack}>
-                <View
-                  style={[
-                    styles.hubProgressFill,
-                    {
-                      width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
-                      backgroundColor: levelColor,
-                    },
-                  ]}
-                />
+          {/* ================= 6. BẢNG TIN NỘI BỘ (Chỉ hiển thị khi có bài viết thật) ================= */}
+          {latestPost && (
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionMainTitle}>Bảng tin nội bộ</Text>
+                <Pressable onPress={() => router.push('/hr/newsfeed' as any)}>
+                  <Text style={styles.customizeLink}>Xem tất cả &gt;</Text>
+                </Pressable>
               </View>
-              <View style={styles.hubProgressFooter}>
-                <Text style={styles.hubProgressLabel}>
-                  {levelProgress?.nextLevel
-                    ? `Mục tiêu thăng cấp Level ${levelProgress.nextLevel.levelNumber}`
-                    : 'Đã hoàn tất tiến độ cấp'}
-                </Text>
-                <Text style={[styles.hubProgressPercent, { color: levelColor }]}>
-                  {levelProgress?.overallProgressPercent || 0}%
-                </Text>
-              </View>
-            </Pressable>
 
-            {/* Segment 2: Ví Thưởng Tích Lũy (Hiển thị khi mở ví) */}
-            {isVaultEnabled && (
-              <>
-                <View style={styles.hubDivider} />
-                <Pressable
-                  style={styles.hubSegment}
-                  onPress={() => router.push('/hr/vault' as any)}
-                >
-                  <View style={styles.hubRow}>
-                    <View style={[styles.hubIconCircle, { backgroundColor: '#F1F5F9' }]}>
-                      <MaterialCommunityIcons name="wallet-outline" size={20} color="#1E293B" />
-                    </View>
-                    <View style={styles.hubInfoBlock}>
-                      <View style={styles.hubTitleRow}>
-                        <Text style={styles.hubTitle} numberOfLines={1}>Ví Thưởng Tích Lũy</Text>
-                        <View style={styles.vaultBadge}>
-                          <Text style={styles.vaultBadgeText}>Đặc quyền</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.hubSubtitle}>
-                        Khả dụng: <Text style={styles.hubSubtitleGreen}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
-                        {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
-                      </Text>
-                    </View>
-                    <View style={styles.vaultActionBtn}>
-                      <Text style={styles.vaultActionText}>Chi tiết</Text>
-                      <MaterialCommunityIcons name="chevron-right" size={14} color="#475569" />
-                    </View>
+              <Pressable
+                style={styles.newsCard}
+                onPress={() => router.push('/hr/newsfeed' as any)}
+              >
+                {((latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl) ? (
+                  <Image
+                    source={{
+                      uri: (latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl,
+                    }}
+                    style={styles.newsThumbnail}
+                  />
+                ) : (
+                  <View style={[styles.newsThumbnail, styles.newsThumbnailFallback]}>
+                    <Newspaper size={26} color="#2563EB" strokeWidth={1.4} />
+                  </View>
+                )}
+
+                <View style={styles.newsContent}>
+                  <View style={styles.newsTagPill}>
+                    <Text style={styles.newsTagText}>NỘI BỘ</Text>
                   </View>
 
-                  {vaultMilestone ? (
-                    <>
-                      <View style={styles.hubProgressTrack}>
-                        <View
-                          style={[
-                            styles.hubProgressFill,
-                            {
-                              width: `${Math.min(100, Math.max(4, vaultMilestone.progressPercent))}%`,
-                              backgroundColor: vaultMilestone.isAllUnlocked ? '#059669' : '#2563EB',
-                            },
-                          ]}
-                        />
-                      </View>
-                      <View style={styles.hubProgressFooter}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                          <MaterialCommunityIcons
-                            name={vaultMilestone.isAllUnlocked ? 'check-decagram' : 'timer-sand'}
-                            size={12}
-                            color={vaultMilestone.isAllUnlocked ? '#059669' : '#64748B'}
-                          />
-                          <Text style={styles.vaultCountdownLabel}>
-                            {vaultMilestone.isAllUnlocked
-                              ? 'Đã mở khóa tất cả đợt'
-                              : `Mở ${vaultMilestone.title} (${vaultMilestone.unlockDateFormatted})`}
-                          </Text>
-                        </View>
-                        <Text style={styles.vaultCountdownTime}>
-                          {vaultMilestone.isAllUnlocked
-                            ? '100% Hoàn tất'
-                            : `Còn ${vaultMilestone.days} ngày ${vaultMilestone.hours}h`}
-                        </Text>
-                      </View>
-                    </>
-                  ) : null}
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
+                  <Text style={styles.newsTitle} numberOfLines={2}>
+                    {(latestPost as any)?.title || (latestPost as any)?.content?.substring(0, 50) || 'Tin nội bộ'}
+                  </Text>
 
-        {/* Tiện ích thường dùng (Ma trận 4 cột hiện đại) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {isOnlyAccountant ? 'Nghiệp vụ Kế toán & Tài chính' : 'Tiện ích thường dùng'}
-          </Text>
-          <View style={styles.grid4Container}>
-            {isOnlyAccountant ? (
-              <>
-                {/* Nhóm 1: Tài chính & Tiền lương (Nổi bật cho Kế toán) */}
-                <GridItem4
-                  icon="cash-register"
-                  title="Duyệt tài chính"
-                  color="#059669"
-                  bgColor="#ECFDF5"
-                  badge={pendingFinancialCount > 0 ? String(pendingFinancialCount) : undefined}
-                  badgeColor="#EF4444"
-                  onPress={() => router.navigate('/hr/financial-requests' as any)}
-                />
-                <GridItem4
-                  icon="file-table-box-multiple-outline"
-                  title="Phiếu lương"
-                  color="#059669"
-                  bgColor="#ECFDF5"
-                  onPress={() => router.navigate('/hr/payslip' as any)}
-                />
-                <GridItem4
-                  icon="file-document-check-outline"
-                  title="Duyệt đơn"
-                  color="#0D9488"
-                  bgColor="#F0FDFA"
-                  badge={dashboardData?.leave?.pending > 0 ? String(dashboardData.leave.pending) : undefined}
-                  onPress={() => router.navigate('/hr/employee-requests' as any)}
-                />
-                <GridItem4
-                  icon="gift-outline"
-                  title="Ví Thưởng"
-                  color="#059669"
-                  bgColor="#ECFDF5"
-                  badge={isVaultEnabled ? 'VÍ' : undefined}
-                  badgeColor="#059669"
-                  onPress={() => router.push('/hr/vault' as any)}
-                />
+                  <Text style={styles.newsSubtitle} numberOfLines={1}>
+                    {(latestPost as any)?.author?.profile?.fullName
+                      ? `Bởi ${(latestPost as any).author.profile.fullName}`
+                      : (latestPost as any)?.author?.userCode
+                      ? `Bởi ${(latestPost as any).author.userCode}`
+                      : 'Bởi Ban Quản Trị'}
+                  </Text>
+                </View>
 
-                {/* Nhóm 2: Hồ sơ & Chứng từ */}
-                <GridItem4
-                  icon="account-group-outline"
-                  title="Nhân sự"
-                  color="#0D9488"
-                  bgColor="#F0FDFA"
-                  onPress={() => router.push('/hr/employees' as any)}
-                />
-                <GridItem4
-                  icon="text-box-check-outline"
-                  title="Hợp đồng"
-                  color="#0D9488"
-                  bgColor="#F0FDFA"
-                  badge={dashboardData?.contracts?.expiringSoon > 0 ? String(dashboardData.contracts.expiringSoon) : undefined}
-                  onPress={() => router.navigate('/hr/contracts' as any)}
-                />
-                <GridItem4
-                  icon="folder-text-outline"
-                  title="Tài liệu"
-                  color="#0D9488"
-                  bgColor="#F0FDFA"
-                  onPress={() => router.push('/hr/documents' as any)}
-                />
-                <GridItem4
-                  icon="clipboard-account-outline"
-                  title="Việc của tôi"
-                  color="#4F46E5"
-                  bgColor="#EEF2FF"
-                  badge={myTasksUncompletedCount > 0 ? `${myTasksUncompletedCount}` : undefined}
-                  badgeColor="#EF4444"
-                  onPress={() => router.push('/hr/my-tasks' as any)}
-                />
-
-                {/* Nhóm 3: Vận hành & Trợ lý */}
-                <GridItem4
-                  icon="calendar-account-outline"
-                  title="QL Chấm công"
-                  color="#2563EB"
-                  bgColor="#EFF6FF"
-                  onPress={() => router.navigate('/hr/attendance-management' as any)}
-                />
-                <GridItem4
-                  icon="view-grid-outline"
-                  title="Phân ca"
-                  color="#2563EB"
-                  bgColor="#EFF6FF"
-                  onPress={() => router.navigate('/hr/shifts' as any)}
-                />
-                <GridItem4
-                  icon="history"
-                  title="Lịch sử công"
-                  color="#2563EB"
-                  bgColor="#EFF6FF"
-                  onPress={() => router.navigate('/hr/attendance/history' as any)}
-                />
-                <GridItem4
-                  icon="robot-outline"
-                  title="Trợ lý AI"
-                  color="#FFFFFF"
-                  bgColor="#0F172A"
-                  badge="AI"
-                  badgeColor="#2563EB"
-                  onPress={() => router.push('/hr/ai-chat' as any)}
-                />
-              </>
-            ) : (
-              <>
-                {/* Nhóm 1: Chấm công & Ca làm (Xanh dương hoàng gia) */}
-                <GridItem4
-                  icon="calendar-account-outline"
-                  title="QL Chấm công"
-                  color="#2563EB"
-                  bgColor="#EFF6FF"
-                  onPress={() => router.navigate('/hr/attendance-management' as any)}
-                />
-                <GridItem4
-                  icon="view-grid-outline"
-                  title="Phân ca"
-                  color="#2563EB"
-                  bgColor="#EFF6FF"
-                  onPress={() => router.navigate('/hr/shifts' as any)}
-                />
-                <GridItem4
-                  icon="calendar-clock-outline"
-                  title="Lịch làm việc"
-                  color="#2563EB"
-                  bgColor="#EFF6FF"
-                  onPress={() => router.navigate('/hr/schedule' as any)}
-                />
-                <GridItem4
-                  icon="history"
-                  title="Lịch sử công"
-                  color="#2563EB"
-                  bgColor="#EFF6FF"
-                  onPress={() => router.navigate('/hr/attendance/history' as any)}
-                />
-
-                {/* Nhóm 2: Hành chính & Nhân sự (Teal thanh lịch) */}
-                <GridItem4
-                  icon="file-document-check-outline"
-                  title="Duyệt đơn"
-                  color="#0D9488"
-                  bgColor="#F0FDFA"
-                  badge={dashboardData?.leave?.pending > 0 ? String(dashboardData.leave.pending) : undefined}
-                  onPress={() => router.navigate('/hr/employee-requests' as any)}
-                />
-                <GridItem4
-                  icon="cash-register"
-                  title="Duyệt tài chính"
-                  color="#059669"
-                  bgColor="#ECFDF5"
-                  badge={pendingFinancialCount > 0 ? String(pendingFinancialCount) : undefined}
-                  badgeColor="#EF4444"
-                  onPress={() => router.navigate('/hr/financial-requests' as any)}
-                />
-                <GridItem4
-                  icon="file-table-box-multiple-outline"
-                  title="Phiếu lương"
-                  color="#059669"
-                  bgColor="#ECFDF5"
-                  onPress={() => router.navigate('/hr/payslip' as any)}
-                />
-                <GridItem4
-                  icon="account-group-outline"
-                  title="Nhân sự"
-                  color="#0D9488"
-                  bgColor="#F0FDFA"
-                  onPress={() => router.push('/hr/employees' as any)}
-                />
-                <GridItem4
-                  icon="text-box-check-outline"
-                  title="Hợp đồng"
-                  color="#0D9488"
-                  bgColor="#F0FDFA"
-                  badge={dashboardData?.contracts?.expiringSoon > 0 ? String(dashboardData.contracts.expiringSoon) : undefined}
-                  onPress={() => router.navigate('/hr/contracts' as any)}
-                />
-                <GridItem4
-                  icon="folder-text-outline"
-                  title="Tài liệu"
-                  color="#0D9488"
-                  bgColor="#F0FDFA"
-                  onPress={() => router.push('/hr/documents' as any)}
-                />
-
-                {/* Nhóm 3: Công việc, Cấp bậc & Quỹ thưởng (Indigo sang trọng) */}
-                <GridItem4
-                  icon="clipboard-account-outline"
-                  title="Việc của tôi"
-                  color="#4F46E5"
-                  bgColor="#EEF2FF"
-                  badge={myTasksUncompletedCount > 0 ? `${myTasksUncompletedCount}` : undefined}
-                  badgeColor="#EF4444"
-                  onPress={() => router.push('/hr/my-tasks' as any)}
-                />
-                <GridItem4
-                  icon="format-list-checks"
-                  title="Giao việc"
-                  color="#4F46E5"
-                  bgColor="#EEF2FF"
-                  onPress={() => router.push('/hr/tasks' as any)}
-                />
-                <GridItem4
-                  icon="star-circle-outline"
-                  title="Cấp của bạn"
-                  color="#4F46E5"
-                  bgColor="#EEF2FF"
-                  onPress={() => router.push('/hr/leveling' as any)}
-                />
-                <GridItem4
-                  icon="gift-outline"
-                  title="Ví Thưởng"
-                  color="#4F46E5"
-                  bgColor="#EEF2FF"
-                  badge={isVaultEnabled ? 'VÍ' : undefined}
-                  badgeColor="#4F46E5"
-                  onPress={() => router.push('/hr/vault' as any)}
-                />
-
-                {/* Nhóm 4: Hỗ trợ & Trí tuệ nhân tạo (Executive Slate & Dark) */}
-                <GridItem4
-                  icon="robot-outline"
-                  title="Trợ lý AI"
-                  color="#FFFFFF"
-                  bgColor="#0F172A"
-                  badge="AI"
-                  badgeColor="#2563EB"
-                  onPress={() => router.push('/hr/ai-chat' as any)}
-                />
-                <GridItem4
-                  icon="laptop"
-                  title="Tài sản"
-                  color="#64748B"
-                  bgColor="#F8FAFC"
-                  onPress={() => router.navigate('/hr/assets' as any)}
-                />
-                <GridItem4
-                  icon="message-draw"
-                  title="Góp ý"
-                  color="#64748B"
-                  bgColor="#F8FAFC"
-                  onPress={() => router.navigate('/hr/feedbacks' as any)}
-                />
-              </>
-            )}
-          </View>
-        </View>
-
-        {/* Tổng quan công việc (Stats Section) */}
-        <View style={[styles.section, styles.statsSection]}>
-          <Text style={styles.sectionTitle}>
-            {isOnlyAccountant ? 'Tổng quan Kế toán & Tài chính' : 'Tổng quan công việc HR'}
-          </Text>
-          <View style={styles.statsRow}>
-            {isOnlyAccountant ? (
-              <>
-                <StatCard
-                  title="Đơn TC chờ duyệt"
-                  value={pendingFinancialCount.toString()}
-                  color="#059669"
-                />
-                <StatCard
-                  title="Tổng nhân sự"
-                  value={dashboardData?.employees?.active?.toString() || '0'}
-                  color="#111827"
-                />
-                <StatCard
-                  title="Đi làm hôm nay"
-                  value={dashboardData?.attendanceToday?.checkedIn?.toString() || '0'}
-                  color="#10B981"
-                />
-                <StatCard
-                  title="HĐ sắp hết"
-                  value={dashboardData?.contracts?.expiringSoon?.toString() || '0'}
-                  color="#EF4444"
-                />
-              </>
-            ) : (
-              <>
-                <StatCard
-                  title="Tổng nhân sự"
-                  value={dashboardData?.employees?.active?.toString() || '0'}
-                  color="#111827"
-                />
-                <StatCard
-                  title="Đi làm hôm nay"
-                  value={dashboardData?.attendanceToday?.checkedIn?.toString() || '0'}
-                  color="#10B981"
-                />
-                <StatCard
-                  title="Đơn chờ duyệt"
-                  value={dashboardData?.leave?.pending?.toString() || '0'}
-                  color="#F59E0B"
-                />
-                <StatCard
-                  title="HĐ sắp hết"
-                  value={dashboardData?.contracts?.expiringSoon?.toString() || '0'}
-                  color="#EF4444"
-                />
-              </>
-            )}
-          </View>
-        </View>
-
-        {/* Tabs: Công việc của tôi / Việc tôi giao */}
-        <View style={styles.section}>
-          <View style={styles.tabContainer}>
-            <Pressable 
-              onPress={() => setActiveTab('TASKS')} 
-              style={[styles.tabButton, activeTab === 'TASKS' && styles.tabButtonActive]}
-            >
-              <Text style={[styles.tabText, activeTab === 'TASKS' && styles.tabTextActive]}>Công việc của tôi</Text>
-            </Pressable>
-            <Pressable 
-              onPress={() => setActiveTab('ACTIVITY')} 
-              style={[styles.tabButton, activeTab === 'ACTIVITY' && styles.tabButtonActive]}
-            >
-              <Text style={[styles.tabText, activeTab === 'ACTIVITY' && styles.tabTextActive]}>Việc tôi giao</Text>
-            </Pressable>
-          </View>
-
-          {activeTab === 'TASKS' ? (
-            <View style={styles.tasksContainer}>
-              {myTasks?.items && myTasks.items?.length > 0 ? (
-                [...myTasks.items]
-                  .sort((a, b) => {
-                    const isACompleted = a.status === 'COMPLETED' || a.status === 'CANCELLED';
-                    const isBCompleted = b.status === 'COMPLETED' || b.status === 'CANCELLED';
-                    if (isACompleted && !isBCompleted) return 1;
-                    if (!isACompleted && isBCompleted) return -1;
-                    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-                  })
-                  .slice(0, 5)
-                  .map((task) => (
-                  <TaskCard 
-                    key={task.id}
-                    title={task.title}
-                    priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
-                    priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
-                    dueDate={(task as any).dueDate || (task as any).dueAt ? new Date((task as any).dueDate || (task as any).dueAt).toLocaleDateString('vi-VN') : ''}
-                    onPress={() => router.push(`/hr/my-tasks/${task.id}` as any)}
-                    isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
-                  />
-                ))
-              ) : (
-                <Text style={{ textAlign: 'center', color: '#6B7280', marginTop: 12 }}>Chưa có công việc nào</Text>
-              )}
-            </View>
-          ) : (
-            <View style={styles.tasksContainer}>
-              {delegatedTasks?.items && delegatedTasks.items?.length > 0 ? (
-                [...delegatedTasks.items]
-                  .sort((a, b) => {
-                    const isACompleted = a.status === 'COMPLETED' || a.status === 'CANCELLED';
-                    const isBCompleted = b.status === 'COMPLETED' || b.status === 'CANCELLED';
-                    if (isACompleted && !isBCompleted) return 1;
-                    if (!isACompleted && isBCompleted) return -1;
-                    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-                  })
-                  .slice(0, 5)
-                  .map((task) => (
-                  <TaskCard 
-                    key={task.id}
-                    title={task.title}
-                    priority={task.priority === 'HIGH' ? 'Cao' : task.priority === 'NORMAL' ? 'Trung bình' : 'Thấp'}
-                    priorityColor={task.priority === 'HIGH' ? '#EF4444' : task.priority === 'NORMAL' ? '#F59E0B' : '#10B981'}
-                    dueDate={(task as any).dueDate || (task as any).dueAt ? new Date((task as any).dueDate || (task as any).dueAt).toLocaleDateString('vi-VN') : ''}
-                    onPress={() => router.push(`/hr/delegated-tasks/${task.id}` as any)}
-                    isCompleted={task.status === 'COMPLETED' || task.status === 'CANCELLED'}
-                  />
-                ))
-              ) : (
-                <Text style={{ textAlign: 'center', color: '#6B7280', marginTop: 12 }}>Chưa có công việc nào giao đi</Text>
-              )}
+                <ChevronRight size={18} color="#94A3B8" strokeWidth={1.4} />
+              </Pressable>
             </View>
           )}
         </View>
-
       </ScrollView>
 
-      {/* Floating AI Chat Button */}
-      <Pressable
-        style={[
-          styles.fab,
-          { bottom: Math.max(insets.bottom, 16) + 72 },
-        ]}
-        onPress={() => router.push('/hr/ai-chat' as any)}
-      >
-        <MaterialCommunityIcons name="robot-outline" size={26} color="#FFFFFF" />
-      </Pressable>
+      {/* ================= MODAL: TẤT CẢ DỊCH VỤ HR / ACCOUNTANT ================= */}
+      <AllServicesModal
+        visible={showAllServicesModal}
+        onClose={() => setShowAllServicesModal(false)}
+        role="HR"
+        initialEditMode={modalEditMode}
+        pendingCounts={{
+          pendingRequests: pendingRequestCount,
+          dueTasks: dueTaskCount,
+          pendingVault: pendingAdminVaultCount,
+          pendingFinancial: pendingFinancialCount,
+        }}
+      />
+
+      {/* Modal: Chọn chi nhánh nhân sự hoạt động */}
+      <SelectModal
+        visible={showBranchModal}
+        title="Chi nhánh hoạt động"
+        options={branchOptions}
+        selectedValue={activeBranch?.id}
+        onSelect={handleSelectBranch}
+        onClose={() => setShowBranchModal(false)}
+      />
     </Screen>
   );
 }
 
-const GridItem4 = React.memo(function GridItem4({
-  icon,
+// Sub-component: 8-Grid Quick Item (Rounded square container matching Image 1)
+const QuickGrid8Item = React.memo(function QuickGrid8Item({
   title,
-  onPress,
-  color,
+  icon,
   bgColor,
   badge,
-  badgeColor,
-}: any) {
+  onPress,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  bgColor: string;
+  badge?: number | string;
+  onPress: () => void;
+}) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.grid4Item, pressed && styles.grid4ItemPressed]}
+      style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
       onPress={onPress}
     >
-      <View style={[styles.grid4IconContainer, bgColor ? { backgroundColor: bgColor } : undefined]}>
-        <MaterialCommunityIcons name={icon} size={23} color={color || '#1E293B'} />
-        {badge && (
-          <View style={[styles.badge, badgeColor ? { backgroundColor: badgeColor } : undefined]}>
-            <Text style={styles.badgeText}>{badge}</Text>
+      <View style={styles.quickIconWrapper}>
+        <View style={[styles.quickIconBox8, { backgroundColor: bgColor }]}>
+          <View pointerEvents="none" style={styles.iconGlossHighlight} />
+          {icon}
+        </View>
+        {Boolean(badge) && (
+          <View style={styles.quickItemBadge}>
+            <Text style={styles.quickItemBadgeText}>{badge}</Text>
           </View>
         )}
       </View>
-      <Text style={styles.grid4Title} numberOfLines={1}>{title}</Text>
+      <Text style={styles.quickGrid8Label} numberOfLines={1}>
+        {title}
+      </Text>
     </Pressable>
   );
 });
 
-function StatCard({
-  title,
-  value,
-  color = '#111827',
-}: {
-  title: string;
-  value: number | string;
-  color?: string;
-}) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statTitle}>{title}</Text>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-    </View>
-  );
-}
-
-function TaskCard({ title, priority, priorityColor, dueDate, onPress, isCompleted }: any) {
-  return (
-    <Pressable style={[styles.taskCard, isCompleted && { opacity: 0.6, backgroundColor: '#F9FAFB' }]} onPress={onPress}>
-      <View style={styles.taskIconWrapper}>
-        <MaterialCommunityIcons 
-          name={isCompleted ? "check-circle" : "checkbox-blank-circle-outline"} 
-          size={24} 
-          color={isCompleted ? "#10B981" : "#D1D5DB"} 
-        />
-      </View>
-      <View style={styles.taskContent}>
-        <Text style={[styles.taskTitle, isCompleted && { textDecorationLine: 'line-through', color: '#9CA3AF' }]} numberOfLines={2}>
-          {title}
-        </Text>
-        <View style={styles.taskFooter}>
-          <View style={styles.taskMeta}>
-            <MaterialCommunityIcons name="calendar-clock-outline" size={14} color="#6B7280" />
-            <Text style={styles.taskDueDate}>{dueDate}</Text>
-          </View>
-          <View style={[styles.priorityBadge, { backgroundColor: priorityColor + '15' }]}>
-            <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
-            <Text style={[styles.priorityText, { color: priorityColor }]}>{priority}</Text>
-          </View>
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-const colors = {
-  primary: '#111827',
-};
-
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: 4,
-    paddingBottom: 120,
-    backgroundColor: '#FAFAFA',
-    minHeight: '100%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 4,
-  },
-  userInfoWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+  scrollView: {
     flex: 1,
-    marginRight: 10,
-    minWidth: 0,
+    backgroundColor: '#F5F7FA',
   },
-  avatarWrapper: {
+  topOverscrollFill: {
+    position: 'absolute',
+    top: -500,
+    left: 0,
+    right: 0,
+    height: 500,
+    backgroundColor: '#102739',
+  },
+  scrollContainer: {
+    backgroundColor: '#F5F7FA',
+    paddingBottom: 24,
+  },
+
+  // 1. Deep Navy Header (#102739 - Matching Profile Screen & Admin)
+  glossyHeader: {
+    backgroundColor: '#102739',
+    paddingHorizontal: 20,
+    paddingBottom: 86,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  decorativeCurve: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 14,
+  },
+  brandTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.6,
+  },
+  brandSubtitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginLeft: 6,
+    letterSpacing: 2.2,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  userInfoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatarContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#DBEAFE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.45)',
+  },
+  avatarImage: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+  },
+  avatarInitialsText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#102739',
+  },
+  userTextCol: {
+    flex: 1,
+  },
+  greetingText: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.82)',
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  userNameText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+    marginTop: 1,
+  },
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.32)',
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
   },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#E5E7EB',
+  bellRedDot: {
+    position: 'absolute',
+    top: 9,
+    right: 10,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#EF4444',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+
+  // 2. Overlapping White Hero Card
+  heroCardWrapper: {
+    paddingHorizontal: 18,
+    marginTop: -68,
+    zIndex: 10,
+  },
+  heroCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 18,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#102739',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  heroTopographicWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  heroTopographicBg: {
+    width: '115%',
+    height: '100%',
+    transform: [{ translateX: -28 }],
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  adminRoleTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  adminRoleTagText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cardHeaderDateText: {
+    fontSize: 13,
+    color: '#000000',
+    fontWeight: '800',
+  },
+  dateNumberRow: {
+    marginVertical: 4,
+  },
+  bigDateNumberText: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: -0.6,
+  },
+  cardMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+  },
+  metricColLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flex: 1,
+    paddingRight: 12,
+  },
+  locationText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#000000',
+  },
+  metricColStatRight: {
+    alignItems: 'flex-end',
+    paddingLeft: 8,
+  },
+  metricLabelCaps: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#000000',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  metricNumberValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#000000',
+  },
+
+  // Content Body
+  contentBody: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+  },
+
+  // Sections
+  sectionContainer: {
+    marginBottom: 22,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sectionMainTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  customizeLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#102739',
+  },
+
+  // 3. Action Cards ("Cần bạn xử lý")
+  actionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  actionCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  actionIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#102739',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  actionCardTexts: {
+    flex: 1,
+  },
+  actionCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  actionCardDesc: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  actionCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  coralBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  coralBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#EF4444',
+  },
+
+  // 4. Quick Access Box (1 dòng thu gọn, dropdown mở rộng, tràn đều box)
+  quickAccessBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingTop: 16,
+    paddingBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  quickGrid4Row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  quickGrid8Item: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  quickGrid8ItemPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.94 }],
+  },
+  quickIconWrapper: {
+    width: 58,
+    height: 58,
+    marginBottom: 6,
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarLevelBadge: {
+  quickIconBox8: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
+    shadowColor: '#334155',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  iconGlossHighlight: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 24,
+    borderTopLeftRadius: 17,
+    borderTopRightRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.40)',
+  },
+  quickIconBoxAdd: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#94A3B8',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  quickGrid8Label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  extraRowsContainer: {
+    width: '100%',
+  },
+  quickItemBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#EF4444',
     minWidth: 18,
     height: 18,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FAFAFA',
-    paddingHorizontal: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-    elevation: 2,
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    zIndex: 20,
+    elevation: 4,
   },
-  avatarLevelBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
+  quickItemBadgeText: {
     color: '#FFFFFF',
-    lineHeight: 12,
-  },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#4B5563',
-  },
-  userInfo: {
-    justifyContent: 'center',
-    flex: 1,
-    minWidth: 0,
-  },
-  greetingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-    flexWrap: 'wrap',
-  },
-  levelPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 1.5,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  levelPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  greetingText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  userName: {
-    fontSize: 20,
+    fontSize: 9.5,
     fontWeight: '800',
-    color: appleTheme.textPrimary,
-    marginBottom: 2,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
-  dateText: {
-    fontSize: 12,
-    color: appleTheme.hint,
-    fontWeight: '500',
+  expandToggleButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 8,
+    paddingBottom: 2,
+    marginTop: 2,
   },
-  headerRight: {
+  expandTogglePill: {
+    width: 38,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+
+  // 5. Newsfeed Card
+  newsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    flexShrink: 0,
-  },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#ECEEF3',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
     elevation: 1,
   },
-  notificationBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+  newsThumbnail: {
+    width: 80,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
   },
-  notificationBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: 'bold',
+  newsContent: {
+    flex: 1,
+    paddingHorizontal: 12,
   },
-  badgeDot: {
-    position: 'absolute',
-    top: 10,
-    right: 12,
-    width: 8,
-    height: 8,
+  newsTagPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
-    backgroundColor: '#EF4444',
-    borderWidth: 1.5,
-    borderColor: '#fff',
+    marginBottom: 4,
   },
-  // Hub Cấp Bậc & Ví Thưởng
-  hubContainer: {
-    marginBottom: spacing.xl,
-  },
-  hubCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  hubSegment: {
-    paddingVertical: 4,
-  },
-  hubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  hubIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hubInfoBlock: {
-    flex: 1,
-    marginLeft: 12,
-    marginRight: 8,
-  },
-  hubTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  hubTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-    flexShrink: 1,
-  },
-  hubTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-  },
-  hubTagText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  hubSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  hubSubtitleGreen: {
-    fontWeight: '800',
-    color: '#059669',
-  },
-  hubActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  hubActionText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  hubProgressTrack: {
-    height: 5,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginTop: 10,
-    marginBottom: 6,
-  },
-  hubProgressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  hubProgressFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  hubProgressLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
-  },
-  hubProgressPercent: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  hubDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 12,
-  },
-  vaultBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-  },
-  vaultBadgeText: {
-    color: '#475569',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  vaultActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  vaultActionText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  vaultCountdownLabel: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  vaultCountdownTime: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  heroButton: {
-    borderRadius: 24,
-    marginBottom: spacing.xl,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#475569',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  heroCardInner: {
-    borderRadius: 24,
-    paddingHorizontal: 22,
-    paddingVertical: 18,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-    position: 'relative',
-    minHeight: 148,
-    justifyContent: 'space-between',
-  },
-  heroHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    zIndex: 2,
-  },
-  heroStatusText: {
-    color: '#334155',
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  heroTimeWrapper: {
-    marginVertical: 4,
-    zIndex: 2,
-  },
-  heroTimeText: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -1.5,
-  },
-  heroFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  locationWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  locationText: {
-    color: '#64748B',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  vaultAppleCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  vaultAppleHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  vaultAppleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  vaultAppleIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  vaultAppleTitleBlock: {
-    flex: 1,
-  },
-  vaultAppleBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  vaultAppleTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-    flexShrink: 1,
-  },
-  vaultAppleVipBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  vaultAppleVipBadgeText: {
-    color: '#2563EB',
+  newsTagText: {
     fontSize: 9,
     fontWeight: '800',
+    color: '#2563EB',
     letterSpacing: 0.5,
   },
-  vaultAppleSubtitle: {
-    fontSize: 12,
+  newsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 18,
+    marginBottom: 2,
+  },
+  newsSubtitle: {
+    fontSize: 11,
     color: '#64748B',
-    fontWeight: '500',
   },
-  vaultAppleSubtitleBold: {
-    fontWeight: '800',
-    color: '#059669',
+  newsThumbnailFallback: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
   },
-  vaultAppleActionBtn: {
+
+  // Feedback Cards
+  feedbackCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  feedbackCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginLeft: 8,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  vaultAppleActionText: {
-    fontSize: 11,
+  feedbackLeftHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  feedbackIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E7F0F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  feedbackTitle: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#0F172A',
+    flex: 1,
   },
-  vaultAppleProgressContainer: {
-    marginTop: 12,
-    paddingTop: 10,
+  feedbackContentSnippet: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  feedbackFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
-  vaultAppleProgressTrack: {
-    height: 6,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 6,
+  feedbackDateText: {
+    fontSize: 11,
+    color: '#94A3B8',
   },
-  vaultAppleProgressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  vaultAppleProgressFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  vaultAppleProgressFooterLeft: {
+  feedbackActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    flex: 1,
   },
-  vaultAppleProgressFooterText: {
-    fontSize: 11,
-    color: '#475569',
-    fontWeight: '500',
-  },
-  vaultAppleProgressFooterPercent: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  section: {
-    marginBottom: spacing.lg,
-  },
-  utilitySection: {
-    marginBottom: -6,
-  },
-  statsSection: {
-    marginTop: 0,
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: spacing.md,
-  },
-  grid4Container: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
-  },
-  grid4Item: {
-    width: '25%',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 2,
-  },
-  grid4ItemPressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.96 }],
-  },
-  grid4IconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-    position: 'relative',
-  },
-  grid4Title: {
-    fontSize: 11,
+  feedbackActionHint: {
+    fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
-    textAlign: 'center',
+    color: '#102739',
   },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#EF4444',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 8,
-    elevation: 1,
-  },
-  statTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 16,
-    marginTop: 16,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  tabButtonActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  tabTextActive: {
-    color: '#0F172A',
-  },
-  tasksContainer: {
-    gap: 12,
-  },
-  taskCard: {
-    flexDirection: 'row',
+  feedbackEmptyCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 2,
-    alignItems: 'flex-start',
-  },
-  taskIconWrapper: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  taskContent: {
-    flex: 1,
-  },
-  taskTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  taskFooter: {
+    borderColor: '#E2E8F0',
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  taskMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  taskDueDate: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  priorityBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  priorityDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  priorityText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#0F172A',
-    justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 999,
-  }
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  feedbackEmptyIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  feedbackEmptyInfo: {
+    flex: 1,
+  },
+  feedbackEmptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  feedbackEmptyDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 16,
+  },
 });

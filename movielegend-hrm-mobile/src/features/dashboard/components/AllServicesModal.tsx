@@ -72,11 +72,12 @@ const CATEGORIZED_APPS = APP_CATEGORIES.map(cat => ({
 interface AllServicesModalProps {
   visible: boolean;
   onClose: () => void;
-  role?: 'ADMIN' | 'LEADER' | 'EMPLOYEE';
+  role?: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR';
   pendingCounts?: {
     pendingRequests?: number;
     dueTasks?: number;
     pendingVault?: number;
+    pendingFinancial?: number;
   };
   initialEditMode?: boolean;
 }

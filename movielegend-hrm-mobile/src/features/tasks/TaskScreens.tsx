@@ -197,7 +197,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
         <View style={{
           backgroundColor: '#102739',
           paddingTop: Math.max(insets.top, 16),
-          paddingBottom: 16,
+          paddingBottom: 22,
           paddingHorizontal: 16,
         }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -241,7 +241,15 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
         </View>
 
         <ScrollView
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            backgroundColor: '#F8FAFC',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            marginTop: -10,
+            paddingTop: 16,
+            paddingBottom: Math.max(insets.bottom + 16, 24) + 80,
+          }}
           refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}
           showsVerticalScrollIndicator={false}
         >
@@ -315,12 +323,12 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
                   width: 80,
                   height: 80,
                   borderRadius: 40,
-                  backgroundColor: '#DCFCE7',
+                  backgroundColor: '#EFF6FF',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 16,
                 }}>
-                  <MaterialCommunityIcons name="clipboard-check-outline" size={42} color="#166534" />
+                  <MaterialCommunityIcons name="clipboard-check-outline" size={42} color="#1D4ED8" />
                 </View>
                 <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 6, textAlign: 'center' }}>
                   Bạn chưa có công việc nào
@@ -642,12 +650,14 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   if (subView === 'comments') {
     return (
       <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
         <View style={{
-          backgroundColor: '#1B3B2B',
+          backgroundColor: '#102739',
           paddingTop: Math.max(insets.top, 16),
           paddingBottom: 20,
           paddingHorizontal: 16,
+          position: 'relative',
+          overflow: 'hidden',
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Pressable onPress={() => setSubView('detail')} style={{ paddingRight: 10, paddingVertical: 4 }}>
@@ -752,12 +762,14 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   if (subView === 'history') {
     return (
       <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
         <View style={{
-          backgroundColor: '#1B3B2B',
+          backgroundColor: '#102739',
           paddingTop: Math.max(insets.top, 16),
           paddingBottom: 20,
           paddingHorizontal: 16,
+          position: 'relative',
+          overflow: 'hidden',
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Pressable onPress={() => setSubView('detail')} style={{ paddingRight: 10, paddingVertical: 4 }}>
@@ -854,13 +866,15 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
-      {/* Top Dark Forest Green Banner */}
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
+      {/* Top Deep Navy Banner */}
       <View style={{
-        backgroundColor: '#1B3B2B',
+        backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,
+        position: 'relative',
+        overflow: 'hidden',
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
@@ -3195,13 +3209,15 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
-      {/* Top Dark Forest Green Banner */}
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
+      {/* Top Deep Navy Banner */}
       <View style={{
-        backgroundColor: '#1B3B2B',
+        backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,
+        position: 'relative',
+        overflow: 'hidden',
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
@@ -3364,9 +3380,9 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                     flex: 1,
                     height: 40,
                     borderRadius: 10,
-                    backgroundColor: isActive ? '#1B3B2B' : '#FFFFFF',
+                    backgroundColor: isActive ? '#102739' : '#FFFFFF',
                     borderWidth: 1,
-                    borderColor: isActive ? '#1B3B2B' : '#E2E8F0',
+                    borderColor: isActive ? '#102739' : '#E2E8F0',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -3724,9 +3740,9 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                     <View style={{
                       flexDirection: 'row',
                       alignItems: 'center',
-                      backgroundColor: '#F0FDF4',
+                      backgroundColor: '#EFF6FF',
                       borderWidth: 1,
-                      borderColor: '#86EFAC',
+                      borderColor: '#BFDBFE',
                       borderRadius: 12,
                       padding: 12,
                       gap: 10,
@@ -3735,7 +3751,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                         width: 36,
                         height: 36,
                         borderRadius: 18,
-                        backgroundColor: '#1B3B2B',
+                        backgroundColor: '#102739',
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}>
@@ -3897,7 +3913,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
           style={{
             height: 48,
             borderRadius: 12,
-            backgroundColor: isSubmitDisabled() ? '#94A3B8' : '#1B3B2B',
+            backgroundColor: isSubmitDisabled() ? '#94A3B8' : '#102739',
             alignItems: 'center',
             justifyContent: 'center',
           }}

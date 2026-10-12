@@ -287,7 +287,7 @@ function AttachmentActionButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color="#111827" />
+        <ActivityIndicator size="small" color="#102739" />
       ) : (
         <View style={styles.attachmentActionContent}>
           <MaterialCommunityIcons name={icon} size={15} color="#374151" style={styles.attachmentActionIcon} />
@@ -931,7 +931,7 @@ const styles = StyleSheet.create({
       overflow: 'hidden',
     },
     progressFill: {
-      backgroundColor: '#1B3B2B',
+      backgroundColor: '#102739',
       borderRadius: 999,
       bottom: 0,
       left: 0,
@@ -1048,7 +1048,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
   },

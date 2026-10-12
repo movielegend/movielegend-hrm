@@ -30,13 +30,17 @@ export class UsersService {
       });
       if (!user) throw notFound('USER_NOT_FOUND', 'Người dùng không tồn tại');
 
-      if (dto.phone && dto.phone !== user.phone) {
-        const existingPhone = await tx.user.findUnique({ where: { phone: dto.phone } });
+      const targetFullName = (dto.fullName || dto.name)?.trim();
+      const cleanedPhone = dto.phone ? dto.phone.trim() : undefined;
+      const cleanedEmail = dto.email !== undefined ? (dto.email?.trim() || null) : undefined;
+
+      if (cleanedPhone && cleanedPhone !== user.phone) {
+        const existingPhone = await tx.user.findUnique({ where: { phone: cleanedPhone } });
         if (existingPhone) throw badRequest('PHONE_ALREADY_EXISTS', 'Số điện thoại này đã được sử dụng bởi tài khoản khác');
       }
 
-      if (dto.email && dto.email !== user.email) {
-        const existingEmail = await tx.user.findUnique({ where: { email: dto.email } });
+      if (cleanedEmail && cleanedEmail !== user.email) {
+        const existingEmail = await tx.user.findUnique({ where: { email: cleanedEmail } });
         if (existingEmail) throw badRequest('EMAIL_ALREADY_EXISTS', 'Email này đã được sử dụng bởi tài khoản khác');
       }
 
@@ -48,20 +52,28 @@ export class UsersService {
         }
       }
 
+      const profileUpdate: any = {};
+      if (dto.avatarUrl !== undefined) {
+        profileUpdate.avatarUrl = dto.avatarUrl;
+      }
+      if (targetFullName !== undefined && targetFullName !== '') {
+        profileUpdate.fullName = targetFullName;
+      }
+
       const updatedUser = await tx.user.update({
         where: { id: actor.userId },
         data: {
-          ...(dto.phone ? { phone: dto.phone } : {}),
-          ...(dto.email ? { email: dto.email } : {}),
-          ...(dto.avatarUrl !== undefined
+          ...(cleanedPhone ? { phone: cleanedPhone } : {}),
+          ...(cleanedEmail !== undefined ? { email: cleanedEmail } : {}),
+          ...(Object.keys(profileUpdate).length > 0
             ? {
               profile: {
                 upsert: {
-                  update: { avatarUrl: dto.avatarUrl },
+                  update: profileUpdate,
                   create: {
+                    fullName: targetFullName || 'Người dùng',
                     avatarUrl: dto.avatarUrl,
-                    fullName: 'System Admin',
-                    idCardNumber: `ADMIN_${actor.userId}`,
+                    idCardNumber: `USER_${actor.userId}`,
                   },
                 },
               },

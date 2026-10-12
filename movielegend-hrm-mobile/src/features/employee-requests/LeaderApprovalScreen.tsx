@@ -201,7 +201,7 @@ export function LeaderApprovalScreen() {
   if (isLoading) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#111827" />
+        <ActivityIndicator size="large" color="#102739" />
       </SafeAreaView>
     );
   }

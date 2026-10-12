@@ -800,7 +800,7 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   stepLabelActive: {
-    color: '#111827',
+    color: '#102739',
     fontWeight: '700',
   },
   stepLine: {
@@ -847,7 +847,7 @@ const styles = StyleSheet.create({
   recipientNameText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   recipientSubText: {
     fontSize: 12,
@@ -868,7 +868,7 @@ const styles = StyleSheet.create({
   fieldSectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     alignSelf: 'flex-start',
     marginBottom: 8,
   },
@@ -890,12 +890,12 @@ const styles = StyleSheet.create({
   bigPointsNumber: {
     fontSize: 38,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
   },
   bigPointsUnit: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: '#102739',
   },
   cashEquivalentPill: {
     backgroundColor: '#FEF3C7',
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
   presetGridBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   presetGridBtnTextActive: {
     color: '#FFFFFF',
@@ -1001,7 +1001,7 @@ const styles = StyleSheet.create({
   durationPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#111827',
+    color: '#102739',
   },
   durationPillTextActive: {
     color: '#FFFFFF',
@@ -1049,7 +1049,7 @@ const styles = StyleSheet.create({
   summaryBoxValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
 
   fieldGroup: {
@@ -1074,7 +1074,7 @@ const styles = StyleSheet.create({
   },
   dropdownBtnText: {
     fontSize: 14,
-    color: '#111827',
+    color: '#102739',
     fontWeight: '500',
   },
 
@@ -1092,7 +1092,7 @@ const styles = StyleSheet.create({
   },
   dateInputText: {
     fontSize: 14,
-    color: '#111827',
+    color: '#102739',
     fontWeight: '500',
   },
   datePresetRow: {
@@ -1177,7 +1177,7 @@ const styles = StyleSheet.create({
   milestoneBatchTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#111827',
+    color: '#102739',
   },
   milestonePointsText: {
     fontSize: 13,
@@ -1253,7 +1253,7 @@ const styles = StyleSheet.create({
   totalGrantValue: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
   },
   confirmGrantBtn: {
     height: 48,
@@ -1283,7 +1283,7 @@ const styles = StyleSheet.create({
   modalBoxTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 12,
   },
   modalOptionRow: {
@@ -1299,7 +1299,7 @@ const styles = StyleSheet.create({
   },
   modalOptionText: {
     fontSize: 14,
-    color: '#111827',
+    color: '#102739',
   },
   modalOptionTextActive: {
     color: '#204E3B',

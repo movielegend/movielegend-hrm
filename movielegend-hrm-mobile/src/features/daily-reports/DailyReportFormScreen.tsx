@@ -484,7 +484,12 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
   }
 
   return (
-    <Screen backgroundColor="#F5F6FA">
+    <Screen
+      backgroundColor={headerSlot ? '#102739' : '#F5F6FA'}
+      edges={headerSlot ? ['left', 'right'] : undefined}
+      statusBarStyle={headerSlot ? 'light' : 'dark'}
+      statusBarTranslucent={!!headerSlot}
+    >
       <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 20) }}>
         {/* Leader / Custom Header Slot */}
         {typeof headerSlot === 'function' ? headerSlot({ currentStep }) : headerSlot}
@@ -1874,14 +1879,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#DBEAFE',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitialsText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   personName: {
     fontSize: 15,
@@ -1994,10 +1999,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepCircleActive: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   stepCircleDone: {
-    backgroundColor: '#166534',
+    backgroundColor: '#1D4ED8',
   },
   stepCircleText: {
     fontSize: 12,
@@ -2014,7 +2019,7 @@ const styles = StyleSheet.create({
   },
   stepLabelTextActive: {
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   stepConnectorLine: {
     flex: 1,
@@ -2024,7 +2029,7 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   stepConnectorLineActive: {
-    backgroundColor: '#166534',
+    backgroundColor: '#1D4ED8',
   },
 
   // PANEL
@@ -2491,7 +2496,7 @@ const styles = StyleSheet.create({
   },
   footerPrimaryBtn: {
     flex: 1.5,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     borderRadius: 12,
     paddingVertical: 13,
     paddingHorizontal: 12,

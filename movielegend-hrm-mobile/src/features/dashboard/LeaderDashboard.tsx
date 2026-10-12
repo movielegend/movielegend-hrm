@@ -25,8 +25,6 @@ import { useMyTasks } from '../../hooks/useTasks';
 import { useNewsfeedPosts } from '../../hooks/useNewsfeed';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { FeedbackStatusBadge } from '../feedback/components/FeedbackStatusBadge';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle, Path, Defs, LinearGradient as SvgLinearGradient, RadialGradient as SvgRadialGradient, Stop, Rect, Line } from 'react-native-svg';
 
 // Lucide Icons
 import {
@@ -212,102 +210,10 @@ export function LeaderDashboard() {
         <View pointerEvents="none" style={styles.topOverscrollFill} />
 
         {/* ================= 1. GLOSSY HEADER (Navy #102739 Gradient) ================= */}
-        <LinearGradient
-          colors={['#102739', '#143147', '#183B55', '#225275']}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
-          style={[styles.glossyHeader, { paddingTop: Math.max(insets.top, 16) + 6 }]}
-        >
-          {/* Specular Light Flare & Glass Waves */}
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <Svg width="100%" height="100%">
-              <Defs>
-                {/* 1. Loang loang: Vùng sáng cực quang (Aura light bleed) góc trên bên phải */}
-                <SvgRadialGradient
-                  id="ldrHeaderAuraRight"
-                  cx="85%"
-                  cy="20%"
-                  rx="60%"
-                  ry="50%"
-                  fx="85%"
-                  fy="20%"
-                >
-                  <Stop offset="0%" stopColor="#38BDF8" stopOpacity="0.22" />
-                  <Stop offset="50%" stopColor="#0EA5E9" stopOpacity="0.08" />
-                  <Stop offset="100%" stopColor="#102739" stopOpacity="0" />
-                </SvgRadialGradient>
-
-                {/* 2. Loang loang: Vệt sáng chìm góc dưới trái */}
-                <SvgRadialGradient
-                  id="ldrHeaderAuraLeft"
-                  cx="15%"
-                  cy="85%"
-                  rx="50%"
-                  ry="50%"
-                  fx="15%"
-                  fy="85%"
-                >
-                  <Stop offset="0%" stopColor="#60A5FA" stopOpacity="0.18" />
-                  <Stop offset="60%" stopColor="#3B82F6" stopOpacity="0.06" />
-                  <Stop offset="100%" stopColor="#102739" stopOpacity="0" />
-                </SvgRadialGradient>
-
-                {/* 3. Dải vệt sáng chéo mờ (Diagonal light beam) */}
-                <SvgLinearGradient id="leaderGlossHighlight" x1="0%" y1="0%" x2="100%" y2="80%">
-                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.22" />
-                  <Stop offset="45%" stopColor="#FFFFFF" stopOpacity="0.06" />
-                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
-                </SvgLinearGradient>
-
-                {/* 4. Sọc chéo vi tế (Subtle diagonal accent line) */}
-                <SvgLinearGradient id="ldrLineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.0" />
-                  <Stop offset="35%" stopColor="#FFFFFF" stopOpacity="0.18" />
-                  <Stop offset="70%" stopColor="#38BDF8" stopOpacity="0.22" />
-                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
-                </SvgLinearGradient>
-              </Defs>
-
-              {/* Lớp nền loang ánh sáng (Ambient Aura Blurs - hiệu ứng loang mềm mại) */}
-              <Rect x="0" y="0" width="100%" height="100%" fill="url(#ldrHeaderAuraRight)" />
-              <Rect x="0" y="0" width="100%" height="100%" fill="url(#ldrHeaderAuraLeft)" />
-
-              {/* Dải phản chiếu chéo bóng bẩy */}
-              <Path
-                d="M -60 -40 L 260 -40 L 140 240 L -60 240 Z"
-                fill="url(#leaderGlossHighlight)"
-              />
-
-              {/* Các đường sọc chéo vi tế thanh mảnh thay cho vòng tròn */}
-              <Line
-                x1={SCREEN_WIDTH - 120}
-                y1={-10}
-                x2={SCREEN_WIDTH + 80}
-                y2={190}
-                stroke="url(#ldrLineGrad)"
-                strokeWidth={2}
-                strokeDasharray="6, 6"
-              />
-              <Line
-                x1={SCREEN_WIDTH - 60}
-                y1={-10}
-                x2={SCREEN_WIDTH + 140}
-                y2={190}
-                stroke="url(#ldrLineGrad)"
-                strokeWidth={1.5}
-              />
-              <Line
-                x1={SCREEN_WIDTH - 180}
-                y1={-10}
-                x2={SCREEN_WIDTH + 20}
-                y2={190}
-                stroke="url(#ldrLineGrad)"
-                strokeWidth={1}
-                strokeDasharray="4, 8"
-                opacity={0.6}
-              />
-            </Svg>
-          </View>
+        {/* ================= 1. HEADER (#102739 - Matching Profile Screen) ================= */}
+        <View style={[styles.glossyHeader, { paddingTop: Math.max(insets.top, 16) + 6 }]}>
+          {/* Subtle Decorative Wave Curve Background - Matching Profile */}
+          <View style={styles.decorativeCurve} />
 
           {/* Brand Identity: movielegend PEOPLE */}
           <View style={styles.brandRow}>
@@ -348,7 +254,7 @@ export function LeaderDashboard() {
               {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
             </Pressable>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* ================= 2. HERO CARD (OVERVIEW WHITE CARD CÓ RIPPLE) ================= */}
         <View style={styles.heroCardWrapper}>
@@ -378,32 +284,17 @@ export function LeaderDashboard() {
               <LiveClockText style={styles.bigDateNumberText} />
             </View>
 
-            {/* Bottom 3-Column Metrics Row (Không dính vào nhau) */}
+            {/* Bottom 2-Column Metrics Row */}
             <View style={styles.cardMetricsRow}>
               {/* Col 1: Location */}
               <View style={styles.metricColLocation}>
-                <MapPin size={13} color="#64748B" strokeWidth={2.2} />
+                <MapPin size={13} color="#000000" strokeWidth={2.2} />
                 <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
                   {user?.department?.branch?.name || (user?.department as any)?.branchName || 'MOVIELEGEND-HÀ NỘI'}
                 </Text>
               </View>
 
-              <View style={styles.metricsVerticalDivider} />
-
-              {/* Col 2: Nhân sự có mặt */}
-              <Pressable
-                style={styles.metricColStatCenter}
-                onPress={() => router.push('/leader/schedule' as any)}
-              >
-                <Text style={styles.metricLabelCaps} numberOfLines={1}>NHÂN SỰ CÓ MẶT</Text>
-                <Text style={styles.metricNumberValue}>
-                  {checkedInCount} <Text style={styles.metricSubDivider}>/ {activeStaffCount}</Text>
-                </Text>
-              </Pressable>
-
-              <View style={styles.metricsVerticalDivider} />
-
-              {/* Col 3: Công việc đang mở */}
+              {/* Col 2: Công việc đang mở */}
               <Pressable
                 style={styles.metricColStatRight}
                 onPress={() => router.push('/leader/tasks' as any)}
@@ -417,9 +308,6 @@ export function LeaderDashboard() {
 
         {/* Content Body */}
         <View style={styles.contentBody}>
-          {/* Section: Tổng quan hôm nay */}
-          <Text style={styles.overviewHeading}>Tổng quan hôm nay</Text>
-
           {/* ================= 3. CẦN BẠN XỬ LÝ ================= */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
@@ -897,12 +785,24 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
-  // 1. Glossy Royal Blue Header
+  // 1. Deep Navy Header (#102739 - Matching Profile Screen)
   glossyHeader: {
+    backgroundColor: '#102739',
     paddingHorizontal: 20,
     paddingBottom: 86,
     position: 'relative',
     overflow: 'hidden',
+  },
+  decorativeCurve: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   brandRow: {
     flexDirection: 'row',
@@ -1047,8 +947,8 @@ const styles = StyleSheet.create({
   },
   cardHeaderDateText: {
     fontSize: 13,
-    color: '#64748B',
-    fontWeight: '600',
+    color: '#000000',
+    fontWeight: '800',
   },
   dateNumberRow: {
     marginVertical: 4,
@@ -1056,7 +956,7 @@ const styles = StyleSheet.create({
   bigDateNumberText: {
     fontSize: 34,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#000000',
     letterSpacing: -0.6,
   },
   cardMetricsRow: {
@@ -1070,46 +970,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    flex: 1.15,
-    paddingRight: 6,
+    flex: 1,
+    paddingRight: 12,
   },
   locationText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  metricsVerticalDivider: {
-    width: 1,
-    height: 26,
-    backgroundColor: '#F1F5F9',
-    marginHorizontal: 4,
-  },
-  metricColStatCenter: {
-    flex: 1.05,
-    alignItems: 'center',
-    paddingHorizontal: 2,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#000000',
   },
   metricColStatRight: {
-    flex: 0.95,
     alignItems: 'flex-end',
-    paddingLeft: 4,
+    paddingLeft: 8,
   },
   metricLabelCaps: {
     fontSize: 9,
-    fontWeight: '700',
-    color: '#64748B',
+    fontWeight: '800',
+    color: '#000000',
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   metricNumberValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#000000',
   },
   metricSubDivider: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#94A3B8',
+    color: '#000000',
+    fontWeight: '700',
   },
 
   // Content Body
@@ -1519,7 +1407,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
   },
   modalSheet: {
     backgroundColor: '#FFFFFF',

@@ -907,18 +907,21 @@ export class AdminService {
         },
       });
 
+      // Bảo vệ thông tin cá nhân: Admin / người cấp cao không được phép sửa Họ tên, SĐT, Email của nhân sự khác
+      const canEditPersonalInfo = actor.userId === id;
+
       const user = await tx.user.update({
         where: { id },
         data: {
-          phone: dto.phone,
-          email: dto.email,
+          ...(canEditPersonalInfo && dto.phone ? { phone: dto.phone } : {}),
+          ...(canEditPersonalInfo && dto.email !== undefined ? { email: dto.email } : {}),
           accountStatus: dto.accountStatus,
           isActive: dto.isActive,
           isRewardVaultEnabled: dto.isRewardVaultEnabled !== undefined ? dto.isRewardVaultEnabled : undefined,
-          profile: dto.fullName || dto.positionId || dto.joinDate !== undefined
+          profile: (canEditPersonalInfo && dto.fullName) || dto.positionId || dto.joinDate !== undefined
             ? {
                 update: {
-                  ...(dto.fullName ? { fullName: dto.fullName } : {}),
+                  ...(canEditPersonalInfo && dto.fullName ? { fullName: dto.fullName } : {}),
                   ...(dto.positionId !== undefined ? { positionId: dto.positionId } : {}),
                   ...(dto.joinDate !== undefined ? { joinDate: dto.joinDate ? new Date(dto.joinDate) : null } : {}),
                 },

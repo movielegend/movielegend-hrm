@@ -1,8 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsEmail, IsOptional, IsString, IsUrl, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsEmail, IsOptional, IsString, IsUrl, ValidateIf, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { FaceImageDto } from '../../auth/dto/register.dto';
 export class UpdateMeDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  name?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -10,6 +20,7 @@ export class UpdateMeDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @ValidateIf((o) => o.email !== '' && o.email !== null && o.email !== undefined)
   @IsEmail()
   email?: string;
 

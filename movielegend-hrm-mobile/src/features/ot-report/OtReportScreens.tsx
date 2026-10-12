@@ -1020,7 +1020,7 @@ export function LeaderOtReviewScreen() {
             </View>
 
             <Text style={styles.modalCardSubtitle}>
-              Nhân viên: <Text style={{ fontWeight: '700', color: '#111827' }}>{approvingReport?.user?.profile?.fullName || approvingReport?.user?.userCode}</Text>
+              Nhân viên: <Text style={{ fontWeight: '700', color: '#102739' }}>{approvingReport?.user?.profile?.fullName || approvingReport?.user?.userCode}</Text>
             </Text>
             <Text style={styles.modalCardSubtitle}>
               Giờ OT hợp lệ: <Text style={{ fontWeight: '700', color: '#2563EB' }}>{Math.floor((approvingReport?.validOtMinutes || 0) / 60)}h {(approvingReport?.validOtMinutes || 0) % 60}p</Text>
@@ -1059,7 +1059,7 @@ export function LeaderOtReviewScreen() {
             </View>
 
             <Text style={styles.modalCardSubtitle}>
-              Nhân viên: <Text style={{ fontWeight: '700', color: '#111827' }}>{rejectingReport?.user?.profile?.fullName || rejectingReport?.user?.userCode}</Text>
+              Nhân viên: <Text style={{ fontWeight: '700', color: '#102739' }}>{rejectingReport?.user?.profile?.fullName || rejectingReport?.user?.userCode}</Text>
             </Text>
 
             <Text style={[styles.inputLabel, { marginTop: 14 }]}>Lý do không công nhận (gửi cho nhân viên):</Text>
@@ -1443,7 +1443,7 @@ const styles = StyleSheet.create({
   modalPickerText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111827',
+    color: '#102739',
   },
   rowTwoCols: {
     flexDirection: 'row',
@@ -1632,7 +1632,7 @@ const styles = StyleSheet.create({
   },
   cardTextHighlight: {
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   validOtBox: {
     flexDirection: 'row',
@@ -1705,7 +1705,7 @@ const styles = StyleSheet.create({
   modalCardTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   modalCardSubtitle: {
     fontSize: 14,
@@ -1719,7 +1719,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     fontSize: 14,
-    color: '#111827',
+    color: '#102739',
     textAlignVertical: 'top',
     minHeight: 80,
     marginBottom: 16,
@@ -1767,7 +1767,7 @@ const styles = StyleSheet.create({
   detailModalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   detailModalSub: {
     fontSize: 13,
@@ -1814,7 +1814,7 @@ const styles = StyleSheet.create({
   detailItemVal: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   detailTimeBox: {
     flexDirection: 'row',
