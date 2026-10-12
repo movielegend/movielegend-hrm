@@ -1,5 +1,5 @@
-import { ErrorState } from '../../../src/components/ErrorState';
+import { EmployeeDetailScreen } from '../../../src/features/employees/EmployeeScreens';
 
 export default function LeaderEmployeeDetailRoute() {
-  return <ErrorState error={{ message: 'Backend report employee list không trả employee id cho leader detail trong Phase 2.' }} />;
+  return <EmployeeDetailScreen />;
 }

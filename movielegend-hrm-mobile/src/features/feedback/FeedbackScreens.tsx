@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, Switch, TextInput, RefreshControl, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, Switch, TextInput, RefreshControl, Image, StatusBar } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,6 +28,7 @@ import ImageView from '../../components/ImageViewer/ImageViewer';
 // --- My Feedback List Screen ---
 export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: string }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | undefined>(undefined);
   const feedbacksQuery = useMyFeedbacks({ status: statusFilter });
 
@@ -47,55 +49,125 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
   }, [queryClient]);
 
   return (
-    <Screen>
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      {/* Top Forest Green Header */}
+      <View style={{
+        backgroundColor: '#1B3B2B',
+        paddingTop: Math.max(insets.top, 16),
+        paddingBottom: 20,
+        paddingHorizontal: 16,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/leader')} style={{ paddingRight: 10, paddingVertical: 4 }}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              MOVIE LEGEND
+            </Text>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+              Góp ý
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              Lịch sử góp ý và phản hồi của bạn
+            </Text>
+          </View>
+        </View>
+      </View>
+
       <ScrollView 
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }} 
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: Math.max(insets.bottom + 80, 90),
+        }} 
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
-        <PageHeader title="Góp ý" subtitle="Lịch sử các góp ý và phản hồi của bạn" />
+        {/* Action Button: Tạo góp ý mới */}
+        <Pressable
+          onPress={() => router.push(`${basePath}/feedbacks/create` as any)}
+          style={{
+            backgroundColor: '#1B3B2B',
+            height: 48,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'row',
+            gap: 8,
+            marginBottom: 16,
+          }}
+        >
+          <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Tạo góp ý mới</Text>
+        </Pressable>
 
-        <View style={{ marginBottom: 24 }}>
-          <Pressable
-            onPress={() => router.push(`${basePath}/feedbacks/create` as any)}
-            style={{ backgroundColor: '#000', padding: 16, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
-          >
-            <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
-            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Tạo góp ý mới</Text>
-          </Pressable>
+        {/* Filter Tabs (Wrapped Pills) */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          {filterOptions.map((opt, i) => {
+            const isActive = statusFilter === opt.value;
+            return (
+              <Pressable
+                key={i}
+                onPress={() => setStatusFilter(opt.value)}
+                style={{
+                  paddingHorizontal: 18,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  backgroundColor: isActive ? '#1B3B2B' : '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: isActive ? '#1B3B2B' : '#E2E8F0',
+                }}
+              >
+                <Text style={{
+                  color: isActive ? '#FFFFFF' : '#334155',
+                  fontWeight: '600',
+                  fontSize: 13,
+                }}>
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {filterOptions.map((opt, i) => {
-              const isActive = statusFilter === opt.value;
-              return (
-                <Pressable
-                  key={i}
-                  onPress={() => setStatusFilter(opt.value)}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                    borderRadius: 20,
-                    backgroundColor: isActive ? '#000' : '#FFF',
-                    borderWidth: 1,
-                    borderColor: isActive ? '#000' : '#E5E7EB',
-                  }}
-                >
-                  <Text style={{ color: isActive ? '#FFF' : '#111827', fontWeight: '600' }}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </ScrollView>
-
+        {/* List Content or Empty State */}
         <View style={{ gap: 12 }}>
           {feedbacksQuery.isLoading ? (
-            <ActivityIndicator style={{ marginVertical: 20 }} color="#000" />
+            <ActivityIndicator style={{ marginVertical: 30 }} color="#1B3B2B" />
           ) : !feedbacksQuery.data || !feedbacksQuery.data.items || feedbacksQuery.data.items.length === 0 ? (
-            <EmptyState title="Trống" message="Chưa có góp ý nào." />
+            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}>
+              {/* Illustrated mint circle */}
+              <View style={{
+                width: 140,
+                height: 140,
+                borderRadius: 70,
+                backgroundColor: '#E6F4EA',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <MaterialCommunityIcons name="comment-text-multiple-outline" size={60} color="#166534" />
+              </View>
+
+              <Text style={{
+                fontSize: 17,
+                fontWeight: '700',
+                color: '#0F172A',
+                marginTop: 24,
+                textAlign: 'center',
+              }}>
+                Chưa có góp ý nào
+              </Text>
+              <Text style={{
+                fontSize: 14,
+                color: '#64748B',
+                marginTop: 8,
+                textAlign: 'center',
+              }}>
+                Gửi góp ý để chia sẻ ý kiến của bạn.
+              </Text>
+            </View>
           ) : (
             feedbacksQuery.data.items?.map((fb) => (
               <FeedbackCard
@@ -107,7 +179,7 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
           )}
         </View>
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
@@ -123,6 +195,7 @@ type CreateFeedbackForm = z.infer<typeof createFeedbackSchema>;
 
 export function CreateFeedbackScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const mutation = useCreateFeedback();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -176,10 +249,34 @@ export function CreateFeedbackScreen() {
   };
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
-        <PageHeader title="Gửi góp ý mới" subtitle="Đóng góp ý kiến để xây dựng môi trường làm việc tốt hơn" />
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      {/* Top Forest Green Header */}
+      <View style={{
+        backgroundColor: '#1B3B2B',
+        paddingTop: Math.max(insets.top, 16),
+        paddingBottom: 20,
+        paddingHorizontal: 16,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              MOVIE LEGEND
+            </Text>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+              Gửi góp ý mới
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              Đóng góp ý kiến để xây dựng môi trường tốt hơn
+            </Text>
+          </View>
+        </View>
+      </View>
 
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: Math.max(insets.bottom + 40, 50) }} showsVerticalScrollIndicator={false}>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Tiêu đề <Text style={{ color: colors.danger }}>*</Text></Text>
           <Controller
@@ -230,7 +327,7 @@ export function CreateFeedbackScreen() {
               <Switch
                 value={field.value}
                 onValueChange={field.onChange}
-                trackColor={{ false: '#E5E7EB', true: '#000' }}
+                trackColor={{ false: '#E5E7EB', true: '#1B3B2B' }}
                 thumbColor={'#FFFFFF'}
               />
             )}
@@ -253,19 +350,30 @@ export function CreateFeedbackScreen() {
             </View>
           ) : (
             <Pressable onPress={pickImage} style={styles.uploadBtn}>
-              <Ionicons name="image-outline" size={24} color={colors.primary} />
-              <Text style={{ color: colors.primary, fontWeight: '500', marginLeft: 8 }}>Chọn ảnh tải lên</Text>
+              <Ionicons name="image-outline" size={24} color="#166534" />
+              <Text style={{ color: '#166534', fontWeight: '600', marginLeft: 8 }}>Chọn ảnh tải lên</Text>
             </Pressable>
           )}
         </View>
 
-        <View style={{ marginTop: 24, }}>
-          <PrimaryButton 
-            onPress={handleSubmit(onSubmit)} 
-            loading={mutation.isPending || isUploading} 
+        <View style={{ marginTop: 20 }}>
+          <Pressable
+            style={{
+              height: 48,
+              borderRadius: 12,
+              backgroundColor: '#1B3B2B',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            disabled={mutation.isPending || isUploading}
+            onPress={handleSubmit(onSubmit)}
           >
-            Gửi đi
-          </PrimaryButton>
+            {mutation.isPending || isUploading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>Gửi đi</Text>
+            )}
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -277,30 +385,46 @@ export function CreateFeedbackScreen() {
           onRequestClose={() => setViewerVisible(false)}
         />
       ) : null}
-    </Screen>
+    </View>
   );
 }
 
 // --- Feedback Detail Screen ---
 
 export function FeedbackDetailScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: feedback, isLoading, isError } = useFeedbackDetail(id);
   const [viewerVisible, setViewerVisible] = useState(false);
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
+        <ActivityIndicator size="large" color="#1B3B2B" />
       </View>
     );
   }
 
   if (isError || !feedback) {
     return (
-      <Screen>
+      <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+        <View style={{
+          backgroundColor: '#1B3B2B',
+          paddingTop: Math.max(insets.top, 16),
+          paddingBottom: 20,
+          paddingHorizontal: 16,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+            </Pressable>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF' }}>Chi tiết góp ý</Text>
+          </View>
+        </View>
         <EmptyState title="Lỗi" message="Không thể tải dữ liệu góp ý" />
-      </Screen>
+      </View>
     );
   }
 
@@ -315,8 +439,34 @@ export function FeedbackDetailScreen() {
     : null;
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      {/* Top Forest Green Header */}
+      <View style={{
+        backgroundColor: '#1B3B2B',
+        paddingTop: Math.max(insets.top, 16),
+        paddingBottom: 20,
+        paddingHorizontal: 16,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              MOVIE LEGEND
+            </Text>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+              Chi tiết góp ý
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              Thông tin và phản hồi từ quản lý
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom + 40, 50) }} showsVerticalScrollIndicator={false}>
         <View style={styles.detailCard}>
           <Text style={styles.detailTitle}>{feedback.title}</Text>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 12 }}>
@@ -365,7 +515,7 @@ export function FeedbackDetailScreen() {
           onRequestClose={() => setViewerVisible(false)}
         />
       )}
-    </Screen>
+    </View>
   );
 }
 

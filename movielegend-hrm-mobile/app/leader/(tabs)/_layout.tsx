@@ -53,7 +53,7 @@ export default function LeaderTabsLayout() {
           title: 'Việc của tôi',
           tabBarBadge: uncompletedTasksCount > 0 ? (uncompletedTasksCount > 99 ? '99+' : uncompletedTasksCount) : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "clipboard-account" : "clipboard-account-outline"} size={24} color={color} />
+            <MaterialCommunityIcons name={focused ? "clipboard-check" : "clipboard-check-outline"} size={24} color={color} />
           ),
         }}
       />

@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform, TouchableOpacity, RefreshControl, TextInput, Modal } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform, TouchableOpacity, RefreshControl, TextInput, Modal, StatusBar } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import ImageView from '../../components/ImageViewer/ImageViewer';
@@ -311,51 +311,58 @@ export function EmployeeRequestDetailScreen() {
 
   const canHrFulfillPurchase = request.type === 'PURCHASE' && meta.stage === 'PENDING_HR_PURCHASE' && isHrUser;
 
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8);
+
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#FAFAFA' }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
+      style={{ flex: 1, backgroundColor: '#123826' }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
-        <View style={[styles.header, shadows.sm]}>
-          <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={32} color="#111827" />
-          </Pressable>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerTitle}>Chi Tiết Yêu Cầu</Text>
-            <Pressable style={styles.shareBtn}>
-              <MaterialCommunityIcons name="share-variant-outline" size={24} color="#6B7280" />
-            </Pressable>
-          </View>
+      <StatusBar barStyle="light-content" backgroundColor="#123826" />
+      <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
+        <View style={styles.topHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chi tiết yêu cầu</Text>
+          <TouchableOpacity style={styles.shareBtn} hitSlop={10}>
+            <Ionicons name="share-social-outline" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        {/* Main Info Card */}
-        <View style={[styles.infoCard, shadows.sm]}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>{request.title}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: statusObj.bg }]}>
-              <Text style={[styles.statusText, { color: statusObj.color }]}>{statusObj.text}</Text>
+      <View style={styles.bodyWrapper}>
+        <ScrollView 
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 60 + Math.max(insets.bottom, 24) }]} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        >
+          {/* Main Info Card */}
+          <View style={styles.mainInfoCard}>
+            <View style={styles.mainInfoTopRow}>
+              <View style={styles.typeBadgeGroup}>
+                <View style={styles.typeIconBox}>
+                  <MaterialCommunityIcons name={typeConfig.icon as any} size={20} color="#10B981" />
+                </View>
+                <Text style={styles.typeLabelText}>{typeConfig.label}</Text>
+              </View>
+
+              <View style={[styles.statusBadge, { backgroundColor: statusObj.bg }]}>
+                <Text style={[styles.statusText, { color: statusObj.color }]}>{statusObj.text}</Text>
+              </View>
             </View>
+
+            <Text style={styles.mainRequestTitle}>{request.title}</Text>
+            <Text style={styles.mainRequestDate}>Gửi lúc: {dateStr}</Text>
           </View>
-          
-          <View style={styles.typeRow}>
-            <MaterialCommunityIcons name={typeConfig.icon as any} size={16} color={typeConfig.color} />
-            <Text style={[styles.typeLabel, { color: typeConfig.color }]}>{typeConfig.label}</Text>
-          </View>
-          <Text style={styles.dateLabel}>Gửi lúc: {dateStr}</Text>
-        </View>
 
         {/* NỘI DUNG YÊU CẦU */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="file-document-outline" size={20} color="#3B82F6" />
-            <Text style={styles.sectionTitle}>NỘI DUNG YÊU CẦU</Text>
+            <MaterialCommunityIcons name="file-document-outline" size={22} color="#123826" />
+            <Text style={styles.sectionTitle}>Nội dung yêu cầu</Text>
           </View>
-          <View style={[styles.card, shadows.sm]}>
+          <View style={styles.contentCard}>
             
             {request.amount != null && (
               <View style={styles.amountWrap}>
@@ -365,8 +372,8 @@ export function EmployeeRequestDetailScreen() {
             )}
 
             <View style={styles.reasonBox}>
-              <Text style={styles.reasonLabel}>Nội dung chi tiết:</Text>
-              <Text style={styles.reasonText}>"{request.content}"</Text>
+              <Text style={styles.reasonLabel}>Nội dung chi tiết</Text>
+              <Text style={styles.reasonText}>"{request.content || 'Không có nội dung'}"</Text>
             </View>
 
             {/* Chi tiết thông tin Đơn Thanh toán (EXPENSE) */}
@@ -407,10 +414,10 @@ export function EmployeeRequestDetailScreen() {
             {/* 1. Chi tiết thông tin Đơn Nghỉ Phép (LEAVE) */}
             {request.type === 'LEAVE' && (
               <View style={styles.metaCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                  <MaterialCommunityIcons name="calendar-clock" size={18} color="#10B981" style={{ marginRight: 6 }} />
-                  <Text style={[styles.metaCardTitle, { color: '#047857', marginBottom: 0 }]}>
-                    THÔNG TIN NGHỈ PHÉP
+                <View style={styles.metaCardHeader}>
+                  <MaterialCommunityIcons name="calendar-clock" size={20} color="#123826" style={{ marginRight: 8 }} />
+                  <Text style={styles.metaCardTitle}>
+                    Thông tin nghỉ phép
                   </Text>
                 </View>
 
@@ -431,7 +438,7 @@ export function EmployeeRequestDetailScreen() {
                 {/* Thời gian nghỉ */}
                 <View style={styles.metaRow}>
                   <Text style={styles.metaLabel}>Thời gian nghỉ:</Text>
-                  <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>
+                  <Text style={[styles.metaValueBold, { color: '#10B981' }]}>
                     {meta.leaveDurationType === 'Nhiều ngày' && meta.toDate
                       ? `Từ ${formatDateStr(meta.fromDate)} đến ${formatDateStr(meta.toDate)}`
                       : formatDateStr(meta.fromDate)}
@@ -442,11 +449,11 @@ export function EmployeeRequestDetailScreen() {
                 </View>
 
                 {meta.handoverEmployee ? (
-                  <View style={[styles.metaRow, { borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 8, marginTop: 4 }]}>
+                  <View style={[styles.metaRow, { borderTopWidth: 1, borderTopColor: '#F4F4F5', paddingTop: 8, marginTop: 4 }]}>
                     <Text style={styles.metaLabel}>Người bàn giao:</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <MaterialCommunityIcons name="account-check-outline" size={16} color="#059669" style={{ marginRight: 4 }} />
-                      <Text style={[styles.metaValueBold, { color: '#059669' }]}>
+                      <MaterialCommunityIcons name="account-check-outline" size={16} color="#10B981" style={{ marginRight: 4 }} />
+                      <Text style={[styles.metaValueBold, { color: '#10B981' }]}>
                         {meta.handoverEmployee}
                       </Text>
                     </View>
@@ -736,23 +743,23 @@ export function EmployeeRequestDetailScreen() {
         {/* TIẾN ĐỘ PHÊ DUYỆT */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="clock-outline" size={20} color="#3B82F6" />
-            <Text style={styles.sectionTitle}>TIẾN ĐỘ PHÊ DUYỆT</Text>
+            <MaterialCommunityIcons name="clock-outline" size={22} color="#123826" />
+            <Text style={styles.sectionTitle}>Tiến độ phê duyệt</Text>
           </View>
-          <View style={[styles.card, shadows.sm, { padding: 20 }]}>
+          <View style={styles.timelineCard}>
 
             {/* Step 1: Nộp đơn */}
             <View style={styles.timelineRow}>
               <View style={styles.timelineLine} />
-              <View style={[styles.timelineDot, { borderColor: '#10B981' }]}>
-                <MaterialCommunityIcons name="check" size={16} color="#10B981" />
+              <View style={[styles.timelineDotSolid, styles.timelineDotSolidGreen]}>
+                <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
               </View>
               <View style={styles.timelineContent}>
                 <View style={styles.timelineHeader}>
                   <Text style={styles.timelineTitle}>Gửi yêu cầu</Text>
-                  <Text style={styles.timelineTime}>{dateStr}</Text>
                 </View>
                 <Text style={styles.timelineDesc}>Bạn đã tạo và nộp đơn</Text>
+                <Text style={styles.timelineDateText}>{dateStr}</Text>
               </View>
             </View>
 
@@ -761,7 +768,6 @@ export function EmployeeRequestDetailScreen() {
               const isLast = idx === approvalSteps.length - 1 && request.status !== 'PENDING';
               const isRejected = step.action === 'REJECTED';
               const isDisbursed = step.action === 'DISBURSED';
-              const stepColor = isRejected ? '#EF4444' : '#10B981';
 
               let stepTitle = 'Phê duyệt';
               if (step.stage === 'PENDING_LEADER' || step.action === 'LEADER_APPROVED') stepTitle = 'Trưởng bộ phận duyệt';
@@ -772,26 +778,29 @@ export function EmployeeRequestDetailScreen() {
               return (
                 <View key={idx} style={[styles.timelineRow, isLast && { marginBottom: 0 }]}>
                   {!isLast && <View style={styles.timelineLine} />}
-                  <View style={[styles.timelineDot, { borderColor: stepColor }]}>
+                  <View style={[
+                    styles.timelineDotSolid,
+                    isRejected ? styles.timelineDotSolidRed : styles.timelineDotSolidGreen
+                  ]}>
                     <MaterialCommunityIcons 
                       name={isRejected ? "close" : "check"} 
                       size={16} 
-                      color={stepColor} 
+                      color="#FFFFFF" 
                     />
                   </View>
                   <View style={styles.timelineContent}>
                     <View style={styles.timelineHeader}>
-                      <Text style={[styles.timelineTitle, { color: isRejected ? '#EF4444' : '#111827' }]}>
+                      <Text style={[styles.timelineTitle, isRejected && { color: '#EF4444' }]}>
                         {stepTitle}
                       </Text>
-                      {step.at && (
-                        <Text style={styles.timelineTime}>{new Date(step.at).toLocaleString('vi-VN')}</Text>
-                      )}
                     </View>
                     <Text style={styles.timelineDesc}>
                       {step.actorName ? `${step.actorName} - ` : ''}
                       {isRejected ? `Từ chối: ${step.reason || 'Không hợp lệ'}` : isDisbursed ? 'Đã thực hiện giải ngân thành công' : step.note ? `Ghi chú: ${step.note}` : 'Đã chấp thuận'}
                     </Text>
+                    {step.at && (
+                      <Text style={styles.timelineDateText}>{new Date(step.at).toLocaleString('vi-VN')}</Text>
+                    )}
                   </View>
                 </View>
               );
@@ -828,27 +837,27 @@ export function EmployeeRequestDetailScreen() {
             {approvalSteps.length === 0 && request.status !== 'PENDING' && (
               <View style={[styles.timelineRow, { marginBottom: 0 }]}>
                 <View style={[
-                  styles.timelineDot, 
-                  { backgroundColor: statusObj.bg, borderWidth: 0 }
+                  styles.timelineDotSolid,
+                  request.status === 'APPROVED' ? styles.timelineDotSolidGreen : styles.timelineDotSolidRed
                 ]}>
                   {request.status === 'APPROVED' ? (
-                    <MaterialCommunityIcons name="check" size={16} color={statusObj.color} />
+                    <MaterialCommunityIcons name="check" size={16} color="#FFFFFF" />
                   ) : (
-                    <MaterialCommunityIcons name="close" size={16} color={statusObj.color} />
+                    <MaterialCommunityIcons name="close" size={16} color="#FFFFFF" />
                   )}
                 </View>
                 <View style={styles.timelineContent}>
                   <View style={styles.timelineHeader}>
-                    <Text style={[styles.timelineTitle, { color: statusObj.color }]}>
+                    <Text style={[styles.timelineTitle, request.status === 'REJECTED' && { color: '#EF4444' }]}>
                       {request.status === 'APPROVED' ? 'Đã phê duyệt' : 'Đã từ chối'}
                     </Text>
-                    {request.decidedAt && (
-                      <Text style={styles.timelineTime}>{new Date(request.decidedAt).toLocaleString('vi-VN')}</Text>
-                    )}
                   </View>
                   <Text style={styles.timelineDesc}>
                     {request.status === 'APPROVED' ? 'Yêu cầu của bạn đã được chấp thuận' : 'Yêu cầu đã bị từ chối'}
                   </Text>
+                  {request.decidedAt && (
+                    <Text style={styles.timelineDateText}>{new Date(request.decidedAt).toLocaleString('vi-VN')}</Text>
+                  )}
                 </View>
               </View>
             )}
@@ -858,7 +867,7 @@ export function EmployeeRequestDetailScreen() {
 
         {/* NÚT THAO TÁC CHO HR KHI ĐÃ ĐƯỢC DUYỆT MUA HÀNG */}
         {canHrFulfillPurchase && (
-          <View style={[styles.infoCard, { backgroundColor: '#F0F9FF', borderColor: '#0284C7', marginBottom: 24 }]}>
+          <View style={[styles.contentCard, { backgroundColor: '#F0F9FF', borderColor: '#0284C7', marginBottom: 24 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
               <MaterialCommunityIcons name="cart-check" size={24} color="#0284C7" style={{ marginRight: 8 }} />
               <View style={{ flex: 1 }}>
@@ -888,6 +897,7 @@ export function EmployeeRequestDetailScreen() {
           </View>
         )}
       </ScrollView>
+    </View>
 
       {/* HR Purchase Fulfillment Modal */}
       <Modal
@@ -1063,220 +1073,183 @@ export function EmployeeRequestDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
+  topSafeArea: {
+    backgroundColor: '#123826',
+  },
+  topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: '#fff',
-    zIndex: 10,
-  },
-  iconBtn: {
-    padding: 4,
-    marginRight: 8,
-  },
-  headerRight: {
-    flex: 1,
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#123826',
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginLeft: -4,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#111827',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
   shareBtn: {
-    padding: 4,
+    width: 32,
+    height: 32,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginRight: -4,
+  },
+  bodyWrapper: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -8,
+    overflow: 'hidden',
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingTop: 16,
   },
-  infoCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+  mainInfoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E4E4E7',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
-  cardHeader: {
+  mainInfoTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  cardTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginRight: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  typeRow: {
+  typeBadgeGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    gap: 8,
   },
-  typeLabel: {
+  typeIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeLabelText: {
     fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
+    fontWeight: '700',
+    color: '#10B981',
   },
-  dateLabel: {
-    fontSize: 13,
-    color: '#6B7280',
+  mainRequestTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#18181B',
+    lineHeight: 26,
+    marginBottom: 8,
+  },
+  mainRequestDate: {
+    fontSize: 12.5,
+    color: '#71717A',
+    fontWeight: '500',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 12,
+    paddingHorizontal: 2,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#6B7280',
-    letterSpacing: 0.5,
-    marginLeft: 8,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#123826',
+    letterSpacing: -0.2,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+  contentCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E4E4E7',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   amountWrap: {
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
-    padding: 16,
+    backgroundColor: '#F0FDF4',
+    padding: 14,
     borderRadius: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#FFEDD5',
+    borderColor: '#DCFCE7',
   },
   amountLabel: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#F97316',
+    color: '#166534',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   amountValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#111827',
+    color: '#123826',
   },
   amountCurrency: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#71717A',
   },
   reasonBox: {
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   reasonLabel: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#4B5563',
+    color: '#71717A',
+    fontWeight: '500',
     marginBottom: 6,
   },
   reasonText: {
-    fontSize: 14,
-    color: '#111827',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#18181B',
     fontStyle: 'italic',
-    lineHeight: 22,
-  },
-  attachmentBox: {
-    marginTop: 8,
-  },
-  attachmentLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  evidenceImage: {
-    width: '100%',
-    height: 220,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  timelineRow: {
-    flexDirection: 'row',
-    marginBottom: 24,
-    position: 'relative',
-  },
-  timelineLine: {
-    position: 'absolute',
-    left: 11,
-    top: 24,
-    bottom: -24,
-    width: 2,
-    backgroundColor: '#E5E7EB',
-  },
-  timelineDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-    zIndex: 1,
-  },
-  timelineContent: {
-    flex: 1,
-  },
-  timelineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  timelineTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  timelineTime: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  timelineDesc: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
+    lineHeight: 24,
   },
   metaCard: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F4F4F5',
+    paddingTop: 16,
+    marginTop: 4,
+  },
+  metaCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   metaCardTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#123826',
   },
   metaRow: {
     flexDirection: 'row',
@@ -1285,14 +1258,119 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   metaLabel: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: 13.5,
+    color: '#71717A',
+    fontWeight: '500',
   },
   metaValueBold: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#18181B',
     flexShrink: 1,
     textAlign: 'right',
+  },
+  timelineCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    position: 'relative',
+  },
+  timelineLine: {
+    position: 'absolute',
+    left: 14,
+    top: 28,
+    bottom: -22,
+    width: 2,
+    backgroundColor: '#E4E4E7',
+  },
+  timelineDotSolid: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    zIndex: 1,
+  },
+  timelineDotSolidGreen: {
+    backgroundColor: '#10B981',
+  },
+  timelineDotSolidRed: {
+    backgroundColor: '#EF4444',
+  },
+  timelineDot: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    borderWidth: 2,
+    zIndex: 1,
+  },
+  timelineContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  timelineHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  timelineTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  timelineDesc: {
+    fontSize: 13,
+    color: '#71717A',
+    fontWeight: '500',
+  },
+  timelineDateText: {
+    fontSize: 12,
+    color: '#A1A1AA',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  statusText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  attachmentBox: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F4F4F5',
+    paddingTop: 12,
+  },
+  attachmentLabel: {
+    fontSize: 13,
+    color: '#71717A',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  evidenceImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
   },
 });

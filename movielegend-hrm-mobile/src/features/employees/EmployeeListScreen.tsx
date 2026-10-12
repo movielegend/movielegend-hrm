@@ -54,6 +54,7 @@ function UserInitialAvatar({ name, size = 48 }: { name: string; size?: number })
 
 export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   const router = useRouter();
+  const basePath = scope === 'leader' ? '/leader' : '/admin';
   const { user } = useAuth();
   const { departmentId, branchId } = useLocalSearchParams<{ departmentId?: string; branchId?: string }>();
 
@@ -239,7 +240,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               const roleCodes = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.role?.code || r?.name || '').toUpperCase());
 
               const isAccDept = deptName.toLowerCase().includes('kế toán') || deptName.toLowerCase().includes('kt');
-              let displayRole = employee.profile?.position?.name || employee.position?.name;
+              let displayRole = employee.profile?.position?.name || (employee as any).position?.name;
               if (roleCodes.includes('ADMIN') || roleCodes.includes('SUPER_ADMIN')) displayRole = 'Admin Tổng';
               else if (roleCodes.includes('ACCOUNTANT_LEAD')) displayRole = 'Kế toán trưởng';
               else if (roleCodes.includes('LEADER') || roleCodes.includes('DEPARTMENT_HEAD')) displayRole = isAccDept ? 'Kế toán trưởng' : 'Trưởng phòng (Leader)';
@@ -253,8 +254,11 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
 
               return (
                 <View key={employee.id} style={styles.card}>
-                  {/* Card Top: Avatar + Name/Code/Dept + Status Badge */}
-                  <View style={styles.cardTopRow}>
+                  {/* Card Top: Avatar + Name/Code/Dept + Status Badge (Clickable) */}
+                  <Pressable
+                    onPress={() => router.push(`${basePath}/employees/${employee.id}` as any)}
+                    style={styles.cardTopRow}
+                  >
                     <UserInitialAvatar name={name} size={48} />
 
                     <View style={{ flex: 1, marginLeft: 12 }}>
@@ -273,14 +277,14 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                         {isActive ? 'Hoạt động' : 'Tạm khóa'}
                       </Text>
                     </View>
-                  </View>
+                  </Pressable>
 
                   <View style={styles.cardDivider} />
 
                   {/* Card Bottom: "Xem hồ sơ →" on left + Edit/More icons on right */}
                   <View style={styles.cardBottomRow}>
                     <Pressable
-                      onPress={() => router.push(`/admin/employees/${employee.id}`)}
+                      onPress={() => router.push(`${basePath}/employees/${employee.id}` as any)}
                       style={styles.viewProfileBtn}
                       hitSlop={6}
                     >
@@ -290,7 +294,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                     <View style={styles.cardActionsRight}>
                       {scope === 'admin' && (
                         <Pressable
-                          onPress={() => router.push({ pathname: '/admin/employees/[id]', params: { id: employee.id, edit: '1' } })}
+                          onPress={() => router.push({ pathname: `${basePath}/employees/[id]` as any, params: { id: employee.id, edit: '1' } })}
                           style={styles.iconActionBtn}
                           hitSlop={8}
                         >
@@ -356,7 +360,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                   const empId = selectedEmployeeMenu?.id;
                   setSelectedEmployeeMenu(null);
                   if (empId) {
-                    router.push({ pathname: '/admin/employees/[id]', params: { id: empId, edit: '1' } });
+                    router.push({ pathname: `${basePath}/employees/[id]` as any, params: { id: empId, edit: '1' } });
                   }
                 }}
               >

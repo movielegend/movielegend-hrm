@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
+import { useTabBarVisibilityState, setTabBarVisible } from './tabBarVisibility';
 
-const AURA_WIDTH = 48;
-const AURA_HEIGHT = 32;
-const TOP_PILL_WIDTH = 24;
+const DOCK_HEIGHT = 60;
+const INDICATOR_WIDTH = 54;
+const INDICATOR_HEIGHT = 44;
 
 export const MagicTabBar = React.memo(function MagicTabBar({
   state,
@@ -22,7 +23,8 @@ export const MagicTabBar = React.memo(function MagicTabBar({
 }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const screenWidth = Dimensions.get('window').width;
-  const [containerWidth, setContainerWidth] = useState(screenWidth);
+  const [containerWidth, setContainerWidth] = useState(screenWidth - 36);
+  const isTabBarVisible = useTabBarVisibilityState();
 
   // Lọc ra danh sách các tab được phép hiển thị trên thanh điều hướng đáy
   const visibleRoutes = state.routes.filter((route) => {
@@ -41,39 +43,46 @@ export const MagicTabBar = React.memo(function MagicTabBar({
   const isCurrentRouteVisible = activeVisibleIndex >= 0;
   const safeIndex = isCurrentRouteVisible ? activeVisibleIndex : 0;
 
-  // Tọa độ X ban đầu cho con trượt hào quang và vạch chỉ báo
-  const initialAuraX = tabWidth > 0 ? tabWidth * safeIndex + (tabWidth - AURA_WIDTH) / 2 : 0;
-  const initialPillX = tabWidth > 0 ? tabWidth * safeIndex + (tabWidth - TOP_PILL_WIDTH) / 2 : 0;
+  // Tọa độ X ban đầu cho con trượt pill chỉ báo
+  const initialPillX = tabWidth > 0 ? tabWidth * safeIndex + (tabWidth - INDICATOR_WIDTH) / 2 : 0;
 
-  const auraTranslateX = useRef(new Animated.Value(initialAuraX)).current;
   const pillTranslateX = useRef(new Animated.Value(initialPillX)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const translateYAnim = useRef(new Animated.Value(0)).current;
+
+  // Khi cuộn trang lên/xuống: hiệu ứng trượt ẩn xuống đáy (120px) hoặc đẩy lên lại (0px)
+  useEffect(() => {
+    Animated.spring(translateYAnim, {
+      toValue: isTabBarVisible ? 0 : 120,
+      damping: 18,
+      mass: 0.6,
+      stiffness: 160,
+      useNativeDriver: true,
+    }).start();
+  }, [isTabBarVisible]);
+
+  // Luôn đảm bảo hiện lại tab bar khi bấm chuyển tab
+  useEffect(() => {
+    setTabBarVisible(true);
+  }, [state.index]);
 
   // Lắng nghe chuyển tab để chạy animation lò xo 60fps Native Driver
   useEffect(() => {
     if (tabWidth > 0 && isCurrentRouteVisible) {
-      const targetAuraX = tabWidth * activeVisibleIndex + (tabWidth - AURA_WIDTH) / 2;
-      const targetPillX = tabWidth * activeVisibleIndex + (tabWidth - TOP_PILL_WIDTH) / 2;
+      const targetPillX = tabWidth * activeVisibleIndex + (tabWidth - INDICATOR_WIDTH) / 2;
 
       Animated.parallel([
-        Animated.spring(auraTranslateX, {
-          toValue: targetAuraX,
-          damping: 16,
-          mass: 0.7,
-          stiffness: 150,
-          useNativeDriver: true,
-        }),
         Animated.spring(pillTranslateX, {
           toValue: targetPillX,
-          damping: 16,
-          mass: 0.7,
-          stiffness: 150,
+          damping: 18,
+          mass: 0.6,
+          stiffness: 160,
           useNativeDriver: true,
         }),
         Animated.sequence([
           Animated.timing(scaleAnim, {
-            toValue: 1.08,
-            duration: 80,
+            toValue: 0.94,
+            duration: 60,
             useNativeDriver: true,
           }),
           Animated.spring(scaleAnim, {
@@ -87,100 +96,92 @@ export const MagicTabBar = React.memo(function MagicTabBar({
     }
   }, [activeVisibleIndex, tabWidth, isCurrentRouteVisible]);
 
-  const bottomPadding = Math.max(Platform.OS === 'android' ? 8 : 16, insets.bottom);
+  // Vị trí nổi cách đáy màn hình
+  const bottomMargin = Math.max(Platform.OS === 'android' ? 14 : insets.bottom, 12);
 
   return (
-    <View
+    <Animated.View
       style={[
-        styles.navBarContainer,
+        styles.dockOuterContainer,
         {
-          paddingBottom: bottomPadding,
+          bottom: bottomMargin,
+          transform: [{ translateY: translateYAnim }],
         },
       ]}
-      onLayout={(e) => {
-        const w = e.nativeEvent.layout.width;
-        if (w > 0 && Math.abs(w - containerWidth) > 1) {
-          setContainerWidth(w);
-        }
-      }}
+      pointerEvents={isTabBarVisible ? 'box-none' : 'none'}
     >
-      {/* Vạch chỉ báo mảnh 2.5px ở mép đỉnh trượt đồng bộ với tab active */}
-      {tabWidth > 0 && isCurrentRouteVisible && (
-        <Animated.View
-          style={[
-            styles.topPillIndicator,
-            {
-              transform: [{ translateX: pillTranslateX }],
-            },
-          ]}
-          pointerEvents="none"
-        />
-      )}
+      <View
+        style={styles.dockCapsule}
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          if (w > 0 && Math.abs(w - containerWidth) > 1) {
+            setContainerWidth(w);
+          }
+        }}
+      >
+        {/* Con trượt Pill hình bầu dục / Oval capsule indicator theo tab đang active */}
+        {tabWidth > 0 && isCurrentRouteVisible && (
+          <Animated.View
+            style={[
+              styles.activePillIndicator,
+              {
+                transform: [
+                  { translateX: pillTranslateX },
+                  { scale: scaleAnim },
+                ],
+              },
+            ]}
+            pointerEvents="none"
+          />
+        )}
 
-      {/* Vầng hào quang / Pill nền xanh nhạt sau icon active */}
-      {tabWidth > 0 && isCurrentRouteVisible && (
-        <Animated.View
-          style={[
-            styles.auraGlowWrapper,
-            {
-              transform: [
-                { translateX: auraTranslateX },
-                { scale: scaleAnim },
-              ],
-            },
-          ]}
-          pointerEvents="none"
-        >
-          <View style={styles.auraPod} />
-        </Animated.View>
-      )}
+        {/* Hàng các tab điều hướng (icon-only gọn gàng, sắc nét) */}
+        <View style={styles.tabsRow}>
+          {visibleRoutes.map((route, index) => {
+            const descriptor = descriptors[route.key];
+            if (!descriptor) return null;
+            const { options } = descriptor;
+            const isFocused = isCurrentRouteVisible && activeVisibleIndex === index;
+            const label =
+              options.tabBarLabel !== undefined
+                ? options.tabBarLabel
+                : options.title !== undefined
+                ? options.title
+                : route.name;
 
-      {/* Hàng tab điều hướng hiển thị chuẩn xác */}
-      <View style={styles.tabsRow}>
-        {visibleRoutes.map((route, index) => {
-          const descriptor = descriptors[route.key];
-          if (!descriptor) return null;
-          const { options } = descriptor;
-          const isFocused = isCurrentRouteVisible && activeVisibleIndex === index;
-          const label =
-            options.tabBarLabel !== undefined
-              ? options.tabBarLabel
-              : options.title !== undefined
-              ? options.title
-              : route.name;
+            const onPress = () => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name, route.params);
+              } else if (isFocused) {
+                Animated.sequence([
+                  Animated.timing(scaleAnim, { toValue: 1.12, duration: 60, useNativeDriver: true }),
+                  Animated.spring(scaleAnim, { toValue: 1, damping: 10, stiffness: 180, useNativeDriver: true }),
+                ]).start();
+              }
+            };
 
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
-            } else if (isFocused) {
-              Animated.sequence([
-                Animated.timing(scaleAnim, { toValue: 1.12, duration: 70, useNativeDriver: true }),
-                Animated.spring(scaleAnim, { toValue: 1, damping: 10, stiffness: 180, useNativeDriver: true }),
-              ]).start();
-            }
-          };
-
-          return (
-            <Pressable
-              key={route.key}
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
-              onPress={onPress}
-              style={styles.tabItem}
-            >
-              <View style={styles.tabContent}>
-                {/* Hàng Icon: Cả 5 tab nằm trên cùng 1 trục ngang hoàn hảo */}
+            return (
+              <Pressable
+                key={route.key}
+                accessibilityRole="button"
+                accessibilityState={isFocused ? { selected: true } : {}}
+                accessibilityLabel={
+                  options.tabBarAccessibilityLabel ||
+                  (typeof label === 'string' ? label : undefined)
+                }
+                onPress={onPress}
+                style={styles.tabItem}
+              >
                 <View style={styles.iconBox}>
                   {options.tabBarIcon
                     ? options.tabBarIcon({
-                        color: isFocused ? '#1B3B2B' : '#94A3B8',
+                        color: isFocused ? '#FFFFFF' : 'rgba(255, 255, 255, 0.68)',
                         focused: isFocused,
                         size: 24,
                       })
@@ -195,98 +196,73 @@ export const MagicTabBar = React.memo(function MagicTabBar({
                     </View>
                   )}
                 </View>
-
-                {/* Hàng chữ: Cả 5 tab nằm trên cùng 1 trục ngang, rộng rãi không bao giờ tràn mép */}
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.tabLabel,
-                    isFocused ? styles.tabLabelActive : styles.tabLabelInactive,
-                  ]}
-                >
-                  {typeof label === 'string' ? label : ''}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
-    </View>
+    </Animated.View>
   );
 });
 
 const styles = StyleSheet.create({
-  navBarContainer: {
+  dockOuterContainer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingTop: 8,
-    // Đổ bóng hắt lên nhẹ tạo chiều sâu cho thanh footer
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 8,
+    left: 18,
+    right: 18,
+    alignItems: 'center',
     zIndex: 999,
   },
-  // Vạch chỉ báo mảnh 2.5px ở mép đỉnh
-  topPillIndicator: {
-    position: 'absolute',
-    top: -1,
-    width: TOP_PILL_WIDTH,
-    height: 2.5,
-    borderRadius: 1.5,
-    backgroundColor: '#1B3B2B',
-    zIndex: 20,
+  dockCapsule: {
+    width: '100%',
+    maxWidth: 420,
+    height: DOCK_HEIGHT,
+    backgroundColor: '#1B3B2B', // Màu xanh rêu đậm thương hiệu Movie Legend
+    borderRadius: DOCK_HEIGHT / 2, // Bo tròn dạng viên thuốc hoàn hảo
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 12,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  // Vầng hào quang / Pill nền xanh nhạt sau icon active
-  auraGlowWrapper: {
+  // Vùng pill bầu dục nổi bật của tab đang active
+  activePillIndicator: {
     position: 'absolute',
-    top: 6,
-    width: AURA_WIDTH,
-    height: AURA_HEIGHT,
+    top: (DOCK_HEIGHT - INDICATOR_HEIGHT) / 2,
+    width: INDICATOR_WIDTH,
+    height: INDICATOR_HEIGHT,
+    borderRadius: INDICATOR_HEIGHT / 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)', // Highlight nhẹ sang trọng đồng bộ với màu nền
     zIndex: 5,
   },
-  auraPod: {
-    width: AURA_WIDTH,
-    height: AURA_HEIGHT,
-    borderRadius: 16,
-    backgroundColor: '#D8E9DC',
-  },
   tabsRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    height: DOCK_HEIGHT,
     zIndex: 15,
   },
   tabItem: {
     flex: 1,
-    height: 48,
+    height: DOCK_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  tabContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    gap: 3,
   },
   iconBox: {
-    width: 32,
-    height: 28,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
   badgePill: {
     position: 'absolute',
-    top: -4,
-    right: -8,
+    top: 0,
+    right: 0,
     backgroundColor: '#EF4444',
     minWidth: 16,
     height: 16,
@@ -295,24 +271,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: '#1B3B2B',
   },
   badgeText: {
     color: '#FFFFFF',
-    fontSize: 8.5,
+    fontSize: 9,
     fontWeight: '800',
-  },
-  tabLabel: {
-    fontSize: 10.5,
-    textAlign: 'center',
-    letterSpacing: 0.1,
-  },
-  tabLabelActive: {
-    color: '#1B3B2B',
-    fontWeight: '700',
-  },
-  tabLabelInactive: {
-    color: '#94A3B8',
-    fontWeight: '500',
   },
 });

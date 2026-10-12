@@ -69,7 +69,7 @@ const ASSESSMENT_LEVELS = [
 ];
 
 export interface DailyReportFormScreenProps {
-  headerSlot?: React.ReactNode;
+  headerSlot?: React.ReactNode | ((props: { currentStep: number }) => React.ReactNode);
   hideHeaderTitle?: boolean;
 }
 
@@ -312,15 +312,16 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
       const asset = res.assets[0];
       if (!asset) return;
       setIsUploadingFile(true);
-      const uploaded = await uploadFile({
+      const uploaded: any = await uploadFile({
         uri: asset.uri,
         name: asset.fileName || `anh_${Date.now()}.jpg`,
-        type: asset.mimeType || 'image/jpeg',
+        mimeType: asset.mimeType || 'image/jpeg',
+        purpose: 'TASK_ATTACHMENT' as any,
       });
       setAttachments((prev) => [
         ...prev,
         {
-          url: uploaded.url,
+          url: uploaded.fileUrl || uploaded.url,
           fileName: uploaded.originalName || asset.fileName || 'Ảnh đính kèm',
           size: uploaded.size || asset.fileSize,
           fileType: 'IMAGE',
@@ -346,15 +347,16 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
       const asset = res.assets[0];
       if (!asset) return;
       setIsUploadingFile(true);
-      const uploaded = await uploadFile({
+      const uploaded: any = await uploadFile({
         uri: asset.uri,
         name: asset.name,
-        type: asset.mimeType || 'application/octet-stream',
+        mimeType: asset.mimeType || 'application/octet-stream',
+        purpose: 'TASK_ATTACHMENT' as any,
       });
       setAttachments((prev) => [
         ...prev,
         {
-          url: uploaded.url,
+          url: uploaded.fileUrl || uploaded.url,
           fileName: uploaded.originalName || asset.name,
           size: uploaded.size || asset.size,
           fileType: asset.mimeType?.includes('pdf') ? 'PDF' : 'DOCUMENT',
@@ -485,15 +487,19 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
     <Screen backgroundColor="#F5F6FA">
       <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 20) }}>
         {/* Leader / Custom Header Slot */}
-        {headerSlot}
+        {typeof headerSlot === 'function' ? headerSlot({ currentStep }) : headerSlot}
 
         {/* Standalone Title Header (only if not hideHeaderTitle) */}
         {!hideHeaderTitle && (
           <View style={styles.headerBox}>
             <View style={styles.headerTopRow}>
               <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={styles.headerTitle}>Báo cáo cuối ngày</Text>
-                <Text style={styles.headerDate}>{displayDate}</Text>
+                <Text style={styles.headerTitle}>
+                  {currentStep === 2 ? 'Xem lại báo cáo' : 'Báo cáo cuối ngày'}
+                </Text>
+                <Text style={styles.headerDate}>
+                  {currentStep === 2 ? 'Kiểm tra toàn bộ nội dung trước khi nộp.' : displayDate}
+                </Text>
               </View>
               <View style={styles.badgePill}>
                 <Text style={styles.badgePillText}>
@@ -522,7 +528,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
             <MaterialCommunityIcons
               name="pencil-outline"
               size={16}
-              color={activeTab === 'write' ? '#315DE5' : '#64748B'}
+              color={activeTab === 'write' ? '#0F172A' : '#64748B'}
             />
             <Text style={[styles.mainSegmentBtnText, activeTab === 'write' && styles.mainSegmentBtnTextActive]}>
               Viết báo cáo
@@ -536,7 +542,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
             <MaterialCommunityIcons
               name="check-decagram-outline"
               size={16}
-              color={activeTab === 'approved' ? '#315DE5' : '#64748B'}
+              color={activeTab === 'approved' ? '#0F172A' : '#64748B'}
             />
             <Text style={[styles.mainSegmentBtnText, activeTab === 'approved' && styles.mainSegmentBtnTextActive]}>
               Đã duyệt
@@ -569,7 +575,10 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
               </View>
               <View style={styles.personCardDivider} />
               <View style={styles.personCardBottom}>
-                <Text style={styles.personCardDate}>{displayDate}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="calendar-outline" size={15} color="#64748B" />
+                  <Text style={styles.personCardDate}>{displayDate}</Text>
+                </View>
                 <View
                   style={[
                     styles.statusBadge,
@@ -617,28 +626,69 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
               </View>
             )}
 
-            {/* STEP TABS (01 Hôm nay | 02 Ngày mai | 03 Xem lại) */}
-            <View style={styles.stepTabsRow}>
-              {[
-                { id: 0, label: '01 · Hôm nay' },
-                { id: 1, label: '02 · Ngày mai' },
-                { id: 2, label: '03 · Xem lại' },
-              ].map((tab) => {
-                const isActive = currentStep === tab.id;
-                return (
-                  <TouchableOpacity
-                    key={tab.id}
-                    style={[styles.stepTabBtn, isActive && styles.stepTabBtnActive]}
-                    onPress={() => setCurrentStep(tab.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[styles.stepIndicatorLine, isActive && styles.stepIndicatorLineActive]} />
-                    <Text style={[styles.stepTabLabel, isActive && styles.stepTabLabelActive]}>
-                      {tab.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            {/* STEP INDICATOR (01 Hôm nay ── 02 Ngày mai ── 03 Xem lại) */}
+            <View style={styles.stepIndicatorRow}>
+              {/* Step 0 */}
+              <Pressable
+                style={styles.stepItemPressable}
+                onPress={() => setCurrentStep(0)}
+              >
+                <View style={[
+                  styles.stepCircle,
+                  currentStep === 0 && styles.stepCircleActive,
+                  currentStep > 0 && styles.stepCircleDone,
+                ]}>
+                  {currentStep > 0 ? (
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  ) : (
+                    <Text style={[styles.stepCircleText, currentStep === 0 && styles.stepCircleTextActive]}>1</Text>
+                  )}
+                </View>
+                <Text style={[styles.stepLabelText, currentStep === 0 && styles.stepLabelTextActive]}>
+                  Hôm nay
+                </Text>
+              </Pressable>
+
+              <View style={[styles.stepConnectorLine, currentStep >= 1 && styles.stepConnectorLineActive]} />
+
+              {/* Step 1 */}
+              <Pressable
+                style={styles.stepItemPressable}
+                onPress={() => setCurrentStep(1)}
+              >
+                <View style={[
+                  styles.stepCircle,
+                  currentStep === 1 && styles.stepCircleActive,
+                  currentStep > 1 && styles.stepCircleDone,
+                ]}>
+                  {currentStep > 1 ? (
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  ) : (
+                    <Text style={[styles.stepCircleText, currentStep === 1 && styles.stepCircleTextActive]}>2</Text>
+                  )}
+                </View>
+                <Text style={[styles.stepLabelText, currentStep === 1 && styles.stepLabelTextActive]}>
+                  Ngày mai
+                </Text>
+              </Pressable>
+
+              <View style={[styles.stepConnectorLine, currentStep >= 2 && styles.stepConnectorLineActive]} />
+
+              {/* Step 2 */}
+              <Pressable
+                style={styles.stepItemPressable}
+                onPress={() => setCurrentStep(2)}
+              >
+                <View style={[
+                  styles.stepCircle,
+                  currentStep === 2 && styles.stepCircleActive,
+                ]}>
+                  <Text style={[styles.stepCircleText, currentStep === 2 && styles.stepCircleTextActive]}>3</Text>
+                </View>
+                <Text style={[styles.stepLabelText, currentStep === 2 && styles.stepLabelTextActive]}>
+                  Xem lại
+                </Text>
+              </Pressable>
             </View>
 
             {/* PANEL 0: HÔM NAY */}
@@ -719,9 +769,9 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                   )}
 
                   {!isSubmittedToday && (
-                    <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddMetric} activeOpacity={0.7}>
-                      <Ionicons name="add" size={18} color="#315DE5" />
-                      <Text style={styles.outlineAddBtnText}>Thêm chỉ tiêu</Text>
+                    <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddMetric} activeOpacity={0.7}>
+                      <Ionicons name="add" size={18} color="#166534" />
+                      <Text style={styles.dashedAddBtnText}>Thêm chỉ tiêu</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -741,7 +791,10 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                   </View>
 
                   {completedTasks.length === 0 ? (
-                    <Text style={styles.emptyPromptText}>Chưa có công việc nào trong danh sách hoàn thành.</Text>
+                    <View style={styles.emptyContainerDashed}>
+                      <Ionicons name="document-text-outline" size={32} color="#94A3B8" />
+                      <Text style={styles.emptyPromptText}>Chưa có công việc nào trong danh sách hoàn thành.</Text>
+                    </View>
                   ) : (
                     completedTasks.map((t, idx) => {
                       const isSelected = t.isSelected ?? true;
@@ -756,7 +809,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                             <MaterialCommunityIcons
                               name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
                               size={22}
-                              color={isSelected ? '#315DE5' : '#94A3B8'}
+                              color={isSelected ? '#166534' : '#94A3B8'}
                             />
                             <View style={{ flex: 1, marginLeft: 8 }}>
                               {t.isManual && !isSubmittedToday ? (
@@ -790,9 +843,9 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                   )}
 
                   {!isSubmittedToday && (
-                    <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddManualCompletedTask} activeOpacity={0.7}>
-                      <Ionicons name="add" size={18} color="#315DE5" />
-                      <Text style={styles.outlineAddBtnText}>Thêm việc hoàn thành</Text>
+                    <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddManualCompletedTask} activeOpacity={0.7}>
+                      <Ionicons name="add" size={18} color="#166534" />
+                      <Text style={styles.dashedAddBtnText}>Thêm việc hoàn thành</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -812,7 +865,10 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                   </View>
 
                   {inProgressTasks.length === 0 ? (
-                    <Text style={styles.emptyPromptText}>Không có việc dở dang. Thêm nếu có việc cần làm tiếp ngày mai.</Text>
+                    <View style={styles.emptyContainerDashed}>
+                      <Ionicons name="time-outline" size={32} color="#94A3B8" />
+                      <Text style={styles.emptyPromptText}>Chưa có công việc đang thực hiện.</Text>
+                    </View>
                   ) : (
                     inProgressTasks.map((t, idx) => (
                       <View key={idx} style={styles.inProgressCard}>
@@ -865,9 +921,9 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                   )}
 
                   {!isSubmittedToday && (
-                    <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddInProgressTask} activeOpacity={0.7}>
-                      <Ionicons name="add" size={18} color="#315DE5" />
-                      <Text style={styles.outlineAddBtnText}>Thêm việc đang làm</Text>
+                    <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddInProgressTask} activeOpacity={0.7}>
+                      <Ionicons name="add" size={18} color="#166534" />
+                      <Text style={styles.dashedAddBtnText}>Thêm việc đang làm</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -906,9 +962,9 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                   ))}
 
                   {!isSubmittedToday && (
-                    <TouchableOpacity style={styles.outlineAddBtn} onPress={handleAddPlanItem} activeOpacity={0.7}>
-                      <Ionicons name="add" size={18} color="#315DE5" />
-                      <Text style={styles.outlineAddBtnText}>Thêm đầu việc ngày mai</Text>
+                    <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddPlanItem} activeOpacity={0.7}>
+                      <Ionicons name="add" size={18} color="#166534" />
+                      <Text style={styles.dashedAddBtnText}>Thêm đầu việc ngày mai</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -924,9 +980,11 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                     </View>
                     <Switch
                       value={hasObstacles}
-                      onValueChange={(val) => !isSubmittedToday && setHasObstacles(val)}
-                      trackColor={{ false: '#E2E8F0', true: '#BFDBFE' }}
-                      thumbColor={hasObstacles ? '#315DE5' : '#94A3B8'}
+                      onValueChange={(val: boolean) => {
+                        if (!isSubmittedToday) setHasObstacles(val);
+                      }}
+                      trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
+                      thumbColor={hasObstacles ? '#166534' : '#FFFFFF'}
                       disabled={isSubmittedToday}
                     />
                   </View>
@@ -981,7 +1039,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                         >
                           <Ionicons
                             name={isSelected ? 'star' : 'star-outline'}
-                            size={32}
+                            size={34}
                             color={isSelected ? '#F59E0B' : '#CBD5E1'}
                           />
                         </TouchableOpacity>
@@ -1020,8 +1078,32 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                     Đính kèm hình ảnh kết quả, tài liệu, biên bản báo cáo (ảnh hoặc PDF).
                   </Text>
 
+                  {!isSubmittedToday && (
+                    <View style={styles.attachBtnRow}>
+                      <TouchableOpacity
+                        style={styles.attachBtn}
+                        onPress={handlePickImage}
+                        disabled={isUploadingFile}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="image-outline" size={18} color="#166534" />
+                        <Text style={styles.attachBtnText}>Thêm ảnh</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.attachBtn}
+                        onPress={handlePickDocument}
+                        disabled={isUploadingFile}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="document-text-outline" size={18} color="#166534" />
+                        <Text style={styles.attachBtnText}>Thêm tài liệu</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
                   {/* Attachments List */}
-                  {attachments.length > 0 && (
+                  {attachments.length > 0 ? (
                     <View style={styles.attachmentList}>
                       {attachments.map((a, idx) => (
                         <View key={idx} style={styles.attachmentItemRow}>
@@ -1033,7 +1115,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                             <MaterialCommunityIcons
                               name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
                               size={22}
-                              color="#315DE5"
+                              color="#166534"
                             />
                             <View style={{ flex: 1, marginLeft: 10 }}>
                               <Text style={styles.attachmentFileName} numberOfLines={1}>
@@ -1043,7 +1125,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                                 {a.fileType === 'IMAGE' ? 'Hình ảnh · Nhấn để xem' : 'Tài liệu · Nhấn để xem'}
                               </Text>
                             </View>
-                            <Ionicons name="eye-outline" size={18} color="#315DE5" />
+                            <Ionicons name="eye-outline" size={18} color="#166534" />
                           </TouchableOpacity>
 
                           {!isSubmittedToday && (
@@ -1058,35 +1140,16 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                         </View>
                       ))}
                     </View>
-                  )}
-
-                  {!isSubmittedToday && (
-                    <View style={styles.attachBtnRow}>
-                      <TouchableOpacity
-                        style={styles.attachBtn}
-                        onPress={handlePickImage}
-                        disabled={isUploadingFile}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="image-outline" size={18} color="#315DE5" />
-                        <Text style={styles.attachBtnText}>Thêm ảnh</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.attachBtn}
-                        onPress={handlePickDocument}
-                        disabled={isUploadingFile}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="document-text-outline" size={18} color="#315DE5" />
-                        <Text style={styles.attachBtnText}>Thêm tài liệu</Text>
-                      </TouchableOpacity>
+                  ) : (
+                    <View style={styles.emptyContainerDashed}>
+                      <Ionicons name="cloud-upload-outline" size={32} color="#94A3B8" />
+                      <Text style={styles.emptyPromptText}>Chưa có tệp đính kèm. Nhấn nút bên trên để thêm ảnh hoặc tài liệu.</Text>
                     </View>
                   )}
 
                   {isUploadingFile && (
                     <View style={styles.uploadingBox}>
-                      <ActivityIndicator size="small" color="#315DE5" />
+                      <ActivityIndicator size="small" color="#166534" />
                       <Text style={styles.uploadingText}>Đang tải tệp lên…</Text>
                     </View>
                   )}
@@ -1106,85 +1169,142 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
 
                   <View style={styles.summaryTable}>
                     {/* 1. Định lượng */}
-                    <View style={styles.summaryLine}>
-                      <Text style={styles.summaryLineKey}>Định lượng</Text>
-                      <Text style={styles.summaryLineVal}>
-                        {metrics.filter((m) => m.name.trim() && m.value !== '').length === 0
-                          ? 'Chưa nhập số liệu'
-                          : metrics
-                              .filter((m) => m.name.trim() && m.value !== '')
-                              .map((m) => `${m.name}: ${m.value}${m.unit ? ` ${m.unit}` : ''}`)
-                              .join('\n')}
-                      </Text>
+                    <View style={styles.summaryBoxItem}>
+                      <View style={styles.summaryBoxHeaderRow}>
+                        <Text style={styles.summaryBoxTitle}>ĐỊNH LƯỢNG</Text>
+                        <View style={styles.summaryBoxCountBadge}>
+                          <Text style={styles.summaryBoxCountText}>
+                            {metrics.filter((m) => m.name.trim() && m.value !== '').length}
+                          </Text>
+                        </View>
+                      </View>
+                      {metrics.filter((m) => m.name.trim() && m.value !== '').length === 0 ? (
+                        <Text style={styles.summaryBoxEmptyText}>Chưa nhập số liệu định lượng</Text>
+                      ) : (
+                        metrics
+                          .filter((m) => m.name.trim() && m.value !== '')
+                          .map((m, idx) => (
+                            <Text key={idx} style={styles.summaryBoxContentText}>
+                              • {m.name}: <Text style={{ fontWeight: '700' }}>{m.value}{m.unit ? ` ${m.unit}` : ''}</Text>
+                              {m.note ? ` (${m.note})` : ''}
+                            </Text>
+                          ))
+                      )}
                     </View>
 
                     {/* 2. Đã hoàn thành */}
-                    <View style={styles.summaryLine}>
-                      <Text style={styles.summaryLineKey}>Đã hoàn thành</Text>
-                      <Text style={styles.summaryLineVal}>
-                        {activeCompletedCount === 0
-                          ? '0 việc'
-                          : completedTasks
-                              .filter((t) => (t.isSelected ?? true) && t.title.trim())
-                              .map((t) => `• ${t.title}`)
-                              .join('\n')}
-                      </Text>
+                    <View style={styles.summaryBoxItem}>
+                      <View style={styles.summaryBoxHeaderRow}>
+                        <Text style={styles.summaryBoxTitle}>ĐÃ HOÀN THÀNH</Text>
+                        <View style={styles.summaryBoxCountBadge}>
+                          <Text style={styles.summaryBoxCountText}>{activeCompletedCount}</Text>
+                        </View>
+                      </View>
+                      {activeCompletedCount === 0 ? (
+                        <Text style={styles.summaryBoxEmptyText}>Không có công việc hoàn thành</Text>
+                      ) : (
+                        completedTasks
+                          .filter((t) => (t.isSelected ?? true) && t.title.trim())
+                          .map((t, idx) => (
+                            <Text key={idx} style={styles.summaryBoxContentText}>
+                              ✓ {t.title}
+                            </Text>
+                          ))
+                      )}
                     </View>
 
                     {/* 3. Đang thực hiện */}
-                    <View style={styles.summaryLine}>
-                      <Text style={styles.summaryLineKey}>Đang thực hiện</Text>
-                      <Text style={styles.summaryLineVal}>
-                        {inProgressTasks.filter((t) => t.title.trim()).length === 0
-                          ? '0 việc'
-                          : inProgressTasks
-                              .filter((t) => t.title.trim())
-                              .map((t) => `${t.title} · ${t.progress ?? 60}% · ${t.expectedDate || '21/09'}`)
-                              .join('\n')}
-                      </Text>
+                    <View style={styles.summaryBoxItem}>
+                      <View style={styles.summaryBoxHeaderRow}>
+                        <Text style={styles.summaryBoxTitle}>ĐANG THỰC HIỆN</Text>
+                        <View style={styles.summaryBoxCountBadge}>
+                          <Text style={styles.summaryBoxCountText}>
+                            {inProgressTasks.filter((t) => t.title.trim()).length}
+                          </Text>
+                        </View>
+                      </View>
+                      {inProgressTasks.filter((t) => t.title.trim()).length === 0 ? (
+                        <Text style={styles.summaryBoxEmptyText}>Không có công việc đang làm</Text>
+                      ) : (
+                        inProgressTasks
+                          .filter((t) => t.title.trim())
+                          .map((t, idx) => (
+                            <Text key={idx} style={styles.summaryBoxContentText}>
+                              🕒 {t.title} · <Text style={{ fontWeight: '700' }}>{t.progress ?? 60}%</Text> · Dự kiến: {t.expectedDate || 'Đang cập nhật'}
+                            </Text>
+                          ))
+                      )}
                     </View>
 
                     {/* 4. Ngày mai */}
-                    <View style={styles.summaryLine}>
-                      <Text style={styles.summaryLineKey}>Ngày mai</Text>
-                      <Text style={styles.summaryLineVal}>
-                        {tomorrowPlan.filter((p) => p.trim()).length === 0
-                          ? 'Chưa thêm kế hoạch'
-                          : tomorrowPlan.filter((p) => p.trim()).join(' · ')}
-                      </Text>
+                    <View style={styles.summaryBoxItem}>
+                      <View style={styles.summaryBoxHeaderRow}>
+                        <Text style={styles.summaryBoxTitle}>KẾ HOẠCH NGÀY MAI</Text>
+                        <View style={styles.summaryBoxCountBadge}>
+                          <Text style={styles.summaryBoxCountText}>
+                            {tomorrowPlan.filter((p) => p.trim()).length}
+                          </Text>
+                        </View>
+                      </View>
+                      {tomorrowPlan.filter((p) => p.trim()).length === 0 ? (
+                        <Text style={styles.summaryBoxEmptyText}>Chưa thêm kế hoạch ngày mai</Text>
+                      ) : (
+                        tomorrowPlan
+                          .filter((p) => p.trim())
+                          .map((p, idx) => (
+                            <Text key={idx} style={styles.summaryBoxContentText}>
+                              {idx + 1}. {p}
+                            </Text>
+                          ))
+                      )}
                     </View>
 
                     {/* 5. Hỗ trợ */}
-                    <View style={styles.summaryLine}>
-                      <Text style={styles.summaryLineKey}>Hỗ trợ</Text>
-                      <Text style={styles.summaryLineVal}>
-                        {hasObstacles
-                          ? `${obstacleText.trim() || 'Có vướng mắc'}${supportWish.trim() ? ` (Mong muốn: ${supportWish.trim()})` : ''}`
-                          : 'Không có vướng mắc'}
-                      </Text>
+                    <View style={styles.summaryBoxItem}>
+                      <View style={styles.summaryBoxHeaderRow}>
+                        <Text style={styles.summaryBoxTitle}>VƯỚNG MẮC & HỖ TRỢ</Text>
+                      </View>
+                      {hasObstacles ? (
+                        <View style={{ gap: 2 }}>
+                          <Text style={styles.summaryBoxContentText}>
+                            • <Text style={{ fontWeight: '700' }}>Vướng mắc:</Text> {obstacleText.trim() || 'Có vướng mắc'}
+                          </Text>
+                          {supportWish.trim() ? (
+                            <Text style={styles.summaryBoxContentText}>
+                              • <Text style={{ fontWeight: '700' }}>Đề xuất hỗ trợ:</Text> {supportWish.trim()}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <Text style={styles.summaryBoxEmptyText}>Không có vướng mắc ghi nhận</Text>
+                      )}
                     </View>
 
                     {/* 6. Tự đánh giá */}
-                    <View style={styles.summaryLine}>
-                      <Text style={styles.summaryLineKey}>Tự đánh giá</Text>
-                      <Text style={styles.summaryLineVal}>
-                        {selfRating}/5 sao · {currentAssessment.title}
+                    <View style={styles.summaryBoxItem}>
+                      <View style={styles.summaryBoxHeaderRow}>
+                        <Text style={styles.summaryBoxTitle}>TỰ ĐÁNH GIÁ</Text>
+                      </View>
+                      <Text style={styles.summaryBoxContentText}>
+                        ★ <Text style={{ fontWeight: '700' }}>{selfRating}/5 sao</Text> · {currentAssessment.title}
                       </Text>
+                      {selfReview.trim() ? (
+                        <Text style={[styles.summaryBoxContentText, { marginTop: 4, fontStyle: 'italic', color: '#475569' }]}>
+                          "{selfReview.trim()}"
+                        </Text>
+                      ) : null}
                     </View>
 
-                    {/* 7. Nhận xét */}
-                    {selfReview.trim() ? (
-                      <View style={styles.summaryLine}>
-                        <Text style={styles.summaryLineKey}>Nhận xét</Text>
-                        <Text style={styles.summaryLineVal}>{selfReview.trim()}</Text>
+                    {/* 7. Đính kèm */}
+                    <View style={styles.summaryBoxItem}>
+                      <View style={styles.summaryBoxHeaderRow}>
+                        <Text style={styles.summaryBoxTitle}>ĐÍNH KÈM</Text>
+                        <View style={styles.summaryBoxCountBadge}>
+                          <Text style={styles.summaryBoxCountText}>{attachments.length}</Text>
+                        </View>
                       </View>
-                    ) : null}
-
-                    {/* 8. Đính kèm */}
-                    <View style={styles.summaryLine}>
-                      <Text style={styles.summaryLineKey}>Đính kèm ({attachments.length} tệp)</Text>
                       {attachments.length === 0 ? (
-                        <Text style={styles.summaryLineVal}>0 tệp</Text>
+                        <Text style={styles.summaryBoxEmptyText}>Không có tệp đính kèm</Text>
                       ) : (
                         <View style={{ gap: 6, marginTop: 4 }}>
                           {attachments.map((a, idx) => (
@@ -1197,12 +1317,12 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                               <MaterialCommunityIcons
                                 name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
                                 size={16}
-                                color="#315DE5"
+                                color="#166534"
                               />
                               <Text style={styles.reviewAttachChipText} numberOfLines={1}>
                                 {a.fileName || `Tệp ${idx + 1}`}
                               </Text>
-                              <Ionicons name="eye-outline" size={14} color="#315DE5" />
+                              <Ionicons name="eye-outline" size={14} color="#166534" />
                             </TouchableOpacity>
                           ))}
                         </View>
@@ -1218,11 +1338,9 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                     onPress={() => setIsConfirmed(!isConfirmed)}
                     activeOpacity={0.8}
                   >
-                    <MaterialCommunityIcons
-                      name={isConfirmed ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                      size={22}
-                      color={isConfirmed ? '#315DE5' : '#94A3B8'}
-                    />
+                    <View style={[styles.confirmCheckBox, isConfirmed && styles.confirmCheckBoxActive]}>
+                      {isConfirmed && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                    </View>
                     <Text style={styles.confirmCheckLabel}>
                       Tôi xác nhận thông tin trong báo cáo là chính xác.
                     </Text>
@@ -1511,10 +1629,12 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                   </View>
                 ) : approvedReports.length === 0 ? (
                   <View style={styles.emptyApprovedBox}>
-                    <MaterialCommunityIcons name="check-decagram-outline" size={56} color="#CBD5E1" />
+                    <View style={styles.emptyApprovedIconCircle}>
+                      <MaterialCommunityIcons name="check-decagram-outline" size={44} color="#166534" />
+                    </View>
                     <Text style={styles.emptyApprovedTitle}>Chưa có báo cáo nào được duyệt</Text>
                     <Text style={styles.emptyApprovedSub}>
-                      Khi bạn nộp báo cáo và được Admin / Ban giám đốc đánh giá và cho điểm, báo cáo sẽ xuất hiện tại mục này để bạn dễ dàng xem lại.
+                      Báo cáo sẽ hiển thị tại đây sau khi được Admin / Ban giám đốc đánh giá và cho điểm.
                     </Text>
                   </View>
                 ) : (
@@ -1679,9 +1799,9 @@ const styles = StyleSheet.create({
   // MAIN SEGMENT SWITCHER
   mainSegmentBar: {
     flexDirection: 'row',
-    backgroundColor: '#EAEFF8',
+    backgroundColor: '#F1F5F9',
     padding: 4,
-    borderRadius: 14,
+    borderRadius: 24,
     marginBottom: 14,
     gap: 4,
   },
@@ -1690,9 +1810,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 11,
+    paddingVertical: 9,
+    borderRadius: 20,
     gap: 6,
+    backgroundColor: 'transparent',
   },
   mainSegmentBtnActive: {
     backgroundColor: '#FFFFFF',
@@ -1708,7 +1829,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   mainSegmentBtnTextActive: {
-    color: '#315DE5',
+    color: '#0F172A',
     fontWeight: '700',
   },
   mainSegmentCountBadge: {
@@ -1718,7 +1839,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   mainSegmentCountBadgeActive: {
-    backgroundColor: '#EEF3FF',
+    backgroundColor: '#DCFCE7',
   },
   mainSegmentCountText: {
     fontSize: 10,
@@ -1726,7 +1847,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   mainSegmentCountTextActive: {
-    color: '#315DE5',
+    color: '#166534',
   },
 
   // Person Card
@@ -1750,17 +1871,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   personAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: '#EEF3FF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitialsText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#315DE5',
+    color: '#166534',
   },
   personName: {
     fontSize: 15,
@@ -1784,36 +1905,36 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   personCardDate: {
-    fontSize: 12,
-    color: '#697586',
+    fontSize: 13,
+    color: '#475569',
     fontWeight: '500',
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: '#FFF7EB',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#FFF7ED',
     borderWidth: 1,
-    borderColor: '#FDE3B7',
+    borderColor: '#FDBA74',
   },
   statusBadgeSubmitted: {
-    backgroundColor: '#EFF4FE',
-    borderColor: '#C8D9FC',
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
   },
   statusBadgeReviewed: {
-    backgroundColor: '#E7F9EE',
-    borderColor: '#B8EBC9',
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
   },
   statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#B45309',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EA580C',
   },
   statusBadgeTextSubmitted: {
-    color: '#315DE5',
+    color: '#16A34A',
   },
   statusBadgeTextReviewed: {
-    color: '#15803D',
+    color: '#16A34A',
   },
 
   // SUBMITTED TODAY CALLOUT
@@ -1846,34 +1967,64 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  // STEP TABS
-  stepTabsRow: {
+  // STEP INDICATOR
+  stepIndicatorRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E9EDF2',
+  },
+  stepItemPressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 6,
-    marginBottom: 16,
   },
-  stepTabBtn: {
-    flex: 1,
+  stepCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  stepTabBtnActive: {},
-  stepIndicatorLine: {
-    height: 3,
-    backgroundColor: '#E9EDF2',
-    borderRadius: 3,
-    marginBottom: 8,
+  stepCircleActive: {
+    backgroundColor: '#1B3B2B',
   },
-  stepIndicatorLineActive: {
-    backgroundColor: '#315DE5',
+  stepCircleDone: {
+    backgroundColor: '#166534',
   },
-  stepTabLabel: {
-    fontSize: 11,
-    color: '#697586',
-    fontWeight: '500',
-  },
-  stepTabLabelActive: {
-    color: '#315DE5',
+  stepCircleText: {
+    fontSize: 12,
     fontWeight: '700',
+    color: '#64748B',
+  },
+  stepCircleTextActive: {
+    color: '#FFFFFF',
+  },
+  stepLabelText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  stepLabelTextActive: {
+    fontWeight: '700',
+    color: '#1B3B2B',
+  },
+  stepConnectorLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 8,
+    borderRadius: 1,
+  },
+  stepConnectorLineActive: {
+    backgroundColor: '#166534',
   },
 
   // PANEL
@@ -1912,7 +2063,7 @@ const styles = StyleSheet.create({
     marginVertical: 6,
   },
   countBadge: {
-    backgroundColor: '#EEF3FF',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1920,7 +2071,7 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#315DE5',
+    color: '#475569',
   },
 
   // QUANT ITEM
@@ -1980,23 +2131,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  outlineAddBtn: {
+  dashedAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#315DE5',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#166534',
     borderStyle: 'dashed',
-    borderRadius: 10,
-    paddingVertical: 10,
-    marginTop: 6,
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginTop: 8,
     gap: 6,
   },
-  outlineAddBtnText: {
+  dashedAddBtnText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#315DE5',
+    fontWeight: '700',
+    color: '#166534',
+  },
+  emptyContainerDashed: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    marginVertical: 8,
+    gap: 8,
   },
 
   // TASKS
@@ -2046,7 +2209,7 @@ const styles = StyleSheet.create({
   inProgressNumberText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#315DE5',
+    color: '#166534',
     letterSpacing: 0.5,
   },
 
@@ -2058,15 +2221,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   planIndexBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#EEF3FF',
-    color: '#315DE5',
-    fontSize: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#DCFCE7',
+    color: '#166534',
+    fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24,
   },
   planInput: {
     flex: 1,
@@ -2109,11 +2272,11 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   assessmentLevelBox: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: '#FEF3C7',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#FCD34D',
   },
   assessmentLevelHeader: {
     flexDirection: 'row',
@@ -2122,10 +2285,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   assessmentLevelBadge: {
-    backgroundColor: '#F59E0B',
-    color: '#FFFFFF',
+    backgroundColor: '#FDE68A',
+    color: '#92400E',
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -2137,7 +2300,7 @@ const styles = StyleSheet.create({
   },
   assessmentLevelDesc: {
     fontSize: 12,
-    color: '#B45309',
+    color: '#78350F',
     lineHeight: 16,
   },
 
@@ -2177,23 +2340,24 @@ const styles = StyleSheet.create({
   attachBtnRow: {
     flexDirection: 'row',
     gap: 10,
+    marginBottom: 10,
   },
   attachBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
-    paddingVertical: 10,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingVertical: 12,
     gap: 6,
   },
   attachBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#315DE5',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#166534',
   },
   uploadingBox: {
     flexDirection: 'row',
@@ -2204,34 +2368,53 @@ const styles = StyleSheet.create({
   },
   uploadingText: {
     fontSize: 12,
-    color: '#315DE5',
+    color: '#166534',
   },
 
   // SUMMARY REVIEW
   summaryTable: {
+    gap: 10,
+  },
+  summaryBoxItem: {
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    gap: 10,
   },
-  summaryLine: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#EDF2F7',
-    paddingBottom: 8,
+  summaryBoxHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  summaryLineKey: {
+  summaryBoxTitle: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#64748B',
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
-    marginBottom: 3,
   },
-  summaryLineVal: {
+  summaryBoxCountBadge: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  summaryBoxCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  summaryBoxContentText: {
     fontSize: 13,
-    color: '#192232',
-    lineHeight: 18,
+    color: '#1E293B',
+    lineHeight: 20,
+  },
+  summaryBoxEmptyText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontStyle: 'italic',
   },
   reviewAttachChip: {
     flexDirection: 'row',
@@ -2257,8 +2440,22 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    gap: 10,
+    gap: 12,
     marginTop: 10,
+  },
+  confirmCheckBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  confirmCheckBoxActive: {
+    backgroundColor: '#166534',
+    borderColor: '#166534',
   },
   confirmCheckLabel: {
     fontSize: 13,
@@ -2277,25 +2474,27 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   footerSecondaryBtn: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#CBD5E1',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
   footerSecondaryBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: '#334155',
   },
   footerPrimaryBtn: {
-    flex: 1,
-    backgroundColor: '#315DE5',
+    flex: 1.5,
+    backgroundColor: '#1B3B2B',
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2348,26 +2547,37 @@ const styles = StyleSheet.create({
   },
   emptyApprovedBox: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 32,
+    borderRadius: 16,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E9EDF2',
-    marginTop: 10,
+    borderColor: '#E2E8F0',
+    marginTop: 8,
+  },
+  emptyApprovedIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   emptyApprovedTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginTop: 12,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   emptyApprovedSub: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
     textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
+    lineHeight: 20,
+    paddingHorizontal: 16,
   },
   approvedReportCard: {
     backgroundColor: '#FFFFFF',

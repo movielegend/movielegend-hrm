@@ -10,6 +10,7 @@ import {
   Image,
   TouchableOpacity,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -537,155 +538,324 @@ export function LeaderDepartmentReportsScreen() {
   // -------------------------------------------------------------
   // SCOPE: 'mine' (Báo cáo cá nhân của Trưởng phòng)
   // -------------------------------------------------------------
+  // -------------------------------------------------------------
+  // SCOPE: 'mine' (Báo cáo cá nhân của Trưởng phòng)
+  // -------------------------------------------------------------
   if (scope === 'mine') {
     return (
       <DailyReportFormScreen
         hideHeaderTitle
-        headerSlot={
-          <View style={styles.leaderHeader}>
-            <View style={styles.headerTopRow}>
-              <Text style={styles.headerKicker}>WORKSPACE / TRƯỞNG PHÒNG</Text>
-              <Text style={styles.headerDeptTag}>{deptName}</Text>
-            </View>
-            <Text style={styles.headerMainTitle}>Báo cáo cuối ngày</Text>
-            <Text style={styles.headerSubtitle}>Báo cáo cá nhân của trưởng phòng.</Text>
+        headerSlot={({ currentStep }: { currentStep: number }) => (
+          <View>
+            <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+            {/* Dark Forest Green Banner */}
+            <View style={{
+              backgroundColor: '#1B3B2B',
+              paddingTop: Math.max(insets.top, 16),
+              paddingBottom: 16,
+              paddingHorizontal: 16,
+              marginHorizontal: -16,
+              marginTop: -8,
+              marginBottom: 14,
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Pressable onPress={() => router.back()} style={{ padding: 4, marginLeft: -4 }} hitSlop={10}>
+                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                </Pressable>
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  letterSpacing: 1.5,
+                  color: 'rgba(255,255,255,0.7)',
+                  textTransform: 'uppercase',
+                }}>
+                  MOVIE LEGEND
+                </Text>
+                <View style={{ width: 28 }} />
+              </View>
 
-            {/* Scope Switcher */}
-            <View style={styles.switcherBar}>
+              <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 10 }}>
+                {currentStep === 2 ? 'Xem lại báo cáo' : 'Báo cáo cuối ngày'}
+              </Text>
+              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                {currentStep === 2 ? 'Kiểm tra toàn bộ nội dung trước khi nộp.' : 'Báo cáo cá nhân của trưởng phòng.'}
+              </Text>
+            </View>
+
+            {/* Scope Switcher: [ Phòng ban | Của tôi ] */}
+            <View style={{
+              flexDirection: 'row',
+              backgroundColor: '#F1F5F9',
+              borderRadius: 24,
+              padding: 4,
+              marginBottom: 14,
+            }}>
               <Pressable
-                style={[styles.switcherBtn, scope === 'team' && styles.switcherBtnActive]}
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  backgroundColor: 'transparent',
+                }}
                 onPress={() => setScope('team')}
               >
-                <Text style={[styles.switcherBtnText, scope === 'team' && styles.switcherBtnTextActive]}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#64748B' }}>
                   Phòng ban
                 </Text>
               </Pressable>
+
               <Pressable
-                style={[styles.switcherBtn, scope === 'mine' && styles.switcherBtnActive]}
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  backgroundColor: '#FFFFFF',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 2,
+                  elevation: 2,
+                }}
                 onPress={() => setScope('mine')}
               >
-                <Text style={[styles.switcherBtnText, scope === 'mine' && styles.switcherBtnTextActive]}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>
                   Của tôi
                 </Text>
               </Pressable>
             </View>
           </View>
-        }
+        )}
       />
     );
   }
 
   // -------------------------------------------------------------
-  // SCOPE: 'team' (Tiến độ báo cáo phòng ban)
+  // SCOPE: 'team' (Tiến độ báo cáo phòng ban - Screen 2)
   // -------------------------------------------------------------
   return (
-    <Screen backgroundColor="#F6F7FB">
-      <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
-        {/* Main Leader Header */}
-        <View style={styles.leaderHeader}>
-          <View style={styles.headerTopRow}>
-            <Text style={styles.headerKicker}>WORKSPACE / TRƯỞNG PHÒNG</Text>
-            <Text style={styles.headerDeptTag}>{deptName}</Text>
-          </View>
-          <Text style={styles.headerMainTitle}>Báo cáo cuối ngày</Text>
-          <Text style={styles.headerSubtitle}>Nắm tiến độ báo cáo của phòng ban.</Text>
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
 
-          {/* Scope Switcher */}
-          <View style={styles.switcherBar}>
-            <Pressable
-              style={[styles.switcherBtn, scope === 'team' && styles.switcherBtnActive]}
-              onPress={() => setScope('team')}
-            >
-              <Text style={[styles.switcherBtnText, scope === 'team' && styles.switcherBtnTextActive]}>
-                Phòng ban
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.switcherBtn, scope === 'mine' && styles.switcherBtnActive]}
-              onPress={() => setScope('mine')}
-            >
-              <Text style={[styles.switcherBtnText, scope === 'mine' && styles.switcherBtnTextActive]}>
-                Của tôi
-              </Text>
-            </Pressable>
-          </View>
+      {/* Screen 2: Dark Forest Green Banner */}
+      <View style={{
+        backgroundColor: '#1B3B2B',
+        paddingTop: Math.max(insets.top, 16),
+        paddingBottom: 16,
+        paddingHorizontal: 16,
+      }}>
+        {/* Top row: Back button & brand */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable onPress={() => router.back()} style={{ padding: 4, marginLeft: -4 }} hitSlop={10}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <Text style={{
+            fontSize: 11,
+            fontWeight: '700',
+            letterSpacing: 1.5,
+            color: 'rgba(255,255,255,0.7)',
+            textTransform: 'uppercase',
+          }}>
+            MOVIE LEGEND
+          </Text>
+          <View style={{ width: 28 }} />
+        </View>
+
+        {/* Title & Subtitle */}
+        <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 10 }}>
+          Báo cáo cuối ngày
+        </Text>
+        <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+          Nắm tiến độ báo cáo của phòng ban.
+        </Text>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 80, 96) }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Scope Switcher: [ Phòng ban | Của tôi ] */}
+        <View style={{
+          flexDirection: 'row',
+          backgroundColor: '#F1F5F9',
+          borderRadius: 24,
+          padding: 4,
+          marginHorizontal: 16,
+          marginTop: 14,
+          marginBottom: 12,
+        }}>
+          <Pressable
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              paddingVertical: 8,
+              borderRadius: 20,
+              backgroundColor: '#FFFFFF',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.08,
+              shadowRadius: 2,
+              elevation: 2,
+            }}
+            onPress={() => setScope('team')}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>
+              Phòng ban
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              paddingVertical: 8,
+              borderRadius: 20,
+              backgroundColor: 'transparent',
+            }}
+            onPress={() => setScope('mine')}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#64748B' }}>
+              Của tôi
+            </Text>
+          </Pressable>
         </View>
 
         {/* Date Selector Bar */}
-        <View style={styles.dateBarContainer}>
-          <Pressable style={styles.dateBarNavBtn} onPress={handlePrevDate}>
-            <MaterialCommunityIcons name="chevron-left" size={22} color="#192232" />
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: '#FFFFFF',
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          marginHorizontal: 16,
+          marginBottom: 12,
+        }}>
+          <Pressable onPress={handlePrevDate} style={{ padding: 4 }}>
+            <MaterialCommunityIcons name="chevron-left" size={24} color="#0F172A" />
           </Pressable>
 
-          <View style={styles.dateBarCenter}>
-            <Text style={styles.dateBarCenterText}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
               {currentDate.toLocaleDateString('vi-VN', {
-                year: 'numeric',
-                month: '2-digit',
                 day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
               })}
             </Text>
             {!isToday && (
-              <Pressable style={styles.dateBarTodayBadge} onPress={handleToday}>
-                <Text style={styles.dateBarTodayBadgeText}>Hôm nay</Text>
+              <Pressable
+                style={{
+                  backgroundColor: '#DCFCE7',
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 6,
+                }}
+                onPress={handleToday}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534' }}>Hôm nay</Text>
               </Pressable>
             )}
           </View>
 
-          <Pressable style={styles.dateBarNavBtn} onPress={handleNextDate}>
-            <MaterialCommunityIcons name="chevron-right" size={22} color="#192232" />
+          <Pressable onPress={handleNextDate} style={{ padding: 4 }}>
+            <MaterialCommunityIcons name="chevron-right" size={24} color="#0F172A" />
           </Pressable>
         </View>
 
-        {/* 3 Stats Filter Buttons */}
-        <View style={styles.statsGrid}>
+        {/* 3 Stats Filter Summary Cards */}
+        <View style={{ flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 14 }}>
+          {/* Card 1: Nhân sự */}
           <Pressable
-            style={[styles.statBtn, activeFilter === 'all' && styles.statBtnActive]}
+            style={{
+              flex: 1,
+              backgroundColor: '#DCFCE7',
+              borderRadius: 12,
+              borderWidth: activeFilter === 'all' ? 2 : 1,
+              borderColor: activeFilter === 'all' ? '#166534' : '#86EFAC',
+              paddingVertical: 12,
+              paddingHorizontal: 8,
+              alignItems: 'center',
+            }}
             onPress={() => setActiveFilter('all')}
           >
-            <Text style={[styles.statBtnCount, activeFilter === 'all' && styles.statBtnCountActive]}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: '#166534', marginBottom: 2 }}>
               {stats.total}
             </Text>
-            <Text style={[styles.statBtnLabel, activeFilter === 'all' && styles.statBtnLabelActive]}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534' }}>
               Nhân sự
             </Text>
           </Pressable>
 
+          {/* Card 2: Đã nộp */}
           <Pressable
-            style={[styles.statBtn, activeFilter === 'sent' && styles.statBtnActive]}
+            style={{
+              flex: 1,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 12,
+              borderWidth: activeFilter === 'sent' ? 2 : 1,
+              borderColor: activeFilter === 'sent' ? '#0F172A' : '#E2E8F0',
+              paddingVertical: 12,
+              paddingHorizontal: 8,
+              alignItems: 'center',
+            }}
             onPress={() => setActiveFilter('sent')}
           >
-            <Text style={[styles.statBtnCount, activeFilter === 'sent' && styles.statBtnCountActive]}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: '#0F172A', marginBottom: 2 }}>
               {stats.sent}
             </Text>
-            <Text style={[styles.statBtnLabel, activeFilter === 'sent' && styles.statBtnLabelActive]}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569' }}>
               Đã nộp
             </Text>
           </Pressable>
 
+          {/* Card 3: Chưa nộp */}
           <Pressable
-            style={[styles.statBtn, activeFilter === 'missing' && styles.statBtnActive]}
+            style={{
+              flex: 1,
+              backgroundColor: '#FFEDD5',
+              borderRadius: 12,
+              borderWidth: activeFilter === 'missing' ? 2 : 1,
+              borderColor: activeFilter === 'missing' ? '#EA580C' : '#FDBA74',
+              paddingVertical: 12,
+              paddingHorizontal: 8,
+              alignItems: 'center',
+            }}
             onPress={() => setActiveFilter('missing')}
           >
-            <Text style={[styles.statBtnCount, activeFilter === 'missing' && styles.statBtnCountActive]}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: '#EA580C', marginBottom: 2 }}>
               {stats.missing}
             </Text>
-            <Text style={[styles.statBtnLabel, activeFilter === 'missing' && styles.statBtnLabelActive]}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#EA580C' }}>
               Chưa nộp
             </Text>
           </Pressable>
         </View>
 
         {/* Section Title */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitleText}>Nhân sự phòng {deptName}</Text>
-          <Text style={styles.sectionCountText}>{filteredMembers.length} người</Text>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginHorizontal: 16,
+          marginBottom: 10,
+        }}>
+          <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A' }}>
+            Nhân sự phòng {deptName}
+          </Text>
+          <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>
+            {filteredMembers.length} người
+          </Text>
         </View>
 
-        {/* People List Panel */}
+        {/* Department Member List */}
         {deptReportsQuery.isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#315DE5" />
+            <ActivityIndicator size="small" color="#166534" />
             <Text style={styles.loadingPromptText}>Đang tải danh sách phòng ban...</Text>
           </View>
         ) : filteredMembers.length === 0 ? (
@@ -699,13 +869,19 @@ export function LeaderDepartmentReportsScreen() {
             </Pressable>
           </View>
         ) : (
-          <View style={styles.peoplePanelCard}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#E2E8F0',
+            marginHorizontal: 16,
+            overflow: 'hidden',
+          }}>
             {filteredMembers.map((item, idx) => {
               const memberName = item.user.profile?.fullName || item.user.userCode || 'Nhân sự';
               const userCode = item.user.userCode || '';
               const isCurrentUser = item.user.id === user?.id;
 
-              // Initials (e.g. Phùng Thanh Bình -> PB)
               const initials = memberName
                 .split(' ')
                 .filter(Boolean)
@@ -716,22 +892,46 @@ export function LeaderDepartmentReportsScreen() {
               const isLast = idx === filteredMembers.length - 1;
 
               return (
-                <View key={item.user.id} style={[styles.personRow, isLast && { borderBottomWidth: 0 }]}>
-                  <View style={styles.personInitialsBox}>
-                    <Text style={styles.personInitialsText}>{initials || 'NV'}</Text>
+                <View
+                  key={item.user.id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 12,
+                    paddingHorizontal: 14,
+                    borderBottomWidth: isLast ? 0 : 1,
+                    borderBottomColor: '#F1F5F9',
+                  }}
+                >
+                  {/* Initials circle avatar */}
+                  <View style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: '#DCFCE7',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#166534' }}>
+                      {initials || 'NV'}
+                    </Text>
                   </View>
 
-                  <View style={styles.personBody}>
-                    <Text style={styles.personNameText}>
-                      {memberName}{isCurrentUser ? ' · Bạn' : ''}
+                  {/* Body */}
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                      {memberName}{isCurrentUser ? ' • Bạn' : ''}
                     </Text>
-                    <Text style={styles.personCodeText}>{userCode}</Text>
-                    <Text
-                      style={[
-                        styles.personStateText,
-                        item.isSubmitted && styles.personStateTextSent,
-                      ]}
-                    >
+                    <Text style={{ fontSize: 12, color: '#64748B', marginTop: 1 }}>
+                      {userCode}
+                    </Text>
+                    <Text style={{
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: item.isSubmitted ? '#16A34A' : '#EA580C',
+                      marginTop: 2,
+                    }}>
                       {item.isSubmitted ? 'Đã nộp' : 'Chưa nộp báo cáo'}
                     </Text>
                   </View>
@@ -739,17 +939,21 @@ export function LeaderDepartmentReportsScreen() {
                   {/* Action link */}
                   {item.isSubmitted ? (
                     <Pressable
-                      style={styles.personActionBtn}
+                      style={{ paddingVertical: 6, paddingHorizontal: 4 }}
                       onPress={() => handleOpenDetail(item)}
                     >
-                      <Text style={styles.personActionBtnText}>Xem báo cáo →</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#166534' }}>
+                        Xem báo cáo →
+                      </Text>
                     </Pressable>
                   ) : isCurrentUser ? (
                     <Pressable
-                      style={styles.personActionBtn}
+                      style={{ paddingVertical: 6, paddingHorizontal: 4 }}
                       onPress={() => setScope('mine')}
                     >
-                      <Text style={styles.personActionBtnText}>Viết báo cáo →</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#166534' }}>
+                        Viết báo cáo →
+                      </Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -757,16 +961,37 @@ export function LeaderDepartmentReportsScreen() {
             })}
           </View>
         )}
+      </ScrollView>
 
-        {/* Primary Action Button: Viết báo cáo của tôi */}
+      {/* Bottom Sticky Action Button: Viết báo cáo của tôi */}
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 16,
+        paddingTop: 10,
+        paddingBottom: Math.max(insets.bottom + 8, 14),
+        backgroundColor: '#FFFFFF',
+        borderTopWidth: 1,
+        borderTopColor: '#E2E8F0',
+      }}>
         <Pressable
-          style={styles.writeOwnReportBtn}
+          style={{
+            backgroundColor: '#1B3B2B',
+            height: 48,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
           onPress={() => setScope('mine')}
         >
-          <Text style={styles.writeOwnReportBtnText}>Viết báo cáo của tôi</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>
+            Viết báo cáo của tôi
+          </Text>
         </Pressable>
-      </ScreenContainer>
-    </Screen>
+      </View>
+    </View>
   );
 }
 

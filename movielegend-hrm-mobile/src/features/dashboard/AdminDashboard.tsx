@@ -31,12 +31,14 @@ const appleTheme = {
   radiusCard: 24,
   radiusBtn: 16,
 };
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
 
 export function AdminDashboard() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const tabBarScroll = useTabBarScroll();
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
   const { data: unreadChat = 0 } = useUnreadChatCount();
 
@@ -104,8 +106,10 @@ export function AdminDashboard() {
           styles.container,
           { paddingBottom: Math.max(insets.bottom, 24) + 90 },
         ]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         showsVerticalScrollIndicator={false}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {/* Header */}
         <View style={styles.header}>

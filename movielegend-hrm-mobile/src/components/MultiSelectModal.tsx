@@ -1,5 +1,6 @@
 import React from 'react';
-import { Modal, StyleSheet, Text, View, Pressable, FlatList, SafeAreaView, TextInput } from 'react-native';
+import { Modal, StyleSheet, Text, View, Pressable, FlatList, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';

@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useAppAlert } from '../../contexts/AlertContext';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, TouchableOpacity, RefreshControl, Modal } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, TouchableOpacity, RefreshControl, Modal, StatusBar } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import ImageView from '../../components/ImageViewer/ImageViewer';
@@ -470,32 +470,32 @@ export function LeaderApprovalScreen() {
   };
 
   const screenTitle = getScreenTitle();
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8);
 
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#F8FAFC' }} 
+      style={{ flex: 1, backgroundColor: '#123826' }} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
     >
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff' }}>
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <Pressable onPress={() => router.back()} hitSlop={12} style={styles.iconBtn}>
-              <MaterialCommunityIcons name="chevron-left" size={32} color="#0F172A" />
-            </Pressable>
-            <Text style={styles.screenTitleText}>{screenTitle}</Text>
-            <View style={{ width: 32 }} />
-          </View>
+      <StatusBar barStyle="light-content" backgroundColor="#123826" />
+      <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
+        <View style={styles.topHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{screenTitle}</Text>
+          <View style={{ width: 32 }} />
         </View>
-      </SafeAreaView>
+      </View>
 
-      <ScrollView 
-        ref={scrollViewRef}
-        contentContainerStyle={[styles.content, { paddingBottom: 110 + Math.max(insets.bottom, 24) }]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-      >
+      <View style={styles.bodyWrapper}>
+        <ScrollView 
+          ref={scrollViewRef}
+          contentContainerStyle={[styles.content, { paddingBottom: 110 + Math.max(insets.bottom, 24) }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        >
         {/* 1. Profile / Submitter Card */}
         <View style={[styles.card, shadows.sm]}>
           <View style={styles.profileRow}>
@@ -939,6 +939,7 @@ export function LeaderApprovalScreen() {
           </View>
         )}
       </ScrollView>
+    </View>
 
       {/* 6. Bottom Sticky Action Area */}
       {request.status === 'PENDING' ? (
@@ -1338,39 +1339,54 @@ export function LeaderApprovalScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+  topSafeArea: {
+    backgroundColor: '#123826',
   },
-  headerRow: {
+  topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#123826',
   },
-  iconBtn: {
-    padding: 4,
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
     marginLeft: -4,
   },
-  screenTitleText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-    textAlign: 'center',
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  bodyWrapper: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -8,
+    overflow: 'hidden',
   },
   content: {
-    paddingTop: 14,
+    paddingTop: 16,
     paddingHorizontal: 16,
     gap: 12,
   },
   card: {
     backgroundColor: '#fff',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4E4E7',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   profileRow: {
     flexDirection: 'row',

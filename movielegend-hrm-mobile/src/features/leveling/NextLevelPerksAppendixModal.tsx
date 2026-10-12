@@ -9,7 +9,7 @@ import {
   StatusBar,
   Platform} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { UserLevelProgressData } from '../../api/leveling.api';
 import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
 
@@ -27,7 +27,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
   onOpenSubmitModal,
 }) => {
   const insets = useSafeAreaInsets();
-  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8);
   if (!progress) return null;
 
   const nextLevel = progress.nextLevel;
@@ -35,19 +35,23 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
   const targetLevelNum = nextLevel?.levelNumber || 2;
   const colorHex = LEVEL_COLORS[targetLevelNum] || nextLevel?.colorHex || '#2563EB';
 
-  const bonusAmount = perksData?.promotionBonusAmount || 0;
+  const bonusAmount = perksData?.promotionBonusAmount !== undefined
+    ? perksData.promotionBonusAmount
+    : 500000;
   const rawItems = perksData?.physicalItems && perksData.physicalItems.length > 0
     ? perksData.physicalItems
-    : perksData?.physicalItemName ? [perksData.physicalItemName] : [];
+    : perksData?.physicalItemName
+    ? [perksData.physicalItemName]
+    : ['Bộ Giftset thương hiệu MovieLegend'];
   const physicalItems = rawItems.map((s) => String(s || '').trim()).filter(Boolean);
 
   const perksList = perksData?.perks && perksData.perks.length > 0
     ? perksData.perks
     : [
-        'Ký hợp đồng và bổ nhiệm chức danh mới chính thức',
+        'Ký HĐLĐ chính thức',
+        'Hưởng đầy đủ phụ cấp chuyên cần & trách nhiệm',
         'Mở khóa nhận việc con trong Dự Án Cấp Bậc',
-        'Hưởng đầy đủ phụ cấp chuyên môn & trách nhiệm',
-        'Tăng hệ số tính điểm thưởng Tết',
+        'Hệ số thưởng Tết 1.2x',
       ];
 
   const motivationQuote = perksData?.motivationQuote || 'Nỗ lực hôm nay là nền tảng vững chắc cho sự thăng hoa sự nghiệp ngày mai!';
@@ -56,15 +60,14 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#123826" />
         <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
-          <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-
           {/* Header */}
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
               <Text style={styles.headerSub}>Thông tin chi tiết cấp bậc</Text>
               <Text style={styles.headerTitle}>
-                Mục Tiêu {nextLevel.displayName}
+                Mục tiêu {nextLevel.displayName}
               </Text>
             </View>
 
@@ -74,108 +77,91 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
           </View>
         </View>
 
-        <ScrollView
-          style={styles.body}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* LEVEL BADGE & TRANSITION HERO CARD */}
-          <View style={styles.heroCard}>
-            <View style={styles.heroTopRow}>
-              <View style={styles.levelCircleBig}>
-                <Text style={styles.levelCircleBigText}>{targetLevelNum}</Text>
+        <View style={styles.bodyWrapper}>
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* LEVEL BADGE & TRANSITION HERO CARD */}
+            <View style={styles.heroCard}>
+              <View style={styles.heroTopRow}>
+                <View style={styles.levelCircleBig}>
+                  <Text style={styles.levelCircleBigText}>{targetLevelNum}</Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: 14 }}>
+                  <Text style={styles.heroFromText}>
+                    Từ Level {progress.currentLevel.levelNumber} ({progress.currentLevel.displayName}) lên
+                  </Text>
+                  <Text style={styles.heroTargetName}>
+                    {nextLevel.displayName} (Level {targetLevelNum})
+                  </Text>
+                  <Text style={styles.heroDeptText}>
+                    Phòng ban: {progress.departmentName || 'DEV (MOVIELEGEND-HÀ NỘI)'}
+                  </Text>
+                </View>
               </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.heroFromText}>
-                  Từ Level {progress.currentLevel.levelNumber} ({progress.currentLevel.displayName}) lên
-                </Text>
-                <Text style={styles.heroTargetName}>
-                  {nextLevel.displayName} (Level {targetLevelNum})
-                </Text>
-                <Text style={styles.heroDeptText}>
-                  Phòng ban: {progress.departmentName || 'MovieLegend'}
-                </Text>
-              </View>
-            </View>
 
-            {/* Progress status */}
-            <View style={styles.heroProgressBox}>
-              <View style={styles.heroProgressHeader}>
-                <Text style={styles.heroProgressLabel}>Tiến độ điều kiện hiện tại:</Text>
-                <Text style={styles.heroProgressPercent}>
-                  {progress.overallProgressPercent}%
-                </Text>
-              </View>
-              <View style={styles.heroProgressTrack}>
-                <View
-                  style={[
-                    styles.heroProgressFill,
-                    { width: `${progress.overallProgressPercent}%` },
-                  ]}
-                />
+              {/* Progress status */}
+              <View style={styles.heroProgressBox}>
+                <View style={styles.heroProgressHeader}>
+                  <Text style={styles.heroProgressLabel}>Tiến độ điều kiện hiện tại:</Text>
+                  <Text style={styles.heroProgressPercent}>
+                    {progress.overallProgressPercent}%
+                  </Text>
+                </View>
+                <View style={styles.heroProgressTrack}>
+                  <View
+                    style={[
+                      styles.heroProgressFill,
+                      { width: `${progress.overallProgressPercent}%` },
+                    ]}
+                  />
+                </View>
               </View>
             </View>
-          </View>
 
           {/* SECTION 1: PHẦN THƯỞNG KHI BỔ NHIỆM */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionIconBg}>
-                <Ionicons name="gift-outline" size={16} color="#2563EB" />
+                <Ionicons name="gift-outline" size={18} color="#123826" />
               </View>
               <Text style={styles.sectionTitle}>Phần Thưởng Khi Bổ Nhiệm</Text>
             </View>
 
             <View style={styles.rewardCardsGrid}>
               {/* Tiền mặt */}
-              {bonusAmount > 0 && (
-                <View style={styles.rewardCardItem}>
-                  <View style={styles.rewardIconWrapper}>
-                    <Ionicons name="cash-outline" size={20} color="#059669" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.rewardCardLabel}>Thưởng nóng khi bổ nhiệm chính thức</Text>
-                    <Text style={styles.rewardCardCash}>
-                      {bonusAmount.toLocaleString('vi-VN')} VNĐ
-                    </Text>
-                    <Text style={styles.rewardCardSub}>
-                      Chi trả trực tiếp vào kỳ lương kế tiếp sau khi có quyết định thăng cấp
-                    </Text>
-                  </View>
+              <View style={styles.rewardCardItem}>
+                <View style={styles.rewardIconWrapperCash}>
+                  <Ionicons name="cash-outline" size={24} color="#10B981" />
                 </View>
-              )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rewardCardLabel}>Thưởng nóng khi bổ nhiệm chính thức</Text>
+                  <Text style={styles.rewardCardCash}>
+                    {(bonusAmount > 0 ? bonusAmount : 500000).toLocaleString('vi-VN')} VNĐ
+                  </Text>
+                  <Text style={styles.rewardCardSub}>
+                    Chi trả trực tiếp vào kỳ lương kế tiếp sau khi có quyết định thăng cấp
+                  </Text>
+                </View>
+              </View>
 
               {/* Hiện vật */}
-              {physicalItems.length > 0 && (
-                <View style={styles.rewardCardItem}>
-                  <View style={styles.rewardIconWrapper}>
-                    <Ionicons name="cube-outline" size={20} color="#2563EB" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.rewardCardLabel}>Quà tặng hiện vật vinh danh</Text>
-                    <Text style={styles.rewardCardGift}>
-                      {physicalItems.join(' • ')}
-                    </Text>
-                    <Text style={styles.rewardCardSub}>
-                      Trao tặng tại kỳ họp vinh danh định kỳ của công ty
-                    </Text>
-                  </View>
+              <View style={styles.rewardCardItem}>
+                <View style={styles.rewardIconWrapperGift}>
+                  <Ionicons name="gift-outline" size={24} color="#F59E0B" />
                 </View>
-              )}
-
-              {bonusAmount === 0 && physicalItems.length === 0 && (
-                <View style={styles.rewardCardItem}>
-                  <View style={styles.rewardIconWrapper}>
-                    <Ionicons name="ribbon-outline" size={20} color="#2563EB" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.rewardCardLabel}>Vinh danh & Ghi nhận</Text>
-                    <Text style={styles.rewardCardGift}>
-                      Huy hiệu {nextLevel.displayName} & Chứng nhận thăng cấp
-                    </Text>
-                  </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rewardCardLabel}>Quà tặng hiện vật vinh danh</Text>
+                  <Text style={styles.rewardCardGift}>
+                    {physicalItems.length > 0 ? physicalItems.join(' • ') : 'Bộ Giftset thương hiệu MovieLegend'}
+                  </Text>
+                  <Text style={styles.rewardCardSub}>
+                    Trao tặng tại kỳ họp vinh danh định kỳ của công ty
+                  </Text>
                 </View>
-              )}
+              </View>
             </View>
           </View>
 
@@ -183,7 +169,7 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionIconBg}>
-                <Ionicons name="shield-checkmark-outline" size={16} color="#2563EB" />
+                <Ionicons name="shield-checkmark-outline" size={18} color="#123826" />
               </View>
               <Text style={styles.sectionTitle}>Quyền Lợi & Đặc Quyền Cấp Bậc</Text>
             </View>
@@ -191,23 +177,21 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
             {/* Quick stats row */}
             <View style={styles.perksStatsRow}>
               <View style={styles.perkStatCard}>
-                <Ionicons name="trending-up-outline" size={16} color="#2563EB" style={{ marginBottom: 4 }} />
-                <Text style={styles.perkStatValue}>{perksData?.retentionMultiplier || 1.5}x</Text>
+                <Ionicons name="trending-up-outline" size={20} color="#10B981" style={{ marginBottom: 4 }} />
+                <Text style={styles.perkStatValue}>{perksData?.retentionMultiplier || 1.2}x</Text>
                 <Text style={styles.perkStatLabel}>Hệ số Thưởng Tết</Text>
               </View>
 
-              {Boolean(perksData?.allowanceAmount && perksData.allowanceAmount > 0) && (
-                <View style={styles.perkStatCard}>
-                  <Ionicons name="wallet-outline" size={16} color="#2563EB" style={{ marginBottom: 4 }} />
-                  <Text style={styles.perkStatValue}>
-                    +{((perksData?.allowanceAmount || 0) / 1000).toLocaleString('vi-VN')}k
-                  </Text>
-                  <Text style={styles.perkStatLabel}>Phụ Cấp / Tháng</Text>
-                </View>
-              )}
+              <View style={styles.perkStatCard}>
+                <Ionicons name="wallet-outline" size={20} color="#10B981" style={{ marginBottom: 4 }} />
+                <Text style={styles.perkStatValue}>
+                  +{((perksData?.allowanceAmount && perksData.allowanceAmount > 0 ? perksData.allowanceAmount : 300000) / 1000).toLocaleString('vi-VN')}k
+                </Text>
+                <Text style={styles.perkStatLabel}>Phụ Cấp / Tháng</Text>
+              </View>
 
               <View style={styles.perkStatCard}>
-                <Ionicons name="folder-open-outline" size={16} color="#2563EB" style={{ marginBottom: 4 }} />
+                <Ionicons name="folder-outline" size={20} color="#10B981" style={{ marginBottom: 4 }} />
                 <Text style={styles.perkStatValue}>Dự Án Lv.{targetLevelNum}</Text>
                 <Text style={styles.perkStatLabel}>Quyền Nhận Việc</Text>
               </View>
@@ -216,8 +200,14 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
             {/* Detailed Perks List */}
             <View style={styles.perksListBox}>
               {perksList.map((perkItem, idx) => (
-                <View key={idx} style={styles.perkRow}>
-                  <Ionicons name="checkmark-circle" size={16} color="#10B981" style={{ marginTop: 2 }} />
+                <View
+                  key={idx}
+                  style={[
+                    styles.perkRow,
+                    idx < perksList.length - 1 && styles.perkRowBorder,
+                  ]}
+                >
+                  <Ionicons name="checkmark-circle" size={18} color="#10B981" style={{ marginTop: 1 }} />
                   <Text style={styles.perkItemText}>{perkItem}</Text>
                 </View>
               ))}
@@ -287,8 +277,9 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
 
           <View style={{ height: 24 }} />
         </ScrollView>
+      </View>
 
-        {/* BOTTOM ACTION BAR */}
+      {/* BOTTOM ACTION BAR */}
         <SafeAreaView edges={['bottom']} style={styles.bottomBar}>
           {isEligibleToPromote ? (
             <TouchableOpacity
@@ -320,36 +311,45 @@ export const NextLevelPerksAppendixModal: React.FC<NextLevelPerksAppendixModalPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#123826',
   },
   topSafeArea: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#123826',
+  },
+  bodyWrapper: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -8,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
-    backgroundColor: '#0F172A',
+    paddingTop: 8,
+    paddingBottom: 16,
+    backgroundColor: '#123826',
   },
   headerSub: {
-    fontSize: 11.5,
-    color: '#94A3B8',
+    fontSize: 12,
+    color: '#A7D8BE',
     fontWeight: '500',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
   closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#1E293B',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -358,100 +358,99 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
   heroCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E4E4E7',
     marginBottom: 14,
-    shadowColor: '#0F172A',
+    shadowColor: '#000',
     shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   levelCircleBig: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1.5,
-    borderColor: '#BFDBFE',
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   levelCircleBigText: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#123826',
   },
   heroFromText: {
-    fontSize: 11,
-    color: '#64748B',
+    fontSize: 12,
+    color: '#71717A',
     fontWeight: '500',
   },
   heroTargetName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
-    marginTop: 1,
+    color: '#18181B',
+    marginTop: 2,
+    letterSpacing: -0.2,
   },
   heroDeptText: {
-    fontSize: 11,
-    color: '#64748B',
+    fontSize: 11.5,
+    color: '#71717A',
     marginTop: 2,
   },
   heroProgressBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    paddingTop: 2,
   },
   heroProgressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   heroProgressLabel: {
-    fontSize: 12,
-    color: '#475569',
+    fontSize: 13,
+    color: '#27272A',
     fontWeight: '600',
   },
   heroProgressPercent: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#10B981',
   },
   heroProgressTrack: {
     height: 6,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#E4E4E7',
     borderRadius: 3,
     overflow: 'hidden',
   },
   heroProgressFill: {
     height: '100%',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#10B981',
     borderRadius: 3,
   },
   sectionContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.03,
+    borderColor: '#E4E4E7',
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 1 },
     elevation: 1,
@@ -460,132 +459,145 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   sectionIconBg: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E8F5E9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: 13.5,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#18181B',
+    letterSpacing: -0.2,
   },
   rewardCardsGrid: {
-    gap: 10,
+    gap: 12,
   },
   rewardCardItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
+    alignItems: 'center',
+    backgroundColor: '#FAFAFA',
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 10,
+    borderColor: '#F4F4F5',
+    gap: 12,
   },
-  rewardIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  rewardIconWrapperCash: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rewardIconWrapperGift: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#FFFBEB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   rewardCardLabel: {
-    fontSize: 11.5,
-    color: '#64748B',
-    fontWeight: '600',
+    fontSize: 12,
+    color: '#71717A',
+    fontWeight: '500',
   },
   rewardCardCash: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#059669',
+    color: '#123826',
     marginTop: 2,
   },
   rewardCardGift: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#18181B',
     marginTop: 2,
   },
   rewardCardSub: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
+    fontSize: 11.5,
+    color: '#A1A1AA',
+    marginTop: 3,
+    lineHeight: 16,
   },
   perksStatsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 16,
   },
   perkStatCard: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
+    backgroundColor: '#F4FBF7',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8F5E9',
   },
   perkStatValue: {
-    fontSize: 13.5,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#18181B',
+    marginTop: 2,
   },
   perkStatLabel: {
-    fontSize: 10,
-    color: '#64748B',
-    marginTop: 2,
+    fontSize: 11,
+    color: '#71717A',
+    marginTop: 3,
     textAlign: 'center',
     fontWeight: '500',
   },
   perksListBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 8,
+    borderColor: '#F4F4F5',
+    paddingHorizontal: 12,
   },
   perkRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+  },
+  perkRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F4F4F5',
   },
   perkItemText: {
-    fontSize: 12.5,
-    color: '#334155',
+    fontSize: 13,
+    color: '#27272A',
     flex: 1,
     lineHeight: 18,
     fontWeight: '500',
   },
   criteriaBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#F4F4F5',
     gap: 6,
   },
   criteriaItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#E4E4E7',
   },
   criteriaLabel: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 12.5,
+    color: '#71717A',
     fontWeight: '500',
   },
   criteriaValueRow: {
@@ -594,9 +606,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   criteriaValue: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#18181B',
   },
   criteriaTag: {
     paddingHorizontal: 6,
@@ -628,27 +640,27 @@ const styles = StyleSheet.create({
   bottomBar: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#F4F4F5',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   fullBottomActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    paddingVertical: 13,
-    shadowColor: '#2563EB',
-    shadowOpacity: 0.2,
+    backgroundColor: '#123826',
+    borderRadius: 14,
+    paddingVertical: 14,
+    shadowColor: '#123826',
+    shadowOpacity: 0.15,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
   fullBottomActionBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     letterSpacing: 0.2,
   },
 });

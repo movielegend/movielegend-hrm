@@ -21,11 +21,13 @@ import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useN
 import { LiveClock } from '../../components/LiveClock';
 import { levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
 
 export function EmployeeDashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const tabBarScroll = useTabBarScroll();
   const { user } = useAuth();
   const { data: currentAttendance } = useCurrentAttendance();
   const { data: schedule } = useMySchedule();
@@ -118,6 +120,8 @@ export function EmployeeDashboardScreen() {
           { paddingBottom: Math.max(insets.bottom, 24) + 80 },
         ]}
         showsVerticalScrollIndicator={false}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {/* Header */}

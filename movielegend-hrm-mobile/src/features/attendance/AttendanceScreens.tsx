@@ -325,11 +325,30 @@ export function AttendanceCheckOutScreen() {
   );
 }
 
+const VN_DAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+
+function getVnDayString(d: Date): string {
+  const dayName = VN_DAYS[d.getDay()];
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dayName}, ${dd}/${mm}/${yyyy}`;
+}
+
+function getVnShortDateString(d: Date): string {
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 export function AttendanceHistoryScreen() {
   const router = useRouter();
+  const segments = useSegments();
+  const basePath = segments[0] === 'leader' ? '/leader' : segments[0] === 'hr' ? '/hr' : segments[0] === 'admin' ? '/admin' : '/employee';
+
   const queryClient = useQueryClient();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const month = currentDate.getMonth() + 1;
   const year = currentDate.getFullYear();
@@ -342,17 +361,6 @@ export function AttendanceHistoryScreen() {
     await queryClient.invalidateQueries();
     setRefreshing(false);
   }, [queryClient]);
-
-  // Handle Month Navigation
-  const prevMonth = () => {
-    setCurrentDate(new Date(year, currentDate.getMonth() - 1, 1));
-    setSelectedDay(null);
-  };
-
-  const nextMonth = () => {
-    setCurrentDate(new Date(year, currentDate.getMonth() + 1, 1));
-    setSelectedDay(null);
-  };
 
   // Calendar matrix calculations
   const firstDayOfMonth = new Date(year, currentDate.getMonth(), 1).getDay(); // 0 is Sunday
@@ -368,260 +376,325 @@ export function AttendanceHistoryScreen() {
       history.data.items.forEach((item: any) => {
         if (item.workDate) {
           const key = new Date(item.workDate).toISOString().split('T')[0];
-          map[key] = item;
+          if (key) {
+            map[key] = item;
+          }
         }
       });
     }
     return map;
   }, [history.data?.items]);
 
-  // Filter items for selected day or full month list
-  const displayedItems = useMemo(() => {
-    const items = history.data?.items ?? [];
-    return items.filter((record: any) => {
-      const d = new Date(record.workDate);
-      const isSameMonth = d.getMonth() + 1 === month && d.getFullYear() === year;
-      if (!isSameMonth) return false;
-      if (selectedDay !== null) {
-        return d.getDate() === selectedDay;
-      }
-      return true;
-    });
-  }, [history.data?.items, month, year, selectedDay]);
+  // Determine initial selected day (if today is in the current month, or first day with record, or day 1)
+  const [selectedDay, setSelectedDay] = useState<number>(() => {
+    const today = new Date();
+    if (today.getMonth() + 1 === month && today.getFullYear() === year) {
+      return today.getDate();
+    }
+    return 1;
+  });
+
+  // Handle Month Navigation
+  const prevMonth = () => {
+    setCurrentDate(new Date(year, currentDate.getMonth() - 1, 1));
+    setSelectedDay(1);
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(year, currentDate.getMonth() + 1, 1));
+    setSelectedDay(1);
+  };
+
+  // Selected date key and object
+  const validSelectedDay = Math.min(selectedDay, daysInMonth);
+  const selectedDateKey = useMemo(() => {
+    const dStr = validSelectedDay < 10 ? `0${validSelectedDay}` : validSelectedDay;
+    const mStr = month < 10 ? `0${month}` : month;
+    return `${year}-${mStr}-${dStr}`;
+  }, [validSelectedDay, month, year]);
+
+  const selectedRecord = useMemo(() => {
+    return attendanceMap[selectedDateKey] || null;
+  }, [attendanceMap, selectedDateKey]);
+
+  const selectedDateObj = useMemo(() => {
+    return new Date(year, month - 1, validSelectedDay);
+  }, [year, month, validSelectedDay]);
+
+  const selectedDayTitle = useMemo(() => {
+    return getVnDayString(selectedDateObj);
+  }, [selectedDateObj]);
+
+  const selectedFormattedDateStr = useMemo(() => {
+    return getVnShortDateString(selectedDateObj);
+  }, [selectedDateObj]);
+
+  // Status and details for the selected record
+  const checkInDisplayTime = selectedRecord?.checkInAt
+    ? new Date(selectedRecord.checkInAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    : '--:--';
+  const checkOutDisplayTime = selectedRecord?.checkOutAt
+    ? new Date(selectedRecord.checkOutAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    : '--:--';
+  const shiftTitle = selectedRecord?.shiftAssignment?.shift?.name || 'Ca làm việc';
+
+  const hasIn = Boolean(selectedRecord?.checkInAt);
+  const hasOut = Boolean(selectedRecord?.checkOutAt);
+
+  let badgeText = 'Nghỉ / Trống';
+  let badgeColor = '#64748B';
+  let badgeBg = '#F1F5F9';
+  let badgeBorder = '#E2E8F0';
+  let isAlertBadge = false;
+  let isCompleteBadge = false;
+  let warningMessage: string | null = null;
+
+  if (selectedRecord) {
+    if (hasIn && hasOut) {
+      badgeText = 'Hoàn tất';
+      badgeColor = '#065F46';
+      badgeBg = '#ECFDF5';
+      badgeBorder = '#A7F3D0';
+      isCompleteBadge = true;
+    } else if (hasIn && !hasOut) {
+      badgeText = 'Thiếu check-out';
+      badgeColor = '#EA580C';
+      badgeBg = '#FFF7ED';
+      badgeBorder = '#FED7AA';
+      isAlertBadge = true;
+      warningMessage = 'Chưa ghi nhận giờ check-out';
+    } else if (!hasIn && hasOut) {
+      badgeText = 'Thiếu check-in';
+      badgeColor = '#EA580C';
+      badgeBg = '#FFF7ED';
+      badgeBorder = '#FED7AA';
+      isAlertBadge = true;
+      warningMessage = 'Chưa ghi nhận giờ check-in';
+    }
+  }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
-      <ScrollView 
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} 
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F6FA' }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
-        {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 4 }}>
-          <Text style={{ fontSize: 26, fontWeight: '800', color: '#111827', letterSpacing: -0.5 }}>Lịch sử chấm công</Text>
+        {/* Header - Horizontally aligned with back chevron */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20, paddingTop: 4 }}>
+          <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 8, marginTop: 2 }} hitSlop={8}>
+            <Ionicons name="chevron-back" size={26} color="#0F172A" />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: '#0F172A', letterSpacing: -0.5 }}>Lịch sử chấm công</Text>
+            <Text style={{ fontSize: 13, color: '#64748B', marginTop: 3, fontWeight: '500' }}>Theo dõi giờ vào và giờ ra</Text>
+          </View>
         </View>
 
         {/* Calendar Card */}
-        <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#ECEEF3', marginBottom: 20 }}>
-          {/* Month Header Navigation */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Pressable onPress={prevMonth} style={{ padding: 8, borderRadius: 8, backgroundColor: '#F3F4F6' }}>
-              <Ionicons name="chevron-back" size={18} color="#374151" />
+        <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1, marginBottom: 20 }}>
+          {/* Month Selector */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+            <Pressable onPress={prevMonth} hitSlop={6} style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' }}>
+              <Ionicons name="chevron-back" size={18} color="#0F172A" />
             </Pressable>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>
-              Tháng {month < 10 ? `0${month}` : month}/{year}
+            <Text style={{ fontSize: 17, fontWeight: '800', color: '#0F172A' }}>
+              Tháng {month < 10 ? `0${month}` : month}, {year}
             </Text>
-            <Pressable onPress={nextMonth} style={{ padding: 8, borderRadius: 8, backgroundColor: '#F3F4F6' }}>
-              <Ionicons name="chevron-forward" size={18} color="#374151" />
+            <Pressable onPress={nextMonth} hitSlop={6} style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' }}>
+              <Ionicons name="chevron-forward" size={18} color="#0F172A" />
             </Pressable>
           </View>
 
-          {/* Weekday Headers */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
+          {/* Weekdays */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 }}>
             {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((w, idx) => (
-              <Text key={idx} style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '700', color: idx >= 5 ? '#EF4444' : '#6B7280' }}>
+              <Text key={idx} style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: '700', color: idx >= 5 ? '#EF4444' : '#64748B' }}>
                 {w}
               </Text>
             ))}
           </View>
 
-          {/* Calendar Days Grid */}
+          {/* Calendar Grid */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-            {/* Empty slots for previous month padding */}
             {Array.from({ length: startingOffset }).map((_, idx) => (
-              <View key={`empty-${idx}`} style={{ width: '14.28%', height: 44 }} />
+              <View key={`empty-${idx}`} style={{ width: '14.28%', height: 46 }} />
             ))}
 
-            {/* Days of current month */}
             {Array.from({ length: daysInMonth }).map((_, idx) => {
               const dayNum = idx + 1;
               const dateKey = `${year}-${month < 10 ? `0${month}` : month}-${dayNum < 10 ? `0${dayNum}` : dayNum}`;
               const record = attendanceMap[dateKey];
-              const isSelected = selectedDay === dayNum;
+              const isSelected = validSelectedDay === dayNum;
+              const colIdx = (startingOffset + idx) % 7;
+              const isWeekend = colIdx >= 5;
 
-              // Premium Color & Status Styling
-              // 🟢 HOÀN TẤT: Soft Emerald Green background + Check mark icon
-              // 🟡 THIẾU IN/OUT: Soft Amber/Yellow background + Alert icon / Warning
-              // ⚪ NGHỈ / KHÔNG CÔNG: Soft Neutral Gray background / Clean Text
-              let dayBg = '#F9FAFB';
-              let dayBorderColor = '#F3F4F6';
-              let textColor = '#374151';
-              let statusIcon = null;
-
-              if (record) {
-                const hasIn = Boolean(record.checkInAt);
-                const hasOut = Boolean(record.checkOutAt);
-                if (hasIn && hasOut) {
-                  dayBg = '#ECFDF5'; // Soft Emerald Green
-                  dayBorderColor = '#A7F3D0';
-                  textColor = '#065F46';
-                  statusIcon = <Ionicons name="checkmark-circle" size={12} color="#10B981" style={{ position: 'absolute', top: -2, right: -2 }} />;
-                } else if (hasIn || hasOut) {
-                  dayBg = '#FFFBEB'; // Soft Amber / Yellow
-                  dayBorderColor = '#FDE68A';
-                  textColor = '#92400E';
-                  statusIcon = <Ionicons name="alert-circle" size={12} color="#F59E0B" style={{ position: 'absolute', top: -2, right: -2 }} />;
-                }
-              }
-
-              if (isSelected) {
-                dayBg = '#2563EB';
-                dayBorderColor = '#2563EB';
-                textColor = '#FFFFFF';
-              }
+              const recIn = Boolean(record?.checkInAt);
+              const recOut = Boolean(record?.checkOutAt);
+              const isIncomplete = (recIn && !recOut) || (!recIn && recOut);
 
               return (
                 <Pressable
                   key={`day-${dayNum}`}
-                  onPress={() => setSelectedDay(isSelected ? null : dayNum)}
-                  style={{
-                    width: '14.28%',
-                    height: 48,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    marginBottom: 6,
-                  }}
+                  onPress={() => setSelectedDay(dayNum)}
+                  style={{ width: '14.28%', height: 48, justifyContent: 'center', alignItems: 'center', marginBottom: 4 }}
                 >
                   <View
                     style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
+                      width: 38,
+                      height: 44,
+                      borderRadius: 12,
                       justifyContent: 'center',
                       alignItems: 'center',
-                      backgroundColor: dayBg,
-                      borderWidth: isSelected ? 2 : 1,
-                      borderColor: dayBorderColor,
-                      shadowColor: isSelected ? '#2563EB' : 'transparent',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.15,
-                      shadowRadius: 4,
-                      elevation: isSelected ? 3 : 0,
+                      backgroundColor: isSelected ? '#0B409C' : 'transparent',
                     }}
                   >
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: textColor }}>
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        fontWeight: isSelected ? '800' : '600',
+                        color: isSelected ? '#FFFFFF' : isWeekend ? '#EF4444' : '#0F172A',
+                      }}
+                    >
                       {dayNum}
                     </Text>
 
-                    {/* Status Badge Icon on Top Corner */}
-                    {!isSelected && statusIcon}
+                    {/* Alert dot badge with ! when selected and incomplete */}
+                    {isSelected && isIncomplete && (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: 2,
+                          right: 2,
+                          width: 14,
+                          height: 14,
+                          borderRadius: 7,
+                          backgroundColor: '#F59E0B',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '900', lineHeight: 11 }}>!</Text>
+                      </View>
+                    )}
                   </View>
                 </Pressable>
               );
             })}
           </View>
 
-          {/* Premium Status Legend */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#ECFDF5', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: '#A7F3D0' }}>
-              <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-              <Text style={{ fontSize: 11, color: '#065F46', fontWeight: '700' }}>Hoàn tất</Text>
+          {/* Status Legend */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' }} />
+              <Text style={{ fontSize: 12, color: '#475569', fontWeight: '600' }}>Hoàn tất</Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFBEB', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: '#FDE68A' }}>
-              <Ionicons name="alert-circle" size={14} color="#F59E0B" />
-              <Text style={{ fontSize: 11, color: '#92400E', fontWeight: '700' }}>Thiếu In/Out</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#F59E0B' }} />
+              <Text style={{ fontSize: 12, color: '#475569', fontWeight: '600' }}>Thiếu In/Out</Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F9FAFB', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB' }}>
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#9CA3AF' }} />
-              <Text style={{ fontSize: 11, color: '#4B5563', fontWeight: '600' }}>Nghỉ / Trống</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#8FA0B4' }} />
+              <Text style={{ fontSize: 12, color: '#475569', fontWeight: '600' }}>Nghỉ / Trống</Text>
             </View>
           </View>
         </View>
 
-        {/* Selected Day Filter Badge indicator */}
-        {selectedDay !== null && (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#4B5563' }}>
-              Chi tiết ngày {selectedDay}/{month}/{year}:
-            </Text>
-            <Pressable onPress={() => setSelectedDay(null)}>
-              <Text style={{ fontSize: 12, color: '#3B82F6', fontWeight: '600' }}>Xem cả tháng</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {history.isLoading ? <Text style={{ color: '#6B7280', textAlign: 'center', marginVertical: 12 }}>Đang tải...</Text> : null}
-
-        {/* Attendance Records List */}
-        <View style={{ gap: 16 }}>
-          {displayedItems.map((record: any) => {
-            const dateStr = new Date(record.workDate).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
-            const checkInTime = record.checkInAt ? new Date(record.checkInAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-            const checkOutTime = record.checkOutAt ? new Date(record.checkOutAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '--:--';
-            const shiftName = record.shiftAssignment?.shift?.name || 'Ca làm việc';
-            
-            // Status determination
-            let statusText = 'CHƯA RÕ';
-            let statusColor = '#6B7280';
-            let statusBg = '#F3F4F6';
-
-            if (record.checkInAt && record.checkOutAt) {
-              statusText = 'HOÀN TẤT'; statusColor = '#10B981'; statusBg = '#ECFDF5';
-            } else if (record.checkInAt || record.checkOutAt) {
-              statusText = record.checkInAt ? 'THIẾU CHECK-OUT' : 'THIẾU CHECK-IN';
-              statusColor = '#F59E0B'; statusBg = '#FFFBEB';
-            } else if (record.status === 'ABSENT') {
-              statusText = 'VẮNG MẶT'; statusColor = '#EF4444'; statusBg = '#FEF2F2';
-            }
-
-            return (
-              <Pressable 
-                key={record.id} 
-                onPress={() => router.push(`/employee/attendance/${record.id}`)}
-                style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#ECEEF3' }}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <View>
-                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>{dateStr}</Text>
-                    <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>{shiftName}</Text>
-                  </View>
-                  <View style={{ backgroundColor: statusBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: statusColor }}>{statusText}</Text>
-                  </View>
-                </View>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: '#F9FAFB', padding: 12, borderRadius: 12 }}>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
-                      <Ionicons name="enter-outline" size={16} color="#3B82F6" />
-                    </View>
-                    <View>
-                      <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '600', textTransform: 'uppercase' }}>Check-in</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginTop: 2 }}>{checkInTime}</Text>
-                    </View>
-                  </View>
-
-                  <View style={{ width: 1, height: 30, backgroundColor: '#E5E7EB' }} />
-
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFF7ED', justifyContent: 'center', alignItems: 'center' }}>
-                      <Ionicons name="exit-outline" size={16} color="#F59E0B" />
-                    </View>
-                    <View>
-                      <Text style={{ fontSize: 11, color: '#6B7280', fontWeight: '600', textTransform: 'uppercase' }}>Check-out</Text>
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827', marginTop: 2 }}>{checkOutTime}</Text>
-                    </View>
-                  </View>
-                </View>
-                
-                {(record.lateMinutes > 0 || record.earlyLeaveMinutes > 0) && (
-                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 }}>
-                      {record.lateMinutes > 0 && <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '500' }}>• Đi muộn: {record.lateMinutes}p</Text>}
-                      {record.earlyLeaveMinutes > 0 && <Text style={{ fontSize: 12, color: '#F59E0B', fontWeight: '500' }}>• Về sớm: {record.earlyLeaveMinutes}p</Text>}
-                   </View>
-                )}
-              </Pressable>
-            );
-          })}
+        {/* Section: Chi tiết ngày */}
+        <View style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A' }}>Chi tiết ngày</Text>
+          <Text style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>{selectedFormattedDateStr}</Text>
         </View>
 
-        {!displayedItems.length && !history.isLoading ? (
-          history.isError ? (
-            <EmptyState title="Không có dữ liệu" message="Lỗi khi tải lịch sử chấm công." />
-          ) : (
-            <EmptyState icon="calendar-outline" title="Chưa có dữ liệu chấm công" message={selectedDay ? `Không có dữ liệu chấm công cho ngày ${selectedDay}/${month}/${year}` : "Không có dữ liệu chấm công trong tháng này."} />
-          )
-        ) : null}
+        {/* Day Detail Card */}
+        <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 }}>
+          {/* Card Header Row */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="calendar-outline" size={20} color="#2563EB" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: '#0F172A' }}>{selectedDayTitle}</Text>
+                <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>{shiftTitle}</Text>
+              </View>
+            </View>
+
+            {/* Badge on Right */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: badgeBg, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: badgeBorder }}>
+              {isAlertBadge ? (
+                <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#EA580C', justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '900', lineHeight: 11 }}>!</Text>
+                </View>
+              ) : isCompleteBadge ? (
+                <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+              ) : null}
+              <Text style={{ fontSize: 11, fontWeight: '700', color: badgeColor }}>{badgeText}</Text>
+            </View>
+          </View>
+
+          {/* Comparison Box (Check-in & Check-out) */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 14, padding: 14, marginTop: 14 }}>
+            {/* Check-in */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="log-in-outline" size={20} color="#2563EB" />
+              </View>
+              <View>
+                <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>Check-in</Text>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A', marginTop: 2 }}>{checkInDisplayTime}</Text>
+              </View>
+            </View>
+
+            <View style={{ width: 1, height: 36, backgroundColor: '#E2E8F0', marginHorizontal: 10 }} />
+
+            {/* Check-out */}
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFF7ED', justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="log-out-outline" size={20} color="#EA580C" />
+              </View>
+              <View>
+                <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>Check-out</Text>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A', marginTop: 2 }}>{checkOutDisplayTime}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Warning Banner */}
+          {warningMessage ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FEF3C7', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: '#FDE68A' }}>
+              <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#D97706', justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '900', lineHeight: 13 }}>!</Text>
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#B45309', flex: 1 }}>{warningMessage}</Text>
+            </View>
+          ) : null}
+
+          {/* Button "Xem chi tiết" */}
+          <Pressable
+            onPress={() => {
+              if (selectedRecord?.id) {
+                router.push(`${basePath}/attendance/${selectedRecord.id}` as any);
+              } else {
+                CustomAlert.alert('Thông báo', 'Chưa có dữ liệu chấm công cho ngày này');
+              }
+            }}
+            style={{
+              backgroundColor: '#0B409C',
+              borderRadius: 14,
+              height: 48,
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginTop: 16,
+              position: 'relative',
+            }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>Xem chi tiết</Text>
+            <View style={{ position: 'absolute', right: 18 }}>
+              <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+            </View>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -635,7 +708,7 @@ export function AttendanceDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC', justifyContent: 'center', alignItems: 'center' }} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F6FA', justifyContent: 'center', alignItems: 'center' }} edges={['top', 'left', 'right']}>
         <LoadingState />
       </SafeAreaView>
     );
@@ -643,134 +716,253 @@ export function AttendanceDetailScreen() {
 
   if (!detail) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F6FA' }} edges={['top', 'left', 'right']}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
+          <Pressable onPress={() => router.back()} style={{ padding: 4, marginLeft: -4 }} hitSlop={8}>
+            <Ionicons name="chevron-back" size={26} color="#0F172A" />
+          </Pressable>
+        </View>
         <EmptyState title="Không tìm thấy chi tiết chấm công" />
       </SafeAreaView>
     );
   }
 
   const user = (detail as any).user;
-  const name = user?.profile?.fullName || user?.userCode || 'Unknown';
-  const role = user?.profile?.role || 'Nhân viên';
+  const name = user?.profile?.fullName || user?.fullName || user?.userCode || 'Nhân viên';
+  const role = user?.profile?.role || (user?.roles && user.roles[0]) || 'Nhân viên';
+  const avatarUrl = user?.profile?.avatarUrl || user?.avatarUrl;
+
+  const dateObj = new Date(detail.workDate || detail.checkInAt);
+  const formattedDateStr = getVnDayString(dateObj);
+
+  const checkInTime = detail.checkInAt
+    ? new Date(detail.checkInAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    : null;
+  const checkOutTime = detail.checkOutAt
+    ? new Date(detail.checkOutAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  const hasIn = Boolean(detail.checkInAt);
+  const hasOut = Boolean(detail.checkOutAt);
+
+  // Status Badge
+  let badgeText = 'Hoàn tất';
+  let badgeColor = '#065F46';
+  let badgeBg = '#ECFDF5';
+  let badgeBorder = '#A7F3D0';
+  let isAlertBadge = false;
+  let isCompleteBadge = true;
+
+  if (!hasOut && hasIn) {
+    badgeText = 'Thiếu check-out';
+    badgeColor = '#EA580C';
+    badgeBg = '#FFF7ED';
+    badgeBorder = '#FED7AA';
+    isAlertBadge = true;
+    isCompleteBadge = false;
+  } else if (!hasIn && hasOut) {
+    badgeText = 'Thiếu check-in';
+    badgeColor = '#EA580C';
+    badgeBg = '#FFF7ED';
+    badgeBorder = '#FED7AA';
+    isAlertBadge = true;
+    isCompleteBadge = false;
+  }
+
+  // Location info
+  const gps = (detail as any).gps;
+  const checkInLat = gps?.checkInLatitude;
+  const checkInLng = gps?.checkInLongitude;
+  const locationName = gps?.attendanceLocation?.name;
+  const coordsStr = locationName || (checkInLat && checkInLng ? `${checkInLat}, ${checkInLng}` : '21.023043, 105.8389164');
+
+  const checkOutLat = gps?.checkOutLatitude;
+  const checkOutLng = gps?.checkOutLongitude;
+  const checkOutCoordsStr = locationName || (checkOutLat && checkOutLng ? `${checkOutLat}, ${checkOutLng}` : coordsStr);
+
+  const photoUrl = getAbsoluteImageUrl((detail as any).photo?.fileUrl);
+  const checkOutPhotoUrl = getAbsoluteImageUrl((detail as any).checkOutPhoto?.fileUrl);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F7FAFC' }} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F6FA' }} edges={['top', 'left', 'right']}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingTop: 4 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
-              <Ionicons name="chevron-back" size={24} color="#111827" />
-            </Pressable>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827' }}>Chi tiết Check-in</Text>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingTop: 4 }}>
+          <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 8 }} hitSlop={8}>
+            <Ionicons name="chevron-back" size={26} color="#0F172A" />
+          </Pressable>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: '#0F172A', letterSpacing: -0.3 }}>Chi tiết Check-in</Text>
         </View>
 
-        {/* User Info */}
-        <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <Avatar name={name} uri={user?.profile?.avatarUrl} size={80} />
-          <Text style={{ fontSize: 20, fontWeight: '800', color: '#111827', marginTop: 12, marginBottom: 4 }}>{name}</Text>
-          <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>{role}</Text>
-          <View style={{ backgroundColor: '#111827', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF', textTransform: 'uppercase' }}>
-              {new Date(detail.workDate).toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' })}
-            </Text>
-          </View>
-        </View>
+        {/* User Card */}
+        <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2, marginBottom: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+            <Avatar name={name} uri={avatarUrl} size={64} />
 
-        {/* Timeline Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="navigate-outline" size={18} color="#111827" />
-            <Text style={{ fontSize: 15, fontWeight: '800', color: '#111827' }}>Lộ trình Giai đoạn</Text>
-          </View>
-        </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A' }} numberOfLines={1}>{name}</Text>
+              <Text style={{ fontSize: 13, color: '#64748B', marginTop: 2, fontWeight: '500' }}>{role}</Text>
 
-        {/* Timeline Items */}
-        <View style={{ marginLeft: 16, borderLeftWidth: 1, borderLeftColor: '#E6EEF3', paddingLeft: 24, paddingBottom: 24, gap: 24 }}>
-
-          {/* Check In */}
-          {detail.checkInAt && (
-            <View style={{ position: 'relative' }}>
-              <View style={{ position: 'absolute', left: -34, top: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: '#111827', justifyContent: 'center', alignItems: 'center' }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#111827' }} />
-              </View>
-              <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#ECEEF3' }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Check-in</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <Ionicons name="time-outline" size={14} color="#3B82F6" />
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>
-                    {new Date(detail.checkInAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="location-outline" size={14} color="#6B7280" />
-                  <Text style={{ fontSize: 12, color: '#6B7280' }}>
-                    Tọa độ: {(detail as any).gps?.attendanceLocation?.name || `${(detail as any).gps?.checkInLatitude}, ${(detail as any).gps?.checkInLongitude}`}
-                  </Text>
-                </View>
-                {(detail as any).photo?.fileUrl && (
-                  <View style={{ marginTop: 12 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280', marginBottom: 8, textTransform: 'uppercase' }}>Ảnh Check-in</Text>
-                    <Pressable onPress={() => setSelectedImage(getAbsoluteImageUrl((detail as any).photo.fileUrl) || null)}>
-                      <Image source={{ uri: getAbsoluteImageUrl((detail as any).photo.fileUrl) }} style={{ width: 100, height: 100, borderRadius: 12, borderWidth: 1, borderColor: '#ECEEF3' }} />
-                    </Pressable>
-                  </View>
-                )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                <Ionicons name="calendar-outline" size={14} color="#64748B" />
+                <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>{formattedDateStr}</Text>
               </View>
             </View>
-          )}
 
-          {/* Check Out */}
-          {detail.checkOutAt && (
-            <View style={{ position: 'relative' }}>
-              <View style={{ position: 'absolute', left: -34, top: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: '#111827', justifyContent: 'center', alignItems: 'center' }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#111827' }} />
-              </View>
-              <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#ECEEF3' }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>Check-out</Text>
+            {/* Status Badge */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: badgeBg, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: badgeBorder, alignSelf: 'flex-start' }}>
+              {isAlertBadge ? (
+                <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#EA580C', justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '900', lineHeight: 11 }}>!</Text>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <Ionicons name="time-outline" size={14} color="#3B82F6" />
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#111827' }}>
-                    {new Date(detail.checkOutAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="location-outline" size={14} color="#6B7280" />
-                  <Text style={{ fontSize: 12, color: '#6B7280' }}>
-                    Tọa độ: {(detail as any).gps?.attendanceLocation?.name || `${(detail as any).gps?.checkOutLatitude}, ${(detail as any).gps?.checkOutLongitude}`}
-                  </Text>
-                </View>
-                {(detail as any).checkOutPhoto?.fileUrl && (
-                  <View style={{ marginTop: 12 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280', marginBottom: 8, textTransform: 'uppercase' }}>Ảnh Check-out</Text>
-                    <Pressable onPress={() => setSelectedImage(getAbsoluteImageUrl((detail as any).checkOutPhoto.fileUrl) || null)}>
-                      <Image source={{ uri: getAbsoluteImageUrl((detail as any).checkOutPhoto.fileUrl) }} style={{ width: 100, height: 100, borderRadius: 12, borderWidth: 1, borderColor: '#ECEEF3' }} />
-                    </Pressable>
-                  </View>
-                )}
-              </View>
+              ) : isCompleteBadge ? (
+                <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+              ) : null}
+              <Text style={{ fontSize: 11, fontWeight: '700', color: badgeColor }}>{badgeText}</Text>
             </View>
-          )}
+          </View>
         </View>
 
+        {/* Section Heading */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <Ionicons name="list-outline" size={20} color="#0F172A" />
+          <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A' }}>Nhật ký chấm công</Text>
+        </View>
+
+        {/* Timeline Container */}
+        {/* Step 1: CHECK-IN */}
+        <View style={{ flexDirection: 'row', gap: 14 }}>
+          {/* Left Node & Line */}
+          <View style={{ width: 22, alignItems: 'center' }}>
+            <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2.5, borderColor: '#0B409C', backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#0B409C' }} />
+            </View>
+            <View style={{ width: 2, flex: 1, backgroundColor: '#CBD5E1', marginTop: 4 }} />
+          </View>
+
+          {/* Right Card */}
+          <View style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2, marginBottom: 14 }}>
+            <Text style={{ fontSize: 12, fontWeight: '800', color: '#64748B', letterSpacing: 0.5, marginBottom: 12 }}>CHECK-IN</Text>
+
+            {/* Row 1: Time */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="time-outline" size={18} color="#2563EB" />
+              </View>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#0F172A' }}>{checkInTime || '--:--'}</Text>
+            </View>
+
+            <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
+
+            {/* Row 2: Location */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', marginTop: 2 }}>
+                <Ionicons name="location-outline" size={18} color="#2563EB" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>Tọa độ ghi nhận</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginTop: 2 }}>{coordsStr}</Text>
+              </View>
+            </View>
+
+            {/* Row 3: Photo */}
+            {photoUrl ? (
+              <>
+                <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="image-outline" size={18} color="#2563EB" />
+                  </View>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A' }}>Ảnh check-in</Text>
+                </View>
+
+                <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', alignSelf: 'center', width: '100%', maxWidth: 260 }}>
+                  <Pressable onPress={() => setSelectedImage(photoUrl)}>
+                    <Image source={{ uri: photoUrl }} style={{ width: '100%', height: 220, borderRadius: 16, backgroundColor: '#F1F5F9' }} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setSelectedImage(photoUrl)}
+                    style={{ position: 'absolute', bottom: 10, right: 10, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'center', alignItems: 'center' }}
+                  >
+                    <Ionicons name="scan-outline" size={18} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+              </>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Step 2: Check-out */}
+        <View style={{ flexDirection: 'row', gap: 14 }}>
+          {/* Left Node */}
+          <View style={{ width: 22, alignItems: 'center' }}>
+            <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2.5, borderColor: checkOutTime ? '#10B981' : '#EA580C', backgroundColor: '#FFFFFF' }} />
+          </View>
+
+          {/* Right Card */}
+          <View style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }}>
+            <Text style={{ fontSize: 12, fontWeight: '800', color: '#64748B', letterSpacing: 0.5, marginBottom: 12 }}>Check-out</Text>
+
+            {/* Row 1: Time */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                <Ionicons name="time-outline" size={18} color="#2563EB" />
+              </View>
+              <Text style={{ fontSize: checkOutTime ? 20 : 16, fontWeight: '800', color: '#0F172A' }}>
+                {checkOutTime || 'Chưa ghi nhận'}
+              </Text>
+            </View>
+
+            {/* If check-out is recorded, show location and photo */}
+            {checkOutTime && (
+              <>
+                <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', marginTop: 2 }}>
+                    <Ionicons name="location-outline" size={18} color="#2563EB" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>Tọa độ ghi nhận</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginTop: 2 }}>{checkOutCoordsStr || coordsStr}</Text>
+                  </View>
+                </View>
+              </>
+            )}
+
+            {checkOutPhotoUrl ? (
+              <>
+                <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="image-outline" size={18} color="#2563EB" />
+                  </View>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A' }}>Ảnh check-out</Text>
+                </View>
+
+                <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', alignSelf: 'center', width: '100%', maxWidth: 260 }}>
+                  <Pressable onPress={() => setSelectedImage(checkOutPhotoUrl)}>
+                    <Image source={{ uri: checkOutPhotoUrl }} style={{ width: '100%', height: 220, borderRadius: 16, backgroundColor: '#F1F5F9' }} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setSelectedImage(checkOutPhotoUrl)}
+                    style={{ position: 'absolute', bottom: 10, right: 10, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'center', alignItems: 'center' }}
+                  >
+                    <Ionicons name="scan-outline" size={18} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+              </>
+            ) : null}
+          </View>
+        </View>
       </ScrollView>
 
       {/* Fullscreen Image Modal */}
       {selectedImage && (
-        <Modal visible={true} transparent={true} animationType="fade">
-          <View style={{ flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.95)', justifyContent: 'center', alignItems: 'center' }}>
+        <Modal visible={true} transparent={true} animationType="fade" onRequestClose={() => setSelectedImage(null)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.95)', justifyContent: 'center', alignItems: 'center' }}>
             <Pressable style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} onPress={() => setSelectedImage(null)}>
               <Ionicons name="close-circle" size={36} color="#FFF" />
             </Pressable>
-            <View style={{ position: 'absolute', top: 50, left: 20, zIndex: 10, backgroundColor: '#FFF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 }}>
-              <Image source={require('../../../assets/logo-watermark.png')} style={{ width: 120, height: 30, resizeMode: 'contain' }} />
-            </View>
             <Image source={{ uri: selectedImage }} style={{ width: '90%', height: '80%', resizeMode: 'contain' }} />
           </View>
         </Modal>
@@ -821,7 +1013,7 @@ export function AttendanceAdjustmentScreen() {
 export { AdminAttendanceScreen } from './AdminAttendanceScreen';
 
 
-export { AdminAttendanceDetailScreen } from './AdminAttendanceDetailScreen';
+export { AttendanceDetailScreen as AdminAttendanceDetailScreen };
 
 
 import * as Location from 'expo-location';

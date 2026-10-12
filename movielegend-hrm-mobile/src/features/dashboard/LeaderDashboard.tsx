@@ -24,6 +24,7 @@ import { ContourHeroPattern } from './components/ContourHeroPattern';
 import { useMyTasks, useTasks } from '../../hooks/useTasks';
 import { levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
 const appleTheme = {
   bg: '#FFFFFF',
   card: '#FFFFFF',
@@ -43,6 +44,7 @@ export function LeaderDashboard() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const tabBarScroll = useTabBarScroll();
   const [activeTab, setActiveTab] = useState<'TASKS' | 'ACTIVITY'>('TASKS');
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
   const { data: unreadChat = 0 } = useUnreadChatCount();
@@ -169,8 +171,10 @@ export function LeaderDashboard() {
           styles.container,
           { paddingBottom: Math.max(insets.bottom, 24) + 90 },
         ]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         showsVerticalScrollIndicator={false}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {/* Header */}
         <View style={styles.header}>

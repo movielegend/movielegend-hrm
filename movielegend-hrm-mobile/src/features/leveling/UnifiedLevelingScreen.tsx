@@ -48,13 +48,16 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
   const params = useLocalSearchParams<{ tab?: string; subTab?: string; departmentId?: string; mode?: string }>();
   const { user } = useAuth();
 
   const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN');
   const isLeader = !isAdmin && (user?.roles?.includes('LEADER') || user?.roles?.includes('HR'));
   const isLeaderOrAdmin = isAdmin || isLeader;
+
+  const safeTopInset = !isAdmin
+    ? Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8)
+    : Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
 
   const currentMode: 'config_only' | 'review_only' | 'full' =
     (params.mode as any) || mode || 'full';
@@ -74,6 +77,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
 
   const [activeTab, setActiveTab] = useState<'roadmap' | 'members' | 'config' | 'projects'>(resolvedTab);
   const [leaderSubTab, setLeaderSubTab] = useState<'project_submissions' | 'members_list' | 'pending_requests'>(resolvedSubTab);
+  const [viewMode, setViewMode] = useState<'roadmap' | 'ladder'>('roadmap');
 
   const [progressData, setProgressData] = useState<UserLevelProgressData | null>(null);
   const [promotionRequests, setPromotionRequests] = useState<LevelPromotionRequestItem[]>([]);
@@ -713,25 +717,59 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
   const pendingCount = promotionRequests.filter((r) => r.status === 'PENDING').length;
 
   return (
-    <View style={[styles.safeArea, { paddingTop: safeTopInset }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+    <View style={[styles.safeArea, { paddingTop: safeTopInset }, !isAdmin && { backgroundColor: '#FFFFFF' }]}>
+      <StatusBar
+        barStyle={isAdmin ? 'light-content' : 'dark-content'}
+        backgroundColor={isAdmin ? '#0F172A' : '#FFFFFF'}
+      />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isAdmin
-            ? currentMode === 'config_only'
+      {isAdmin ? (
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#FFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {currentMode === 'config_only'
               ? 'Cấu Hình Level & Dự Án'
               : currentMode === 'review_only'
               ? 'Duyệt Cấp Bậc & Nhân Sự'
-              : 'Quản Trị Cấp Bậc'
-            : 'Hệ Thống Phân Cấp Nhân Sự'}
-        </Text>
-        <View style={{ width: 40 }} />
-      </View>
+              : 'Quản Trị Cấp Bậc'}
+          </Text>
+          <View style={{ width: 40 }} />
+        </View>
+      ) : (
+        <View style={styles.lightHeader}>
+          <TouchableOpacity
+            style={styles.lightBackBtn}
+            onPress={() => {
+              if (viewMode === 'ladder') {
+                setViewMode('roadmap');
+              } else {
+                router.back();
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#18181B" />
+          </TouchableOpacity>
+          <View style={styles.lightHeaderCenter}>
+            <Text style={styles.lightHeaderTitle}>
+              {activeTab !== 'roadmap'
+                ? 'Duyệt cấp bậc nhân sự'
+                : viewMode === 'ladder'
+                ? 'Hệ thống cấp bậc'
+                : 'Lộ trình của bạn'}
+            </Text>
+            {activeTab === 'roadmap' && viewMode === 'ladder' && (
+              <Text style={styles.lightHeaderSub}>
+                Lộ trình phát triển tại phòng {activeDeptName}
+              </Text>
+            )}
+          </View>
+          <View style={{ width: 32 }} />
+        </View>
+      )}
 
       {/* Top Banner / Summary */}
       {isAdmin ? (
@@ -760,7 +798,7 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
             </View>
           </View>
         </View>
-      ) : progressData ? (
+      ) : activeTab !== 'roadmap' && progressData ? (
         <View style={styles.profileSummaryCard}>
           <View style={styles.avatarWrapper}>
             {getAbsoluteImageUrl(progressData.avatarUrl) ? (
@@ -1012,17 +1050,6 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         </View>
       )}
 
-      {/* Leader Fixed Department Scope Badge (Leader only manages their own department) */}
-      {isLeader && activeDeptName && (
-        <View style={styles.leaderDeptBadgeContainer}>
-          <Ionicons name="business-outline" size={16} color="#38BDF8" />
-          <Text style={styles.leaderDeptBadgeText}>
-            Phòng ban phụ trách:{' '}
-            <Text style={{ fontWeight: '700', color: '#FFF' }}>{activeDeptName}</Text>
-          </Text>
-        </View>
-      )}
-
       {isLoading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color="#2563EB" />
@@ -1040,150 +1067,150 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
           {/* ========================================================= */}
           {activeTab === 'roadmap' && (
             <>
-              {progressData && (
-                <EmployeeLevelProgressCard
-                  progress={progressData}
-                  onOpenSubmitModal={() =>
-                    router.push({
-                      pathname: '/employee/leveling/submit-promotion',
-                      params: {
-                        fromLevelNumber: progressData.currentLevel.levelNumber.toString(),
-                        fromLevelName: progressData.currentLevel.displayName,
-                        toLevelNumber: progressData.nextLevel.levelNumber.toString(),
-                        toLevelName: progressData.nextLevel.displayName,
-                        departmentId: activeDeptId,
-                        departmentName: activeDeptName,
-                      },
-                    } as any)
-                  }
-                />
-              )}
-
-              {/* Interactive 8 Levels Roadmap */}
-              <View style={styles.roadmapCard}>
-                <View style={styles.roadmapHeaderRow}>
-                  <View>
-                    <Text style={styles.roadmapTitle}>Hệ Thống 8 Cấp Bậc</Text>
-                    <Text style={styles.roadmapSubtitle}>Lộ trình phát triển sự nghiệp tại {activeDeptName}</Text>
-                  </View>
-                  {isAdmin && (
-                    <TouchableOpacity
-                      style={styles.quickEditBtn}
-                      onPress={() => setActiveTab('config')}
-                    >
-                      <Ionicons name="create-outline" size={14} color="#2563EB" />
-                      <Text style={styles.quickEditText}>Đổi Tên Level</Text>
-                    </TouchableOpacity>
+              {viewMode === 'roadmap' ? (
+                <>
+                  {progressData && (
+                    <EmployeeLevelProgressCard
+                      progress={progressData}
+                      onOpenSubmitModal={() =>
+                        router.push({
+                          pathname: isLeader ? '/leader/leveling/submit-promotion' : '/employee/leveling/submit-promotion',
+                          params: {
+                            fromLevelNumber: progressData.currentLevel.levelNumber.toString(),
+                            fromLevelName: progressData.currentLevel.displayName,
+                            toLevelNumber: progressData.nextLevel.levelNumber.toString(),
+                            toLevelName: progressData.nextLevel.displayName,
+                            departmentId: activeDeptId,
+                            departmentName: activeDeptName,
+                          },
+                        } as any)
+                      }
+                      onOpenLadder={() => setViewMode('ladder')}
+                    />
                   )}
-                </View>
+                </>
+              ) : (
+                /* SCREEN 3: HỆ THỐNG CẤP BẬC (LADDER) */
+                <View style={styles.ladderScreenWrapper}>
+                  {/* Current Level Pill */}
+                  <View style={styles.currentLevelPillBox}>
+                    <Ionicons name="person-outline" size={14} color="#1E3A2F" />
+                    <Text style={styles.currentLevelPillText}>
+                      Cấp hiện tại: {progressData?.currentLevel?.levelNumber || 2} - {progressData?.currentLevel?.displayName || 'Chính thức'}
+                    </Text>
+                  </View>
 
-                <View style={styles.roadmapList}>
-                  {deptLevelConfigs.map((lvl) => {
-                    const currentLevelNum = progressData?.currentLevel?.levelNumber || 1;
-                    const isPassed = currentLevelNum > lvl.levelNumber;
-                    const isCurrent = currentLevelNum === lvl.levelNumber;
-                    const isNextTarget = currentLevelNum + 1 === lvl.levelNumber;
+                  {/* 8 Level Cards matching template exactly */}
+                  <View style={styles.ladderListContainer}>
+                    {[
+                      { lvl: 1, name: 'Thực tập', desc: 'Học việc / Thử việc, làm quen quy trình nội bộ' },
+                      { lvl: 2, name: 'Chính thức', desc: 'Chính thức, độc lập tác chiến, đầy đủ phúc lợi' },
+                      { lvl: 3, name: 'Senior', desc: 'Thâm niên ≥ 6 tháng, thành thạo 100% chuyên môn' },
+                      { lvl: 4, name: 'Key Member', desc: 'Nhân sự nòng cốt, Top hiệu suất / doanh số' },
+                      { lvl: 5, name: 'Team Leader', desc: 'Quản lý đội nhóm, duyệt đơn cấp 1' },
+                      { lvl: 6, name: 'Manager', desc: 'Trưởng phòng, quản lý chi phí & quy trình' },
+                      { lvl: 7, name: 'Director', desc: 'Giám đốc khối, quản trị chiến lược' },
+                      { lvl: 8, name: 'Executive', desc: 'Ban điều hành, tối cao toàn công ty' },
+                    ].map((item) => {
+                      const cfg = deptLevelConfigs.find((c) => c.levelNumber === item.lvl);
+                      const displayName = cfg?.displayName || cfg?.customLevelName || item.name;
+                      const currentLevelNum = progressData?.currentLevel?.levelNumber || 2;
+                      const isCurrent = currentLevelNum === item.lvl;
+                      const isTarget = currentLevelNum + 1 === item.lvl;
 
-                    return (
-                      <TouchableOpacity
-                        key={lvl.levelNumber}
-                        style={[
-                          styles.roadmapStepRow,
-                          isCurrent && styles.roadmapStepRowCurrent,
-                        ]}
-                        onPress={() => {
-                          if (isAdmin) {
-                            setActiveTab('config');
-                          } else {
-                            CustomAlert.alert(
-                              `Level ${lvl.levelNumber}: ${lvl.displayName}`,
-                              `Yêu cầu thâm niên tối thiểu: ${lvl.minTenureMonths} tháng\nĐịnh mức ca làm: ${lvl.targetShiftsCount} ca`,
-                            );
-                          }
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.roadmapStepLeft}>
-                          <View
-                            style={[
-                              styles.roadmapCircle,
-                              isPassed && styles.roadmapCirclePassed,
-                              isCurrent && styles.roadmapCircleCurrent,
-                              isNextTarget && styles.roadmapCircleTarget,
-                            ]}
+                      if (isCurrent) {
+                        return (
+                          <TouchableOpacity
+                            key={item.lvl}
+                            style={styles.ladderActiveCard}
+                            onPress={() => {
+                              CustomAlert.alert(
+                                `Level ${item.lvl} - ${displayName} (Cấp của bạn)`,
+                                item.desc,
+                              );
+                            }}
+                            activeOpacity={0.88}
                           >
-                            <Text
-                              style={[
-                                styles.roadmapCircleText,
-                                isPassed && styles.roadmapCircleTextPassed,
-                                isCurrent && styles.roadmapCircleTextCurrent,
-                                isNextTarget && styles.roadmapCircleTextTarget,
-                              ]}
-                            >
-                              {lvl.levelNumber}
-                            </Text>
-                          </View>
-                          {lvl.levelNumber < 8 && (
-                            <View
-                              style={[
-                                styles.roadmapLine,
-                                isPassed && styles.roadmapLinePassed,
-                              ]}
-                            />
-                          )}
-                        </View>
+                            <View style={styles.ladderActiveSquare}>
+                              <Text style={styles.ladderActiveSquareText}>{item.lvl}</Text>
+                            </View>
+                            <View style={styles.ladderActiveContent}>
+                              <View style={styles.ladderActiveHeaderRow}>
+                                <Text style={styles.ladderActiveTitle}>
+                                  Level {item.lvl} - {displayName}
+                                </Text>
+                                <View style={styles.ladderActiveBadge}>
+                                  <Text style={styles.ladderActiveBadgeText}>Cấp của bạn</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.ladderActiveDesc}>{item.desc}</Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      }
 
-                        <View style={styles.roadmapStepContent}>
-                          <View style={styles.roadmapStepHeader}>
-                            <Text
-                              style={[
-                                styles.roadmapStepName,
-                                isPassed && styles.roadmapStepNamePassed,
-                                isCurrent && styles.roadmapStepNameCurrent,
-                                isNextTarget && styles.roadmapStepNameTarget,
-                              ]}
-                            >
-                              Level {lvl.levelNumber} - {lvl.displayName}
-                            </Text>
-                            {isCurrent && (
-                              <View style={styles.currentTag}>
-                                <Text style={styles.currentTagText}>Cấp của bạn</Text>
-                              </View>
-                            )}
-                            {isNextTarget && (
-                              <View style={styles.targetTag}>
-                                <Text style={styles.targetTagText}>Mục tiêu</Text>
-                              </View>
-                            )}
-                          </View>
-                          <Text
-                            style={[
-                              styles.roadmapStepDesc,
-                              isCurrent && styles.roadmapStepDescCurrent,
-                            ]}
+                      if (isTarget) {
+                        return (
+                          <TouchableOpacity
+                            key={item.lvl}
+                            style={styles.ladderTargetCard}
+                            onPress={() => {
+                              CustomAlert.alert(
+                                `Level ${item.lvl} - ${displayName} (Mục tiêu)`,
+                                item.desc,
+                              );
+                            }}
+                            activeOpacity={0.88}
                           >
-                            {lvl.levelNumber === 1 && 'Học việc / Thử việc, làm quen quy trình nội bộ'}
-                            {lvl.levelNumber === 2 && 'Chính thức, độc lập tác chiến, đầy đủ phúc lợi'}
-                            {lvl.levelNumber === 3 && 'Thâm niên ≥ 6 tháng, thành thạo 100% chuyên môn'}
-                            {lvl.levelNumber === 4 && 'Nhân sự nòng cốt, Top hiệu suất / doanh số'}
-                            {lvl.levelNumber === 5 && 'Quản lý đội nhóm, duyệt đơn cấp 1'}
-                            {lvl.levelNumber === 6 && 'Trưởng phòng, quản lý chi phí & quy trình'}
-                            {lvl.levelNumber === 7 && 'Giám đốc khối, quản trị chiến lược'}
-                            {lvl.levelNumber === 8 && 'Ban điều hành, tối cao toàn công ty'}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                            <View style={styles.ladderStandardSquare}>
+                              <Text style={styles.ladderStandardSquareText}>{item.lvl}</Text>
+                            </View>
+                            <View style={styles.ladderStandardContent}>
+                              <View style={styles.ladderTargetHeaderRow}>
+                                <Text style={styles.ladderTargetTitle}>
+                                  Level {item.lvl} - {displayName}
+                                </Text>
+                                <View style={styles.ladderTargetBadge}>
+                                  <Text style={styles.ladderTargetBadgeText}>Mục tiêu</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.ladderStandardDesc}>{item.desc}</Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      }
+
+                      return (
+                        <TouchableOpacity
+                          key={item.lvl}
+                          style={styles.ladderStandardCard}
+                          onPress={() => {
+                            CustomAlert.alert(`Level ${item.lvl} - ${displayName}`, item.desc);
+                          }}
+                          activeOpacity={0.88}
+                        >
+                          <View style={styles.ladderStandardSquare}>
+                            <Text style={styles.ladderStandardSquareText}>{item.lvl}</Text>
+                          </View>
+                          <View style={styles.ladderStandardContent}>
+                            <Text style={styles.ladderStandardTitle}>
+                              Level {item.lvl} - {displayName}
+                            </Text>
+                            <Text style={styles.ladderStandardDesc}>{item.desc}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
-              </View>
+              )}
             </>
           )}
 
           {/* ========================================================= */}
           {/* TAB 2: MEMBERS MANAGEMENT & PROMOTION APPROVALS           */}
           {/* ========================================================= */}
-          {activeTab === 'members' && isAdmin && (
+          {activeTab === 'members' && (isAdmin || isLeader) && (
             <View style={styles.leaderContainer}>
               {/* Leader & Admin Sub-tabs (Only show if not in Admin review_only mode where it is already at the top) */}
               {(!isAdmin || currentMode !== 'review_only') && (
@@ -3979,5 +4006,247 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#059669',
+  },
+
+  /* Light Header Styles (Employee / Leader) */
+  lightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F4F4F5',
+  },
+  lightBackBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  lightHeaderCenter: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  lightHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  lightHeaderSub: {
+    fontSize: 12.5,
+    color: '#71717A',
+    marginTop: 3,
+  },
+
+  /* Leader Toggle Row */
+  leaderToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 6,
+    borderRadius: 12,
+    padding: 3,
+    gap: 4,
+  },
+  leaderToggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 6,
+  },
+  leaderToggleBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  leaderToggleText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  leaderToggleTextActive: {
+    color: '#123826',
+    fontWeight: '700',
+  },
+  leaderPendingBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    marginLeft: 2,
+  },
+  leaderPendingBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  /* Screen 3 Ladder Styles matching template */
+  ladderScreenWrapper: {
+    paddingTop: 4,
+    paddingBottom: 20,
+  },
+  currentLevelPillBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#F4F6F4',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#D6E4DA',
+  },
+  currentLevelPillText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#1E3A2F',
+  },
+  ladderListContainer: {
+    paddingHorizontal: 16,
+  },
+  ladderActiveCard: {
+    backgroundColor: '#123826',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#123826',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  ladderActiveSquare: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#F5DDA9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  ladderActiveSquareText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#123826',
+  },
+  ladderActiveContent: {
+    flex: 1,
+  },
+  ladderActiveHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ladderActiveTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  ladderActiveBadge: {
+    backgroundColor: '#F5DDA9',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  ladderActiveBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#123826',
+  },
+  ladderActiveDesc: {
+    fontSize: 12,
+    color: '#A7D8BE',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  ladderTargetCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#10B981',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  ladderTargetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ladderTargetTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  ladderTargetBadge: {
+    backgroundColor: '#E1F8EC',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  ladderTargetBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  ladderStandardCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ladderStandardSquare: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#F4F4F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  ladderStandardSquareText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  ladderStandardContent: {
+    flex: 1,
+  },
+  ladderStandardTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#18181B',
+  },
+  ladderStandardDesc: {
+    fontSize: 12,
+    color: '#71717A',
+    marginTop: 2,
+    lineHeight: 16,
   },
 });

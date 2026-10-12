@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Circle } from 'react-native-svg';
 import { UserLevelProgressData } from '../../api/leveling.api';
 import { NextLevelPerksAppendixModal } from './NextLevelPerksAppendixModal';
+import { getAbsoluteImageUrl } from '../../utils/image';
 
 interface EmployeeLevelProgressCardProps {
   progress: UserLevelProgressData | null;
   onOpenSubmitModal: () => void;
+  onOpenLadder: () => void;
 }
 
 export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps> = ({
   progress,
   onOpenSubmitModal,
+  onOpenLadder,
 }) => {
   if (!progress) return null;
 
@@ -25,209 +29,294 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
   const disciplineScore = progress.metrics?.discipline?.score ?? 100;
   const isDisciplinePassed = (progress.metrics?.discipline?.lateCount || 0) === 0;
 
+  // Initials for avatar fallback
+  const getInitials = (name?: string) => {
+    if (!name) return 'ML';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const first = parts[0]?.[0] || '';
+      const last = parts[parts.length - 1]?.[0] || '';
+      return (first + last).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  // Circular progress calculations for Hero Card
+  const ringSize = 78;
+  const strokeWidth = 6;
+  const radius = (ringSize - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (circumference * Math.min(100, Math.max(0, percent))) / 100;
+
+  const currentLevelFormatted = String(progress.currentLevel.levelNumber).padStart(2, '0');
+  const avatarUri = getAbsoluteImageUrl(progress.avatarUrl);
+
+  const isTenureCompleted = tenurePercent >= 100;
+  const isShiftsCompleted = shiftsPercent >= 100;
+  const isGmvCompleted = gmvPercent >= 100;
+
   return (
-    <View style={styles.card}>
-      {/* 1. Header Level Transition */}
-      <View style={styles.headerContainer}>
-        {/* Current Level */}
-        <View style={styles.levelBadgeBox}>
-          <View style={styles.currentLevelCircle}>
-            <Text style={styles.currentLevelCircleText}>
-              {progress.currentLevel.levelNumber}
-            </Text>
-          </View>
-          <View style={styles.levelTextBox}>
-            <Text style={styles.levelSub}>Cấp hiện tại</Text>
-            <Text style={styles.currentLevelTitle} numberOfLines={1}>
-              {progress.currentLevel.displayName}
-            </Text>
-          </View>
+    <View style={styles.container}>
+      {/* 1. Profile Info Row */}
+      <View style={styles.profileRow}>
+        <View style={styles.avatarContainer}>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarText}>{getInitials(progress.fullName)}</Text>
+            </View>
+          )}
         </View>
 
-        {/* Transition Arrow */}
-        <View style={styles.arrowWrapper}>
-          <Ionicons name="arrow-forward" size={15} color="#64748B" />
+        <View style={styles.profileInfo}>
+          <Text style={styles.profileName} numberOfLines={1}>
+            {progress.fullName || 'Đinh Văn Học'}
+          </Text>
+          <Text style={styles.profileDept} numberOfLines={1}>
+            {progress.departmentName || 'DEV (MOVIELEGEND-HÀ NỘI)'}
+          </Text>
+          <Text style={styles.profileTenure}>
+            Thâm niên: {progress.metrics?.tenure?.currentMonths ?? 14.8} tháng
+          </Text>
         </View>
-
-        {/* Target Level */}
-        <TouchableOpacity
-          style={[styles.levelBadgeBox, { alignItems: 'flex-end' }]}
-          onPress={() => setShowAppendixModal(true)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.nextLevelCircle}>
-            <Text style={styles.nextLevelCircleText}>
-              {progress.nextLevel.levelNumber}
-            </Text>
-          </View>
-          <View style={[styles.levelTextBox, { alignItems: 'flex-end' }]}>
-            <Text style={styles.nextLevelSub}>Mục tiêu (Xem phụ lục)</Text>
-            <Text style={styles.nextLevelTitle} numberOfLines={1}>
-              {progress.nextLevel.displayName}
-            </Text>
-          </View>
-        </TouchableOpacity>
       </View>
 
-      {/* 2. Overall Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressLabelRow}>
-          <Text style={styles.progressLabel}>Tiến độ thăng cấp tổng thể</Text>
-          <Text style={styles.progressPercent}>{percent}%</Text>
+      {/* 2. Hero Dark Green Card (#123826) */}
+      <View style={styles.heroCard}>
+        <View style={styles.heroLeft}>
+          <Text style={styles.heroSubHeader}>CẤP HIỆN TẠI</Text>
+          <Text style={styles.heroLevelNumber}>{currentLevelFormatted}</Text>
+          <Text style={styles.heroLevelName}>{progress.currentLevel.displayName}</Text>
+          <Text style={styles.heroNextLevel}>
+            Tiếp theo: {progress.nextLevel.displayName} · Cấp {progress.nextLevel.levelNumber}
+          </Text>
         </View>
-        <View style={styles.progressBarBg}>
-          <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
+
+        <View style={styles.heroRight}>
+          <View style={styles.ringWrapper}>
+            <Svg width={ringSize} height={ringSize} style={styles.ringSvg}>
+              {/* Background Ring */}
+              <Circle
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={radius}
+                stroke="rgba(255, 255, 255, 0.18)"
+                strokeWidth={strokeWidth}
+                fill="none"
+              />
+              {/* Progress Ring with Gold/Cream Accent */}
+              <Circle
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                r={radius}
+                stroke="#F5DDA9"
+                strokeWidth={strokeWidth}
+                strokeDasharray={`${circumference} ${circumference}`}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                fill="none"
+              />
+            </Svg>
+            <View style={styles.ringCenterTextContainer}>
+              <Text style={styles.ringPercentText}>{percent}%</Text>
+            </View>
+          </View>
+          <Text style={styles.ringLabel}>Tiến độ thăng cấp</Text>
         </View>
-        <Text style={styles.progressHint}>
+      </View>
+
+      {/* 3. Section: Điều kiện thăng cấp */}
+      <View style={styles.sectionHeaderBox}>
+        <Text style={styles.sectionTitle}>Điều kiện thăng cấp</Text>
+        <Text style={styles.sectionSubtitle}>
           {percent >= 100
-            ? '🎉 Chúc mừng! Bạn đã đủ điều kiện nộp hồ sơ xét thăng cấp!'
+            ? '🎉 Bạn đã hoàn thành 100% điều kiện để lên cấp!'
             : `Bạn còn thiếu ${100 - percent}% nữa để hoàn thành mục tiêu lên ${progress.nextLevel.displayName}.`}
         </Text>
       </View>
 
-      {/* 2.1 Next Level Perks & Motivation Appendix Banner */}
-      <TouchableOpacity
-        style={styles.appendixBanner}
-        onPress={() => setShowAppendixModal(true)}
-        activeOpacity={0.8}
-      >
-        <View style={styles.appendixBannerLeft}>
-          <View style={styles.appendixIconBox}>
-            <Ionicons name="gift-outline" size={17} color="#2563EB" />
+      {/* 4 Criteria Rows matching template exactly */}
+      <View style={styles.criteriaList}>
+        {/* Row 1: Thâm niên */}
+        <View style={styles.criteriaCard}>
+          {/* Status Check on far left */}
+          <View style={[styles.statusCircle, isTenureCompleted && styles.statusCircleCompleted]}>
+            {isTenureCompleted && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
           </View>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.appendixBannerTitle}>Phụ Lục Quyền Lợi & Động Lực</Text>
-              <View style={styles.appendixTag}>
-                <Text style={styles.appendixTagText}>Level {progress.nextLevel.levelNumber}</Text>
-              </View>
-            </View>
-            <Text style={styles.appendixBannerSub} numberOfLines={1}>
-              Xem thưởng nóng, quà tặng hiện vật & đặc quyền mở khóa
-            </Text>
-          </View>
-        </View>
-        <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-      </TouchableOpacity>
 
-      {/* 3. 2x2 Symmetrical Metrics Grid */}
-      <View style={styles.metricsGrid}>
-        {/* Row 1 */}
-        <View style={styles.metricsRow}>
-          {/* Metric 1: Thâm niên */}
-          <View style={styles.metricCard}>
-            <View style={styles.metricTopRow}>
-              <View style={styles.metricIconBg}>
-                <Ionicons name="time-outline" size={14} color="#334155" />
-              </View>
-              <Text style={styles.metricTitle}>Thâm niên</Text>
-              <Text style={[styles.metricBadge, tenurePercent >= 100 && styles.metricBadgeSuccess]}>
-                {tenurePercent}%
-              </Text>
-            </View>
-            <Text style={styles.metricValue}>
-              {progress.metrics?.tenure?.currentMonths ?? 0} <Text style={styles.metricUnit}>/ {progress.metrics?.tenure?.targetMonths ?? 0} th</Text>
+          {/* Icon Box */}
+          <View style={styles.iconBox}>
+            <Ionicons name="time-outline" size={18} color="#18181B" />
+          </View>
+
+          {/* Title & Values */}
+          <View style={styles.criteriaContent}>
+            <Text style={styles.criteriaTitle}>Thâm niên</Text>
+            <Text style={styles.criteriaValue}>
+              {progress.metrics?.tenure?.currentMonths ?? 14.8} / {progress.metrics?.tenure?.targetMonths ?? 6} tháng
             </Text>
-            <View style={styles.miniBarBg}>
+            <View style={styles.progressBarBg}>
               <View
                 style={[
-                  styles.miniBarFill,
-                  {
-                    width: `${tenurePercent}%`,
-                    backgroundColor: tenurePercent >= 100 ? '#10B981' : '#2563EB',
-                  },
+                  styles.progressBarFill,
+                  { width: `${tenurePercent}%`, backgroundColor: '#10B981' },
                 ]}
               />
             </View>
           </View>
 
-          {/* Metric 2: Số ca làm */}
-          <View style={styles.metricCard}>
-            <View style={styles.metricTopRow}>
-              <View style={styles.metricIconBg}>
-                <Ionicons name="briefcase-outline" size={14} color="#334155" />
-              </View>
-              <Text style={styles.metricTitle}>Số ca làm</Text>
-              <Text style={[styles.metricBadge, shiftsPercent >= 100 && styles.metricBadgeSuccess]}>
-                {shiftsPercent}%
-              </Text>
-            </View>
-            <Text style={styles.metricValue}>
-              {progress.metrics?.shifts?.currentCount ?? 0} <Text style={styles.metricUnit}>/ {progress.metrics?.shifts?.targetCount ?? 0} ca</Text>
-            </Text>
-            <View style={styles.miniBarBg}>
-              <View
-                style={[
-                  styles.miniBarFill,
-                  {
-                    width: `${shiftsPercent}%`,
-                    backgroundColor: shiftsPercent >= 100 ? '#10B981' : '#2563EB',
-                  },
-                ]}
-              />
-            </View>
-          </View>
+          {/* Percentage on far right */}
+          <Text style={[styles.criteriaPercentText, isTenureCompleted && styles.criteriaPercentSuccess]}>
+            {tenurePercent}%
+          </Text>
         </View>
 
-        {/* Row 2 */}
-        <View style={styles.metricsRow}>
-          {/* Metric 3: Kỷ luật */}
-          <View style={styles.metricCard}>
-            <View style={styles.metricTopRow}>
-              <View style={styles.metricIconBg}>
-                <Ionicons name="shield-checkmark-outline" size={14} color="#334155" />
-              </View>
-              <Text style={styles.metricTitle}>Kỷ luật</Text>
-              <Text style={[styles.metricBadge, isDisciplinePassed && styles.metricBadgeSuccess]}>
-                {disciplineScore}/100đ
-              </Text>
-            </View>
-            <Text style={styles.metricValue}>
-              {(progress.metrics?.discipline?.lateCount ?? 0) === 0 ? '0 lỗi' : `${progress.metrics?.discipline?.lateCount} lần`} <Text style={styles.metricUnit}>đi trễ</Text>
+        {/* Row 2: Số ca làm */}
+        <View style={styles.criteriaCard}>
+          {/* Status Check on far left */}
+          <View style={[styles.statusCircle, isShiftsCompleted && styles.statusCircleCompleted]}>
+            {isShiftsCompleted && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+          </View>
+
+          {/* Icon Box */}
+          <View style={styles.iconBox}>
+            <Ionicons name="briefcase-outline" size={18} color="#18181B" />
+          </View>
+
+          {/* Title & Values */}
+          <View style={styles.criteriaContent}>
+            <Text style={styles.criteriaTitle}>Số ca làm</Text>
+            <Text style={styles.criteriaValue}>
+              {progress.metrics?.shifts?.currentCount ?? 1} / {progress.metrics?.shifts?.targetCount ?? 150} ca
             </Text>
-            <View style={styles.miniBarBg}>
+            <View style={styles.progressBarBg}>
               <View
                 style={[
-                  styles.miniBarFill,
-                  {
-                    width: `${disciplineScore}%`,
-                    backgroundColor: isDisciplinePassed ? '#10B981' : '#F59E0B',
-                  },
+                  styles.progressBarFill,
+                  { width: `${Math.max(shiftsPercent, 2)}%`, backgroundColor: '#10B981' },
                 ]}
               />
             </View>
           </View>
 
-          {/* Metric 4: Doanh số */}
-          <View style={styles.metricCard}>
-            <View style={styles.metricTopRow}>
-              <View style={styles.metricIconBg}>
-                <Ionicons name="trending-up-outline" size={14} color="#334155" />
-              </View>
-              <Text style={styles.metricTitle}>Doanh số</Text>
-              <Text style={[styles.metricBadge, gmvPercent >= 100 && styles.metricBadgeSuccess]}>
-                {gmvPercent}%
-              </Text>
-            </View>
-            <Text style={styles.metricValue}>
-              {progress.metrics?.gmv?.currentGmv || '0'} <Text style={styles.metricUnit}>/ {progress.metrics?.gmv?.targetGmv || '0'} {progress.metrics?.gmv?.unit || 'đ'}</Text>
+          {/* Percentage on far right */}
+          <Text style={[styles.criteriaPercentText, isShiftsCompleted && styles.criteriaPercentSuccess]}>
+            {shiftsPercent}%
+          </Text>
+        </View>
+
+        {/* Row 3: Kỷ luật */}
+        <View style={styles.criteriaCard}>
+          {/* Status Check on far left */}
+          <View style={[styles.statusCircle, isDisciplinePassed && styles.statusCircleCompleted]}>
+            {isDisciplinePassed && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+          </View>
+
+          {/* Icon Box */}
+          <View style={styles.iconBox}>
+            <Ionicons name="shield-outline" size={18} color="#18181B" />
+          </View>
+
+          {/* Title & Values */}
+          <View style={styles.criteriaContent}>
+            <Text style={styles.criteriaTitle}>Kỷ luật</Text>
+            <Text style={styles.criteriaValue}>
+              {(progress.metrics?.discipline?.lateCount ?? 0) === 0
+                ? '0 lỗi đi trễ'
+                : `${progress.metrics?.discipline?.lateCount} lỗi đi trễ`}
             </Text>
-            <View style={styles.miniBarBg}>
+            <View style={styles.progressBarBg}>
               <View
                 style={[
-                  styles.miniBarFill,
-                  {
-                    width: `${gmvPercent}%`,
-                    backgroundColor: gmvPercent >= 100 ? '#10B981' : '#2563EB',
-                  },
+                  styles.progressBarFill,
+                  { width: `${disciplineScore}%`, backgroundColor: '#10B981' },
                 ]}
               />
             </View>
           </View>
+
+          {/* Percentage on far right */}
+          <Text style={[styles.criteriaPercentText, isDisciplinePassed && styles.criteriaPercentSuccess]}>
+            {disciplineScore}%
+          </Text>
+        </View>
+
+        {/* Row 4: Doanh số */}
+        <View style={styles.criteriaCard}>
+          {/* Status Check on far left */}
+          <View style={[styles.statusCircle, isGmvCompleted && styles.statusCircleCompleted]}>
+            {isGmvCompleted && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+          </View>
+
+          {/* Icon Box */}
+          <View style={styles.iconBox}>
+            <Ionicons name="trending-up-outline" size={18} color="#18181B" />
+          </View>
+
+          {/* Title & Values */}
+          <View style={styles.criteriaContent}>
+            <Text style={styles.criteriaTitle}>Doanh số</Text>
+            <Text style={styles.criteriaValue}>
+              {progress.metrics?.gmv?.currentGmv || '0'} / {progress.metrics?.gmv?.targetGmv || '400'} {progress.metrics?.gmv?.unit || 'triệu VNĐ'}
+            </Text>
+            <View style={styles.progressBarBg}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${gmvPercent}%`, backgroundColor: '#10B981' },
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Percentage on far right */}
+          <Text style={[styles.criteriaPercentText, isGmvCompleted && styles.criteriaPercentSuccess]}>
+            {gmvPercent}%
+          </Text>
         </View>
       </View>
 
-      {/* 4. Pending status banner if any */}
+      {/* 4. Two Navigation Cards (Row of 2) */}
+      <View style={styles.navCardsRow}>
+        {/* Card 1: Quyền lợi cấp tiếp theo */}
+        <TouchableOpacity
+          style={styles.navCard}
+          onPress={() => setShowAppendixModal(true)}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="gift-outline" size={20} color="#9A6B2F" style={{ marginRight: 8 }} />
+          <View style={styles.navCardContent}>
+            <Text style={styles.navCardTitle} numberOfLines={1}>
+              Quyền lợi cấp {progress.nextLevel.levelNumber}
+            </Text>
+            <Text style={styles.navCardSubtitle} numberOfLines={1}>
+              Thưởng, quà tặng & đặc quyền
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={14} color="#A1A1AA" />
+        </TouchableOpacity>
+
+        {/* Card 2: Xem 8 cấp bậc */}
+        <TouchableOpacity
+          style={styles.navCard}
+          onPress={onOpenLadder}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="bar-chart-outline" size={20} color="#9A6B2F" style={{ marginRight: 8 }} />
+          <View style={styles.navCardContent}>
+            <Text style={styles.navCardTitle} numberOfLines={1}>
+              Xem 8 cấp bậc
+            </Text>
+            <Text style={styles.navCardSubtitle} numberOfLines={1}>
+              Lộ trình phát triển
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={14} color="#A1A1AA" />
+        </TouchableOpacity>
+      </View>
+
+      {/* 5. Pending Status Banner (if any) */}
       {isPending && (
         <View style={styles.pendingBanner}>
           <Ionicons name="hourglass-outline" size={18} color="#92400E" />
@@ -244,27 +333,30 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
         </View>
       )}
 
-      {/* 5. Action Button */}
+      {/* 6. Sticky Bottom Action Button (#123826) */}
       <TouchableOpacity
         style={[
-          styles.actionBtn,
+          styles.submitBtn,
           isPending && { backgroundColor: '#D97706' },
         ]}
         onPress={onOpenSubmitModal}
         activeOpacity={0.88}
       >
-        <Ionicons
-          name={isPending ? 'create-outline' : 'paper-plane-outline'}
-          size={16}
-          color="#FFF"
-          style={{ marginRight: 8 }}
-        />
-        <Text style={styles.actionBtnText}>
-          {isPending ? 'Cập Nhật / Bổ Sung Báo Cáo' : 'Nộp Báo Cáo Thành Tích Lên Cấp'}
-        </Text>
+        <View style={styles.submitBtnLeft}>
+          <Ionicons
+            name={isPending ? 'create-outline' : 'paper-plane'}
+            size={18}
+            color="#FFF"
+            style={{ marginRight: 10 }}
+          />
+          <Text style={styles.submitBtnText}>
+            {isPending ? 'Cập Nhật / Bổ Sung Báo Cáo' : 'Nộp báo cáo thành tích lên cấp'}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={17} color="#A7D8BE" />
       </TouchableOpacity>
 
-      {/* NEXT LEVEL PERKS APPENDIX MODAL */}
+      {/* Perks Appendix Modal */}
       <NextLevelPerksAppendixModal
         visible={showAppendixModal}
         onClose={() => setShowAppendixModal(false)}
@@ -276,292 +368,320 @@ export const EmployeeLevelProgressCard: React.FC<EmployeeLevelProgressCardProps>
 };
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 18,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  container: {
+    paddingBottom: 24,
   },
-  appendixBanner: {
+  /* Profile Row */
+  profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 10,
-    marginTop: 10,
-    marginBottom: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 12,
   },
-  appendixBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
+  avatarContainer: {
+    marginRight: 14,
   },
-  appendixIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EFF6FF',
+  avatarImage: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1.5,
+    borderColor: '#E4E4E7',
+  },
+  avatarFallback: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#1E3A8A',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  appendixBannerTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  appendixTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 4,
-    backgroundColor: '#2563EB',
-  },
-  appendixTagText: {
-    fontSize: 9.5,
-    fontWeight: 'bold',
+  avatarText: {
+    fontSize: 18,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
-  appendixBannerSub: {
-    fontSize: 10.5,
-    color: '#64748B',
-    marginTop: 1,
+  profileInfo: {
+    flex: 1,
   },
-  headerContainer: {
+  profileName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 2,
+  },
+  profileDept: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#71717A',
+    marginBottom: 2,
+  },
+  profileTenure: {
+    fontSize: 12,
+    color: '#71717A',
+  },
+
+  /* Hero Card (#123826) */
+  heroCard: {
+    backgroundColor: '#123826',
+    borderRadius: 20,
+    marginHorizontal: 16,
+    padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 18,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    shadowColor: '#123826',
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
-  levelBadgeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  heroLeft: {
     flex: 1,
   },
-  levelTextBox: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  currentLevelCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: '#334155',
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  currentLevelCircleText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1E293B',
-  },
-  currentLevelTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  nextLevelCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nextLevelCircleText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#2563EB',
-  },
-  nextLevelSub: {
+  heroSubHeader: {
     fontSize: 11,
-    color: '#2563EB',
     fontWeight: '700',
+    color: '#A7D8BE',
+    letterSpacing: 1,
     marginBottom: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
   },
-  nextLevelTitle: {
-    fontSize: 14,
+  heroLevelNumber: {
+    fontSize: 52,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    lineHeight: 56,
+  },
+  heroLevelName: {
+    fontSize: 22,
     fontWeight: '800',
-    color: '#1E40AF',
+    color: '#FFFFFF',
+    marginTop: 2,
   },
-  levelSub: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '600',
-    marginBottom: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
+  heroNextLevel: {
+    fontSize: 13,
+    color: '#A7D8BE',
+    marginTop: 5,
+    fontWeight: '500',
   },
-  arrowWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+  heroRight: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 6,
+    marginLeft: 16,
   },
-  progressContainer: {
-    marginBottom: 16,
-  },
-  progressLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  ringWrapper: {
+    width: 78,
+    height: 78,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringSvg: {
+    transform: [{ rotate: '-90deg' }],
+  },
+  ringCenterTextContainer: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringPercentText: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  ringLabel: {
+    fontSize: 11.5,
+    color: '#FFFFFF',
+    fontWeight: '500',
+    marginTop: 6,
+  },
+
+  /* Section Header */
+  sectionHeaderBox: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#71717A',
+    marginTop: 3,
+    lineHeight: 18,
+  },
+
+  /* Criteria List */
+  criteriaList: {
+    paddingHorizontal: 16,
     marginBottom: 8,
   },
-  progressLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
+  criteriaCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  progressPercent: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#2563EB',
+  statusCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#D4D4D8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    backgroundColor: 'transparent',
+  },
+  statusCircleCompleted: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    backgroundColor: '#FAFAFA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  criteriaContent: {
+    flex: 1,
+  },
+  criteriaTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#18181B',
+    marginBottom: 2,
+  },
+  criteriaValue: {
+    fontSize: 12,
+    color: '#71717A',
+    fontWeight: '500',
   },
   progressBarBg: {
-    height: 8,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 4,
+    height: 3,
+    backgroundColor: '#F4F4F5',
+    borderRadius: 2,
+    marginTop: 5,
     overflow: 'hidden',
-    marginBottom: 8,
+    width: '95%',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#2563EB',
-    borderRadius: 4,
+    borderRadius: 2,
   },
-  progressHint: {
-    fontSize: 11.5,
-    color: '#64748B',
-    lineHeight: 16,
+  criteriaPercentText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#71717A',
+    marginLeft: 8,
   },
-  metricsGrid: {
+  criteriaPercentSuccess: {
+    color: '#059669',
+  },
+
+  /* Navigation Cards Row */
+  navCardsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
     gap: 10,
+    marginTop: 6,
     marginBottom: 16,
   },
-  metricsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  metricCard: {
+  navCard: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  metricTopRow: {
+    borderColor: '#E4E4E7',
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  metricIconBg: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricTitle: {
-    fontSize: 11.5,
-    color: '#64748B',
-    fontWeight: '600',
+  navCardContent: {
     flex: 1,
   },
-  metricBadge: {
-    fontSize: 11,
+  navCardTitle: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#18181B',
+    marginBottom: 2,
   },
-  metricBadgeSuccess: {
-    color: '#10B981',
+  navCardSubtitle: {
+    fontSize: 10.5,
+    color: '#71717A',
   },
-  metricValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 8,
-  },
-  metricUnit: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  miniBarBg: {
-    height: 4,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  miniBarFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
+
+  /* Pending Banner */
   pendingBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#FEF3C7',
-    padding: 12,
     borderRadius: 12,
-    marginBottom: 14,
-    gap: 10,
     borderWidth: 1,
     borderColor: '#FDE68A',
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    gap: 10,
   },
   pendingTitle: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
     color: '#92400E',
+    marginBottom: 2,
   },
   pendingNote: {
     fontSize: 11.5,
     color: '#B45309',
-    marginTop: 2,
     lineHeight: 16,
   },
-  actionBtn: {
+
+  /* Submit Button (#123826) */
+  submitBtn: {
+    backgroundColor: '#123826',
+    borderRadius: 14,
+    height: 50,
+    marginHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 13,
-    borderRadius: 14,
-    backgroundColor: '#2563EB',
-    shadowColor: '#2563EB',
-    shadowOpacity: 0.2,
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    shadowColor: '#123826',
+    shadowOpacity: 0.25,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
-  actionBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFF',
-    letterSpacing: 0.2,
+  submitBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  submitBtnText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
-

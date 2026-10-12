@@ -50,6 +50,7 @@ import {
 import type { NewsfeedPostDto, PostLikeDto, PostCommentDto } from '../../types/newsfeed.types';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppAlert } from '../../contexts/AlertContext';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
 
 // ── Helpers ──
 
@@ -137,6 +138,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showAlert, showConfirm } = useAppAlert();
+  const tabBarScroll = useTabBarScroll();
   
   const [activeTab, setActiveTab] = useState<'latest' | 'following'>('latest');
   const [viewerVisible, setViewerVisible] = useState(false);
@@ -256,6 +258,8 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
             paddingTop: 16,
             paddingBottom: Math.max(insets.bottom, 16) + 84,
           }}
+          onScroll={tabBarScroll.onScroll}
+          scrollEventThrottle={16}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#1B3B2B" />
           }

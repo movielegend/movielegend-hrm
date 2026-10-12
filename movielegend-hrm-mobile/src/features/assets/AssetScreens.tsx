@@ -72,11 +72,12 @@ function assetBase(area: AssetArea): string {
 
 export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const myAssets = useMyAssets();
   const confirm = useConfirmAssetAssignment();
   const requestReturn = useRequestAssetReturn();
-  const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'ACTIVE'>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'ACTIVE' | 'PENDING'>('ALL');
 
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [returnReason, setReturnReason] = useState('');
@@ -122,84 +123,275 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
   }, [items, activeTab]);
 
   return (
-    <Screen>
-      <ScrollView refreshControl={<RefreshControl refreshing={myAssets.isRefetching} onRefresh={() => void myAssets.refetch()} />} contentContainerStyle={{ paddingBottom: 100 }}>
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      {/* Top Forest Green Header */}
+      <View style={{
+        backgroundColor: '#1B3B2B',
+        paddingTop: Math.max(insets.top, 16),
+        paddingBottom: 20,
+        paddingHorizontal: 16,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/leader')} style={{ paddingRight: 10, paddingVertical: 4 }}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              MOVIE LEGEND
+            </Text>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+              Tài sản của tôi
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              Thiết bị được công ty cấp phát
+            </Text>
+          </View>
+        </View>
+      </View>
 
-        {/* Hero Section */}
-        <View style={styles.heroSection}>
-          <Text style={styles.heroTitle}>Tài sản của tôi</Text>
-          <Text style={styles.heroSubtitle}>Quản lý các thiết bị được công ty cấp phát</Text>
-
-          <View style={styles.heroStatsContainer}>
-            <View style={styles.heroStatBox}>
-              <Text style={styles.heroStatNumber}>{activeCount}</Text>
-              <Text style={styles.heroStatLabel}>Đang sử dụng</Text>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: Math.max(insets.bottom + 80, 90),
+        }}
+        refreshControl={<RefreshControl refreshing={myAssets.isRefetching} onRefresh={() => void myAssets.refetch()} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Summary Stats Card */}
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          padding: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: 16,
+        }}>
+          {/* Left: Đang sử dụng */}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: '#E8F5E9',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <MaterialCommunityIcons name="laptop" size={22} color="#166534" />
             </View>
-            <View style={styles.heroStatDivider} />
-            <View style={styles.heroStatBox}>
-              <Text style={[styles.heroStatNumber, pendingCount > 0 && { color: colors.warning }]}>{pendingCount}</Text>
-              <Text style={styles.heroStatLabel}>Chờ xác nhận</Text>
+            <View>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#0F172A' }}>{activeCount}</Text>
+              <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500', marginTop: 2 }}>Đang sử dụng</Text>
+            </View>
+          </View>
+
+          {/* Divider */}
+          <View style={{ width: 1, height: 36, backgroundColor: '#E2E8F0', marginHorizontal: 8 }} />
+
+          {/* Right: Chờ xác nhận */}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 8 }}>
+            <View style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              backgroundColor: '#E8F5E9',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <MaterialCommunityIcons name="clock-outline" size={22} color="#166534" />
+            </View>
+            <View>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#0F172A' }}>{pendingCount}</Text>
+              <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500', marginTop: 2 }}>Chờ xác nhận</Text>
             </View>
           </View>
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScrollContent}>
-            <Pressable style={[styles.tabButton, activeTab === 'ALL' && styles.tabButtonActive]} onPress={() => setActiveTab('ALL')}>
-              <Text style={[styles.tabText, activeTab === 'ALL' && styles.tabTextActive]}>Tất cả</Text>
-            </Pressable>
-            <Pressable style={[styles.tabButton, activeTab === 'ACTIVE' && styles.tabButtonActive]} onPress={() => setActiveTab('ACTIVE')}>
-              <Text style={[styles.tabText, activeTab === 'ACTIVE' && styles.tabTextActive]}>Đang dùng</Text>
-            </Pressable>
-            <Pressable style={[styles.tabButton, activeTab === 'PENDING' && styles.tabButtonActive]} onPress={() => setActiveTab('PENDING')}>
-              <Text style={[styles.tabText, activeTab === 'PENDING' && styles.tabTextActive]}>Chờ xác nhận</Text>
-            </Pressable>
-          </ScrollView>
+        {/* Filter Tabs (Pill style) */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+          <Pressable
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 18,
+              borderRadius: 20,
+              backgroundColor: activeTab === 'ALL' ? '#1B3B2B' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: activeTab === 'ALL' ? '#1B3B2B' : '#E2E8F0',
+            }}
+            onPress={() => setActiveTab('ALL')}
+          >
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: activeTab === 'ALL' ? '#FFFFFF' : '#334155',
+            }}>
+              Tất cả
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 18,
+              borderRadius: 20,
+              backgroundColor: activeTab === 'ACTIVE' ? '#1B3B2B' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: activeTab === 'ACTIVE' ? '#1B3B2B' : '#E2E8F0',
+            }}
+            onPress={() => setActiveTab('ACTIVE')}
+          >
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: activeTab === 'ACTIVE' ? '#FFFFFF' : '#334155',
+            }}>
+              Đang dùng
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={{
+              paddingVertical: 8,
+              paddingHorizontal: 18,
+              borderRadius: 20,
+              backgroundColor: activeTab === 'PENDING' ? '#1B3B2B' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: activeTab === 'PENDING' ? '#1B3B2B' : '#E2E8F0',
+            }}
+            onPress={() => setActiveTab('PENDING')}
+          >
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: activeTab === 'PENDING' ? '#FFFFFF' : '#334155',
+            }}>
+              Chờ xác nhận
+            </Text>
+          </Pressable>
         </View>
 
-        <View style={styles.listContainer}>
-          {myAssets.isLoading ? <LoadingState /> : null}
-          {myAssets.isError ? <ErrorState error={myAssets.error} onRetry={() => void myAssets.refetch()} /> : null}
+        {/* Content list or Empty state */}
+        {myAssets.isLoading ? <LoadingState /> : null}
+        {myAssets.isError ? <ErrorState error={myAssets.error} onRetry={() => void myAssets.refetch()} /> : null}
 
-          {visibleItems.map((assignment) => (
-            <View key={assignment.id} style={styles.cardWrap}>
-              <MyAssetCard assignment={assignment} onPress={() => router.push(`/${area}/assets/${assignment.assetId}` as never)} />
+        {visibleItems.map((assignment) => (
+          <View key={assignment.id} style={{ marginBottom: 14 }}>
+            <MyAssetCard assignment={assignment} onPress={() => router.push(`/${area}/assets/${assignment.assetId}` as never)} />
 
-              <View style={styles.actionRow}>
-                {canConfirmAssignment(user, assignment) ? (
-                  <PrimaryButton style={{ flex: 1 }} loading={confirm.isPending} onPress={() => void runConfirm(assignment.id)}>
-                    Xác nhận
-                  </PrimaryButton>
-                ) : null}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+              {canConfirmAssignment(user, assignment) ? (
+                <Pressable
+                  style={{
+                    flex: 1,
+                    height: 42,
+                    borderRadius: 10,
+                    backgroundColor: '#1B3B2B',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  disabled={confirm.isPending}
+                  onPress={() => void runConfirm(assignment.id)}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Xác nhận</Text>
+                </Pressable>
+              ) : null}
 
-                {canRequestReturn(user, assignment) ? (
-                  <SecondaryButton style={{ flex: 1 }} onPress={() => { setSelectedAssignmentId(assignment.id); setShowReturnModal(true); }}>
-                    Yêu cầu trả
-                  </SecondaryButton>
-                ) : null}
+              {canRequestReturn(user, assignment) ? (
+                <Pressable
+                  style={{
+                    flex: 1,
+                    height: 42,
+                    borderRadius: 10,
+                    backgroundColor: '#FFFFFF',
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => { setSelectedAssignmentId(assignment.id); setShowReturnModal(true); }}
+                >
+                  <Text style={{ color: '#334155', fontWeight: '600', fontSize: 14 }}>Yêu cầu trả</Text>
+                </Pressable>
+              ) : null}
 
-                {hasPermission(user, 'asset.incident.create') && assignment.status === 'ACTIVE' ? (
-                  assignment.asset?.incidents?.some((i: any) => i.status !== 'RESOLVED' && i.status !== 'REJECTED') ? (
-                    <Text style={[styles.meta, { color: colors.warning, flex: 1, textAlign: 'center', alignSelf: 'center' }]}>
-                      Tài sản này đã có báo cáo sự cố đang được xử lý.
-                    </Text>
-                  ) : (
-                    <SecondaryButton style={{ flex: 1 }} onPress={() => router.push(`/${area}/assets/incidents/create?assetId=${assignment.assetId}` as never)}>
-                      Báo lỗi
-                    </SecondaryButton>
-                  )
-                ) : null}
+              {hasPermission(user, 'asset.incident.create') && assignment.status === 'ACTIVE' ? (
+                assignment.asset?.incidents?.some((i: any) => i.status !== 'RESOLVED' && i.status !== 'REJECTED') ? (
+                  <Text style={[styles.meta, { color: colors.warning, flex: 1, textAlign: 'center', alignSelf: 'center' }]}>
+                    Tài sản này đã có báo cáo sự cố đang được xử lý.
+                  </Text>
+                ) : (
+                  <Pressable
+                    style={{
+                      flex: 1,
+                      height: 42,
+                      borderRadius: 10,
+                      backgroundColor: '#FFFFFF',
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    onPress={() => router.push(`/${area}/assets/incidents/create?assetId=${assignment.assetId}` as never)}
+                  >
+                    <Text style={{ color: '#334155', fontWeight: '600', fontSize: 14 }}>Báo lỗi</Text>
+                  </Pressable>
+                )
+              ) : null}
+            </View>
+          </View>
+        ))}
+
+        {myAssets.data && !visibleItems.length ? (
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}>
+            {/* Illustrated mint circle */}
+            <View style={{
+              width: 140,
+              height: 140,
+              borderRadius: 70,
+              backgroundColor: '#E6F4EA',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                <MaterialCommunityIcons name="laptop" size={56} color="#166534" />
+                <View style={{
+                  position: 'absolute',
+                  bottom: -6,
+                  right: -14,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 8,
+                  padding: 4,
+                  borderWidth: 1.5,
+                  borderColor: '#166534',
+                }}>
+                  <MaterialCommunityIcons name="package-variant-closed" size={24} color="#166534" />
+                </View>
               </View>
             </View>
-          ))}
 
-          {myAssets.data && !visibleItems.length ? (
-            <View style={{ marginTop: spacing.xl }}>
-              <EmptyState title={activeTab === 'PENDING' ? "Không có tài sản chờ xác nhận" : "Bạn chưa được cấp phát tài sản"} />
-            </View>
-          ) : null}
-        </View>
+            <Text style={{
+              fontSize: 17,
+              fontWeight: '700',
+              color: '#0F172A',
+              marginTop: 24,
+              textAlign: 'center',
+            }}>
+              {activeTab === 'PENDING' ? 'Không có tài sản chờ xác nhận' : 'Bạn chưa được cấp phát tài sản'}
+            </Text>
+            <Text style={{
+              fontSize: 14,
+              color: '#64748B',
+              marginTop: 8,
+              textAlign: 'center',
+            }}>
+              Tài sản được cấp phát sẽ hiển thị tại đây.
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <ConfirmModal
@@ -219,7 +411,7 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
           placeholder="Lý do cần trả..."
         />
       </ConfirmModal>
-    </Screen>
+    </View>
   );
 }
 

@@ -13,6 +13,7 @@ import {
   Platform} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../providers/AuthProvider';
 import { useScopedEmployees } from '../../hooks/useEmployees';
@@ -26,9 +27,10 @@ import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/Level
 import { CustomAlert } from '../../components/CustomAlert';
 
 export const LeaderAssignLevelProjectScreen: React.FC = () => {
+  const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8);
   const currentLeaderId = user?.id || 'leader-me';
   const currentLeaderName = user?.fullName || 'Trưởng nhóm (Tôi)';
   const leaderDeptId = (user as any)?.departmentId || user?.department?.id;
@@ -67,7 +69,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
 
   // Auto-select first project when displayed projects load or change
   useEffect(() => {
-    if (displayedProjects.length > 0) {
+    if (displayedProjects.length > 0 && displayedProjects[0]) {
       if (!selectedProjectId || !displayedProjects.some((p) => p.id === selectedProjectId)) {
         setSelectedProjectId(displayedProjects[0].id);
       }
@@ -387,20 +389,49 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   if (!currentProject || projects.length === 0) {
     return (
       <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#123826" />
         <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
-          <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
           <View style={styles.topHeader}>
-            <Text style={styles.headerTitle}>Dự Án Phòng Ban ({leaderDeptName || 'Team'})</Text>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.headerTitle}>Dự án phòng ban</Text>
+              <Text style={styles.headerSubtitle}>
+                {leaderDeptName || 'DEV (MOVIELEGEND-HÀ NỘI)'}
+              </Text>
+            </View>
+            <View style={{ width: 32 }} />
           </View>
         </View>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <Ionicons name="folder-open-outline" size={60} color="#94A3B8" />
-          <Text style={{ fontSize: 17, fontWeight: '700', color: '#1E293B', marginTop: 14 }}>
-            Chưa có dự án nào
-          </Text>
-          <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
-            Phòng ban {leaderDeptName ? `"${leaderDeptName}"` : 'của bạn'} hiện chưa có dự án nào được giao từ Admin. Khi Admin tạo dự án và các đầu việc con cho phòng ban, dự án sẽ tự động xuất hiện tại đây để bạn phân bổ cho nhân sự.
-          </Text>
+
+        <View style={styles.bodyWrapper}>
+          {/* Section Header: [ Dự án được giao | 0 dự án ] */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionHeaderTitle}>Dự án được giao</Text>
+            <View style={styles.sectionHeaderPill}>
+              <Text style={styles.sectionHeaderPillText}>0 dự án</Text>
+            </View>
+          </View>
+
+          {/* Empty Illustration & Text matching template */}
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="folder-open-outline" size={54} color="#123826" />
+            </View>
+            <Text style={styles.emptyTitle}>Chưa có dự án nào</Text>
+            <Text style={styles.emptySubtitle}>
+              Phòng ban chưa được Admin giao dự án.
+            </Text>
+            <Text style={styles.emptyDesc}>
+              Khi Admin tạo dự án và các đầu việc,{'\n'}nội dung sẽ hiển thị tại đây để bạn{'\n'}phân bổ cho nhân sự.
+            </Text>
+          </View>
         </View>
       </View>
     );
@@ -408,15 +439,24 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#123826" />
       <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
-        <StatusBar barStyle="light-content" backgroundColor="#0F766E" />
-
-        {/* Top Header with Deep Teal Background */}
         <View style={styles.topHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Dự Án Phòng Ban ({leaderDeptName || 'Team'})</Text>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>Dự án phòng ban</Text>
+            <Text style={styles.headerSubtitle}>
+              {leaderDeptName || 'DEV (MOVIELEGEND-HÀ NỘI)'}
+            </Text>
           </View>
-          {currentProject?.status === 'IN_PROGRESS' && (
+          {currentProject?.status === 'IN_PROGRESS' ? (
             <TouchableOpacity
               style={styles.headerSubmitBtn}
               onPress={() => setSubmitAdminModalVisible(true)}
@@ -424,11 +464,22 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
             >
               <Text style={styles.headerSubmitBtnText}>Nộp Admin</Text>
             </TouchableOpacity>
+          ) : (
+            <View style={{ width: 32 }} />
           )}
         </View>
       </View>
 
       <View style={styles.bodyWrapper}>
+        {/* Section Header: [ Dự án được giao | X dự án ] */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionHeaderTitle}>Dự án được giao</Text>
+          <View style={styles.sectionHeaderPill}>
+            <Text style={styles.sectionHeaderPillText}>
+              {projects.length} dự án
+            </Text>
+          </View>
+        </View>
         {/* Section Tabs: Đang Thực Hiện vs Lịch Sử Hoàn Thành */}
         <View style={styles.sectionTabsContainer}>
           <TouchableOpacity
@@ -1487,27 +1538,107 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#123826',
   },
   topSafeArea: {
-    backgroundColor: '#0F766E',
-  },
-  bodyWrapper: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#123826',
   },
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    backgroundColor: '#0F766E',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#123826',
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginLeft: -4,
+  },
+  headerTitleWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#A7D8BE',
+    marginTop: 2,
+  },
+  bodyWrapper: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -10,
+    paddingTop: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    marginBottom: 16,
+  },
+  sectionHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  sectionHeaderPill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+  sectionHeaderPillText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#18181B',
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  emptyIconCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 13.5,
+    color: '#64748B',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyDesc: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 290,
   },
   headerSubmitBtn: {
     backgroundColor: '#FFFFFF',
@@ -1516,7 +1647,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   headerSubmitBtnText: {
-    color: '#0F766E',
+    color: '#123826',
     fontSize: 13,
     fontWeight: 'bold',
   },
