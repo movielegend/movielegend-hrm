@@ -1,13 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSyncSubtasksResults } from '../../hooks/useTasks';
 import { useMemo, useState, useEffect } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch, Image, TextInput, Linking, StatusBar } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, Modal, Platform, Switch, Image, TextInput, Linking, StatusBar, ActivityIndicator } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import { createTaskAttachment } from '../../api/tasks.api';
@@ -24,6 +24,7 @@ import { MultiSelectModal } from '../../components/MultiSelectModal';
 import { SelectModal, SelectOption } from '../../components/SelectModal';
 import { SearchInput } from '../../components/SearchInput';
 import { SectionCard } from '../../components/SectionCard';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useEmployees, useScopedEmployees } from '../../hooks/useEmployees';
 import { useRegions } from '../../api/regions.api';
@@ -74,6 +75,7 @@ import {
   TaskCard,
   TaskStatusBadge,
   TaskTimeline,
+  translatePriority,
 } from './TaskComponents';
 import { canAcceptAssignment, canStartAssignment, canSubmitAssignment, canUpdateProgress, mapTaskError, myAssignment, canCancelTask, isReadOnlyStatus } from './task.logic';
 
@@ -105,6 +107,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   }
   const router = useRouter();
   const { user } = useAuth();
+  const tabBarScroll = useTabBarScroll();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
 
@@ -186,73 +189,343 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     router.push('/employee/daily-report' as any);
   };
 
-  return (
-    <Screen>
-      <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
-        <PageHeader
-          variant="card"
-          idPrefix="taskListHeader"
-          tagline="MOVIE LEGEND • NHIỆM VỤ"
-          title={title}
-          subtitle={subtitle}
-          showBack={false}
-          right={
-            <Pressable style={styles.dailyReportHeaderBtn} onPress={handleDailyReportPress}>
-              <MaterialCommunityIcons name="file-document-edit-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.dailyReportHeaderBtnText}>Báo cáo</Text>
+  if (area === 'employee') {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
+        {/* Screen 1: Top Dark Banner */}
+        <View style={{
+          backgroundColor: '#102739',
+          paddingTop: Math.max(insets.top, 16),
+          paddingBottom: 16,
+          paddingHorizontal: 16,
+        }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '700',
+                letterSpacing: 1.5,
+                color: 'rgba(255,255,255,0.7)',
+                textTransform: 'uppercase',
+              }}>
+                MOVIE LEGEND
+              </Text>
+              <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 4 }}>
+                Công việc của tôi
+              </Text>
+              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                Các công việc được phân công cho bạn
+              </Text>
+            </View>
+
+            <Pressable
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 14,
+                paddingVertical: 7,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.35)',
+                backgroundColor: 'rgba(255,255,255,0.12)',
+                marginTop: 6,
+              }}
+              onPress={handleDailyReportPress}
+            >
+              <MaterialCommunityIcons name="file-document-outline" size={16} color="#FFFFFF" />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>Báo cáo</Text>
             </Pressable>
-          }
-        />
-        
-        <SearchInput value={search} onChangeText={setSearch} placeholder={area === 'employee' ? 'Tìm việc của tôi...' : 'Tìm việc đã giao...'} />
-        
+          </View>
+        </View>
+
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}
+          refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Search Box */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#E2E8F0',
+            paddingHorizontal: 12,
+            height: 44,
+            marginHorizontal: 16,
+            marginTop: 14,
+            marginBottom: 10,
+          }}>
+            <Ionicons name="search-outline" size={18} color="#94A3B8" />
+            <TextInput
+              style={{ flex: 1, marginLeft: 8, fontSize: 14, color: '#0F172A', paddingVertical: 0 }}
+              placeholder="Tìm việc của tôi..."
+              placeholderTextColor="#94A3B8"
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search ? (
+              <Pressable onPress={() => setSearch('')}>
+                <Ionicons name="close-circle" size={16} color="#94A3B8" />
+              </Pressable>
+            ) : null}
+          </View>
+
+          {/* Status Filter Tabs */}
+          <View style={{ marginBottom: 12 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+              {TASK_STATUS_TABS.map(tab => {
+                const isActive = status === tab.value;
+                return (
+                  <Pressable
+                    key={tab.value}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 7,
+                      borderRadius: 20,
+                      backgroundColor: isActive ? '#102739' : '#F1F5F9',
+                      borderWidth: 1,
+                      borderColor: isActive ? '#102739' : '#E2E8F0',
+                    }}
+                    onPress={() => setStatus(tab.value)}
+                  >
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: isActive ? '700' : '600',
+                      color: isActive ? '#FFFFFF' : '#475569',
+                    }}>
+                      {tab.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Task List or Empty State */}
+          <View style={{ paddingHorizontal: 16 }}>
+            {tasks.isLoading ? <LoadingState /> : null}
+            {tasks.isError ? <ErrorState error={tasks.error} onRetry={() => void tasks.refetch()} /> : null}
+            {!tasks.isLoading && !displayTasks.length ? (
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48, paddingHorizontal: 24 }}>
+                <View style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  backgroundColor: '#DCFCE7',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 16,
+                }}>
+                  <MaterialCommunityIcons name="clipboard-check-outline" size={42} color="#166534" />
+                </View>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 6, textAlign: 'center' }}>
+                  Bạn chưa có công việc nào
+                </Text>
+                <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', lineHeight: 20 }}>
+                  Khi bạn được giao việc mới, danh sách sẽ hiển thị tại đây
+                </Text>
+              </View>
+            ) : null}
+
+            {displayTasks.map((task) => (
+              <TaskCard key={task.id} task={task} onPress={() => handleTaskPress(task.id)} />
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  const LEADER_STATUS_TABS = [
+    { label: 'Tất cả', value: '' },
+    { label: 'Chờ nhận', value: 'NEW' },
+    { label: 'Đang làm', value: 'IN_PROGRESS' },
+    { label: 'Chờ duyệt', value: 'WAITING_REVIEW' },
+    { label: 'Quá hạn', value: 'OVERDUE' },
+    { label: 'Hoàn thành', value: 'COMPLETED' },
+  ];
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
+      {/* Screen 1: Top Dark Header Banner */}
+      <View style={{
+        backgroundColor: '#102739',
+        paddingTop: Math.max(insets.top, 16),
+        paddingBottom: 20,
+        paddingHorizontal: 16,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 }}>
+            <Pressable onPress={() => router.back()} style={{ paddingRight: 8, paddingVertical: 4 }}>
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+            </Pressable>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8 }}>
+                MOVIE LEGEND
+              </Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+                {title || 'Công việc đã giao'}
+              </Text>
+              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                {subtitle || 'Theo dõi tiến độ công việc'}
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: 'rgba(255,255,255,0.15)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.25)',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 20,
+            }}
+            onPress={handleDailyReportPress}
+          >
+            <MaterialCommunityIcons name="file-document-edit-outline" size={16} color="#FFFFFF" />
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>Báo cáo</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Main Body with Curved Container */}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          backgroundColor: '#F8FAFC',
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          marginTop: -10,
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: Math.max(insets.bottom + 16, 24) + 80,
+        }}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Search input */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#FFFFFF',
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          borderRadius: 12,
+          paddingHorizontal: 12,
+          height: 44,
+          marginBottom: 12,
+        }}>
+          <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" style={{ marginRight: 8 }} />
+          <TextInput
+            style={{ flex: 1, fontSize: 14, color: '#0F172A', paddingVertical: 0 }}
+            placeholder="Tìm việc đã giao..."
+            placeholderTextColor="#94A3B8"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {Boolean(search) && (
+            <Pressable onPress={() => setSearch('')}>
+              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+            </Pressable>
+          )}
+        </View>
+
+        {/* Action Row */}
         {(createRoute || reviewRoute) ? (
-          <View style={styles.actionRow}>
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
             {createRoute ? (
-              <Pressable style={styles.actionBtnPrimary} onPress={() => router.push(createRoute)}>
-                <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-                <Text style={styles.actionBtnTextPrimary}>Thêm công việc</Text>
+              <Pressable
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  backgroundColor: '#102739',
+                  borderRadius: 12,
+                  height: 44,
+                }}
+                onPress={() => router.push(createRoute)}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color="#FFFFFF" />
+                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Thêm công việc</Text>
               </Pressable>
             ) : null}
             {reviewRoute ? (
-              <Pressable style={styles.actionBtnSecondary} onPress={() => router.push(reviewRoute)}>
-                <MaterialCommunityIcons name="clipboard-check-outline" size={20} color={colors.text} />
-                <Text style={styles.actionBtnTextSecondary}>Hàng đợi duyệt</Text>
+              <Pressable
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  backgroundColor: '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 12,
+                  height: 44,
+                }}
+                onPress={() => router.push(reviewRoute)}
+              >
+                <MaterialCommunityIcons name="inbox-arrow-down-outline" size={20} color="#0F172A" />
+                <Text style={{ color: '#0F172A', fontWeight: '700', fontSize: 14 }}>Hàng đợi duyệt</Text>
               </Pressable>
             ) : null}
           </View>
         ) : null}
 
-        <View style={styles.tabsContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
-            {TASK_STATUS_TABS.map(tab => {
-              const isActive = status === tab.value;
-              return (
-                <Pressable
-                  key={tab.value}
-                  style={[styles.tabPill, isActive && styles.tabPillActive]}
-                  onPress={() => setStatus(tab.value)}
-                >
-                  <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
+        {/* Filter Tabs */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingBottom: 14 }}
+        >
+          {LEADER_STATUS_TABS.map(tab => {
+            const isActive = status === tab.value;
+            return (
+              <Pressable
+                key={tab.value}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  backgroundColor: isActive ? '#102739' : '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: isActive ? '#102739' : '#E2E8F0',
+                }}
+                onPress={() => setStatus(tab.value)}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '600', color: isActive ? '#FFFFFF' : '#475569' }}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
         {tasks.isLoading ? <LoadingState /> : null}
         {tasks.isError ? <ErrorState error={tasks.error} onRetry={() => void tasks.refetch()} /> : null}
         {!tasks.isLoading && !displayTasks.length ? (
           <EmptyState
-            title={area === 'employee' ? 'Bạn chưa có công việc nào' : 'Chưa có công việc nào được giao'}
-            message={area === 'employee' ? 'Khi bạn được giao việc mới, danh sách sẽ hiển thị tại đây' : 'Bấm "Thêm công việc" để tạo và phân công nhiệm vụ mới'}
+            title="Chưa có công việc nào được giao"
+            message="Bấm &quot;Thêm công việc&quot; để tạo và phân công nhiệm vụ mới"
           />
         ) : null}
         {displayTasks.map((task) => (
           <TaskCard key={task.id} task={task} onPress={() => handleTaskPress(task.id)} />
         ))}
-      </ScreenContainer>
-    </Screen>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -265,9 +538,12 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   if (area === 'admin') {
     return <AdminTaskDetailScreen id={id} />;
   }
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const task = useTask(id);
   const timeline = useTaskTimeline(id);
+  const [subView, setSubView] = useState<'detail' | 'comments' | 'history'>('detail');
+  const [newCommentText, setNewCommentText] = useState('');
   const [progress, setProgress] = useState('0');
   const [completionNote, setCompletionNote] = useState('');
   const assignment = useMemo(() => (task.data ? myAssignment(task.data, user?.id) : undefined), [task.data, user?.id]);
@@ -363,25 +639,293 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
     }
   }
 
-  return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.heroCard}>
-          <View style={styles.heroHeader}>
+  if (subView === 'comments') {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+        <View style={{
+          backgroundColor: '#1B3B2B',
+          paddingTop: Math.max(insets.top, 16),
+          paddingBottom: 20,
+          paddingHorizontal: 16,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable onPress={() => setSubView('detail')} style={{ paddingRight: 10, paddingVertical: 4 }}>
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+            </Pressable>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroTitle}>{item.title}</Text>
-              <Text style={styles.heroCode}>{item.taskCode ?? item.type}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8 }}>
+                MOVIE LEGEND
+              </Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+                Bình luận công việc
+              </Text>
+              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                {item.taskCode ?? item.type}
+              </Text>
             </View>
-            {item.chatGroup?.id && (
-              <Pressable style={styles.chatButton} onPress={() => router.push(`/employee/chat/${item.chatGroup!.id}?taskId=${item.id}`)}>
-                <MaterialCommunityIcons name="chat-processing-outline" size={20} color={colors.primary} />
-                <Text style={styles.chatButtonText}>Chat</Text>
-              </Pressable>
-            )}
           </View>
-          <View style={[styles.rowWrap, { marginTop: spacing.md }]}>
-            <TaskStatusBadge status={item.status} />
-            <PriorityBadge priority={item.priority} />
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: Math.max(insets.bottom + 80, 90),
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: '#E2E8F0',
+            padding: 16,
+          }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 14 }}>
+              Bình luận ({item.comments?.length || 0})
+            </Text>
+            <CommentList comments={item.comments} />
+          </View>
+        </ScrollView>
+
+        <View style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#E2E8F0',
+          paddingHorizontal: 16,
+          paddingTop: 10,
+          paddingBottom: Math.max(insets.bottom, 12),
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+        }}>
+          <TextInput
+            style={{
+              flex: 1,
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              borderRadius: 22,
+              paddingHorizontal: 16,
+              height: 44,
+              fontSize: 14,
+              color: '#0F172A',
+            }}
+            placeholder="Viết bình luận..."
+            placeholderTextColor="#94A3B8"
+            value={newCommentText}
+            onChangeText={setNewCommentText}
+          />
+          <Pressable
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: newCommentText.trim() ? '#166534' : '#94A3B8',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            disabled={!newCommentText.trim() || comment.isPending}
+            onPress={async () => {
+              if (!newCommentText.trim()) return;
+              const text = newCommentText;
+              setNewCommentText('');
+              await comment.mutateAsync({ content: text });
+            }}
+          >
+            {comment.isPending ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <MaterialCommunityIcons name="send" size={20} color="#FFFFFF" />
+            )}
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (subView === 'history') {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+        <View style={{
+          backgroundColor: '#1B3B2B',
+          paddingTop: Math.max(insets.top, 16),
+          paddingBottom: 20,
+          paddingHorizontal: 16,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable onPress={() => setSubView('detail')} style={{ paddingRight: 10, paddingVertical: 4 }}>
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+            </Pressable>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8 }}>
+                MOVIE LEGEND
+              </Text>
+              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+                Lịch sử xử lý
+              </Text>
+              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+                {item.taskCode ?? item.type}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: Math.max(insets.bottom + 24, 24),
+            gap: 14,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: '#E2E8F0',
+            padding: 16,
+          }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 14 }}>
+              Lịch sử xử lý công việc
+            </Text>
+            {timeline.isLoading ? <LoadingState label="Đang tải lịch sử" /> : null}
+            {timeline.isError ? <ErrorState error={timeline.error} onRetry={() => void timeline.refetch()} /> : null}
+            <TaskTimeline items={timeline.data?.items ?? item.histories} />
+          </View>
+
+          {(item.extensionRequests ?? []).length > 0 ? (
+            <View style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              padding: 16,
+            }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 12 }}>
+                Yêu cầu gia hạn
+              </Text>
+              {item.extensionRequests?.map(ext => (
+                <View key={ext.id} style={{
+                  backgroundColor: '#F8FAFC',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 10,
+                  padding: 12,
+                  marginBottom: 8,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <View style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 6,
+                      backgroundColor: ext.status === 'APPROVED' ? '#DCFCE7' : ext.status === 'REJECTED' ? '#FEE2E2' : '#FEF3C7',
+                    }}>
+                      <Text style={{
+                        fontSize: 12,
+                        fontWeight: '700',
+                        color: ext.status === 'APPROVED' ? '#166534' : ext.status === 'REJECTED' ? '#DC2626' : '#D97706',
+                      }}>
+                        {ext.status === 'APPROVED' ? 'Đã duyệt' : ext.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#64748B' }}>
+                      {formatDateTime(ext.requestedDueAt)}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 13, color: '#334155' }}>
+                    Lý do xin gia hạn: {ext.reason}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      {/* Top Dark Forest Green Banner */}
+      <View style={{
+        backgroundColor: '#1B3B2B',
+        paddingTop: Math.max(insets.top, 16),
+        paddingBottom: 20,
+        paddingHorizontal: 16,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8 }}>
+              MOVIE LEGEND
+            </Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+              Chi tiết công việc
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              {item.taskCode ?? item.type}
+            </Text>
+          </View>
+          {item.chatGroup?.id && (
+            <Pressable style={styles.chatButton} onPress={() => router.push(`/employee/chat/${item.chatGroup!.id}?taskId=${item.id}`)}>
+              <MaterialCommunityIcons name="chat-processing-outline" size={20} color={colors.primary} />
+              <Text style={styles.chatButtonText}>Chat</Text>
+            </Pressable>
+          )}
+        </View>
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: Math.max(insets.bottom + 24, 24),
+          gap: 14,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Card 1: Main Task Information */}
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          padding: 16,
+        }}>
+          <Text style={{ fontSize: 17, fontWeight: '800', color: '#0F172A' }}>{item.title}</Text>
+          
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+            {item.status === 'COMPLETED' ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                <MaterialCommunityIcons name="check-circle" size={14} color="#166534" />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534' }}>Hoàn thành</Text>
+              </View>
+            ) : item.status === 'WAITING_REVIEW' ? (
+              <View style={{ backgroundColor: '#FFEDD5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#C2410C' }}>Chờ duyệt</Text>
+              </View>
+            ) : item.status === 'IN_PROGRESS' ? (
+              <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#0369A1' }}>Đang làm</Text>
+              </View>
+            ) : (
+              <TaskStatusBadge status={item.status} />
+            )}
+            <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#334155' }}>{translatePriority(item.priority)}</Text>
+            </View>
             {isDepartmentTask ? (
               <View style={styles.departmentBadgePill}>
                 <MaterialCommunityIcons name="domain" size={14} color={colors.primaryDark} />
@@ -389,28 +933,63 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
               </View>
             ) : null}
           </View>
-          {item.description ? <Text style={[styles.body, { marginTop: spacing.md }]}>{item.description}</Text> : null}
-          <View style={styles.heroDates}>
-            <View style={styles.dateItem}>
-              <MaterialCommunityIcons name="calendar-start" size={16} color={colors.muted} />
-              <Text style={styles.metaSmall}>{formatDateTime(item.startAt)}</Text>
+
+          {item.description ? (
+            <Text style={{ fontSize: 14, color: '#475569', marginTop: 10, lineHeight: 20 }}>
+              {item.description}
+            </Text>
+          ) : null}
+
+          {/* 2-Column Date Box */}
+          <View style={{
+            flexDirection: 'row',
+            backgroundColor: '#F8FAFC',
+            borderWidth: 1,
+            borderColor: '#E2E8F0',
+            borderRadius: 10,
+            padding: 12,
+            marginTop: 12,
+          }}>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <MaterialCommunityIcons name="calendar-month-outline" size={16} color="#64748B" />
+                <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>Bắt đầu</Text>
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>
+                {formatDateTime(item.startAt)}
+              </Text>
             </View>
-            <View style={styles.dateItem}>
-              <MaterialCommunityIcons name="calendar-clock" size={16} color={colors.muted} />
-              <Text style={styles.metaSmall}>{formatDateTime(item.dueAt)}</Text>
+            <View style={{ width: 1, backgroundColor: '#E2E8F0', marginHorizontal: 8 }} />
+            <View style={{ flex: 1, paddingLeft: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <MaterialCommunityIcons name="calendar-check-outline" size={16} color="#64748B" />
+                <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>Hạn hoàn thành</Text>
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>
+                {formatDateTime(item.dueAt)}
+              </Text>
             </View>
           </View>
-          <View style={{ marginTop: spacing.md }}>
+
+          {/* Progress Bar */}
+          <View style={{ marginTop: 12 }}>
             <ProgressBar value={assignment?.progressPercent ?? averageProgress(item)} />
           </View>
+
           {assignment?.reviewNote ? (
-            <View style={[styles.rowWrap, { marginTop: spacing.md, backgroundColor: colors.warningSoft, padding: spacing.sm, borderRadius: 8 }]}>
+            <View style={[styles.rowWrap, { marginTop: 10, backgroundColor: colors.warningSoft, padding: spacing.sm, borderRadius: 8 }]}>
               <MaterialCommunityIcons name="alert-circle-outline" size={18} color={colors.warning} />
               <Text style={styles.warning}>Review note: {assignment.reviewNote}</Text>
             </View>
           ) : null}
+
+          {/* Assignee Information */}
+          <View style={{ marginTop: 12 }}>
+            <TargetPreview task={item} />
+          </View>
+
           {(((area as any) === 'admin' && hasAnyPermission(user, ['task.assign_any'])) || isCreator) && item.status !== 'COMPLETED' && item.status !== 'CANCELLED' ? (
-            <View style={{ marginTop: spacing.md }}>
+            <View style={{ marginTop: 12 }}>
               <SecondaryButton
                 loading={cancel.isPending}
                 onPress={() => {
@@ -426,13 +1005,10 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
               </SecondaryButton>
             </View>
           ) : null}
-          <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
-            <TargetPreview task={item} />
-          </View>
 
           {initialAttachments.length > 0 ? (
-            <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs }}>Tài liệu đính kèm:</Text>
+            <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E2E8F0' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', marginBottom: 8 }}>Tài liệu đính kèm:</Text>
               <AttachmentList 
                 attachments={initialAttachments} 
                 isUnaccepted={isUnacceptedAssignee}
@@ -700,18 +1276,72 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           </SectionCard>
         ) : null}
 
-        <SectionCard title="Bình luận">
-          <CommentList comments={item.comments} />
-          <CommentComposer pending={comment.isPending} onSubmit={(content) => comment.mutateAsync({ content }).then(() => undefined)} />
-        </SectionCard>
+        {/* Navigation Cards for Bình luận and Lịch sử xử lý matching mockup */}
+        <View style={{ gap: 10, marginTop: 4 }}>
+          <Pressable
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              borderRadius: 12,
+              padding: 14,
+            }}
+            onPress={() => setSubView('comments')}
+          >
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <MaterialCommunityIcons name="message-outline" size={20} color="#1E293B" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>Bình luận</Text>
+              <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>Xem và tham gia thảo luận</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
+          </Pressable>
 
-
-
-        <SectionCard title="Lịch sử hoạt động">
-          {timeline.isLoading ? <LoadingState label="Đang tải lịch sử" /> : null}
-          {timeline.isError ? <ErrorState error={timeline.error} onRetry={() => void timeline.refetch()} /> : null}
-          <TaskTimeline items={timeline.data?.items ?? item.histories} />
-        </SectionCard>
+          <Pressable
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              borderRadius: 12,
+              padding: 14,
+            }}
+            onPress={() => setSubView('history')}
+          >
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <MaterialCommunityIcons name="clock-outline" size={20} color="#1E293B" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>Lịch sử xử lý</Text>
+              <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>Xem quá trình xử lý công việc</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
+          </Pressable>
+        </View>
 
         {(!assignment && (item.createdByUserId === user?.id || canReviewExtension)) && (item.extensionRequests ?? []).length > 0 ? (
           <SectionCard title="Danh sách yêu cầu gia hạn">
@@ -720,7 +1350,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
         ) : null}
 
       </ScrollView>
-    </Screen>
+    </View>
   );
 }
 
@@ -2235,6 +2865,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   if (area === 'admin') {
     return <AdminCreateTaskScreen />;
   }
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { parentTaskId } = useLocalSearchParams<{ parentTaskId?: string }>();
   const parentTaskQuery = useTask(parentTaskId);
@@ -2558,14 +3189,48 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
     return selectedUserTargets.length === 0;
   };
 
-  return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader 
-          title={parentTaskId ? 'Chia nhỏ việc con (Subtask)' : (area as any) === 'admin' ? 'Giao việc (Admin)' : 'Giao việc cho nhân sự'} 
-          subtitle={parentTaskId && parentTaskQuery.data ? `Thuộc dự án: ${parentTaskQuery.data.title}` : isLeaderArea ? `Phòng ban: ${user?.department?.name || 'Của bạn'}` : 'Tạo và phân công công việc mới'} 
-        />
+  const headerSubtitle = parentTaskId && parentTaskQuery.data
+    ? `Thuộc dự án: ${parentTaskQuery.data.title}`
+    : (user?.department?.name ? `${user.department.name} (MOVIELEGEND-HÀ NỘI)` : 'DEV (MOVIELEGEND-HÀ NỘI)');
 
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      {/* Top Dark Forest Green Banner */}
+      <View style={{
+        backgroundColor: '#1B3B2B',
+        paddingTop: Math.max(insets.top, 16),
+        paddingBottom: 20,
+        paddingHorizontal: 16,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8 }}>
+              MOVIE LEGEND
+            </Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+              {parentTaskId ? 'Chia nhỏ việc con (Subtask)' : (area as any) === 'admin' ? 'Giao việc (Admin)' : 'Giao việc cho nhân sự'}
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              {headerSubtitle}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: Math.max(insets.bottom + 90, 100),
+          gap: 14,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
         {parentTaskId && parentTaskQuery.data ? (
           <View style={styles.parentTaskBanner}>
             <View style={styles.parentTaskTagRow}>
@@ -2580,111 +3245,239 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
           </View>
         ) : null}
         
-        <SectionCard title={parentTaskId ? "Thông tin công việc con" : "Thông tin công việc"}>
-          <FormField label="Tên công việc" value={title} onChangeText={setTitle} placeholder="Nhập tên công việc..." />
-          <FormField label="Mô tả chi tiết" value={description} onChangeText={setDescription} multiline placeholder="Mô tả các yêu cầu cần làm..." />
-          
-          <View style={{ marginTop: spacing.md }}>
-            <Text style={styles.fieldLabel}>Tệp đính kèm</Text>
-            {attachments.length > 0 && (
-              <View style={{ marginBottom: spacing.sm, gap: spacing.xs }}>
-                {attachments.map((att, i) => {
-                  const ext = (att.fileName.split('.').pop() || '').toLowerCase();
-                  const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext) || att.type === 'IMAGE' || att.mimeType?.startsWith('image/');
-                  const isPdf = ext === 'pdf' || att.mimeType?.includes('pdf');
-                  const resolvedUrl = resolveFileUrl(att.fileUrl) || att.fileUrl;
-                  return (
-                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, padding: spacing.sm, borderRadius: 10, borderWidth: 1, borderColor: colors.border, gap: spacing.sm }}>
-                      {isImg && resolvedUrl ? (
-                        <View style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' }}>
-                          <Image source={{ uri: resolvedUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                        </View>
-                      ) : isPdf ? (
-                        <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center' }}>
-                          <MaterialCommunityIcons name="file-pdf-box" size={24} color="#DC2626" />
-                        </View>
-                      ) : (
-                        <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
-                          <MaterialCommunityIcons name="file-document-outline" size={24} color="#2563EB" />
-                        </View>
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{att.fileName}</Text>
-                        <Text style={{ color: colors.muted, fontSize: 11 }}>{att.mimeType || att.type}</Text>
-                      </View>
-                      <Pressable onPress={() => setAttachments(attachments.filter((_, idx) => idx !== i))} hitSlop={10} style={{ padding: 6 }}>
-                        <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
-                      </Pressable>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-            <AttachmentPicker
-              autoAttach
-              onAttach={async (payload) => {
-                setAttachments(prev => [...prev, payload]);
-              }}
-              pending={mutation.isPending}
-            />
-          </View>
-        </SectionCard>
+        {/* Card 1: Thông tin công việc */}
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          padding: 16,
+        }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 14 }}>
+            {parentTaskId ? "Thông tin công việc con" : "Thông tin công việc"}
+          </Text>
 
-        <SectionCard title="Phân loại & Thời hạn">
-          <Text style={styles.fieldLabel}>Mức độ ưu tiên</Text>
-          <View style={styles.priorityWrap}>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 6 }}>Tên công việc</Text>
+          <TextInput
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              height: 44,
+              fontSize: 14,
+              color: '#0F172A',
+              marginBottom: 12,
+            }}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Nhập tên công việc..."
+            placeholderTextColor="#94A3B8"
+          />
+
+          <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 6 }}>Mô tả chi tiết</Text>
+          <TextInput
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              borderRadius: 10,
+              padding: 12,
+              fontSize: 14,
+              color: '#0F172A',
+              minHeight: 90,
+              textAlignVertical: 'top',
+              marginBottom: 14,
+            }}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Mô tả các yêu cầu cần làm..."
+            placeholderTextColor="#94A3B8"
+            multiline
+          />
+          
+          <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 8 }}>Tệp đính kèm</Text>
+          {attachments.length > 0 && (
+            <View style={{ marginBottom: 10, gap: 8 }}>
+              {attachments.map((att, i) => {
+                const ext = (att.fileName.split('.').pop() || '').toLowerCase();
+                const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext) || att.type === 'IMAGE' || att.mimeType?.startsWith('image/');
+                const isPdf = ext === 'pdf' || att.mimeType?.includes('pdf');
+                const resolvedUrl = resolveFileUrl(att.fileUrl) || att.fileUrl;
+                return (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 8, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', gap: 10 }}>
+                    {isImg && resolvedUrl ? (
+                      <View style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' }}>
+                        <Image source={{ uri: resolvedUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      </View>
+                    ) : isPdf ? (
+                      <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center' }}>
+                        <MaterialCommunityIcons name="file-pdf-box" size={24} color="#DC2626" />
+                      </View>
+                    ) : (
+                      <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                        <MaterialCommunityIcons name="file-document-outline" size={24} color="#2563EB" />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#0F172A', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{att.fileName}</Text>
+                      <Text style={{ color: '#64748B', fontSize: 11 }}>{att.mimeType || att.type}</Text>
+                    </View>
+                    <Pressable onPress={() => setAttachments(attachments.filter((_, idx) => idx !== i))} hitSlop={10} style={{ padding: 6 }}>
+                      <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          <AttachmentPicker
+            autoAttach
+            onAttach={async (payload) => {
+              setAttachments(prev => [...prev, payload]);
+            }}
+            pending={mutation.isPending}
+          />
+        </View>
+
+        {/* Card 2: Phân loại & Thời hạn */}
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          padding: 16,
+        }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 14 }}>
+            Phân loại & Thời hạn
+          </Text>
+
+          <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 8 }}>Mức độ ưu tiên</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
             {priorities.map((item) => {
               const isActive = priority === item;
               return (
                 <Pressable
                   key={item}
-                  style={[styles.priorityPill, isActive && styles.priorityPillActive]}
+                  style={{
+                    flex: 1,
+                    height: 40,
+                    borderRadius: 10,
+                    backgroundColor: isActive ? '#1B3B2B' : '#FFFFFF',
+                    borderWidth: 1,
+                    borderColor: isActive ? '#1B3B2B' : '#E2E8F0',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                   onPress={() => setPriority(item)}
                 >
-                  <Text style={[styles.priorityText, isActive && styles.priorityTextActive]} >{PRIORITY_LABELS[item]}</Text>
+                  <Text style={{
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: isActive ? '#FFFFFF' : '#334155',
+                  }}>
+                    {PRIORITY_LABELS[item]}
+                  </Text>
                 </Pressable>
               );
             })}
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Thời gian bắt đầu</Text>
-            <View style={styles.splitDateRow}>
-              <Pressable style={styles.splitDatePickerBtn} onPress={() => { setShowDueDatePicker(false); setShowStartDatePicker(true); }}>
-                <MaterialCommunityIcons name="calendar-month-outline" size={20} color={colors.text} />
-                <Text style={startAt ? styles.dateText : styles.datePlaceholder}>
-                  {startAt ? startAt.toLocaleDateString('vi-VN') : 'Chọn thời gian'}
+          <View style={{ marginBottom: 12 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 6 }}>Thời gian bắt đầu</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  backgroundColor: '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 10,
+                  height: 44,
+                  paddingHorizontal: 12,
+                }}
+                onPress={() => { setShowDueDatePicker(false); setShowStartDatePicker(true); }}
+              >
+                <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#64748B" />
+                <Text style={{ fontSize: 13, color: startAt ? '#0F172A' : '#94A3B8', fontWeight: startAt ? '600' : '400' }}>
+                  {startAt ? startAt.toLocaleDateString('vi-VN') : 'Chọn ngày'}
                 </Text>
               </Pressable>
-              <Pressable style={styles.splitDatePickerBtn} onPress={() => { setShowDueDatePicker(false); setShowStartDatePicker(true); }}>
-                <MaterialCommunityIcons name="clock-outline" size={20} color={colors.text} />
-                <Text style={startAt ? styles.dateText : styles.datePlaceholder}>
-                  {startAt ? startAt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : 'Chọn thời gian'}
+              <Pressable
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  backgroundColor: '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 10,
+                  height: 44,
+                  paddingHorizontal: 12,
+                }}
+                onPress={() => { setShowDueDatePicker(false); setShowStartDatePicker(true); }}
+              >
+                <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" />
+                <Text style={{ fontSize: 13, color: startAt ? '#0F172A' : '#94A3B8', fontWeight: startAt ? '600' : '400' }}>
+                  {startAt ? startAt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : 'Chọn giờ'}
                 </Text>
               </Pressable>
             </View>
           </View>
 
-          <View style={styles.fieldGroup}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
-              <Text style={styles.fieldLabel}>Thời gian hết hạn</Text>
+          <View style={{ marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A' }}>Thời gian hết hạn</Text>
               {parentDueAt ? (
                 <Text style={{ fontSize: 11, color: colors.warning, fontWeight: '600' }}>
                   Hạn chót việc cha: {formatDateTime(parentDueAt.toISOString())}
                 </Text>
               ) : null}
             </View>
-            <View style={styles.splitDateRow}>
-              <Pressable style={styles.splitDatePickerBtn} onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}>
-                <MaterialCommunityIcons name="calendar-month-outline" size={20} color={colors.text} />
-                <Text style={dueAt ? styles.dateText : styles.datePlaceholder}>
-                  {dueAt ? dueAt.toLocaleDateString('vi-VN') : 'Chọn thời gian'}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  backgroundColor: '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 10,
+                  height: 44,
+                  paddingHorizontal: 12,
+                }}
+                onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}
+              >
+                <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#64748B" />
+                <Text style={{ fontSize: 13, color: dueAt ? '#0F172A' : '#94A3B8', fontWeight: dueAt ? '600' : '400' }}>
+                  {dueAt ? dueAt.toLocaleDateString('vi-VN') : 'Chọn ngày'}
                 </Text>
               </Pressable>
-              <Pressable style={styles.splitDatePickerBtn} onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}>
-                <MaterialCommunityIcons name="clock-outline" size={20} color={colors.text} />
-                <Text style={dueAt ? styles.dateText : styles.datePlaceholder}>
-                  {dueAt ? dueAt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : 'Chọn thời gian'}
+              <Pressable
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 8,
+                  backgroundColor: '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 10,
+                  height: 44,
+                  paddingHorizontal: 12,
+                }}
+                onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}
+              >
+                <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" />
+                <Text style={{ fontSize: 13, color: dueAt ? '#0F172A' : '#94A3B8', fontWeight: dueAt ? '600' : '400' }}>
+                  {dueAt ? dueAt.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : 'Chọn giờ'}
                 </Text>
               </Pressable>
             </View>
@@ -2696,6 +3489,24 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                 </Text>
               </View>
             ) : null}
+          </View>
+
+          {/* Scroll hint helper pill matching mockup */}
+          <View style={{
+            alignSelf: 'center',
+            backgroundColor: '#DCFCE7',
+            paddingHorizontal: 14,
+            paddingVertical: 6,
+            borderRadius: 20,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            marginTop: 6,
+          }}>
+            <MaterialCommunityIcons name="chevron-down" size={16} color="#166534" />
+            <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534' }}>
+              Cuộn để chọn người nhận
+            </Text>
           </View>
           
           <ActionDatePicker
@@ -2714,9 +3525,19 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
             onChange={(d) => setDueAt(d)}
             onClose={() => setShowDueDatePicker(false)}
           />
-        </SectionCard>
+        </View>
 
-        <SectionCard title="Đối tượng nhận việc & Phân công">
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 16,
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          padding: 16,
+        }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 14 }}>
+            Đối tượng nhận việc & Phân công
+          </Text>
+
           {parentGroupMembers && parentGroupMembers.length > 0 ? (
             <View>
               <View style={[styles.modeInfoCard, styles.modeInfoCardGroup, { marginBottom: spacing.md }]}>
@@ -2731,7 +3552,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                 </Text>
               </View>
 
-              <Text style={styles.fieldLabel}>Chọn thành viên thực hiện việc con:</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 8 }}>Chọn thành viên thực hiện việc con:</Text>
               <View style={{ gap: spacing.xs, marginTop: spacing.xs }}>
                 {parentGroupMembers.map((m) => {
                   const isSelected = selectedUserTargets.some((t: any) => t.targetId === m.id);
@@ -2786,7 +3607,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
           ) : (
             <>
               {!parentTaskId && (area as any) === 'admin' ? (
-                <View style={styles.modeSegmentContainer}>
+                <View style={[styles.modeSegmentContainer, { marginBottom: 14 }]}>
                   <Pressable
                     style={[styles.modeSegmentBtn, assigneeMode === 'DEPARTMENT' && styles.modeSegmentBtnActive]}
                     onPress={() => setAssigneeMode('DEPARTMENT')}
@@ -2834,7 +3655,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
               {/* Mode 1: Giao cho Phòng ban */}
               {assigneeMode === 'DEPARTMENT' ? (
                 <View>
-                  <View style={[styles.modeInfoCard, styles.modeInfoCardDept]}>
+                  <View style={[styles.modeInfoCard, styles.modeInfoCardDept, { marginBottom: 12 }]}>
                     <View style={styles.modeInfoTitleRow}>
                       <MaterialCommunityIcons name="domain" size={18} color="#2563EB" />
                       <Text style={[styles.modeInfoTitle, { color: '#1E40AF' }]}>Quy trình bàn giao Phòng ban</Text>
@@ -2844,7 +3665,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                     </Text>
                   </View>
 
-                  <Text style={styles.fieldLabel}>Phòng ban nhận việc</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 8 }}>Phòng ban nhận việc</Text>
                   <View style={styles.targetTagsWrap}>
                     {selectedDeptTargets.map((target: any) => (
                       <View key={target.targetId} style={[styles.targetTag, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
@@ -2874,65 +3695,120 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                 </View>
               ) : null}
 
-              {/* Mode 2: Giao cho Cá nhân */}
+              {/* Mode 2: Giao cho Cá nhân (Leader default) */}
               {assigneeMode === 'USER' ? (
                 <View>
-                  {!parentTaskId && (
-                    <View style={[styles.modeInfoCard, styles.modeInfoCardUser]}>
-                      <View style={styles.modeInfoTitleRow}>
-                        <MaterialCommunityIcons name="account-outline" size={18} color="#059669" />
-                        <Text style={[styles.modeInfoTitle, { color: '#065F46' }]}>Giao việc trực tiếp cho Cá nhân</Text>
-                      </View>
-                      <Text style={styles.modeInfoDesc}>
-                        Giao việc cho 1 nhân sự cụ thể. Người nhận sẽ trực tiếp cập nhật tiến độ, hoàn thành và nộp báo cáo.
+                  {/* Card option: Giao việc trực tiếp cho cá nhân */}
+                  <View style={{
+                    backgroundColor: '#F0FDF4',
+                    borderWidth: 1.5,
+                    borderColor: '#86EFAC',
+                    borderRadius: 12,
+                    padding: 12,
+                    marginBottom: 14,
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <MaterialCommunityIcons name="account-outline" size={18} color="#166534" />
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#166534' }}>
+                        Giao việc trực tiếp cho cá nhân
                       </Text>
                     </View>
-                  )}
+                    <Text style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 17 }}>
+                      Chọn 1 nhân sự. Người nhận cập nhật tiến độ và nộp kết quả.
+                    </Text>
+                  </View>
 
-                  <Text style={styles.fieldLabel}>Nhân sự nhận việc</Text>
-                  <View style={styles.targetTagsWrap}>
-                    {selectedUserTargets.slice(0, 1).map((target: any) => (
-                      <View key={target.targetId} style={styles.targetTag}>
-                        <MaterialCommunityIcons
-                          name={target.targetName?.includes('Admin') ? 'shield-account' : 'account'}
-                          size={16}
-                          color={colors.primaryDark}
-                        />
-                        <Text style={styles.targetTagText}>
-                          {target.targetName ?? `NV: ${target.targetId.substring(0, 6)}...`}
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 8 }}>Nhân sự nhận việc</Text>
+                  
+                  {selectedUserTargets.length > 0 ? (
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#F0FDF4',
+                      borderWidth: 1,
+                      borderColor: '#86EFAC',
+                      borderRadius: 12,
+                      padding: 12,
+                      gap: 10,
+                    }}>
+                      <View style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor: '#1B3B2B',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
+                          {getInitials(selectedUserTargets[0]?.targetName)}
                         </Text>
-                        <Pressable onPress={() => removeTarget(target)}>
-                          <MaterialCommunityIcons name="close-circle" size={16} color={colors.muted} />
-                        </Pressable>
                       </View>
-                    ))}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                          {selectedUserTargets[0]?.targetName}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#64748B', marginTop: 1 }}>
+                          Nhân sự nhận nhiệm vụ
+                        </Text>
+                      </View>
+                      <Pressable
+                        style={{
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          backgroundColor: '#FFFFFF',
+                          borderWidth: 1,
+                          borderColor: '#E2E8F0',
+                          borderRadius: 8,
+                        }}
+                        onPress={() => {
+                          setTargetModalFilter('USER');
+                          setTargetModalVisible(true);
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#334155' }}>Đổi</Text>
+                      </Pressable>
+                      <Pressable onPress={() => { if (selectedUserTargets[0]) removeTarget(selectedUserTargets[0]); }} style={{ padding: 4 }}>
+                        <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+                      </Pressable>
+                    </View>
+                  ) : (
                     <Pressable
-                      style={styles.addTargetBtn}
+                      style={{
+                        borderWidth: 1.5,
+                        borderColor: '#94A3B8',
+                        borderStyle: 'dashed',
+                        borderRadius: 12,
+                        paddingVertical: 14,
+                        backgroundColor: '#FAFAFA',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                      }}
                       onPress={() => {
                         setTargetModalFilter('USER');
                         setTargetModalVisible(true);
                       }}
                     >
-                      <MaterialCommunityIcons
-                        name={selectedUserTargets.length > 0 ? 'account-switch' : 'account-plus'}
-                        size={20}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.addTargetBtnText}>
-                        {selectedUserTargets.length > 0 ? 'Đổi người nhận' : 'Chọn người nhận việc'}
+                      <MaterialCommunityIcons name="account-plus-outline" size={20} color="#0F172A" />
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                        Chọn người nhận việc
                       </Text>
                     </Pressable>
-                  </View>
-                  {!selectedUserTargets.length && (
-                    <Text style={styles.meta}>Vui lòng chọn 1 nhân sự nhận nhiệm vụ.</Text>
                   )}
+
+                  {!selectedUserTargets.length ? (
+                    <Text style={{ fontSize: 12, color: '#64748B', marginTop: 6 }}>
+                      Vui lòng chọn 1 nhân sự nhận nhiệm vụ.
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
 
               {/* Mode 3: Nhóm đặc nhiệm */}
               {assigneeMode === 'GROUP' ? (
                 <View>
-                  <View style={[styles.modeInfoCard, styles.modeInfoCardGroup]}>
+                  <View style={[styles.modeInfoCard, styles.modeInfoCardGroup, { marginBottom: 12 }]}>
                     <View style={styles.modeInfoTitleRow}>
                       <MaterialCommunityIcons name="account-group" size={18} color="#7C3AED" />
                       <Text style={[styles.modeInfoTitle, { color: '#5B21B6' }]}>Nhóm liên phòng ban / Đặc nhiệm</Text>
@@ -2942,7 +3818,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                     </Text>
                   </View>
 
-                  <Text style={styles.fieldLabel}>Thành viên nhóm ({memberIds.length})</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 8 }}>Thành viên nhóm ({memberIds.length})</Text>
                   <View style={styles.targetTagsWrap}>
                     {selectedMembers.map(m => (
                       <View key={m.id} style={[styles.targetTag, leaderId === m.id && styles.groupLeaderTag]}>
@@ -2970,7 +3846,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
 
                   {memberIds.length > 0 ? (
                     <View style={{ marginTop: spacing.md }}>
-                      <Text style={styles.fieldLabel}>Chỉ định Trưởng nhóm (Leader nộp báo cáo)</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginBottom: 6 }}>Chỉ định Trưởng nhóm (Leader nộp báo cáo)</Text>
                       <View style={styles.targetTagsWrap}>
                         {selectedMembers.map(m => {
                           const isLeader = leaderId === m.id;
@@ -2997,27 +3873,46 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                   ) : (
                     <Text style={styles.meta}>Chưa có thành viên nào trong nhóm.</Text>
                   )}
-
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.md, backgroundColor: '#F3E8FF', padding: spacing.sm, borderRadius: 8 }}>
-                    <MaterialCommunityIcons name="forum-outline" size={20} color="#7C3AED" />
-                    <Text style={{ flex: 1, fontSize: 12, color: '#6B21A8' }}>
-                      Nhóm chat nội bộ sẽ tự động được khởi tạo cho tất cả thành viên khi giao việc.
-                    </Text>
-                  </View>
                 </View>
               ) : null}
             </>
           )}
-        </SectionCard>
+        </View>
+      </ScrollView>
 
-        <PrimaryButton 
-          loading={mutation.isPending} 
-          disabled={isSubmitDisabled()} 
+      {/* Sticky Bottom Action */}
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#FFFFFF',
+        borderTopWidth: 1,
+        borderTopColor: '#E2E8F0',
+        paddingHorizontal: 16,
+        paddingTop: 10,
+        paddingBottom: Math.max(insets.bottom, 12),
+      }}>
+        <Pressable
+          style={{
+            height: 48,
+            borderRadius: 12,
+            backgroundColor: isSubmitDisabled() ? '#94A3B8' : '#1B3B2B',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          disabled={isSubmitDisabled() || mutation.isPending}
           onPress={() => void submit()}
         >
-          {parentTaskId ? 'Tạo việc con' : 'Giao việc ngay'}
-        </PrimaryButton>
-      </ScrollView>
+          {mutation.isPending ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFFFFF' }}>
+              {parentTaskId ? 'Tạo việc con' : 'Giao việc ngay'}
+            </Text>
+          )}
+        </Pressable>
+      </View>
       
       <AssigneeSelectorModal
         area={area}
@@ -3038,7 +3933,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         onClose={() => setMemberModalVisible(false)}
         isLoading={usersQuery.isLoading}
       />
-    </Screen>
+    </View>
   );
 }
 

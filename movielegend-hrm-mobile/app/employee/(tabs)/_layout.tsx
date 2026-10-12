@@ -55,7 +55,7 @@ export default function EmployeeLayout() {
           title: 'Công việc',
           tabBarBadge: uncompletedTasksCount > 0 ? (uncompletedTasksCount > 99 ? '99+' : uncompletedTasksCount) : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "clipboard-text" : "clipboard-text-outline"} size={24} color={color} />
+            <MaterialCommunityIcons name={focused ? "clipboard-check" : "clipboard-check-outline"} size={24} color={color} />
           ),
         }}
       />

@@ -12,7 +12,8 @@ import {
   KeyboardAvoidingView,
   Platform} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../providers/AuthProvider';
 import {
@@ -24,11 +25,20 @@ import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
 import { CustomAlert } from '../../components/CustomAlert';
 
 export const EmployeeLevelProjectScreen: React.FC = () => {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const safeTopInset = Math.max(insets.top, Platform.OS === 'ios' ? 47 : (StatusBar.currentHeight || 24));
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8);
   const { user } = useAuth();
   const empDeptId = (user as any)?.departmentId || user?.department?.id;
   const empDeptName = user?.department?.name || (user as any)?.departmentName;
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/employee');
+    }
+  };
 
   const { getAssignedSubTasksForUser, submitSubTask } = useLevelProjects(empDeptId, empDeptName);
 
@@ -177,15 +187,23 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#123826" />
       <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
-        <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-
         {/* Top Header */}
         <View style={styles.topHeader}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerSubtitle}>QUẢN LÝ TIẾN ĐỘ THĂNG HẠNG</Text>
-            <Text style={styles.headerTitle}>Nhiệm Vụ Cấp Bậc</Text>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={handleBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>Nhiệm vụ cấp bậc</Text>
+            <Text style={styles.headerSubtitle}>Quản lý tiến độ thăng hạng</Text>
           </View>
+          <View style={{ width: 32 }} />
         </View>
       </View>
 
@@ -213,7 +231,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                   <Ionicons
                     name={areAllCollapsed ? 'chevron-down-circle-outline' : 'chevron-up-circle-outline'}
                     size={14}
-                    color="#2563EB"
+                    color="#123826"
                   />
                   <Text style={styles.toggleAllBtnText}>
                     {areAllCollapsed ? 'Mở tất cả' : 'Thu gọn'}
@@ -230,17 +248,17 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
             {/* 3 Metric Pills */}
             <View style={styles.summaryPillRow}>
               <View style={[styles.summaryPill, styles.pillPending]}>
-                <Ionicons name="create-outline" size={13} color="#DC2626" />
+                <MaterialCommunityIcons name="note-edit-outline" size={14} color="#EF4444" />
                 <Text style={styles.pillPendingText}>Chưa nộp: {pendingActionTasks}</Text>
               </View>
 
               <View style={[styles.summaryPill, styles.pillWaiting]}>
-                <Ionicons name="time-outline" size={13} color="#D97706" />
+                <Ionicons name="time-outline" size={13} color="#F59E0B" />
                 <Text style={styles.pillWaitingText}>Chờ duyệt: {submittedWaitingTasks}</Text>
               </View>
 
               <View style={[styles.summaryPill, styles.pillDone]}>
-                <Ionicons name="checkmark-circle-outline" size={13} color="#059669" />
+                <Ionicons name="checkmark-circle-outline" size={13} color="#10B981" />
                 <Text style={styles.pillDoneText}>Đã duyệt: {approvedTasks}</Text>
               </View>
             </View>
@@ -248,14 +266,23 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
 
           {/* SECTION TITLE */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeaderTitle}>Dự Án Cấp Bậc & Đầu Việc ({involvedProjects.length})</Text>
-            <Text style={styles.sectionHeaderHelp}>Chạm để đóng/mở danh sách việc</Text>
+            <View style={styles.sectionHeaderTitleCol}>
+              <View style={styles.sectionHeaderTitleRow}>
+                <Text style={styles.sectionHeaderTitle}>Dự án cấp bậc & đầu việc</Text>
+                <View style={styles.sectionHeaderPill}>
+                  <Text style={styles.sectionHeaderPillText}>{totalTasks}</Text>
+                </View>
+              </View>
+              <Text style={styles.sectionHeaderHelp}>Chạm để đóng/mở danh sách việc</Text>
+            </View>
           </View>
 
           {/* PROJECT LIST ACCORDION */}
           {involvedProjects.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Ionicons name="folder-open-outline" size={36} color="#94A3B8" />
+              <View style={styles.emptyIconCircle}>
+                <MaterialCommunityIcons name="folder-outline" size={44} color="#123826" />
+              </View>
               <Text style={styles.emptyTitle}>Chưa có dự án hoặc đầu việc được giao</Text>
               <Text style={styles.emptySub}>
                 Khi Leader phân công việc con cấp bậc cho bạn, danh sách dự án và đầu việc sẽ tự động xuất hiện tại đây.
@@ -584,9 +611,8 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
       {/* FULL PAGE DETAIL & SUBMISSION MODAL */}
       <Modal visible={activeItem !== null} animationType="slide" transparent={false}>
         <View style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor="#123826" />
           <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
-            <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
-
             {/* Top Page Header */}
             <View style={styles.fullPageHeader}>
               <View style={{ flex: 1 }}>
@@ -819,45 +845,61 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#123826',
   },
   topSafeArea: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#123826',
   },
   bodyWrapper: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FAFAFA',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -8,
+    overflow: 'hidden',
   },
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#0F172A',
+    paddingBottom: 16,
+    backgroundColor: '#123826',
   },
-  headerSubtitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 0.8,
-    marginBottom: 2,
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginLeft: -4,
+  },
+  headerTitleWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#A7D8BE',
+    marginTop: 2,
+    fontWeight: '500',
   },
   scroll: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 16,
   },
   summaryCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 14,
+    borderColor: '#E4E4E7',
+    padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -869,51 +911,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   summaryLabel: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 12.5,
+    color: '#71717A',
     fontWeight: '600',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   summaryNumber: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#18181B',
   },
   summaryNumberSub: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#059669',
+    color: '#10B981',
   },
   toggleAllBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: '#C8E6C9',
   },
   toggleAllBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#123826',
   },
   progressTrack: {
-    height: 7,
+    height: 6,
     backgroundColor: '#F1F5F9',
-    borderRadius: 4,
+    borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: 14,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#2563EB',
-    borderRadius: 4,
+    backgroundColor: '#10B981',
+    borderRadius: 3,
   },
   summaryPillRow: {
     flexDirection: 'row',
@@ -923,56 +965,72 @@ const styles = StyleSheet.create({
   summaryPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5.5,
+    borderRadius: 8,
     borderWidth: 1,
   },
   pillPending: {
     backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    borderColor: '#FEE2E2',
   },
   pillPendingText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#DC2626',
+    color: '#EF4444',
   },
   pillWaiting: {
     backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
+    borderColor: '#FEF3C7',
   },
   pillWaitingText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#B45309',
+    color: '#F59E0B',
   },
   pillDone: {
     backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    borderColor: '#D1FAE5',
   },
   pillDoneText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#059669',
+    color: '#10B981',
   },
   sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
     paddingHorizontal: 2,
   },
+  sectionHeaderTitleCol: {
+    gap: 3,
+  },
+  sectionHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sectionHeaderTitle: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#334155',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    color: '#18181B',
+    letterSpacing: -0.2,
+  },
+  sectionHeaderPill: {
+    backgroundColor: '#F4F4F5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  sectionHeaderPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#71717A',
   },
   sectionHeaderHelp: {
-    fontSize: 11,
-    color: '#94A3B8',
+    fontSize: 12,
+    color: '#71717A',
+    fontWeight: '500',
   },
   projectCard: {
     backgroundColor: '#FFFFFF',
@@ -1414,39 +1472,54 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   emptyCard: {
-    padding: 36,
+    paddingVertical: 56,
+    paddingHorizontal: 24,
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginTop: 12,
+    borderColor: '#E4E4E7',
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  emptyIconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
   emptyTitle: {
-    fontSize: 14,
+    fontSize: 16.5,
     fontWeight: '800',
-    color: '#334155',
-    marginTop: 10,
-    marginBottom: 4,
+    color: '#18181B',
+    marginBottom: 8,
     textAlign: 'center',
   },
   emptySub: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 13,
+    color: '#71717A',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
+    maxWidth: 320,
   },
   fullPageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#123826',
   },
   fullPageLevelTag: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#A7D8BE',
     marginBottom: 2,
   },
   fullPageTitle: {

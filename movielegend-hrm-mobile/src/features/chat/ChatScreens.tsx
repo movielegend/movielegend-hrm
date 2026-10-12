@@ -3,6 +3,7 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppAlert } from '../../contexts/AlertContext';
 import { useActiveChat } from '../../contexts/ActiveChatContext';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -223,6 +224,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
   const router = useRouter();
   const { user } = useAuth();
   const { showAlert } = useAppAlert();
+  const tabBarScroll = useTabBarScroll();
   const queryClient = useQueryClient();
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
@@ -493,6 +495,8 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
             adminChatStyles.sheetScrollContent,
             { paddingBottom: Math.max(insets.bottom, 16) + 84 },
           ]}
+          onScroll={tabBarScroll.onScroll}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={groups.isRefetching} onRefresh={() => void groups.refetch()} />}
         >

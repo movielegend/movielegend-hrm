@@ -34,7 +34,7 @@ const editSchema = z.object({
   email: z.string().email('Email chưa hợp lệ').optional().or(z.literal('')),
   departmentId: z.string().optional().or(z.literal('')),
   joinDate: z.string().optional().or(z.literal('')),
-  accountStatus: z.enum(['ACTIVE', 'SUSPENDED']).default('ACTIVE'),
+  accountStatus: z.enum(['ACTIVE', 'SUSPENDED']),
 });
 
 type EditFormValues = z.infer<typeof editSchema>;
@@ -80,6 +80,20 @@ export function EmployeeDetailScreen() {
   const [isEditing, setIsEditing] = useState(edit === '1');
   const [deptModalVisible, setDeptModalVisible] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const currentUserRoles = useMemo(() => {
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    return roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || r?.role?.code || '').toUpperCase());
+  }, [user?.roles]);
+
+  const isCurrentUserAdmin = useMemo(() => {
+    return currentUserRoles.includes('ADMIN') || currentUserRoles.includes('SUPER_ADMIN');
+  }, [currentUserRoles]);
+
+  const isCurrentUserManager = useMemo(() => {
+    return isCurrentUserAdmin || currentUserRoles.includes('HR') || currentUserRoles.includes('HUMAN_RESOURCE');
+  }, [currentUserRoles, isCurrentUserAdmin]);
 
   const emp = employeeQuery.data;
 
@@ -192,9 +206,13 @@ export function EmployeeDetailScreen() {
             <Ionicons name="chevron-back" size={24} color="#0F172A" />
           </Pressable>
           <Text style={styles.title}>Hồ sơ nhân viên</Text>
-          <Pressable onPress={() => setIsEditing(true)} hitSlop={8}>
-            <Ionicons name="ellipsis-horizontal" size={22} color="#0F172A" />
-          </Pressable>
+          {isCurrentUserManager ? (
+            <Pressable onPress={() => setIsEditing(true)} hitSlop={8}>
+              <Ionicons name="ellipsis-horizontal" size={22} color="#0F172A" />
+            </Pressable>
+          ) : (
+            <View style={{ width: 24 }} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -328,24 +346,28 @@ export function EmployeeDetailScreen() {
             </View>
           </View>
 
-          {/* Nút Xóa nhân sự text link */}
-          <Pressable onPress={handleDelete} style={styles.deleteLinkRow} hitSlop={8}>
-            <Ionicons name="trash-outline" size={16} color="#DC2626" />
-            <Text style={styles.deleteLinkText}>Xóa nhân sự</Text>
-          </Pressable>
+          {/* Nút Xóa nhân sự text link - chỉ Admin */}
+          {isCurrentUserAdmin && (
+            <Pressable onPress={handleDelete} style={styles.deleteLinkRow} hitSlop={8}>
+              <Ionicons name="trash-outline" size={16} color="#DC2626" />
+              <Text style={styles.deleteLinkText}>Xóa nhân sự</Text>
+            </Pressable>
+          )}
         </ScrollView>
 
-        {/* BOTTOM STICKY BUTTON: [ Chỉnh sửa hồ sơ ] */}
-        <View style={styles.bottomBar}>
-          <Pressable
-            onPress={() => setIsEditing(true)}
-            style={styles.ctaPrimaryBtn}
-            android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-          >
-            <Ionicons name="pencil-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.ctaPrimaryBtnText}>Chỉnh sửa hồ sơ</Text>
-          </Pressable>
-        </View>
+        {/* BOTTOM STICKY BUTTON: [ Chỉnh sửa hồ sơ ] - chỉ Quản trị viên và HR */}
+        {isCurrentUserManager && (
+          <View style={styles.bottomBar}>
+            <Pressable
+              onPress={() => setIsEditing(true)}
+              style={styles.ctaPrimaryBtn}
+              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+            >
+              <Ionicons name="pencil-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.ctaPrimaryBtnText}>Chỉnh sửa hồ sơ</Text>
+            </Pressable>
+          </View>
+        )}
       </SafeAreaView>
     );
   }

@@ -243,6 +243,7 @@ function getWorkDateDisplay(workDate: string | Date) {
 
 export function EmployeeScheduleScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const schedule = useMySchedule();
   const { showAlert } = useAppAlert();
@@ -281,162 +282,247 @@ export function EmployeeScheduleScreen() {
 
   const displayList = activeTab === 'upcoming' ? upcomingShifts : pastShifts;
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(getHomeRouteForUser(user) as any);
+    }
+  };
+
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8);
+
   return (
-    <Screen>
-      <ScrollView 
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={schedule.isRefetching} onRefresh={() => void schedule.refetch()} />}
-      >
-        <PageHeader 
-          title="Lịch làm việc cá nhân" 
-          subtitle={`Hôm nay: ${todayDisplay}`} 
-        />
-        
-        <SectionCard title="Ca làm việc hôm nay">
-          {todayShift?.shift ? (
-            <Pressable 
-              style={styles.todayShiftCard}
-              onPress={() => router.push(attendanceRoute as any)}
+    <View style={employeeScheduleStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#123826" translucent={Platform.OS === 'android'} />
+
+      {/* Top Header */}
+      <View style={[employeeScheduleStyles.headerBanner, { paddingTop: safeTopInset }]}>
+        <View style={employeeScheduleStyles.headerTopRow}>
+          <Pressable onPress={handleBack} style={employeeScheduleStyles.backBtn} hitSlop={12} accessibilityLabel="Quay lại">
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <View style={employeeScheduleStyles.headerTitleWrap}>
+            <Text style={employeeScheduleStyles.headerTitle}>Lịch làm việc cá nhân</Text>
+            <Text style={employeeScheduleStyles.headerSubtitle}>{`Hôm nay · ${todayDisplay}`}</Text>
+          </View>
+          <View style={employeeScheduleStyles.headerRightPlaceholder} />
+        </View>
+      </View>
+
+      {/* Body container with rounded top corners */}
+      <View style={employeeScheduleStyles.bodyContainer}>
+        <ScrollView 
+          contentContainerStyle={employeeScheduleStyles.scrollContent}
+          refreshControl={<RefreshControl refreshing={schedule.isRefetching} onRefresh={() => void schedule.refetch()} colors={['#123826']} />}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Card 1: Ca làm việc hôm nay */}
+          <View style={employeeScheduleStyles.card}>
+            <View style={employeeScheduleStyles.cardHeaderRow}>
+              <Text style={employeeScheduleStyles.cardTitle}>Ca làm việc hôm nay</Text>
+              <View style={employeeScheduleStyles.countBadge}>
+                <Text style={employeeScheduleStyles.countBadgeText}>{todayShift ? '1 ca' : '0 ca'}</Text>
+              </View>
+            </View>
+
+            {todayShift?.shift ? (
+              <Pressable 
+                style={employeeScheduleStyles.todayShiftCard}
+                onPress={() => router.push(attendanceRoute as any)}
+              >
+                <View style={employeeScheduleStyles.todayShiftIconBox}>
+                  <MaterialCommunityIcons name="briefcase-clock-outline" size={26} color="#123826" />
+                </View>
+                <View style={employeeScheduleStyles.todayShiftInfo}>
+                  <Text style={employeeScheduleStyles.todayShiftName}>{todayShift.shift.name}</Text>
+                  <View style={employeeScheduleStyles.todayShiftTimeRow}>
+                    <MaterialCommunityIcons name="clock-outline" size={15} color="#71717A" />
+                    <Text style={employeeScheduleStyles.todayShiftTimeText}>
+                      {formatDate(todayShift.workDate)} • {formatShiftRange(todayShift.shift.startTime, todayShift.shift.endTime)}
+                    </Text>
+                  </View>
+                  <View style={{ alignSelf: 'flex-start', marginTop: 6 }}>
+                    <StatusBadge label={todayShift.shift.isNightShift ? 'Ca đêm' : 'Ca ngày'} tone={todayShift.shift.isNightShift ? 'warning' : 'success'} />
+                  </View>
+                </View>
+                <View style={employeeScheduleStyles.todayAttendanceBtn}>
+                  <MaterialCommunityIcons name="fingerprint" size={22} color="#123826" />
+                  <Text style={employeeScheduleStyles.todayAttendanceBtnText}>
+                    {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
+                  </Text>
+                </View>
+              </Pressable>
+            ) : (
+              <View style={employeeScheduleStyles.emptyBlock}>
+                <View style={employeeScheduleStyles.emptyIconCircle}>
+                  <Ionicons name="calendar-outline" size={36} color="#123826" />
+                </View>
+                <Text style={employeeScheduleStyles.emptyTitle}>Không có lịch làm việc</Text>
+                <Text style={employeeScheduleStyles.emptySubtitle}>Hôm nay bạn chưa được xếp ca làm việc.</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Card 2: Tiện ích ca làm việc */}
+          <View style={employeeScheduleStyles.card}>
+            <Text style={employeeScheduleStyles.cardTitle}>Tiện ích ca làm việc</Text>
+            <View style={employeeScheduleStyles.utilitiesGrid}>
+              <Pressable 
+                style={employeeScheduleStyles.utilityBtn} 
+                onPress={() => showAlert('Thông báo', 'Tính năng Đăng ký ca làm việc đang được nâng cấp.')}
+              >
+                <View style={[employeeScheduleStyles.utilityIconBox, { backgroundColor: '#E8F8F0' }]}>
+                  <MaterialCommunityIcons name="calendar-plus" size={24} color="#10B981" />
+                </View>
+                <Text style={employeeScheduleStyles.utilityText}>Đăng ký ca</Text>
+              </Pressable>
+
+              <Pressable 
+                style={employeeScheduleStyles.utilityBtn} 
+                onPress={() => {
+                  if (rolePrefix === '/leader') {
+                    showAlert('Thông báo', 'Chức năng đang được phát triển');
+                  } else {
+                    router.push(`${rolePrefix}/shift-swaps/create` as any);
+                  }
+                }}
+              >
+                <View style={[employeeScheduleStyles.utilityIconBox, { backgroundColor: '#FFF7ED' }]}>
+                  <MaterialCommunityIcons name="calendar-sync" size={24} color="#F59E0B" />
+                </View>
+                <Text style={employeeScheduleStyles.utilityText}>Đổi ca</Text>
+              </Pressable>
+
+              <Pressable 
+                style={employeeScheduleStyles.utilityBtn} 
+                onPress={() => router.push(attendanceRoute as any)}
+              >
+                <View style={[employeeScheduleStyles.utilityIconBox, { backgroundColor: '#E6F4EA' }]}>
+                  <Ionicons name="finger-print" size={26} color="#10B981" />
+                </View>
+                <Text style={employeeScheduleStyles.utilityText}>Chấm công</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Tab Segment Selector */}
+          <View style={employeeScheduleStyles.segmentContainer}>
+            <Pressable
+              style={[employeeScheduleStyles.segmentBtn, activeTab === 'upcoming' && employeeScheduleStyles.segmentBtnActive]}
+              onPress={() => setActiveTab('upcoming')}
             >
-              <View style={styles.shiftIconBox}>
-                <MaterialCommunityIcons name="briefcase-clock-outline" size={28} color={colors.primary} />
-              </View>
-              <View style={styles.grow}>
-                <Text style={styles.shiftTitleText}>{todayShift.shift.name}</Text>
-                <View style={styles.timeRow}>
-                  <MaterialCommunityIcons name="clock-outline" size={16} color={colors.muted} />
-                  <Text style={styles.timeText}>{formatDate(todayShift.workDate)} • {formatShiftRange(todayShift.shift.startTime, todayShift.shift.endTime)}</Text>
-                </View>
-                <View style={{ alignSelf: 'flex-start', marginTop: 8 }}>
-                  <StatusBadge label={todayShift.shift.isNightShift ? 'Ca đêm' : 'Ca ngày'} tone={todayShift.shift.isNightShift ? 'warning' : 'success'} />
-                </View>
-              </View>
-              <View style={styles.attendanceActionBox}>
-                <MaterialCommunityIcons name="fingerprint" size={24} color={colors.primary} />
-                <Text style={styles.attendanceActionText}>
-                  {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
-                </Text>
-              </View>
-            </Pressable>
-          ) : (
-            <EmptyState 
-              title="Không có lịch làm việc" 
-              message="Hôm nay bạn không có ca làm việc nào được xếp." 
-              icon="calendar-blank-outline"
-            />
-          )}
-        </SectionCard>
-        
-        <SectionCard title="Tiện ích ca làm việc">
-          <View style={styles.utilitiesGrid}>
-            <Pressable style={styles.utilityBtn} onPress={() => showAlert('Thông báo', 'Tính năng Đăng ký ca làm việc đang được nâng cấp.')}>
-              <View style={[styles.utilityIconBox, { backgroundColor: '#ECFDF5' }]}>
-                <MaterialCommunityIcons name="calendar-plus" size={24} color="#10B981" />
-              </View>
-              <Text style={styles.utilityText}>Đăng ký ca</Text>
-            </Pressable>
-            
-            <Pressable style={styles.utilityBtn} onPress={() => {
-              if (rolePrefix === '/leader') {
-                showAlert('Thông báo', 'Chức năng đang được phát triển');
-              } else {
-                router.push(`${rolePrefix}/shift-swaps/create` as any);
-              }
-            }}>
-              <View style={[styles.utilityIconBox, { backgroundColor: '#FFFBEB' }]}>
-                <MaterialCommunityIcons name="calendar-sync" size={24} color="#F59E0B" />
-              </View>
-              <Text style={styles.utilityText}>Đổi ca</Text>
+              <Ionicons
+                name="calendar-outline"
+                size={16}
+                color={activeTab === 'upcoming' ? '#FFFFFF' : '#475569'}
+              />
+              <Text style={[employeeScheduleStyles.segmentText, activeTab === 'upcoming' && employeeScheduleStyles.segmentTextActive]}>
+                Ca sắp tới ({upcomingShifts.length})
+              </Text>
             </Pressable>
 
-            <Pressable style={styles.utilityBtn} onPress={() => router.push(attendanceRoute as any)}>
-              <View style={[styles.utilityIconBox, { backgroundColor: '#EFF6FF' }]}>
-                <MaterialCommunityIcons name="fingerprint" size={24} color="#3B82F6" />
-              </View>
-              <Text style={styles.utilityText}>
-                {currentAttendance?.state === 'CHECKED_IN' ? 'Ra ca' : 'Chấm công'}
+            <Pressable
+              style={[employeeScheduleStyles.segmentBtn, activeTab === 'past' && employeeScheduleStyles.segmentBtnActive]}
+              onPress={() => setActiveTab('past')}
+            >
+              <Ionicons
+                name="time-outline"
+                size={16}
+                color={activeTab === 'past' ? '#FFFFFF' : '#475569'}
+              />
+              <Text style={[employeeScheduleStyles.segmentText, activeTab === 'past' && employeeScheduleStyles.segmentTextActive]}>
+                Lịch sử ca ({pastShifts.length})
               </Text>
             </Pressable>
           </View>
-        </SectionCard>
 
-        {/* Tab Segment Selector */}
-        <View style={styles.scheduleTabRow}>
-          <Pressable
-            style={[styles.scheduleTabBtn, activeTab === 'upcoming' && styles.scheduleTabBtnActive]}
-            onPress={() => setActiveTab('upcoming')}
-          >
-            <MaterialCommunityIcons
-              name="calendar-clock"
-              size={18}
-              color={activeTab === 'upcoming' ? '#FFFFFF' : '#64748B'}
-            />
-            <Text style={[styles.scheduleTabBtnText, activeTab === 'upcoming' && styles.scheduleTabBtnTextActive]}>
-              Ca sắp tới ({upcomingShifts.length})
-            </Text>
-          </Pressable>
+          {/* Card 3: Danh sách ca */}
+          <View style={employeeScheduleStyles.card}>
+            <View style={employeeScheduleStyles.cardHeaderRow}>
+              <Text style={employeeScheduleStyles.cardTitle}>
+                {activeTab === 'upcoming' ? 'Danh sách ca sắp tới' : 'Lịch sử ca làm việc'}
+              </Text>
+              <View style={employeeScheduleStyles.countBadge}>
+                <Text style={employeeScheduleStyles.countBadgeText}>{displayList.length}</Text>
+              </View>
+            </View>
 
-          <Pressable
-            style={[styles.scheduleTabBtn, activeTab === 'past' && styles.scheduleTabBtnActive]}
-            onPress={() => setActiveTab('past')}
-          >
-            <MaterialCommunityIcons
-              name="history"
-              size={18}
-              color={activeTab === 'past' ? '#FFFFFF' : '#64748B'}
-            />
-            <Text style={[styles.scheduleTabBtnText, activeTab === 'past' && styles.scheduleTabBtnTextActive]}>
-              Lịch sử ca ({pastShifts.length})
-            </Text>
-          </Pressable>
-        </View>
-
-        <SectionCard title={activeTab === 'upcoming' ? `Danh sách ca sắp tới (${upcomingShifts.length})` : `Lịch sử ca làm việc (${pastShifts.length})`}>
-          {displayList.length ? displayList.map((assignment) => {
-            const dateInfo = getWorkDateDisplay(assignment.workDate);
-            return (
-              <View key={assignment.id} style={styles.upcomingShiftRow}>
-                <View style={[styles.dateBox, activeTab === 'past' && styles.dateBoxPast]}>
-                  <Text style={[styles.dateDayText, activeTab === 'past' && styles.dateDayTextPast]}>{dateInfo.day}</Text>
-                  <Text style={[styles.dateMonthText, activeTab === 'past' && styles.dateMonthTextPast]}>{dateInfo.month}</Text>
-                </View>
-                <View style={styles.upcomingShiftInfo}>
-                  <Text style={styles.upcomingShiftTitle}>{assignment.shift?.name ?? assignment.shiftId}</Text>
-                  <View style={styles.timeRow}>
-                    <MaterialCommunityIcons name="timer-outline" size={14} color={colors.muted} />
-                    <Text style={styles.timeText}>{formatShiftRange(assignment.shift?.startTime, assignment.shift?.endTime)}</Text>
+            {displayList.length > 0 ? (
+              displayList.map((assignment, index) => {
+                const dateInfo = getWorkDateDisplay(assignment.workDate);
+                const isLast = index === displayList.length - 1;
+                return (
+                  <View 
+                    key={assignment.id} 
+                    style={[
+                      employeeScheduleStyles.shiftRow,
+                      isLast && { borderBottomWidth: 0, paddingBottom: 0 }
+                    ]}
+                  >
+                    <View style={[employeeScheduleStyles.dateBox, activeTab === 'past' && employeeScheduleStyles.dateBoxPast]}>
+                      <Text style={[employeeScheduleStyles.dateDayText, activeTab === 'past' && employeeScheduleStyles.dateDayTextPast]}>
+                        {dateInfo.day}
+                      </Text>
+                      <Text style={[employeeScheduleStyles.dateMonthText, activeTab === 'past' && employeeScheduleStyles.dateMonthTextPast]}>
+                        {dateInfo.month}
+                      </Text>
+                    </View>
+                    <View style={employeeScheduleStyles.shiftInfo}>
+                      <Text style={employeeScheduleStyles.shiftName}>
+                        {assignment.shift?.name ?? assignment.shiftId}
+                      </Text>
+                      <View style={employeeScheduleStyles.shiftTimeRow}>
+                        <MaterialCommunityIcons name="timer-outline" size={14} color="#71717A" />
+                        <Text style={employeeScheduleStyles.shiftTimeText}>
+                          {formatShiftRange(assignment.shift?.startTime, assignment.shift?.endTime)}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={employeeScheduleStyles.shiftBadgeBox}>
+                      <StatusBadge 
+                        label={
+                          (assignment.status as string) === 'ASSIGNED' || (assignment.status as string) === 'ACTIVE' 
+                            ? (activeTab === 'past' ? 'Đã diễn ra' : 'Đã phân ca') 
+                            : (assignment.status as string) === 'CANCELLED' 
+                            ? 'Đã hủy' 
+                            : (assignment.status as string)
+                        } 
+                        tone={
+                          (assignment.status as string) === 'ASSIGNED' || (assignment.status as string) === 'ACTIVE' 
+                            ? (activeTab === 'past' ? 'neutral' : 'info') 
+                            : (assignment.status as string) === 'CANCELLED' 
+                            ? 'danger' 
+                            : 'neutral'
+                        } 
+                      />
+                    </View>
                   </View>
-                </View>
-                <View style={styles.statusBox}>
-                  <StatusBadge 
-                    label={
-                      (assignment.status as string) === 'ASSIGNED' || (assignment.status as string) === 'ACTIVE' 
-                        ? (activeTab === 'past' ? 'Đã diễn ra' : 'Đã phân ca') 
-                        : (assignment.status as string) === 'CANCELLED' 
-                        ? 'Đã hủy' 
-                        : (assignment.status as string)
-                    } 
-                    tone={
-                      (assignment.status as string) === 'ASSIGNED' || (assignment.status as string) === 'ACTIVE' 
-                        ? (activeTab === 'past' ? 'neutral' : 'info') 
-                        : (assignment.status as string) === 'CANCELLED' 
-                        ? 'danger' 
-                        : 'neutral'
-                    } 
+                );
+              })
+            ) : (
+              <View style={employeeScheduleStyles.emptyBlock}>
+                <View style={employeeScheduleStyles.emptyIconCircle}>
+                  <MaterialCommunityIcons
+                    name={activeTab === 'upcoming' ? 'calendar-check-outline' : 'history'}
+                    size={38}
+                    color="#123826"
                   />
                 </View>
+                <Text style={employeeScheduleStyles.emptyTitle}>
+                  {activeTab === 'upcoming' ? 'Chưa có ca sắp tới' : 'Chưa có lịch sử ca'}
+                </Text>
+                <Text style={employeeScheduleStyles.emptySubtitle}>
+                  {activeTab === 'upcoming'
+                    ? 'Các ca được phân công trong thời gian tới sẽ hiển thị tại đây.'
+                    : 'Bạn chưa có ca làm việc nào trong quá khứ.'}
+                </Text>
               </View>
-            );
-          }) : (
-            <EmptyState 
-              title={activeTab === 'upcoming' ? 'Chưa có ca sắp tới' : 'Chưa có lịch sử ca'} 
-              message={activeTab === 'upcoming' ? 'Bạn hiện chưa có ca làm việc nào được phân trong thời gian tới.' : 'Bạn chưa có ca làm việc nào trong quá khứ.'} 
-              icon={activeTab === 'upcoming' ? 'calendar-check-outline' : 'history'}
-            />
-          )}
-        </SectionCard>
-      </ScrollView>
-    </Screen>
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
@@ -2008,3 +2094,291 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
+const employeeScheduleStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#123826',
+  },
+  headerBanner: {
+    backgroundColor: '#123826',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    marginLeft: -4,
+  },
+  headerTitleWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#A7D8BE',
+    marginTop: 2,
+  },
+  headerRightPlaceholder: {
+    width: 32,
+  },
+  bodyContainer: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -8,
+    overflow: 'hidden',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    padding: 16,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+  },
+  countBadge: {
+    backgroundColor: '#F4F4F5',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  countBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#52525B',
+  },
+  emptyBlock: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#71717A',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  todayShiftCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  todayShiftIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  todayShiftInfo: {
+    flex: 1,
+  },
+  todayShiftName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#18181B',
+    marginBottom: 4,
+  },
+  todayShiftTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  todayShiftTimeText: {
+    fontSize: 12.5,
+    color: '#71717A',
+  },
+  todayAttendanceBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  todayAttendanceBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#123826',
+    marginTop: 2,
+  },
+  utilitiesGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  utilityBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+  },
+  utilityIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  utilityText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#18181B',
+  },
+  segmentContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E5E7EB',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 14,
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 11,
+  },
+  segmentBtnActive: {
+    backgroundColor: '#123826',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  segmentTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  shiftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  dateBox: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  dateBoxPast: {
+    backgroundColor: '#F1F5F9',
+  },
+  dateDayText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#123826',
+  },
+  dateDayTextPast: {
+    color: '#64748B',
+  },
+  dateMonthText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#123826',
+  },
+  dateMonthTextPast: {
+    color: '#94A3B8',
+  },
+  shiftInfo: {
+    flex: 1,
+  },
+  shiftName: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#18181B',
+    marginBottom: 4,
+  },
+  shiftTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  shiftTimeText: {
+    fontSize: 12,
+    color: '#71717A',
+  },
+  shiftBadgeBox: {
+    marginLeft: 8,
+  },
+});
+

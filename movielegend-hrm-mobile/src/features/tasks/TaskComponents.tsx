@@ -35,6 +35,7 @@ import type {
 import { formatDateTime } from '../../utils/date-time';
 import { normalizeApiError } from '../../utils/api-error';
 import { isOverdue, priorityTone, taskDeadlineLabel, translatePriority, translateStatus, translateTimelineType } from './task.logic';
+export { translatePriority };
 import { useMinuteTicker } from './deadline-clock';
 import { apiUrl } from '../../constants/env';
 
@@ -52,35 +53,100 @@ export function resolveFileUrl(uri?: string | null): string | null {
   return url;
 }
 
+export function getInitials(name?: string | null): string {
+  if (!name) return 'ML';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'ML';
+  const first = parts[0] || '';
+  if (parts.length === 1) return first.substring(0, 2).toUpperCase();
+  const last = parts[parts.length - 1] || '';
+  return ((first[0] || '') + (last[0] || '')).toUpperCase() || 'ML';
+}
+
 export function TaskCard({ task, onPress }: { task: TaskDto; onPress: () => void }) {
   const now = useMinuteTicker();
   const overdue = isOverdue(task.dueAt, task.status, now);
   const averageProgress = averageAssignmentProgress(task);
-  const isCompletedOrCancelled = task.status === 'COMPLETED' || task.status === 'CANCELLED';
+  const isCompleted = task.status === 'COMPLETED';
+  const isCompletedOrCancelled = isCompleted || task.status === 'CANCELLED';
+
+  const priorityLabel = translatePriority(task.priority);
+  const priorityBg =
+    task.priority === 'LOW'
+      ? '#ECFDF5'
+      : task.priority === 'HIGH'
+      ? '#FEF3C7'
+      : task.priority === 'URGENT'
+      ? '#FEE2E2'
+      : '#F1F5F9';
+  const priorityColor =
+    task.priority === 'LOW'
+      ? '#047857'
+      : task.priority === 'HIGH'
+      ? '#D97706'
+      : task.priority === 'URGENT'
+      ? '#DC2626'
+      : '#334155';
 
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.card}>
       <View style={styles.row}>
         <View style={styles.flex}>
           <Text style={styles.title}>{task.title}</Text>
-          <Text style={[styles.meta, { marginTop: 4 }]}>{task.taskCode ?? task.type}</Text>
+          <Text style={[styles.metaCode, { marginTop: 2 }]}>{task.taskCode ?? task.type}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <StatusBadge label={translatePriority(task.priority)} tone={priorityTone(task.priority)} />
-          <MaterialCommunityIcons name="dots-vertical" size={20} color={colors.text} />
+          <View style={[styles.priorityPillBadge, { backgroundColor: priorityBg }]}>
+            <Text style={[styles.priorityPillText, { color: priorityColor }]}>{priorityLabel}</Text>
+          </View>
+          <MaterialCommunityIcons name="dots-vertical" size={20} color="#64748B" />
         </View>
       </View>
-      <View style={[styles.rowWrap, { marginTop: 2, marginBottom: 4 }]}>
-        <StatusBadge label={translateStatus(task.status)} tone={toneForStatus(task.status)} />
-        {!isCompletedOrCancelled && overdue ? <StatusBadge label="Quá hạn" tone="danger" /> : null}
-        {task.status === 'NEW' ? <StatusBadge label="Mới" tone="info" /> : null}
+
+      <View style={[styles.rowWrap, { marginTop: 6, gap: 6 }]}>
+        {task.status === 'COMPLETED' ? (
+          <View style={[styles.statusPill, { backgroundColor: '#DCFCE7' }]}>
+            <Text style={[styles.statusPillText, { color: '#166534' }]}>Hoàn thành</Text>
+          </View>
+        ) : task.status === 'WAITING_REVIEW' ? (
+          <View style={[styles.statusPill, { backgroundColor: '#FFEDD5' }]}>
+            <Text style={[styles.statusPillText, { color: '#C2410C' }]}>Chờ duyệt</Text>
+          </View>
+        ) : task.status === 'IN_PROGRESS' ? (
+          <View style={[styles.statusPill, { backgroundColor: '#E0F2FE' }]}>
+            <Text style={[styles.statusPillText, { color: '#0369A1' }]}>Đang làm</Text>
+          </View>
+        ) : task.status === 'NEW' ? (
+          <View style={[styles.statusPill, { backgroundColor: '#F1F5F9' }]}>
+            <Text style={[styles.statusPillText, { color: '#475569' }]}>Chờ nhận</Text>
+          </View>
+        ) : (
+          <StatusBadge label={translateStatus(task.status)} tone={toneForStatus(task.status)} />
+        )}
+
+        {!isCompletedOrCancelled && overdue ? (
+          <View style={[styles.statusPill, { backgroundColor: '#FEE2E2' }]}>
+            <Text style={[styles.statusPillText, { color: '#DC2626' }]}>Quá hạn</Text>
+          </View>
+        ) : null}
       </View>
-      {!isCompletedOrCancelled ? <DeadlineLabel dueAt={task.dueAt} status={task.status} /> : null}
-      <View style={{ marginVertical: 6 }}>
+
+      {!isCompletedOrCancelled && overdue ? (
+        <Text style={styles.overdueWarningText}>
+          {taskDeadlineLabel(task.dueAt, now, task.status as any)}
+        </Text>
+      ) : null}
+
+      <View style={{ marginVertical: 8 }}>
         <ProgressBar value={averageProgress} />
       </View>
-      <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 6 }} />
-      <Text style={[styles.meta, { fontSize: 12 }]}>{targetSummary(task)} • {assignmentSummary(task)}</Text>
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+        <MaterialCommunityIcons name="account-outline" size={16} color="#64748B" />
+        <Text style={[styles.meta, { fontSize: 13, color: '#64748B' }]}>
+          {targetSummary(task)} · {assignmentSummary(task)}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -116,23 +182,33 @@ export function DeadlineLabel({ dueAt, status }: { dueAt?: string | null | undef
 export function TaskTimeline({ items }: { items?: TaskTimelineItemDto[] | undefined }) {
   if (!items?.length) return <EmptyState small icon="timeline-clock-outline" title="Chưa có lịch sử" message="Không có sự kiện nào được ghi nhận." />;
   return (
-    <View style={styles.stack}>
-      {items.map((item) => {
-        let icon: keyof typeof MaterialCommunityIcons.glyphMap = 'circle-outline';
-        let color = colors.muted;
-        if (item.type === 'TASK_CREATED') { icon = 'plus-circle'; color = colors.primary; }
-        else if (item.type === 'STATUS_CHANGED') { icon = 'swap-horizontal-circle'; color = colors.warning; }
-        else if (item.type === 'ASSIGNMENT_CREATED') { icon = 'account-plus'; color = colors.info; }
-        
+    <View style={{ paddingLeft: 4, paddingVertical: 4 }}>
+      {items.map((item, index) => {
+        const isLast = index === items.length - 1;
+        let eventTitle = translateTimelineType(item.type);
+        if (item.type === 'STATUS_CHANGED' && item.data?.newStatus === 'COMPLETED') {
+          eventTitle = 'Đã duyệt kết quả';
+        }
         return (
-          <View key={item.id} style={styles.timelineItem}>
-            <View style={styles.timelineIconWrapper}>
-              <MaterialCommunityIcons name={icon} size={20} color={color} />
+          <View key={item.id} style={{ flexDirection: 'row', minHeight: 60 }}>
+            {/* Timeline line & circle indicator */}
+            <View style={{ alignItems: 'center', width: 24, marginRight: 12 }}>
+              <View style={styles.timelineHollowCircle} />
+              {!isLast ? <View style={styles.timelineVerticalLine} /> : null}
             </View>
-            <Text style={styles.titleSmall}>{translateTimelineType(item.type)}</Text>
-            <Text style={styles.metaSmall}>{formatDateTime(item.createdAt)}</Text>
-            {item.data?.note ? <Text style={styles.body}>{item.data.note}</Text> : null}
-            {item.data?.oldStatus || item.data?.newStatus ? <Text style={styles.meta}>{`${translateStatus(item.data?.oldStatus)} -> ${translateStatus(item.data?.newStatus)}`}</Text> : null}
+            {/* Timeline content */}
+            <View style={{ flex: 1, paddingBottom: 16 }}>
+              <Text style={styles.timelineTitle}>{eventTitle}</Text>
+              <Text style={styles.timelineDate}>{formatDateTime(item.createdAt)}</Text>
+              {item.data?.note ? (
+                <Text style={styles.timelineNote}>{item.data.note}</Text>
+              ) : null}
+              {item.data?.oldStatus || item.data?.newStatus ? (
+                <Text style={styles.timelineStatusTransition}>
+                  {`${translateStatus(item.data?.oldStatus)} → ${translateStatus(item.data?.newStatus)}`}
+                </Text>
+              ) : null}
+            </View>
           </View>
         );
       })}
@@ -163,21 +239,25 @@ export function CommentComposer({ onSubmit, pending }: { onSubmit: (content: str
 export function CommentList({ comments }: { comments?: TaskCommentDto[] | undefined }) {
   if (!comments?.length) return <EmptyState small icon="comment-text-outline" title="Chưa có bình luận" message="Hãy là người đầu tiên bình luận." />;
   return (
-    <View style={styles.stack}>
-      {comments.map((comment) => (
-        <View key={comment.id} style={styles.commentBubble}>
-          <View style={styles.row}>
-            <View style={styles.avatarMini}>
-              <MaterialCommunityIcons name="account" size={16} color={colors.surface} />
+    <View style={{ gap: 10 }}>
+      {comments.map((comment) => {
+        const authorName = comment.user?.profile?.fullName ?? comment.user?.userCode ?? 'Thành viên';
+        const initials = getInitials(authorName);
+        return (
+          <View key={comment.id} style={styles.commentItemCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <View style={styles.commentAvatarCircle}>
+                <Text style={styles.commentAvatarText}>{initials}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.commentAuthorName}>{authorName}</Text>
+                <Text style={styles.commentTimestamp}>{formatDateTime(comment.createdAt)}</Text>
+              </View>
             </View>
-            <View style={styles.flex}>
-              <Text style={styles.titleSmall}>{comment.user?.profile?.fullName ?? comment.user?.userCode ?? comment.userId}</Text>
-              <Text style={styles.metaSmall}>{formatDateTime(comment.createdAt)}</Text>
-            </View>
+            <Text style={styles.commentContentText}>{comment.content}</Text>
           </View>
-          <Text style={styles.body}>{comment.content}</Text>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -731,7 +811,7 @@ export function TargetPreview({ task }: { task: TaskDto }) {
   const assignments = task.assignments ?? [];
   const completed = assignments.filter((a) => a.status === 'COMPLETED').length;
 
-  if (!targets.length) {
+  if (!targets.length && !assignments.length) {
     return (
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
         <MaterialCommunityIcons name="account-group" size={16} color={colors.muted} />
@@ -740,40 +820,33 @@ export function TargetPreview({ task }: { task: TaskDto }) {
     );
   }
 
-  return (
-    <View style={{ gap: spacing.xs }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' }}>
-        <Text style={{ fontSize: 13, fontWeight: '600', color: colors.muted, marginRight: 2 }}>Người thực hiện:</Text>
-        {targets.map((t) => {
-          const type = t.targetType ?? t.type;
-          let icon: keyof typeof MaterialCommunityIcons.glyphMap = 'account';
-          let label = type === 'USER' ? 'Cá nhân' : type === 'DEPARTMENT' ? 'Phòng ban' : 'Nhóm';
-          if (type === 'DEPARTMENT') icon = 'domain';
-          if (type === 'GROUP') icon = 'account-group';
-          
-          if (type === 'USER') {
-            const assignment = assignments.find((a: any) => (a.userId === t.targetId) || (a.user?.id === t.targetId));
-            if (assignment?.user?.profile?.fullName) {
-              label = assignment.user.profile.fullName;
-            } else if (assignment?.user?.fullName) {
-              label = assignment.user.fullName;
-            } else if (assignment?.user?.userCode) {
-              label = assignment.user.userCode;
-            }
-          }
+  // Get primary assignee
+  const firstAssignment = assignments[0];
+  const assigneeName =
+    firstAssignment?.user?.profile?.fullName ??
+    firstAssignment?.user?.fullName ??
+    firstAssignment?.user?.userCode ??
+    (targets[0] as any)?.targetName ??
+    'Đoàn Nam Dương';
+  const initials = getInitials(assigneeName);
 
-          return (
-            <View key={t.id} style={styles.targetChip}>
-              <MaterialCommunityIcons name={icon} size={14} color={colors.primary} />
-              <Text style={styles.targetChipText}>{label}</Text>
-            </View>
-          );
-        })}
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>Người thực hiện:</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={styles.assigneeAvatarPill}>
+            <Text style={styles.assigneeAvatarPillText}>{initials}</Text>
+          </View>
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>{assigneeName}</Text>
+        </View>
       </View>
       {assignments.length > 0 && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: 2 }}>
-          <MaterialCommunityIcons name="check-all" size={16} color={colors.success} />
-          <Text style={[styles.metaSmall, { color: colors.success }]}>{completed} / {assignments.length} người đã hoàn thành</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <MaterialCommunityIcons name="check" size={16} color="#166534" />
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#166534' }}>
+            {completed} / {assignments.length} người đã hoàn thành
+          </Text>
         </View>
       )}
     </View>
@@ -848,17 +921,17 @@ const styles = StyleSheet.create({
     progressContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 10,
     },
     progressTrack: {
-      backgroundColor: '#E5E5EA',
+      backgroundColor: '#E2E8F0',
       borderRadius: 999,
-      height: 14,
+      height: 10,
       flex: 1,
       overflow: 'hidden',
     },
     progressFill: {
-      backgroundColor: '#1C1C1E',
+      backgroundColor: '#1B3B2B',
       borderRadius: 999,
       bottom: 0,
       left: 0,
@@ -866,10 +939,124 @@ const styles = StyleSheet.create({
       top: 0,
     },
     progressText: {
-      color: colors.text,
+      color: '#0F172A',
       fontSize: 13,
       fontWeight: '700',
     },
+  metaCode: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  priorityPillBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  priorityPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statusPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  overdueWarningText: {
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  timelineHollowCircle: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#166534',
+    backgroundColor: '#FFFFFF',
+    marginTop: 2,
+  },
+  timelineVerticalLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: '#166534',
+    marginTop: 4,
+    marginBottom: -2,
+  },
+  timelineTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  timelineDate: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  timelineNote: {
+    fontSize: 13,
+    color: '#334155',
+    marginTop: 4,
+  },
+  timelineStatusTransition: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  commentItemCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 12,
+  },
+  commentAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#2E5A44',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  commentAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  commentAuthorName: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  commentTimestamp: {
+    color: '#64748B',
+    fontSize: 12,
+    marginTop: 1,
+  },
+  commentContentText: {
+    color: '#334155',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  assigneeAvatarPill: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#1B3B2B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assigneeAvatarPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   meta: {
     color: colors.muted,
     fontSize: 13,

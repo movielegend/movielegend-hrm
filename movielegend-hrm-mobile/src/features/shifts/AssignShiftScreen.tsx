@@ -9,7 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -27,11 +27,14 @@ import { normalizeApiError } from '../../utils/api-error';
 
 export function AssignShiftScreen() {
   const router = useRouter();
+  const segments = useSegments();
   const { user } = useAuth();
 
+  const isLeaderRoute = segments[0] === 'leader';
   const isAdmin =
-    user?.roles?.includes('ADMIN') ||
-    user?.roles?.some?.((r: any) => r.name?.toUpperCase().includes('ADMIN') || r.role?.code === 'admin');
+    !isLeaderRoute &&
+    (user?.roles?.includes('ADMIN') ||
+      user?.roles?.some?.((r: any) => r.name?.toUpperCase().includes('ADMIN') || r.role?.code === 'admin'));
 
   const isGlobalAdmin = Boolean(
     isAdmin &&
@@ -46,6 +49,17 @@ export function AssignShiftScreen() {
     (s: any) => (s.role === 'ADMIN' || s.role?.code === 'ADMIN') && s.scopeType === 'REGION'
   );
   const userRegionId = adminRegionScope?.scopeId;
+
+  // Leader department scope
+  const leaderDeptScope = user?.scopes?.find?.(
+    (s: any) =>
+      (s.role === 'LEADER' || s.role?.code === 'LEADER') &&
+      s.scopeType === 'DEPARTMENT' &&
+      s.scopeId
+  );
+  const leaderDeptId = user?.department?.id || leaderDeptScope?.scopeId;
+  const leaderDeptName = user?.department?.name || 'Phòng ban của bạn';
+  const leaderBranchName = (user?.department as any)?.branch?.name || '';
 
   // Queries
   const allShiftsQuery = useShifts();
@@ -63,10 +77,13 @@ export function AssignShiftScreen() {
   const [selectedDeptId, setSelectedDeptId] = useState<string>('ALL');
 
   useEffect(() => {
-    if (!isGlobalAdmin && userRegionId) {
+    if (isGlobalAdmin && userRegionId) {
       setSelectedRegionId(userRegionId);
     }
-  }, [isGlobalAdmin, userRegionId]);
+    if (!isAdmin && leaderDeptId) {
+      setSelectedDeptId(leaderDeptId);
+    }
+  }, [isGlobalAdmin, userRegionId, isAdmin, leaderDeptId]);
 
   const effectiveRegionId = isGlobalAdmin ? selectedRegionId : userRegionId || selectedRegionId;
 
@@ -150,22 +167,24 @@ export function AssignShiftScreen() {
       items = items.filter((emp: any) =>
         emp.roles?.some((r: any) => r.role?.code === 'LEADER')
       );
-    } else {
-      // Leader assigns shift to staff
-      items = items.filter((emp: any) =>
-        emp.roles?.some((r: any) => r.role?.code === 'EMPLOYEE') ||
-        !emp.roles?.some((r: any) => r.role?.code === 'LEADER')
-      );
-    }
 
-    if (effectiveRegionId !== 'ALL') {
-      items = items.filter((emp: any) => emp.department?.branch?.region?.id === effectiveRegionId);
-    }
-    if (selectedBranchId !== 'ALL') {
-      items = items.filter((emp: any) => emp.department?.branch?.id === selectedBranchId);
-    }
-    if (selectedDeptId !== 'ALL') {
-      items = items.filter((emp: any) => emp.department?.id === selectedDeptId);
+      if (effectiveRegionId !== 'ALL') {
+        items = items.filter((emp: any) => emp.department?.branch?.region?.id === effectiveRegionId);
+      }
+      if (selectedBranchId !== 'ALL') {
+        items = items.filter((emp: any) => emp.department?.branch?.id === selectedBranchId);
+      }
+      if (selectedDeptId !== 'ALL') {
+        items = items.filter((emp: any) => emp.department?.id === selectedDeptId);
+      }
+    } else {
+      // Leader assigns shift to staff in their own department
+      if (leaderDeptId) {
+        items = items.filter((emp: any) => {
+          const empDeptId = emp.departmentId || emp.department?.id;
+          return !empDeptId || empDeptId === leaderDeptId;
+        });
+      }
     }
 
     return items.map((emp: any) => {
@@ -259,13 +278,16 @@ export function AssignShiftScreen() {
           CustomAlert.alert('Cảnh báo', `Nhân sự "${empOpt.label}" chưa được phân vào phòng ban nào.`);
           return;
         }
+        const empId = empOpt.id;
+        if (!empId) continue;
         if (!deptGroups.has(dId)) {
           deptGroups.set(dId, []);
         }
-        deptGroups.get(dId)!.push(empOpt.id);
+        deptGroups.get(dId)!.push(empId);
       }
 
       for (const [deptId, uIds] of deptGroups.entries()) {
+        if (!selectedShift?.id) continue;
         await assignBatchMutation.mutateAsync({
           userIds: uIds,
           departmentId: deptId,
@@ -308,54 +330,80 @@ export function AssignShiftScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {/* CARD 01: Phạm vi áp dụng */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.stepBadge}>
-              <Text style={styles.stepBadgeText}>01</Text>
+        {isAdmin ? (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.stepBadge}>
+                <Text style={styles.stepBadgeText}>01</Text>
+              </View>
+              <Text style={styles.cardTitle}>Phạm vi áp dụng</Text>
             </View>
-            <Text style={styles.cardTitle}>Phạm vi áp dụng</Text>
+
+            {/* Field: Khu vực */}
+            <Text style={styles.fieldLabel}>Khu vực</Text>
+            <Pressable
+              style={styles.selectPill}
+              onPress={() => setRegionModalVisible(true)}
+              disabled={!isGlobalAdmin}
+            >
+              <View style={styles.selectLeft}>
+                <Ionicons name="location-outline" size={18} color="#166534" />
+                <Text style={styles.selectText} numberOfLines={1}>
+                  {regionOptions.find(r => r.id === effectiveRegionId)?.label || 'Tất cả các miền'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-down" size={16} color="#64748B" />
+            </Pressable>
+
+            {/* Field: Chi nhánh */}
+            <Text style={styles.fieldLabel}>Chi nhánh</Text>
+            <Pressable style={styles.selectPill} onPress={() => setBranchModalVisible(true)}>
+              <View style={styles.selectLeft}>
+                <Ionicons name="business-outline" size={18} color="#166534" />
+                <Text style={styles.selectText} numberOfLines={1}>
+                  {branchOptions.find(b => b.id === selectedBranchId)?.label || 'Tất cả chi nhánh'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-down" size={16} color="#64748B" />
+            </Pressable>
+
+            {/* Field: Phòng ban */}
+            <Text style={styles.fieldLabel}>Phòng ban</Text>
+            <Pressable style={styles.selectPill} onPress={() => setDeptModalVisible(true)}>
+              <View style={styles.selectLeft}>
+                <Ionicons name="git-network-outline" size={18} color="#166534" />
+                <Text style={styles.selectText} numberOfLines={1}>
+                  {deptOptions.find(d => d.id === selectedDeptId)?.label || 'Tất cả phòng ban'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-down" size={16} color="#64748B" />
+            </Pressable>
           </View>
-
-          {/* Field: Khu vực */}
-          <Text style={styles.fieldLabel}>Khu vực</Text>
-          <Pressable
-            style={styles.selectPill}
-            onPress={() => setRegionModalVisible(true)}
-            disabled={!isGlobalAdmin}
-          >
-            <View style={styles.selectLeft}>
-              <Ionicons name="location-outline" size={18} color="#166534" />
-              <Text style={styles.selectText} numberOfLines={1}>
-                {regionOptions.find(r => r.id === effectiveRegionId)?.label || 'Tất cả các miền'}
-              </Text>
+        ) : (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.stepBadge}>
+                <Text style={styles.stepBadgeText}>01</Text>
+              </View>
+              <Text style={styles.cardTitle}>Phòng ban phụ trách</Text>
             </View>
-            <Ionicons name="chevron-down" size={16} color="#64748B" />
-          </Pressable>
 
-          {/* Field: Chi nhánh */}
-          <Text style={styles.fieldLabel}>Chi nhánh</Text>
-          <Pressable style={styles.selectPill} onPress={() => setBranchModalVisible(true)}>
-            <View style={styles.selectLeft}>
-              <Ionicons name="business-outline" size={18} color="#166534" />
-              <Text style={styles.selectText} numberOfLines={1}>
-                {branchOptions.find(b => b.id === selectedBranchId)?.label || 'Tất cả chi nhánh'}
-              </Text>
+            <View style={styles.deptInfoBanner}>
+              <View style={styles.deptIconBox}>
+                <Ionicons name="business-outline" size={20} color="#166534" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.deptNameText}>{leaderDeptName}</Text>
+                {leaderBranchName ? (
+                  <Text style={styles.deptBranchText}>{leaderBranchName}</Text>
+                ) : null}
+              </View>
+              <View style={styles.deptScopeBadge}>
+                <Text style={styles.deptScopeBadgeText}>Phòng của bạn</Text>
+              </View>
             </View>
-            <Ionicons name="chevron-down" size={16} color="#64748B" />
-          </Pressable>
-
-          {/* Field: Phòng ban */}
-          <Text style={styles.fieldLabel}>Phòng ban</Text>
-          <Pressable style={styles.selectPill} onPress={() => setDeptModalVisible(true)}>
-            <View style={styles.selectLeft}>
-              <Ionicons name="git-network-outline" size={18} color="#166534" />
-              <Text style={styles.selectText} numberOfLines={1}>
-                {deptOptions.find(d => d.id === selectedDeptId)?.label || 'Tất cả phòng ban'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-down" size={16} color="#64748B" />
-          </Pressable>
-        </View>
+          </View>
+        )}
 
         {/* CARD 02: Leader & ca làm */}
         <View style={styles.card}>
@@ -473,7 +521,9 @@ export function AssignShiftScreen() {
       {/* BOTTOM STICKY ACTION BAR */}
       <View style={styles.bottomBar}>
         {!isFormValid && (
-          <Text style={styles.hintText}>Chọn Leader và ca làm để tiếp tục.</Text>
+          <Text style={styles.hintText}>
+            {isAdmin ? 'Chọn Leader và ca làm để tiếp tục.' : 'Chọn nhân viên và ca làm để tiếp tục.'}
+          </Text>
         )}
         <Pressable
           onPress={() => void handleSubmit()}
@@ -519,7 +569,7 @@ export function AssignShiftScreen() {
         options={regionOptions}
         selectedValue={effectiveRegionId}
         onSelect={opt => {
-          setSelectedRegionId(opt.id);
+          setSelectedRegionId(opt.id || 'ALL');
           setSelectedBranchId('ALL');
           setSelectedDeptId('ALL');
           setSelectedEmployees([]);
@@ -533,7 +583,7 @@ export function AssignShiftScreen() {
         options={branchOptions}
         selectedValue={selectedBranchId}
         onSelect={opt => {
-          setSelectedBranchId(opt.id);
+          setSelectedBranchId(opt.id || 'ALL');
           setSelectedDeptId('ALL');
           setSelectedEmployees([]);
         }}
@@ -546,7 +596,7 @@ export function AssignShiftScreen() {
         options={deptOptions}
         selectedValue={selectedDeptId}
         onSelect={opt => {
-          setSelectedDeptId(opt.id);
+          setSelectedDeptId(opt.id || 'ALL');
           setSelectedEmployees([]);
         }}
         onClose={() => setDeptModalVisible(false)}
@@ -558,7 +608,7 @@ export function AssignShiftScreen() {
         title={isAdmin ? 'Chọn Leader cần phân ca' : 'Chọn nhân viên'}
         options={employeeOptions}
         isLoading={employeesQuery.isLoading}
-        selectedValues={selectedEmployees.map(e => e.id)}
+        selectedValues={selectedEmployees.map(e => e.id).filter((id): id is string => Boolean(id))}
         onSelectMulti={option => {
           setSelectedEmployees(prev => {
             const exists = prev.find(p => p.id === option.id);
@@ -653,6 +703,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  deptInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAF8',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  deptIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deptNameText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  deptBranchText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  deptScopeBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  deptScopeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
   },
   fieldLabel: {
     fontSize: 12,

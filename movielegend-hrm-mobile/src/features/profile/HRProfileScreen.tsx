@@ -1,419 +1,984 @@
-import { useState } from 'react';
-import { useAppAlert } from '../../contexts/AlertContext';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
+import { useAppAlert } from '../../contexts/AlertContext';
 import { useUserGuide } from '../../components/UserGuideManager';
-import { AvatarPicker } from '../employees/components/AvatarPicker';
 import { EditProfileModal } from '../employees/components/EditProfileModal';
 import { ChangePasswordModal } from '../employees/components/ChangePasswordModal';
 import { DeleteAccountModal } from '../../components/DeleteAccountModal';
+import { AvatarPicker } from '../employees/components/AvatarPicker';
 import { formatSeniority } from '../../utils/seniority';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
 
 export function HRProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const insets = useSafeAreaInsets();
   const { showGuideManual } = useUserGuide();
-  const { showConfirm } = useAppAlert();
+  const { showConfirm, showAlert } = useAppAlert();
+  const insets = useSafeAreaInsets();
+  const tabBarScroll = useTabBarScroll();
+
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
 
-  const openEdit = () => setIsEditing(true);
+  // Accordion state: by default, Group 'Quản lý phòng ban' is open
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    dept: true,
+    ops: false,
+    settings: false,
+  });
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const handleLogout = () => {
     showConfirm({
       title: 'Đăng xuất tài khoản?',
       message: 'Bạn có muốn đăng xuất khỏi ứng dụng?',
       confirmLabel: 'Đăng xuất',
-      onConfirm: () => {
-        void logout();
-      },
+      onConfirm: () => void logout(),
     });
   };
 
   const getInitials = (name?: string) => {
     if (!name) return 'HR';
-    const parts = name.trim().split(' ').filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts[0]?.charAt(0) || ''}${parts[parts.length - 1]?.charAt(0) || ''}`.toUpperCase();
-    }
-    return name.charAt(0).toUpperCase();
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'HR';
+    if (parts.length === 1) return parts[0] ? parts[0].substring(0, 2).toUpperCase() : 'HR';
+    const first = parts[0]?.charAt(0) || '';
+    const last = parts[parts.length - 1]?.charAt(0) || '';
+    return (first + last).toUpperCase() || 'HR';
   };
+
+  const seniorityText = formatSeniority(user?.joinDate || (user as any)?.createdAt) || 'Chưa cập nhật';
+  const userCodeText = user?.userCode || 'NV000008';
+  const roleLabel = user?.position?.name || 'Chuyên viên Nhân sự';
+  const rawDeptName = user?.department?.name || 'Phòng ban';
+  const rawBranchName =
+    (user?.department as any)?.branch?.name ||
+    (user as any)?.branch?.name ||
+    (user as any)?.departmentLinks?.[0]?.department?.branch?.name;
+  const departmentName = rawBranchName && !rawDeptName.toLowerCase().includes(rawBranchName.toLowerCase())
+    ? `${rawDeptName} (${rawBranchName})`
+    : rawDeptName;
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
-        {/* Background Header */}
-        <View style={[styles.headerBg, { height: 160 + insets.top }]} />
-        
-        {/* Profile Card */}
-        <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
-          <AvatarPicker getInitials={getInitials} />
-          <Text style={styles.userName}>{user?.fullName || 'Chuyên viên HR'}</Text>
-          <Text style={styles.userRole}>Quản trị Nhân sự (HR)</Text>
-          <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>Đang hoạt động</Text>
+      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+
+      <ScrollView
+        style={styles.scrollBody}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 16) + 80 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={16}
+      >
+        {/* ── Top Header (#1B3B2B) ── */}
+        <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+          {/* Subtle Decorative Wave Curve Background */}
+          <View style={styles.decorativeCurve} />
+
+          <View style={styles.headerTopRow}>
+            <View>
+              <Text style={styles.brandTagline}>MOVIE LEGEND</Text>
+              <Text style={styles.screenTitle}>Hồ sơ</Text>
+            </View>
+
+            <Pressable
+              style={styles.helpBtn}
+              onPress={showGuideManual}
+              hitSlop={8}
+              accessibilityLabel="Hướng dẫn sử dụng"
+            >
+              <Ionicons name="help-circle-outline" size={22} color="#FFFFFF" />
+            </Pressable>
+          </View>
+
+          {/* ── Floating User Profile Card ── */}
+          <View style={styles.profileCard}>
+            <View style={styles.profileCardTop}>
+              <View style={styles.avatarWrap}>
+                <AvatarPicker getInitials={getInitials} />
+              </View>
+
+              <View style={styles.profileMetaCol}>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {user?.fullName || 'Chuyên viên HR'}
+                </Text>
+                <Text style={styles.userRole}>{roleLabel}</Text>
+                <Text style={styles.userDepartment} numberOfLines={1}>
+                  {departmentName}
+                </Text>
+                <View style={styles.statusRow}>
+                  <View style={styles.statusDot} />
+                  <Text style={styles.statusText}>Đang hoạt động</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.profileDivider} />
+
+            <View style={styles.profileCardBottom}>
+              <View style={styles.profileStatCol}>
+                <Text style={styles.profileStatLabel}>Mã nhân viên</Text>
+                <Text style={styles.profileStatValue}>{userCodeText}</Text>
+              </View>
+
+              <View style={styles.statVerticalDivider} />
+
+              <View style={styles.profileStatCol}>
+                <Text style={styles.profileStatLabel}>Thâm niên</Text>
+                <Text style={styles.profileStatValue}>{seniorityText}</Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        {/* Thông tin cá nhân */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
-          <View style={styles.infoCard}>
-            <InfoRow icon="identifier" label="Mã nhân viên" value={user?.userCode || 'Chưa cập nhật'} />
-            <InfoRow icon="phone-outline" label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} onPress={openEdit} />
-            <InfoRow icon="email-outline" label="Email" value={user?.email || 'Chưa cập nhật'} onPress={openEdit} />
-            <InfoRow icon="office-building-outline" label="Phòng ban" value={user?.department?.name || 'Phòng Hành chính Nhân sự'} />
-            <InfoRow 
-              icon="calendar-clock" 
-              label="Thâm niên" 
-              value={formatSeniority(user?.joinDate || (user as any)?.createdAt)} 
-              valueColor="#059669"
-            />
-            <InfoRow 
-              icon="calendar-account" 
-              label="Ngày vào làm" 
-              value={(user?.joinDate || (user as any)?.createdAt) ? new Date(user?.joinDate || (user as any)?.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} 
-            />
-            <InfoRow 
-              icon="face-recognition" 
-              label="Dữ liệu khuôn mặt" 
-              value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'} 
-              valueColor={user?.hasFaceData ? '#10B981' : '#EF4444'}
-              onPress={() => router.push('/employee/update-face' as any)}
-              isLast
-            />
-          </View>
-        </View>
+        <View style={styles.bodyContent}>
+          {/* ── Card: Thông tin cá nhân ── */}
+          <Pressable
+            style={styles.personalInfoCard}
+            onPress={() => setShowPersonalInfoModal(true)}
+          >
+            <View style={styles.personalIconBox}>
+              <MaterialCommunityIcons name="card-account-details-outline" size={22} color="#1B3B2B" />
+            </View>
+            <View style={styles.personalTextWrap}>
+              <Text style={styles.personalTitle}>Thông tin cá nhân</Text>
+              <Text style={styles.personalSubtitle}>Liên hệ, phòng ban, ngày vào làm</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+          </Pressable>
 
-        {/* Tiện ích cá nhân */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tiện ích cá nhân</Text>
-          <View style={styles.infoCard}>
-            <ActionRow 
-              icon="calendar-clock" 
-              title="Bảng công" 
-              onPress={() => router.push('/hr/timesheet' as any)} 
-            />
-            <ActionRow 
-              icon="cash-multiple" 
-              title="Phiếu lương" 
-              onPress={() => router.push('/hr/payslip' as any)} 
-            />
-            <ActionRow 
-              icon="laptop" 
-              title="Tài sản của tôi" 
-              onPress={() => router.push('/hr/assets' as any)} 
-              isLast
-            />
-          </View>
-        </View>
+          {/* ── Section: Tiện ích của tôi ── */}
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionHeaderTitle}>Tiện ích của tôi</Text>
+            <View style={styles.utilitiesRow}>
+              {/* Bảng công */}
+              <Pressable
+                style={styles.utilityCard}
+                onPress={() => router.push('/hr/timesheet' as any)}
+              >
+                <View style={styles.utilityIconWrap}>
+                  <Ionicons name="calendar-outline" size={24} color="#0F172A" />
+                </View>
+                <Text style={styles.utilityTitle}>Bảng công</Text>
+              </Pressable>
 
-        {/* Nghiệp vụ HR & Quản trị */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Nghiệp vụ Quản trị HR</Text>
-          <View style={styles.infoCard}>
-            <ActionRow 
-              icon="clock-check-outline" 
-              title="Bảng chấm công toàn cty" 
-              onPress={() => router.push('/hr/attendance-management' as any)} 
-            />
-            <ActionRow 
-              icon="clipboard-check-outline" 
-              title="Duyệt đơn từ & Phê duyệt" 
-              onPress={() => router.push('/hr/requests' as any)} 
-            />
-            <ActionRow 
-              icon="clipboard-text-outline" 
-              title="Quản lý công việc" 
-              onPress={() => router.push('/hr/tasks' as any)} 
-            />
-            <ActionRow 
-              icon="text-box-check-outline" 
-              title="Quản lý Hợp đồng lao động" 
-              onPress={() => router.push('/hr/contracts' as any)} 
-            />
-            <ActionRow 
-              icon="folder-text-outline" 
-              title="Tài liệu nội bộ" 
-              onPress={() => router.push('/hr/documents' as any)} 
-            />
-            <ActionRow 
-              icon="laptop" 
-              title="Vật tư & Cấp phát thiết bị" 
-              onPress={() => router.push('/hr/assets' as any)} 
-            />
-            <ActionRow 
-              icon="chat-processing-outline" 
-              title="Tin nhắn & Nhóm chat" 
-              onPress={() => router.push('/hr/chat' as any)} 
-            />
-            <ActionRow 
-              icon="message-draw" 
-              title="Hòm thư Góp ý nhân viên" 
-              onPress={() => router.push('/hr/feedbacks' as any)} 
-            />
-            <ActionRow 
-              icon="newspaper-variant" 
-              title="Bảng tin & Thông báo công ty" 
-              onPress={() => router.push('/hr/newsfeed' as any)} 
-              isLast 
-            />
-          </View>
-        </View>
+              {/* Phiếu lương */}
+              <Pressable
+                style={styles.utilityCard}
+                onPress={() => router.push('/hr/payslip' as any)}
+              >
+                <View style={styles.utilityIconWrap}>
+                  <View style={styles.payslipIconBox}>
+                    <Text style={styles.payslipDollarText}>$</Text>
+                  </View>
+                </View>
+                <Text style={styles.utilityTitle}>Phiếu lương</Text>
+              </Pressable>
 
-        {/* Cài đặt & Tài khoản */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cài đặt & Tài khoản</Text>
-          <View style={styles.infoCard}>
-            <ActionRow 
-              icon="information-outline" 
-              title="Hướng dẫn sử dụng" 
-              onPress={showGuideManual} 
-            />
-            <ActionRow 
-              icon="lock-reset" 
-              title="Đổi mật khẩu" 
-              onPress={() => setIsChangingPassword(true)} 
-            />
-            <ActionRow 
-              icon="account-remove-outline" 
-              title="Quyền sở hữu & Xóa tài khoản" 
-              onPress={() => setIsDeleting(true)} 
-            />
-            <ActionRow 
-              icon="logout-variant" 
-              title="Đăng xuất" 
-              titleColor="#EF4444"
-              iconColor="#EF4444"
-              onPress={handleLogout} 
-              isLast 
-            />
+              {/* Chấm công */}
+              <Pressable
+                style={styles.utilityCard}
+                onPress={() => router.push('/hr/attendance-history' as any)}
+              >
+                <View style={styles.utilityIconWrap}>
+                  <Ionicons name="time-outline" size={24} color="#0F172A" />
+                </View>
+                <Text style={styles.utilityTitle}>Chấm công</Text>
+                <Text style={styles.utilitySubtitle}>Lịch sử</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
 
-        <Text style={styles.versionText}>Phiên bản 1.0.0 (HR Suite)</Text>
+          {/* ── Section: Không gian làm việc ── */}
+          <View style={styles.sectionWrap}>
+            <Text style={styles.sectionHeaderTitle}>Không gian làm việc</Text>
+
+            {/* ── Accordion Group 1: Quản lý phòng ban ── */}
+            <View style={styles.accordionCard}>
+              <Pressable
+                style={styles.accordionHeader}
+                onPress={() => toggleGroup('dept')}
+              >
+                <View style={styles.accordionIconBox}>
+                  <MaterialCommunityIcons name="account-group-outline" size={22} color="#1B3B2B" />
+                </View>
+                <View style={styles.accordionTitleCol}>
+                  <Text style={styles.accordionTitle}>Quản lý phòng ban</Text>
+                  <Text style={styles.accordionSubtitle}>Phê duyệt, phân ca và nhân sự</Text>
+                </View>
+                <Ionicons
+                  name={expandedGroups.dept ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color="#64748B"
+                />
+              </Pressable>
+
+              {expandedGroups.dept && (
+                <View style={styles.accordionBody}>
+                  {/* Sub-group: Phê duyệt & Điều phối */}
+                  <View style={styles.subGroupSection}>
+                    <Text style={styles.subGroupTitle}>Phê duyệt & Điều phối</Text>
+                    <View style={styles.featureGrid}>
+                      <FeatureItem
+                        icon="clipboard-check-outline"
+                        iconType="mci"
+                        title="Duyệt đơn từ"
+                        onPress={() => router.push('/hr/employee-requests' as any)}
+                      />
+                      <FeatureItem
+                        icon="account-check-outline"
+                        iconType="mci"
+                        title="Duyệt tài khoản"
+                        onPress={() => router.push('/hr/approvals/account' as any)}
+                      />
+                      <FeatureItem
+                        icon="swap-horizontal"
+                        iconType="mci"
+                        title="Luân chuyển PB"
+                        onPress={() => router.push('/hr/cross-department' as any)}
+                      />
+                      <FeatureItem
+                        icon="help-circle-outline"
+                        iconType="mci"
+                        title="Yêu cầu VTTB"
+                        onPress={() => showAlert('Thông báo', 'Chức năng đang được hoàn thiện.')}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.featureDivider} />
+
+                  {/* Sub-group: Nhân sự & Lịch làm việc */}
+                  <View style={styles.subGroupSection}>
+                    <Text style={styles.subGroupTitle}>Nhân sự & Lịch làm việc</Text>
+                    <View style={styles.featureGrid}>
+                      <FeatureItem
+                        icon="account-multiple"
+                        iconType="mci"
+                        title="Nhân sự phòng"
+                        onPress={() => router.push('/hr/employees' as any)}
+                      />
+                      <FeatureItem
+                        icon="calendar-check"
+                        iconType="mci"
+                        title="Phân ca làm"
+                        onPress={() => router.push('/hr/shift-management' as any)}
+                      />
+                      <FeatureItem
+                        icon="calendar-sync-outline"
+                        iconType="mci"
+                        title="Đổi ca làm việc"
+                        onPress={() => router.push('/hr/shift-swaps' as any)}
+                      />
+                      <FeatureItem
+                        icon="folder-text-outline"
+                        iconType="mci"
+                        title="Tài liệu nội bộ"
+                        onPress={() => router.push('/hr/documents' as any)}
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* ── Accordion Group 2: Vận hành & Trao đổi ── */}
+            <View style={styles.accordionCard}>
+              <Pressable
+                style={styles.accordionHeader}
+                onPress={() => toggleGroup('ops')}
+              >
+                <View style={styles.accordionIconBox}>
+                  <MaterialCommunityIcons name="cube-outline" size={22} color="#1B3B2B" />
+                </View>
+                <View style={styles.accordionTitleCol}>
+                  <Text style={styles.accordionTitle}>Vận hành & Trao đổi</Text>
+                  <Text style={styles.accordionSubtitle}>Công việc, báo cáo và trao đổi</Text>
+                </View>
+                <Ionicons
+                  name={expandedGroups.ops ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color="#64748B"
+                />
+              </Pressable>
+
+              {expandedGroups.ops && (
+                <View style={styles.accordionBody}>
+                  <View style={styles.subGroupSection}>
+                    <Text style={styles.subGroupTitle}>Công việc & Truyền thông</Text>
+                    <View style={styles.featureGrid}>
+                      <FeatureItem
+                        icon="newspaper-outline"
+                        iconType="ionicons"
+                        title="Bảng tin"
+                        onPress={() => router.push('/hr/newsfeed' as any)}
+                      />
+                      <FeatureItem
+                        icon="chatbubbles-outline"
+                        iconType="ionicons"
+                        title="Nhóm Chat"
+                        onPress={() => router.push('/hr/chat' as any)}
+                      />
+                      <FeatureItem
+                        icon="briefcase-outline"
+                        iconType="ionicons"
+                        title="Công việc"
+                        onPress={() => router.push('/hr/tasks' as any)}
+                      />
+                      <FeatureItem
+                        icon="document-text-outline"
+                        iconType="ionicons"
+                        title="Báo cáo ngày"
+                        onPress={() => router.push('/hr/daily-report' as any)}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.featureDivider} />
+
+                  <View style={styles.subGroupSection}>
+                    <Text style={styles.subGroupTitle}>Tài sản & Tiện ích khác</Text>
+                    <View style={styles.featureGrid}>
+                      <FeatureItem
+                        icon="laptop"
+                        iconType="mci"
+                        title="Tài sản của tôi"
+                        onPress={() => router.push('/hr/assets' as any)}
+                      />
+                      <FeatureItem
+                        icon="message-draw"
+                        iconType="mci"
+                        title="Gửi góp ý"
+                        onPress={() => router.push('/hr/feedbacks' as any)}
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* ── Accordion Group 3: Cài đặt ── */}
+            <View style={styles.accordionCard}>
+              <Pressable
+                style={styles.accordionHeader}
+                onPress={() => toggleGroup('settings')}
+              >
+                <View style={styles.accordionIconBox}>
+                  <MaterialCommunityIcons name="cog-outline" size={22} color="#1B3B2B" />
+                </View>
+                <View style={styles.accordionTitleCol}>
+                  <Text style={styles.accordionTitle}>Cài đặt</Text>
+                  <Text style={styles.accordionSubtitle}>Bảo mật và tài khoản</Text>
+                </View>
+                <Ionicons
+                  name={expandedGroups.settings ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color="#64748B"
+                />
+              </Pressable>
+
+              {expandedGroups.settings && (
+                <View style={styles.accordionBody}>
+                  <View style={styles.subGroupSection}>
+                    <Text style={styles.subGroupTitle}>Tài khoản & hệ thống</Text>
+                    <View style={styles.featureGrid}>
+                      <FeatureItem
+                        icon="help-circle-outline"
+                        iconType="ionicons"
+                        title="Hướng dẫn sử dụng"
+                        onPress={showGuideManual}
+                      />
+                      <FeatureItem
+                        icon="lock-closed-outline"
+                        iconType="ionicons"
+                        title="Đổi mật khẩu"
+                        onPress={() => setIsChangingPassword(true)}
+                      />
+                      <FeatureItem
+                        icon="face-recognition"
+                        iconType="mci"
+                        title="Dữ liệu khuôn mặt"
+                        onPress={() => router.push('/hr/update-face' as any)}
+                      />
+                      <FeatureItem
+                        icon="shield-outline"
+                        iconType="ionicons"
+                        title="Quyền & Xóa tài khoản"
+                        onPress={() => setIsDeleting(true)}
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* ── Logout Button ── */}
+          <Pressable style={styles.logoutBtn} onPress={handleLogout}>
+            <MaterialCommunityIcons name="logout-variant" size={18} color="#B91C1C" />
+            <Text style={styles.logoutBtnText}>Đăng xuất</Text>
+          </Pressable>
+
+          <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
+        </View>
       </ScrollView>
 
-      <EditProfileModal 
-        visible={isEditing} 
-        onClose={() => setIsEditing(false)} 
-        initialPhone={user?.phone || ''} 
-        initialEmail={user?.email || ''} 
+      {/* ── Modal: Thông tin cá nhân ── */}
+      <Modal
+        visible={showPersonalInfoModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPersonalInfoModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalDragHandle} />
+
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Thông tin cá nhân</Text>
+              <Pressable
+                onPress={() => setShowPersonalInfoModal(false)}
+                hitSlop={8}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ maxHeight: 440 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.infoModalCard}>
+                <InfoItem label="Mã nhân viên" value={userCodeText} />
+                <InfoItem label="Họ và tên" value={user?.fullName || 'Chuyên viên HR'} />
+                <InfoItem label="Số điện thoại" value={user?.phone || 'Chưa cập nhật'} />
+                <InfoItem label="Email" value={user?.email || 'Chưa cập nhật'} />
+                <InfoItem label="Phòng ban" value={departmentName} />
+                <InfoItem label="Chức vụ" value={roleLabel} />
+                <InfoItem
+                  label="Dữ liệu khuôn mặt"
+                  value={user?.hasFaceData ? 'Đã thiết lập' : 'Chưa thiết lập'}
+                />
+                <InfoItem
+                  label="Ngày vào làm"
+                  value={
+                    user?.joinDate || (user as any)?.createdAt
+                      ? new Date(user?.joinDate || (user as any)?.createdAt).toLocaleDateString('vi-VN')
+                      : 'Chưa cập nhật'
+                  }
+                />
+                <InfoItem label="Thâm niên" value={seniorityText} isLast />
+              </View>
+
+              <Pressable
+                style={styles.editContactBtn}
+                onPress={() => {
+                  setShowPersonalInfoModal(false);
+                  setIsEditing(true);
+                }}
+              >
+                <Ionicons name="pencil-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.editContactBtnText}>Chỉnh sửa thông tin liên hệ</Text>
+              </Pressable>
+            </ScrollView>
+
+            <SafeAreaView edges={['bottom']} />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Existing Edit, Change Password & Delete Account Modals */}
+      <EditProfileModal
+        visible={isEditing}
+        onClose={() => setIsEditing(false)}
+        initialPhone={user?.phone || ''}
+        initialEmail={user?.email || ''}
       />
-      <ChangePasswordModal 
-        visible={isChangingPassword} 
-        onClose={() => setIsChangingPassword(false)} 
+      <ChangePasswordModal
+        visible={isChangingPassword}
+        onClose={() => setIsChangingPassword(false)}
       />
-      <DeleteAccountModal 
-        visible={isDeleting} 
-        onClose={() => setIsDeleting(false)} 
+      <DeleteAccountModal
+        visible={isDeleting}
+        onClose={() => setIsDeleting(false)}
       />
     </View>
   );
 }
 
-function InfoRow({ icon, label, value, valueColor, onPress, isLast }: any) {
-  const Component = onPress ? Pressable : View;
+interface FeatureItemProps {
+  icon: string;
+  iconType?: 'mci' | 'ionicons';
+  title: string;
+  onPress: () => void;
+}
+
+function FeatureItem({ icon, iconType = 'mci', title, onPress }: FeatureItemProps) {
   return (
-    <Component 
-      style={[styles.rowContainer, isLast && styles.noBorder]} 
-      onPress={onPress}
-    >
-      <View style={styles.rowLeft}>
-        <View style={styles.iconWrapper}>
-          <MaterialCommunityIcons name={icon} size={20} color="#4B5563" />
-        </View>
-        <Text style={styles.rowLabel}>{label}</Text>
+    <Pressable style={styles.featureItem} onPress={onPress}>
+      <View style={styles.featureIconWrap}>
+        {iconType === 'ionicons' ? (
+          <Ionicons name={icon as any} size={20} color="#0F172A" />
+        ) : (
+          <MaterialCommunityIcons name={icon as any} size={20} color="#0F172A" />
+        )}
       </View>
-      <View style={styles.rowRight}>
-        <Text style={[styles.rowValue, valueColor && { color: valueColor }]}>{value}</Text>
-        {onPress && <MaterialCommunityIcons name="chevron-right" size={18} color="#9CA3AF" />}
-      </View>
-    </Component>
+      <Text style={styles.featureItemText} numberOfLines={1}>
+        {title}
+      </Text>
+    </Pressable>
   );
 }
 
-function ActionRow({ icon, title, titleColor, iconColor, onPress, isLast }: any) {
+function InfoItem({
+  label,
+  value,
+  isLast = false,
+}: {
+  label: string;
+  value: string;
+  isLast?: boolean;
+}) {
   return (
-    <Pressable 
-      style={[styles.rowContainer, isLast && styles.noBorder]} 
-      onPress={onPress}
-    >
-      <View style={styles.rowLeft}>
-        <View style={[styles.iconWrapper, iconColor && { backgroundColor: iconColor + '15' }]}>
-          <MaterialCommunityIcons name={icon} size={22} color={iconColor || '#111827'} />
-        </View>
-        <Text style={[styles.actionTitle, titleColor && { color: titleColor }]}>{title}</Text>
-      </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
-    </Pressable>
+    <View style={[styles.infoItemRow, isLast && { borderBottomWidth: 0 }]}>
+      <Text style={styles.infoItemLabel}>{label}</Text>
+      <Text style={styles.infoItemValue}>{value}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
   },
-  scrollContent: {
-    paddingBottom: 140,
+  scrollBody: {
+    flex: 1,
   },
-  headerBg: {
+  scrollContent: {},
+
+  /* ── Header (#1B3B2B) ── */
+  headerContainer: {
+    backgroundColor: '#1B3B2B',
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  decorativeCurve: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#111827',
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    top: -40,
+    right: -40,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  brandTagline: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.7)',
+    letterSpacing: 2,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+    letterSpacing: -0.3,
+  },
+  helpBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* ── Profile Card ── */
   profileCard: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    borderRadius: 24,
-    padding: 20,
-    alignItems: 'center',
+    borderRadius: 20,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-    marginBottom: 20,
-  },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#3B82F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -50,
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 4,
   },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#111827',
-    marginTop: 12,
-  },
-  userRole: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  statusBadge: {
+  profileCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 10,
-    gap: 6,
+    gap: 14,
+  },
+  avatarWrap: {},
+  profileMetaCol: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  userRole: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  userDepartment: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
   statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#10B981',
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#16A34A',
+    marginRight: 6,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#059669',
+    color: '#16A34A',
   },
-  section: {
-    marginHorizontal: 16,
-    marginBottom: 20,
+  profileDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
   },
-  sectionTitle: {
+  profileCardBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileStatCol: {
+    flex: 1,
+  },
+  profileStatLabel: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  profileStatValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  statVerticalDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 12,
+  },
+
+  /* ── Body Content ── */
+  bodyContent: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+
+  /* ── Thông tin cá nhân Card ── */
+  personalInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 16,
+  },
+  personalIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  personalTextWrap: {
+    flex: 1,
+  },
+  personalTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  personalSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* ── Sections ── */
+  sectionWrap: {
+    marginBottom: 16,
+  },
+  sectionHeaderTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#374151',
+    color: '#0F172A',
     marginBottom: 10,
-    marginLeft: 4,
   },
-  infoCard: {
+
+  /* ── Utilities Row ── */
+  utilitiesRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  utilityCard: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    borderColor: '#E2E8F0',
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  noBorder: {
-    borderBottomWidth: 0,
-  },
-  rowLeft: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
+    minHeight: 90,
   },
-  iconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+  utilityIconWrap: {
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rowLabel: {
-    fontSize: 14,
-    color: '#4B5563',
-    fontWeight: '500',
+  payslipIconBox: {
+    width: 20,
+    height: 26,
+    borderRadius: 4,
+    borderWidth: 1.8,
+    borderColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  rowRight: {
+  payslipDollarText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: -1,
+  },
+  utilityTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 8,
+  },
+  utilitySubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+
+  /* ── Accordion Cards ── */
+  accordionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 10,
+  },
+  accordionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
-  rowValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+  accordionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  actionTitle: {
+  accordionTitleCol: {
+    flex: 1,
+  },
+  accordionTitle: {
     fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  accordionSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+
+  /* Accordion Body */
+  accordionBody: {
+    marginTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  subGroupSection: {
+    marginVertical: 4,
+  },
+  subGroupTitle: {
+    fontSize: 12,
     fontWeight: '600',
-    color: '#111827',
+    color: '#64748B',
+    marginBottom: 10,
+  },
+  featureGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 8,
+  },
+  featureItem: {
+    width: '50%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingRight: 6,
+  },
+  featureIconWrap: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  featureItemText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+    flex: 1,
+  },
+  featureDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 10,
+  },
+
+  /* ── Logout Button ── */
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    marginTop: 6,
+  },
+  logoutBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#B91C1C',
   },
   versionText: {
     textAlign: 'center',
     fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 10,
-    marginBottom: 20,
+    color: '#94A3B8',
+    marginTop: 6,
+  },
+
+  /* ── Personal Info Modal ── */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  modalDragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  infoModalCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 14,
+  },
+  infoItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  infoItemLabel: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  infoItemValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  editContactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#1B3B2B',
+    height: 46,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  editContactBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

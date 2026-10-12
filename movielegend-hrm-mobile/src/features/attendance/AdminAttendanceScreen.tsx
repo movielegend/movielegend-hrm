@@ -10,6 +10,7 @@ import {
   Modal,
   Image,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useSegments } from 'expo-router';
@@ -63,7 +64,7 @@ function CircularProgressRing({ percentage, size = 64, strokeWidth = 6 }: { perc
           fill="transparent"
         />
       </Svg>
-      <View style={StyleSheet.absoluteFillObject && { position: 'absolute', justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ position: 'absolute', justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>{Math.round(percentage)}%</Text>
       </View>
     </View>
@@ -74,9 +75,12 @@ function CircularProgressRing({ percentage, size = 64, strokeWidth = 6 }: { perc
 function UserInitialAvatar({ name, uri, size = 44 }: { name: string; uri?: string | null; size?: number }) {
   const initials = useMemo(() => {
     if (!name) return 'ML';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'ML';
+    if (parts.length === 1) return (parts[0] || 'ML').slice(0, 2).toUpperCase();
+    const first = (parts[0] || '').charAt(0);
+    const last = (parts[parts.length - 1] || '').charAt(0);
+    return (first + last).toUpperCase() || 'ML';
   }, [name]);
 
   const absoluteUri = getAbsoluteImageUrl(uri);
@@ -213,7 +217,7 @@ export function AdminAttendanceScreen() {
 
   // Load config if 1 department selected
   useEffect(() => {
-    if (selectedDeptIds.length === 1) {
+    if (selectedDeptIds.length === 1 && selectedDeptIds[0]) {
       deptOvertimeConfigApi.findByDepartment(selectedDeptIds[0])
         .then((existing) => {
           if (existing) {
@@ -290,13 +294,11 @@ export function AdminAttendanceScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* 1. Header (Brand: movielegend PEOPLE + Title + Date Pill) */}
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, isLeader && { paddingBottom: 10 }]}>
         <View style={styles.headerTopRow}>
-          <View>
-            <Text style={styles.screenTitle}>
-              {isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}
-            </Text>
-          </View>
+          <Text style={styles.screenTitle} numberOfLines={1}>
+            {isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}
+          </Text>
 
           {/* Date Picker Pill Trigger */}
           <Pressable
@@ -304,34 +306,36 @@ export function AdminAttendanceScreen() {
             style={styles.datePill}
             android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
           >
-            <Ionicons name="calendar-outline" size={14} color="#183B2B" style={{ marginRight: 6 }} />
+            <Ionicons name="calendar-outline" size={13.5} color="#183B2B" style={{ marginRight: 5 }} />
             <Text style={styles.datePillText}>{formattedDatePill}</Text>
-            <Ionicons name="chevron-down" size={13} color="#6B7280" style={{ marginLeft: 4 }} />
+            <Ionicons name="chevron-down" size={12} color="#6B7280" style={{ marginLeft: 3 }} />
           </Pressable>
         </View>
 
-        {/* 2. Segmented Switcher [Chấm công] vs [Cấu hình] */}
-        <View style={styles.segmentContainer}>
-          <Pressable
-            onPress={() => setActiveTab('attendance')}
-            style={[styles.segmentButton, activeTab === 'attendance' && styles.segmentButtonActive]}
-          >
-            <Text style={[styles.segmentButtonText, activeTab === 'attendance' && styles.segmentButtonTextActive]}>
-              Chấm công
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setActiveTab('config');
-              setConfigStep(1);
-            }}
-            style={[styles.segmentButton, activeTab === 'config' && styles.segmentButtonActive]}
-          >
-            <Text style={[styles.segmentButtonText, activeTab === 'config' && styles.segmentButtonTextActive]}>
-              Cấu hình
-            </Text>
-          </Pressable>
-        </View>
+        {/* 2. Segmented Switcher [Chấm công] vs [Cấu hình] - Ẩn với Leader */}
+        {!isLeader && (
+          <View style={styles.segmentContainer}>
+            <Pressable
+              onPress={() => setActiveTab('attendance')}
+              style={[styles.segmentButton, activeTab === 'attendance' && styles.segmentButtonActive]}
+            >
+              <Text style={[styles.segmentButtonText, activeTab === 'attendance' && styles.segmentButtonTextActive]}>
+                Chấm công
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setActiveTab('config');
+                setConfigStep(1);
+              }}
+              style={[styles.segmentButton, activeTab === 'config' && styles.segmentButtonActive]}
+            >
+              <Text style={[styles.segmentButtonText, activeTab === 'config' && styles.segmentButtonTextActive]}>
+                Cấu hình
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       {/* Date Picker Modal */}
@@ -413,13 +417,15 @@ export function AdminAttendanceScreen() {
           {/* Section: Danh sách nhân viên */}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionHeading}>Danh sách nhân viên</Text>
-            <Pressable
-              onPress={() => router.push(`${basePath}/attendance/report` as any)}
-              style={styles.exportBtn}
-              hitSlop={8}
-            >
-              <Ionicons name="share-outline" size={20} color="#1B382B" />
-            </Pressable>
+            {!isLeader && (
+              <Pressable
+                onPress={() => router.push(`${basePath}/attendance/report` as any)}
+                style={styles.exportBtn}
+                hitSlop={8}
+              >
+                <Ionicons name="share-outline" size={20} color="#1B382B" />
+              </Pressable>
+            )}
           </View>
 
           {/* Search Bar: Tìm tên hoặc mã nhân viên */}
@@ -503,8 +509,8 @@ export function AdminAttendanceScreen() {
         </ScrollView>
       )}
 
-      {/* TAB 2: CẤU HÌNH CHẤM CÔNG (Screen 2 & Screen 3 in Template) */}
-      {activeTab === 'config' && (
+      {/* TAB 2: CẤU HÌNH CHẤM CÔNG (Screen 2 & Screen 3 in Template - Chỉ dành cho Admin/HR) */}
+      {!isLeader && activeTab === 'config' && (
         <View style={{ flex: 1 }}>
           {/* Subheader: Cấu hình chấm công & Stepper Progress */}
           <View style={styles.configSubHeader}>
@@ -795,15 +801,16 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: Platform.OS === 'ios' ? 14 : 8,
     paddingBottom: 12,
     backgroundColor: '#F8FAF8',
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
   },
   brandRow: {
     flexDirection: 'row',
@@ -824,17 +831,18 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   screenTitle: {
-    fontSize: 22,
+    flex: 1,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   datePill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -843,7 +851,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
-    marginTop: 4,
+    flexShrink: 0,
   },
   datePillText: {
     fontSize: 12,

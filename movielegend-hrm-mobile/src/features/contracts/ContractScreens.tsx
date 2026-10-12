@@ -12,8 +12,10 @@ import {
   Modal,
   RefreshControl,
   ActivityIndicator,
+  StatusBar,
+  Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { ContractScannerModal } from "./ContractScannerModal";
 import { ContractSignatureModal } from "./ContractSignatureModal";
@@ -850,43 +852,83 @@ export function ContractListScreen() {
 
 export function EmployeeContractListScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const contracts = useMyContracts();
   const contractItems = Array.isArray(contracts.data) ? contracts.data : [];
 
-  return (
-    <Screen>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl
-            refreshing={contracts.isRefetching}
-            onRefresh={() => void contracts.refetch()}
-          />
-        }
-      >
-        <PageHeader
-          title="Hợp đồng của tôi"
-          subtitle="Danh sách hợp đồng lao động"
-        />
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/employee');
+    }
+  };
 
-        <View style={styles.list}>
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8);
+
+  return (
+    <View style={employeeContractStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#123826" translucent={Platform.OS === 'android'} />
+
+      {/* Header Banner */}
+      <View style={[employeeContractStyles.headerBanner, { paddingTop: safeTopInset }]}>
+        <View style={employeeContractStyles.headerTopRow}>
+          <Pressable onPress={handleBack} style={employeeContractStyles.backBtn} hitSlop={12} accessibilityLabel="Quay lại">
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </Pressable>
+          <View style={employeeContractStyles.headerTitleWrap}>
+            <Text style={employeeContractStyles.headerTitle}>Hợp đồng của tôi</Text>
+            <Text style={employeeContractStyles.headerSubtitle}>Danh sách hợp đồng lao động</Text>
+          </View>
+          <View style={{ width: 32 }} />
+        </View>
+      </View>
+
+      {/* Body Container */}
+      <View style={employeeContractStyles.bodyContainer}>
+        {/* Section Header Row */}
+        <View style={employeeContractStyles.sectionHeaderRow}>
+          <Text style={employeeContractStyles.sectionTitle}>Hợp đồng</Text>
+          <Text style={employeeContractStyles.sectionCountText}>
+            {contractItems.length} hợp đồng
+          </Text>
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={employeeContractStyles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={contracts.isRefetching}
+              onRefresh={() => void contracts.refetch()}
+              colors={['#123826']}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
           {contractItems.length > 0 ? (
             contractItems.map((contract: any) => {
               return (
                 <Pressable
                   key={contract.id}
-                  style={styles.contractCard}
+                  style={employeeContractStyles.card}
                   onPress={() =>
                     router.push(`/employee/contracts/${contract.id}`)
                   }
                 >
-                  <View style={styles.contractHeader}>
-                    <View style={styles.contractAvatar}>
-                      <Text style={styles.contractAvatarText}>HĐ</Text>
+                  <View style={employeeContractStyles.cardHeaderRow}>
+                    <View style={employeeContractStyles.cardIconBox}>
+                      <Ionicons
+                        name="document-text-outline"
+                        size={22}
+                        color="#123826"
+                      />
                     </View>
-                    <View style={styles.contractMainInfo}>
-                      <Text style={styles.contractTitle}>{contract.title}</Text>
-                      <Text style={styles.contractEmpName}>
+                    <View style={employeeContractStyles.cardHeaderInfo}>
+                      <Text style={employeeContractStyles.cardTitle}>
+                        {contract.title}
+                      </Text>
+                      <Text style={employeeContractStyles.cardCode}>
                         {contract.contractCode}
                       </Text>
                     </View>
@@ -900,43 +942,91 @@ export function EmployeeContractListScreen() {
                     />
                   </View>
 
-                  <View style={styles.contractDetails}>
-                    <View style={styles.detailItem}>
-                      <MaterialCommunityIcons
-                        name="tag-outline"
-                        size={14}
-                        color={colors.muted}
+                  <View style={employeeContractStyles.divider} />
+
+                  <View style={employeeContractStyles.detailRow}>
+                    <View style={employeeContractStyles.detailLeft}>
+                      <Ionicons
+                        name="pricetag-outline"
+                        size={15}
+                        color="#71717A"
                       />
-                      <Text style={styles.detailText}>
-                        {CONTRACT_TYPE_LABELS[
-                          contract.contractType as ContractType
-                        ] ?? contract.contractType}
+                      <Text style={employeeContractStyles.detailLabel}>
+                        Loại hợp đồng
                       </Text>
                     </View>
-                    <View style={styles.detailItem}>
-                      <MaterialCommunityIcons
-                        name="calendar-range"
-                        size={14}
-                        color={colors.muted}
-                      />
-                      <Text style={styles.detailText}>
-                        {formatDate(contract.startDate)} →{" "}
-                        {formatDate(contract.endDate)}
-                      </Text>
-                    </View>
+                    <Text style={employeeContractStyles.detailValue}>
+                      {CONTRACT_TYPE_LABELS[
+                        contract.contractType as ContractType
+                      ] ?? contract.contractType}
+                    </Text>
                   </View>
+
+                  <View style={employeeContractStyles.detailRow}>
+                    <View style={employeeContractStyles.detailLeft}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={15}
+                        color="#71717A"
+                      />
+                      <Text style={employeeContractStyles.detailLabel}>
+                        Thời hạn
+                      </Text>
+                    </View>
+                    <Text style={employeeContractStyles.detailValue}>
+                      {formatDate(contract.startDate)} →{" "}
+                      {contract.endDate
+                        ? formatDate(contract.endDate)
+                        : "Không thời hạn"}
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    style={employeeContractStyles.detailBtn}
+                    onPress={() =>
+                      router.push(`/employee/contracts/${contract.id}`)
+                    }
+                    android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
+                  >
+                    <Text style={employeeContractStyles.detailBtnText}>
+                      Xem chi tiết
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color="#FFFFFF"
+                      style={employeeContractStyles.detailBtnIcon}
+                    />
+                  </Pressable>
                 </Pressable>
               );
             })
           ) : !contracts.isLoading ? (
-            <EmptyState
-              title="Chưa có hợp đồng"
-              message="Bạn hiện chưa có hợp đồng lao động nào."
+            <View style={employeeContractStyles.emptyCard}>
+              <View style={employeeContractStyles.emptyIconCircle}>
+                <MaterialCommunityIcons
+                  name="file-document-outline"
+                  size={46}
+                  color="#123826"
+                />
+              </View>
+              <Text style={employeeContractStyles.emptyTitle}>
+                Chưa có hợp đồng
+              </Text>
+              <Text style={employeeContractStyles.emptySubtitle}>
+                Bạn hiện chưa có hợp đồng lao động nào.
+              </Text>
+            </View>
+          ) : (
+            <ActivityIndicator
+              size="large"
+              color="#123826"
+              style={{ marginTop: 40 }}
             />
-          ) : null}
-        </View>
-      </ScrollView>
-    </Screen>
+          )}
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
@@ -3031,24 +3121,128 @@ const cStyles = StyleSheet.create({
 
 // ── Leader Contract List Screen ──
 
+function getLeaderContractStatusBadge(status: string, isExpiring?: boolean) {
+  if (isExpiring) {
+    return {
+      label: "Sắp hết hạn",
+      bg: "#FEE2E2",
+      color: "#B91C1C",
+      icon: "alert-circle" as const,
+    };
+  }
+  switch (status) {
+    case "WAITING_COMPANY_SIGNATURE":
+      return {
+        label: "Chờ công ty ký",
+        bg: "#FEF3C7",
+        color: "#92400E",
+        icon: "time-outline" as const,
+      };
+    case "WAITING_EMPLOYEE_SIGNATURE":
+      return {
+        label: "Chờ nhân viên ký",
+        bg: "#FEF3C7",
+        color: "#92400E",
+        icon: "time-outline" as const,
+      };
+    case "PENDING_INTERNAL_APPROVAL":
+      return {
+        label: "Chờ duyệt nội bộ",
+        bg: "#EFF6FF",
+        color: "#1E40AF",
+        icon: "time-outline" as const,
+      };
+    case "EMPLOYEE_SIGNED":
+      return {
+        label: "NV đã ký",
+        bg: "#EFF6FF",
+        color: "#1E40AF",
+        icon: "checkmark-circle-outline" as const,
+      };
+    case "ACTIVE":
+      return {
+        label: "Đang hiệu lực",
+        bg: "#DCFCE7",
+        color: "#166534",
+        icon: "checkmark-circle-outline" as const,
+      };
+    case "COMPLETED":
+      return {
+        label: "Hoàn tất",
+        bg: "#DCFCE7",
+        color: "#166534",
+        icon: "checkmark-circle-outline" as const,
+      };
+    case "EXPIRED":
+      return {
+        label: "Hết hạn",
+        bg: "#F3F4F6",
+        color: "#6B7280",
+        icon: "close-circle-outline" as const,
+      };
+    case "TERMINATED":
+      return {
+        label: "Đã chấm dứt",
+        bg: "#FEE2E2",
+        color: "#991B1B",
+        icon: "close-circle-outline" as const,
+      };
+    case "CANCELLED":
+      return {
+        label: "Đã hủy",
+        bg: "#F3F4F6",
+        color: "#6B7280",
+        icon: "close-circle-outline" as const,
+      };
+    default:
+      return {
+        label: CONTRACT_STATUS_LABELS[status as ContractStatus] || status,
+        bg: "#F3F4F6",
+        color: "#374151",
+        icon: "information-circle-outline" as const,
+      };
+  }
+}
+
 export function LeaderContractListScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
   const departmentId = user?.department?.id;
-  const { data: contracts, refetch, isRefetching } = useContracts(departmentId);
+  const {
+    data: departmentContracts,
+    refetch: refetchDept,
+    isRefetching: isRefetchingDept,
+  } = useContracts(departmentId);
+  const {
+    data: myContracts,
+    refetch: refetchMy,
+    isRefetching: isRefetchingMy,
+  } = useMyContracts();
+
   const [activeTab, setActiveTab] = useState<"MY_CONTRACTS" | "TEAM_CONTRACTS">(
     "MY_CONTRACTS",
   );
   const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "EXPIRING">("ALL");
 
-  const filteredContracts =
-    contracts?.filter((c) => {
-      // 1. Filter by Tab
-      if (activeTab === "MY_CONTRACTS" && c.userId !== user?.id) return false;
-      if (activeTab === "TEAM_CONTRACTS" && c.userId === user?.id) return false;
+  const onRefresh = async () => {
+    await Promise.all([refetchDept(), refetchMy()]);
+  };
+  const isRefreshing = isRefetchingDept || isRefetchingMy;
 
-      // 2. Filter by Status
+  // Contracts matching tab
+  const contractsForTab = useMemo(() => {
+    if (activeTab === "MY_CONTRACTS") {
+      if (Array.isArray(myContracts) && myContracts.length > 0) return myContracts;
+      return departmentContracts?.filter((c) => c.userId === user?.id) || [];
+    } else {
+      return departmentContracts?.filter((c) => c.userId !== user?.id) || [];
+    }
+  }, [activeTab, myContracts, departmentContracts, user?.id]);
+
+  const filteredContracts = useMemo(() => {
+    return contractsForTab.filter((c) => {
       if (filter === "ACTIVE" && c.status !== "ACTIVE") return false;
       if (filter === "EXPIRING") {
         if (!c.endDate || c.status !== "ACTIVE") return false;
@@ -3059,292 +3253,337 @@ export function LeaderContractListScreen() {
         if (diff < 0 || diff > 30) return false;
       }
       return true;
-    }) || [];
+    });
+  }, [contractsForTab, filter]);
 
   return (
-    <Screen>
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xs }}>
-        <PageHeader title="Quản lý hợp đồng" />
+    <View style={leaderContractStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#123826" translucent={Platform.OS === "android"} />
+
+      {/* Dark Forest Green Header Banner */}
+      <View style={leaderContractStyles.headerBanner}>
+        <View style={{ paddingTop: Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8) }}>
+          <View style={leaderContractStyles.headerTopRow}>
+            <View style={leaderContractStyles.headerTitleWrap}>
+              <Text style={leaderContractStyles.headerTitle}>Hợp đồng</Text>
+              <Text style={leaderContractStyles.headerSubtitle}>
+                Quản lý và cá nhân
+              </Text>
+            </View>
+            <Pressable
+              style={leaderContractStyles.templateBtn}
+              onPress={() => router.push(`${roleBase(user)}/contracts/templates` as any)}
+              hitSlop={8}
+            >
+              <MaterialCommunityIcons
+                name="file-cog-outline"
+                size={17}
+                color="#FFFFFF"
+              />
+              <Text style={leaderContractStyles.templateBtnText}>Mẫu HĐ</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
 
-      <View
-        style={{
-          flexDirection: "row",
-          backgroundColor: "#F1F5F9",
-          marginHorizontal: spacing.md,
-          marginTop: spacing.sm,
-          borderRadius: 8,
-          padding: 4,
-        }}
-      >
-        <Pressable
-          style={[
-            {
-              flex: 1,
-              paddingVertical: 8,
-              alignItems: "center",
-              borderRadius: 6,
-            },
-            activeTab === "MY_CONTRACTS" && {
-              backgroundColor: colors.surface,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.1,
-              shadowRadius: 2,
-              elevation: 2,
-            },
-          ]}
-          onPress={() => setActiveTab("MY_CONTRACTS")}
-        >
-          <Text
-            style={[
-              { fontSize: 14, fontWeight: "500", color: colors.muted },
-              activeTab === "MY_CONTRACTS" && {
-                color: colors.text,
-                fontWeight: "600",
-              },
-            ]}
-          >
-            Của tôi
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[
-            {
-              flex: 1,
-              paddingVertical: 8,
-              alignItems: "center",
-              borderRadius: 6,
-            },
-            activeTab === "TEAM_CONTRACTS" && {
-              backgroundColor: colors.surface,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.1,
-              shadowRadius: 2,
-              elevation: 2,
-            },
-          ]}
-          onPress={() => setActiveTab("TEAM_CONTRACTS")}
-        >
-          <Text
-            style={[
-              { fontSize: 14, fontWeight: "500", color: colors.muted },
-              activeTab === "TEAM_CONTRACTS" && {
-                color: colors.text,
-                fontWeight: "600",
-              },
-            ]}
-          >
-            Nhân sự
-          </Text>
-        </Pressable>
-      </View>
-
-      <View style={{ marginTop: spacing.md, marginBottom: spacing.sm }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: spacing.md,
-            gap: spacing.sm,
-          }}
-        >
+      {/* Main Curved White Body */}
+      <View style={leaderContractStyles.bodyContainer}>
+        {/* Primary Segment Switcher: [ Của tôi | Tôi giao ] */}
+        <View style={leaderContractStyles.segmentContainer}>
           <Pressable
             style={[
-              {
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 20,
-                backgroundColor: "#F1F5F9",
-                borderWidth: 1,
-                borderColor: "#E2E8F0",
-              },
-              filter === "ALL" && {
-                backgroundColor: "#EFF6FF",
-                borderColor: colors.primary,
-              },
+              leaderContractStyles.segmentBtn,
+              activeTab === "MY_CONTRACTS" && leaderContractStyles.segmentBtnActive,
             ]}
-            onPress={() => setFilter("ALL")}
+            onPress={() => setActiveTab("MY_CONTRACTS")}
           >
             <Text
               style={[
-                { fontSize: 13, color: colors.muted, fontWeight: "500" },
-                filter === "ALL" && {
-                  color: colors.primary,
-                  fontWeight: "600",
-                },
+                leaderContractStyles.segmentText,
+                activeTab === "MY_CONTRACTS" &&
+                  leaderContractStyles.segmentTextActive,
               ]}
             >
-              Tất cả
+              Của tôi
             </Text>
           </Pressable>
+
           <Pressable
             style={[
-              {
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 20,
-                backgroundColor: "#F1F5F9",
-                borderWidth: 1,
-                borderColor: "#E2E8F0",
-              },
-              filter === "ACTIVE" && {
-                backgroundColor: "#EFF6FF",
-                borderColor: colors.primary,
-              },
+              leaderContractStyles.segmentBtn,
+              activeTab === "TEAM_CONTRACTS" &&
+                leaderContractStyles.segmentBtnActive,
             ]}
-            onPress={() => setFilter("ACTIVE")}
+            onPress={() => setActiveTab("TEAM_CONTRACTS")}
           >
             <Text
               style={[
-                { fontSize: 13, color: colors.muted, fontWeight: "500" },
-                filter === "ACTIVE" && {
-                  color: colors.primary,
-                  fontWeight: "600",
-                },
+                leaderContractStyles.segmentText,
+                activeTab === "TEAM_CONTRACTS" &&
+                  leaderContractStyles.segmentTextActive,
               ]}
             >
-              Đang hiệu lực
+              Tôi giao
             </Text>
           </Pressable>
-          <Pressable
-            style={[
-              {
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 20,
-                backgroundColor: "#F1F5F9",
-                borderWidth: 1,
-                borderColor: "#E2E8F0",
-              },
-              filter === "EXPIRING" && {
-                backgroundColor: "#EFF6FF",
-                borderColor: colors.primary,
-              },
-            ]}
-            onPress={() => setFilter("EXPIRING")}
+        </View>
+
+        {/* Filter Chips: [ Tất cả | Đang hiệu lực | Sắp hết hạn ] */}
+        <View style={leaderContractStyles.filterWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={leaderContractStyles.filterScrollContent}
           >
-            <Text
+            <Pressable
               style={[
-                { fontSize: 13, color: colors.muted, fontWeight: "500" },
-                filter === "EXPIRING" && {
-                  color: colors.primary,
-                  fontWeight: "600",
-                },
+                leaderContractStyles.filterChip,
+                filter === "ALL" && leaderContractStyles.filterChipActive,
               ]}
+              onPress={() => setFilter("ALL")}
             >
-              Sắp hết hạn
-            </Text>
-          </Pressable>
-        </ScrollView>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={() => void refetch()}
-          />
-        }
-      >
-        {filteredContracts.length === 0 ? (
-          <EmptyState title="Không có hợp đồng nào" />
-        ) : (
-          filteredContracts.map((contract: any) => {
-            const empName =
-              contract.user?.profile?.fullName ??
-              contract.user?.userCode ??
-              "-";
-            const initials = getInitials(empName);
-
-            let statusLabel =
-              CONTRACT_STATUS_LABELS[contract.status as ContractStatus] ??
-              contract.status;
-            let statusTone = getStatusTone(contract.status as ContractStatus);
-
-            if (contract.status === "ACTIVE" && contract.endDate) {
-              const d = new Date(contract.endDate);
-              const diff = Math.ceil(
-                (d.getTime() - new Date().getTime()) / (1000 * 3600 * 24),
-              );
-              if (diff >= 0 && diff <= 30) {
-                statusLabel = "Sắp hết hạn";
-                statusTone = "warning";
-              }
-            }
-
-            return (
-              <Pressable
-                key={contract.id}
-                style={styles.contractCard}
-                onPress={() => router.push(`/leader/contracts/${contract.id}`)}
+              <Text
+                style={[
+                  leaderContractStyles.filterChipText,
+                  filter === "ALL" && leaderContractStyles.filterChipTextActive,
+                ]}
               >
-                <View style={styles.contractHeader}>
-                  {activeTab === "TEAM_CONTRACTS" ? (
-                    <View style={styles.contractAvatar}>
-                      <Text style={styles.contractAvatarText}>{initials}</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.templateIcon}>
-                      <MaterialCommunityIcons
-                        name="file-document-outline"
+                Tất cả
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                leaderContractStyles.filterChip,
+                filter === "ACTIVE" && leaderContractStyles.filterChipActive,
+              ]}
+              onPress={() => setFilter("ACTIVE")}
+            >
+              <Text
+                style={[
+                  leaderContractStyles.filterChipText,
+                  filter === "ACTIVE" &&
+                    leaderContractStyles.filterChipTextActive,
+                ]}
+              >
+                Đang hiệu lực
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                leaderContractStyles.filterChip,
+                filter === "EXPIRING" && leaderContractStyles.filterChipActive,
+              ]}
+              onPress={() => setFilter("EXPIRING")}
+            >
+              <Text
+                style={[
+                  leaderContractStyles.filterChipText,
+                  filter === "EXPIRING" &&
+                    leaderContractStyles.filterChipTextActive,
+                ]}
+              >
+                Sắp hết hạn
+              </Text>
+            </Pressable>
+          </ScrollView>
+        </View>
+
+        {/* Section Title Row: [ Danh sách hợp đồng | X hợp đồng ] */}
+        <View style={leaderContractStyles.sectionHeaderRow}>
+          <Text style={leaderContractStyles.sectionTitle}>
+            {activeTab === "MY_CONTRACTS"
+              ? "Danh sách hợp đồng"
+              : "Hợp đồng nhân sự"}
+          </Text>
+          <Text style={leaderContractStyles.sectionCountText}>
+            {filteredContracts.length} hợp đồng
+          </Text>
+        </View>
+
+        {/* Content list or Empty state */}
+        <ScrollView
+          contentContainerStyle={leaderContractStyles.listScrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+          }
+        >
+          {filteredContracts.length === 0 ? (
+            /* Empty State matching Template */
+            <View style={leaderContractStyles.emptyCard}>
+              <View style={leaderContractStyles.emptyIconCircle}>
+                <MaterialCommunityIcons
+                  name="folder-open"
+                  size={52}
+                  color="#8EAF9D"
+                />
+              </View>
+              <Text style={leaderContractStyles.emptyTitle}>
+                Chưa có hợp đồng
+              </Text>
+              <Text style={leaderContractStyles.emptySubtitle}>
+                {activeTab === "TEAM_CONTRACTS"
+                  ? "Bạn hiện chưa giao hợp đồng lao động nào."
+                  : "Bạn hiện chưa có hợp đồng lao động nào."}
+              </Text>
+            </View>
+          ) : (
+            filteredContracts.map((contract: any) => {
+              const empName =
+                contract.user?.profile?.fullName ??
+                contract.user?.userCode ??
+                "Nhân sự";
+
+              const isExpiring = (() => {
+                if (!contract.endDate || contract.status !== "ACTIVE")
+                  return false;
+                const d = new Date(contract.endDate);
+                const diff = Math.ceil(
+                  (d.getTime() - new Date().getTime()) / (1000 * 3600 * 24),
+                );
+                return diff >= 0 && diff <= 30;
+              })();
+
+              const badge = getLeaderContractStatusBadge(
+                contract.status,
+                isExpiring,
+              );
+              const typeLabel =
+                CONTRACT_TYPE_LABELS[contract.contractType as ContractType] ??
+                "Có thời hạn";
+
+              return (
+                <View key={contract.id} style={leaderContractStyles.card}>
+                  {/* Card Header: Icon + Info + Badge */}
+                  <View style={leaderContractStyles.cardHeaderRow}>
+                    <View style={leaderContractStyles.cardIconBox}>
+                      <Ionicons
+                        name="document-text"
                         size={24}
-                        color={colors.primary}
+                        color="#123826"
                       />
                     </View>
-                  )}
-                  <View style={styles.contractMainInfo}>
-                    <Text style={styles.contractTitle}>{contract.title}</Text>
-                    {activeTab === "TEAM_CONTRACTS" && (
-                      <Text style={styles.contractEmpName}>{empName}</Text>
-                    )}
-                  </View>
-                  <StatusBadge label={statusLabel} tone={statusTone} />
-                </View>
 
-                <View style={styles.contractDetails}>
-                  <View style={styles.detailItem}>
-                    <MaterialCommunityIcons
-                      name="identifier"
-                      size={14}
-                      color={colors.muted}
-                    />
-                    <Text style={styles.detailText}>
-                      {contract.contractCode}
+                    <View style={leaderContractStyles.cardHeaderInfo}>
+                      <Text style={leaderContractStyles.cardTitle}>
+                        {contract.title || "Hợp đồng lao động"}
+                      </Text>
+                      <Text style={leaderContractStyles.cardCode}>
+                        {contract.contractCode}
+                      </Text>
+                      {activeTab === "TEAM_CONTRACTS" && (
+                        <Text
+                          style={leaderContractStyles.cardEmpName}
+                          numberOfLines={1}
+                        >
+                          Nhân sự: {empName}
+                        </Text>
+                      )}
+                      <View
+                        style={[
+                          leaderContractStyles.statusPill,
+                          { backgroundColor: badge.bg },
+                        ]}
+                      >
+                        <Ionicons
+                          name={badge.icon as any}
+                          size={13}
+                          color={badge.color}
+                          style={{ marginRight: 4 }}
+                        />
+                        <Text
+                          style={[
+                            leaderContractStyles.statusPillText,
+                            { color: badge.color },
+                          ]}
+                        >
+                          {badge.label}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Divider */}
+                  <View style={leaderContractStyles.divider} />
+
+                  {/* 3 Detail Rows */}
+                  <View style={leaderContractStyles.detailRow}>
+                    <View style={leaderContractStyles.detailLeft}>
+                      <Ionicons
+                        name="pricetag-outline"
+                        size={15}
+                        color="#71717A"
+                      />
+                      <Text style={leaderContractStyles.detailLabel}>
+                        Loại hợp đồng
+                      </Text>
+                    </View>
+                    <Text style={leaderContractStyles.detailValue}>
+                      {typeLabel}
                     </Text>
                   </View>
-                  <View style={styles.detailItem}>
-                    <MaterialCommunityIcons
-                      name="tag-outline"
-                      size={14}
-                      color={colors.muted}
-                    />
-                    <Text style={styles.detailText}>
-                      {CONTRACT_TYPE_LABELS[
-                        contract.contractType as ContractType
-                      ] ?? contract.contractType}
+
+                  <View style={leaderContractStyles.detailRow}>
+                    <View style={leaderContractStyles.detailLeft}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={15}
+                        color="#71717A"
+                      />
+                      <Text style={leaderContractStyles.detailLabel}>
+                        Ngày bắt đầu
+                      </Text>
+                    </View>
+                    <Text style={leaderContractStyles.detailValue}>
+                      {formatDate(contract.startDate)}
                     </Text>
                   </View>
-                  <View style={styles.detailItem}>
-                    <MaterialCommunityIcons
-                      name="calendar-range"
-                      size={14}
-                      color={colors.muted}
-                    />
-                    <Text style={styles.detailText}>
-                      {formatDate(contract.startDate)} →{" "}
-                      {formatDate(contract.endDate)}
+
+                  <View style={leaderContractStyles.detailRow}>
+                    <View style={leaderContractStyles.detailLeft}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={15}
+                        color="#71717A"
+                      />
+                      <Text style={leaderContractStyles.detailLabel}>
+                        Ngày kết thúc
+                      </Text>
+                    </View>
+                    <Text style={leaderContractStyles.detailValue}>
+                      {contract.endDate
+                        ? formatDate(contract.endDate)
+                        : "Không thời hạn"}
                     </Text>
                   </View>
+
+                  {/* Button "Xem chi tiết" */}
+                  <Pressable
+                    style={leaderContractStyles.detailBtn}
+                    onPress={() =>
+                      router.push(`/leader/contracts/${contract.id}`)
+                    }
+                    android_ripple={{ color: "rgba(255,255,255,0.2)" }}
+                  >
+                    <Text style={leaderContractStyles.detailBtnText}>
+                      Xem chi tiết
+                    </Text>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color="#FFFFFF"
+                      style={leaderContractStyles.detailBtnIcon}
+                    />
+                  </Pressable>
                 </View>
-              </Pressable>
-            );
-          })
-        )}
-      </ScrollView>
-    </Screen>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
@@ -3352,6 +3591,7 @@ export function LeaderContractListScreen() {
 
 export function HRContractListScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<
     "MY_CONTRACTS" | "MANAGED_CONTRACTS"
@@ -3359,7 +3599,7 @@ export function HRContractListScreen() {
 
   const [filterType, setFilterType] = useState<string>("ALL");
   const myContracts = useMyContracts();
-  const managedContracts = useContracts({ page: 1, limit: 50 });
+  const managedContracts = useContracts();
   const deleteContract = useDeleteContract();
   const { showAlert, showConfirm } = useAppAlert();
 
@@ -3370,119 +3610,104 @@ export function HRContractListScreen() {
     ? managedContracts.data
     : [];
 
-  return (
-    <Screen>
-      <View style={{ flex: 1 }}>
-        <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
-          <PageHeader
-            title="Hợp đồng"
-            subtitle="Quản lý và cá nhân"
-            right={
-              <View style={styles.headerActions}>
-                <Pressable
-                  style={styles.headerBtn}
-                  onPress={() =>
-                    router.push(`${roleBase(user)}/contracts/templates` as any)
-                  }
-                >
-                  <MaterialCommunityIcons
-                    name="file-cog-outline"
-                    size={18}
-                    color="#111827"
-                  />
-                  <Text style={styles.headerBtnText}>Mẫu HĐ</Text>
-                </Pressable>
-              </View>
-            }
-          />
+  const isRefreshing =
+    activeTab === "MY_CONTRACTS"
+      ? myContracts.isRefetching
+      : managedContracts.isRefetching;
 
-          <View
-            style={{
-              flexDirection: "row",
-              backgroundColor: "#F3F4F6",
-              padding: 4,
-              borderRadius: 12,
-              marginHorizontal: 0,
-              marginBottom: 16,
-            }}
-          >
-            <Pressable
-              onPress={() => setActiveTab("MY_CONTRACTS")}
-              style={[
-                {
-                  flex: 1,
-                  paddingVertical: 10,
-                  alignItems: "center",
-                  borderRadius: 8,
-                },
-                activeTab === "MY_CONTRACTS" && {
-                  backgroundColor: "#FFFFFF",
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 2,
-                  elevation: 2,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  { fontSize: 14, fontWeight: "600", color: "#6B7280" },
-                  activeTab === "MY_CONTRACTS" && { color: "#111827" },
-                ]}
-              >
-                Của tôi
+  const onRefresh = () => {
+    if (activeTab === "MY_CONTRACTS") {
+      myContracts.refetch();
+    } else {
+      managedContracts.refetch();
+    }
+  };
+
+  return (
+    <View style={leaderContractStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#123826" translucent={Platform.OS === "android"} />
+
+      {/* Dark Forest Green Header Banner */}
+      <View style={leaderContractStyles.headerBanner}>
+        <View style={{ paddingTop: Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8) }}>
+          <View style={leaderContractStyles.headerTopRow}>
+            <View style={leaderContractStyles.headerTitleWrap}>
+              <Text style={leaderContractStyles.headerTitle}>Hợp đồng</Text>
+              <Text style={leaderContractStyles.headerSubtitle}>
+                Quản lý và cá nhân
               </Text>
-            </Pressable>
+            </View>
             <Pressable
-              onPress={() => setActiveTab("MANAGED_CONTRACTS")}
-              style={[
-                {
-                  flex: 1,
-                  paddingVertical: 10,
-                  alignItems: "center",
-                  borderRadius: 8,
-                },
-                activeTab === "MANAGED_CONTRACTS" && {
-                  backgroundColor: "#FFFFFF",
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 2,
-                  elevation: 2,
-                },
-              ]}
+              style={leaderContractStyles.templateBtn}
+              onPress={() =>
+                router.push(`${roleBase(user)}/contracts/templates` as any)
+              }
+              hitSlop={8}
             >
-              <Text
-                style={[
-                  { fontSize: 14, fontWeight: "600", color: "#6B7280" },
-                  activeTab === "MANAGED_CONTRACTS" && { color: "#111827" },
-                ]}
-              >
-                Tôi giao
-              </Text>
+              <MaterialCommunityIcons
+                name="file-cog-outline"
+                size={17}
+                color="#FFFFFF"
+              />
+              <Text style={leaderContractStyles.templateBtnText}>Mẫu HĐ</Text>
             </Pressable>
           </View>
         </View>
+      </View>
+
+      {/* Main Curved White Body */}
+      <View style={leaderContractStyles.bodyContainer}>
+        {/* Primary Segment Switcher: [ Của tôi | Tôi giao ] */}
+        <View style={leaderContractStyles.segmentContainer}>
+          <Pressable
+            style={[
+              leaderContractStyles.segmentBtn,
+              activeTab === "MY_CONTRACTS" && leaderContractStyles.segmentBtnActive,
+            ]}
+            onPress={() => setActiveTab("MY_CONTRACTS")}
+          >
+            <Text
+              style={[
+                leaderContractStyles.segmentText,
+                activeTab === "MY_CONTRACTS" &&
+                  leaderContractStyles.segmentTextActive,
+              ]}
+            >
+              Của tôi
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              leaderContractStyles.segmentBtn,
+              activeTab === "MANAGED_CONTRACTS" &&
+                leaderContractStyles.segmentBtnActive,
+            ]}
+            onPress={() => setActiveTab("MANAGED_CONTRACTS")}
+          >
+            <Text
+              style={[
+                leaderContractStyles.segmentText,
+                activeTab === "MANAGED_CONTRACTS" &&
+                  leaderContractStyles.segmentTextActive,
+              ]}
+            >
+              Tôi giao
+            </Text>
+          </Pressable>
+        </View>
 
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              refreshing={
-                activeTab === "MY_CONTRACTS"
-                  ? myContracts.isRefetching
-                  : managedContracts.isRefetching
-              }
-              onRefresh={() =>
-                activeTab === "MY_CONTRACTS"
-                  ? myContracts.refetch()
-                  : managedContracts.refetch()
-              }
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
             />
           }
         >
-          <View style={{ gap: 16 }}>
+          <View style={{ gap: 12 }}>
             {activeTab === "MY_CONTRACTS" ? (
               myContractItems.length > 0 ? (
                 myContractItems.map((contract: any) => {
@@ -3547,10 +3772,21 @@ export function HRContractListScreen() {
                   );
                 })
               ) : !myContracts.isLoading ? (
-                <EmptyState
-                  title="Chưa có hợp đồng"
-                  message="Bạn hiện chưa có hợp đồng lao động nào."
-                />
+                <View style={leaderContractStyles.emptyCard}>
+                  <View style={leaderContractStyles.emptyIconCircle}>
+                    <MaterialCommunityIcons
+                      name="folder-open"
+                      size={52}
+                      color="#8EAF9D"
+                    />
+                  </View>
+                  <Text style={leaderContractStyles.emptyTitle}>
+                    Chưa có hợp đồng
+                  </Text>
+                  <Text style={leaderContractStyles.emptySubtitle}>
+                    Bạn hiện chưa có hợp đồng lao động nào.
+                  </Text>
+                </View>
               ) : null
             ) : managedContractItems.length > 0 ? (
               managedContractItems.map((contract: any) => {
@@ -3662,11 +3898,493 @@ export function HRContractListScreen() {
                 );
               })
             ) : !managedContracts.isLoading ? (
-              <EmptyState title="Chưa có hợp đồng nào" />
+              <View style={leaderContractStyles.emptyCard}>
+                <View style={leaderContractStyles.emptyIconCircle}>
+                  <MaterialCommunityIcons
+                    name="folder-open"
+                    size={52}
+                    color="#8EAF9D"
+                  />
+                </View>
+                <Text style={leaderContractStyles.emptyTitle}>
+                  Chưa có hợp đồng
+                </Text>
+                <Text style={leaderContractStyles.emptySubtitle}>
+                  Bạn hiện chưa giao hợp đồng lao động nào.
+                </Text>
+              </View>
             ) : null}
           </View>
         </ScrollView>
       </View>
-    </Screen>
+    </View>
   );
 }
+
+const leaderContractStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#123826",
+  },
+  headerBanner: {
+    backgroundColor: "#123826",
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerTitleWrap: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: "#A7D8BE",
+    marginTop: 4,
+    fontWeight: "500",
+  },
+  templateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.24)",
+    gap: 6,
+  },
+  templateBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  bodyContainer: {
+    flex: 1,
+    backgroundColor: "#FAFAFA",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -8,
+    paddingTop: 16,
+  },
+  segmentContainer: {
+    flexDirection: "row",
+    backgroundColor: "#E4E4E7",
+    borderRadius: 14,
+    padding: 4,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  segmentBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  segmentBtnActive: {
+    backgroundColor: "#123826",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#52525B",
+  },
+  segmentTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  filterWrapper: {
+    marginBottom: 14,
+  },
+  filterScrollContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: "#F4F4F5",
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+  },
+  filterChipActive: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#123826",
+    borderWidth: 1.5,
+  },
+  filterChipText: {
+    fontSize: 12.5,
+    fontWeight: "500",
+    color: "#71717A",
+  },
+  filterChipTextActive: {
+    color: "#123826",
+    fontWeight: "700",
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 15.5,
+    fontWeight: "800",
+    color: "#18181B",
+  },
+  sectionCountText: {
+    fontSize: 12.5,
+    color: "#71717A",
+    fontWeight: "500",
+  },
+  listScrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  cardIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#E8F5E9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  cardHeaderInfo: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#18181B",
+  },
+  cardCode: {
+    fontSize: 12,
+    color: "#71717A",
+    marginTop: 2,
+  },
+  cardEmpName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#374151",
+    marginTop: 2,
+  },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginTop: 6,
+  },
+  statusPillText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#F4F4F5",
+    marginVertical: 12,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  detailLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: "#71717A",
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#18181B",
+  },
+  detailBtn: {
+    backgroundColor: "#123826",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 14,
+    position: "relative",
+  },
+  detailBtnText: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  detailBtnIcon: {
+    position: "absolute",
+    right: 14,
+  },
+  emptyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+    marginHorizontal: 0,
+    paddingVertical: 56,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  emptyIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "#E8F5E9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#18181B",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 13.5,
+    color: "#71717A",
+    textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 280,
+  },
+});
+
+const employeeContractStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#123826",
+  },
+  headerBanner: {
+    backgroundColor: "#123826",
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    marginLeft: -4,
+  },
+  headerTitleWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.2,
+  },
+  headerSubtitle: {
+    fontSize: 12.5,
+    color: "#A7D8BE",
+    marginTop: 2,
+  },
+  bodyContainer: {
+    flex: 1,
+    backgroundColor: "#FAFAFA",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -8,
+    overflow: "hidden",
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#18181B",
+  },
+  sectionCountText: {
+    fontSize: 13,
+    color: "#71717A",
+    fontWeight: "500",
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  emptyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+    marginHorizontal: 16,
+    paddingVertical: 56,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "#E8F5E9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#18181B",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  emptySubtitle: {
+    fontSize: 13.5,
+    color: "#71717A",
+    textAlign: "center",
+    lineHeight: 19,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E4E4E7",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  cardIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#E8F5E9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  cardHeaderInfo: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#18181B",
+  },
+  cardCode: {
+    fontSize: 12,
+    color: "#71717A",
+    marginTop: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#F4F4F5",
+    marginVertical: 12,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  detailLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: "#71717A",
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#18181B",
+  },
+  detailBtn: {
+    backgroundColor: "#123826",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 14,
+    position: "relative",
+  },
+  detailBtnText: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  detailBtnIcon: {
+    position: "absolute",
+    right: 14,
+  },
+});

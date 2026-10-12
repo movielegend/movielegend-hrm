@@ -65,6 +65,10 @@ import { usePinnedApps } from '../../hooks/usePinnedApps';
 import { APP_REGISTRY, getAppRoute, AppRegistryItem } from '../../constants/app-registry';
 import { AllServicesModal, renderAppIcon } from './components/AllServicesModal';
 import { LiveClockText } from '../../components/common/LiveClockText';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
+import { useBranches, type Branch } from '../../api/branches.api';
+import { SelectModal, type SelectOption } from '../../components/SelectModal';
+import * as SecureStore from 'expo-secure-store';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -73,12 +77,52 @@ export function AdminDashboard() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const tabBarScroll = useTabBarScroll();
 
   // State
   const [refreshing, setRefreshing] = useState(false);
   const [showAllServicesModal, setShowAllServicesModal] = useState(false);
   const [modalEditMode, setModalEditMode] = useState(false);
   const [isQuickExpanded, setIsQuickExpanded] = useState(false);
+
+  // Branches System
+  const branchesQuery = useBranches();
+  const branches = useMemo(() => branchesQuery.data || [], [branchesQuery.data]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+  const [showBranchModal, setShowBranchModal] = useState(false);
+
+  React.useEffect(() => {
+    SecureStore.getItemAsync('ADMIN_ACTIVE_BRANCH_ID')
+      .then((savedId) => {
+        if (savedId) {
+          setSelectedBranchId(savedId);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const activeBranch = useMemo(() => {
+    if (selectedBranchId) {
+      const found = branches.find((b) => b.id === selectedBranchId);
+      if (found) return found;
+    }
+    if ((user?.department as any)?.branch) return (user?.department as any).branch;
+    const hanoi = branches.find((b) => b.name?.includes('HÀ NỘI') || b.name?.includes('Hà Nội'));
+    return hanoi || branches[0] || null;
+  }, [branches, selectedBranchId, user?.department]);
+
+  const branchOptions: SelectOption[] = useMemo(() => {
+    return branches.map((b) => ({
+      label: b.name,
+      value: b.id,
+      subtitle: b.address,
+    }));
+  }, [branches]);
+
+  const handleSelectBranch = (option: SelectOption) => {
+    setSelectedBranchId(option.value);
+    SecureStore.setItemAsync('ADMIN_ACTIVE_BRANCH_ID', option.value).catch(() => {});
+  };
 
   // Pinned Apps System (1 dòng 4 app ban đầu, dropdown mở rộng app phụ + Tất cả)
   const { allPinnedApps, row1Apps, extraPinnedApps } = usePinnedApps();
@@ -210,8 +254,10 @@ export function AdminDashboard() {
           styles.scrollContainer,
           { paddingBottom: Math.max(insets.bottom, 24) + 80 },
         ]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         showsVerticalScrollIndicator={false}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {/* Top overscroll guard: màu xanh khớp đỉnh header khi kéo xuống */}
         <View pointerEvents="none" style={styles.topOverscrollFill} />
@@ -385,13 +431,17 @@ export function AdminDashboard() {
 
             {/* Bottom 3-Column Metrics Row (Không dính vào nhau) */}
             <View style={styles.cardMetricsRow}>
-              {/* Col 1: Location */}
-              <View style={styles.metricColLocation}>
+              {/* Col 1: Location / Branch Picker */}
+              <Pressable
+                style={styles.metricColLocation}
+                onPress={() => setShowBranchModal(true)}
+              >
                 <MapPin size={13} color="#000000" strokeWidth={1.8} />
                 <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
-                  Văn phòng Hà Nội
+                  {activeBranch?.name || 'MOVIELEGEND-HÀ NỘI'}
                 </Text>
-              </View>
+                <ChevronDown size={11} color="#000000" strokeWidth={2} style={{ marginLeft: 2 }} />
+              </Pressable>
 
               <View style={styles.metricsVerticalDivider} />
 
@@ -836,6 +886,16 @@ export function AdminDashboard() {
           dueTasks: dueTaskCount,
           pendingVault: pendingAdminVaultCount,
         }}
+      />
+
+      {/* Modal: Chọn chi nhánh nhân sự hoạt động */}
+      <SelectModal
+        visible={showBranchModal}
+        title="Chi nhánh hoạt động"
+        options={branchOptions}
+        selectedValue={activeBranch?.id}
+        onSelect={handleSelectBranch}
+        onClose={() => setShowBranchModal(false)}
       />
     </Screen>
   );

@@ -34,11 +34,16 @@ const EN_TO_VI: Record<string, string> = {
   'Task updated': 'Công việc đã cập nhật',
   'Task cancelled': 'Công việc bị hủy',
   'Task completed': 'Công việc hoàn thành',
+  'Task commented': 'Bình luận mới trong công việc',
+  'Task review requested': 'Yêu cầu duyệt công việc',
+  'Task extension requested': 'Yêu cầu gia hạn công việc',
   'Violation confirmed': 'Xác nhận vi phạm',
   'Disciplinary action approved': 'Quyết định kỷ luật được duyệt',
   'Material issue updated': 'Cập nhật yêu cầu vật tư',
   'Performance review updated': 'Cập nhật đánh giá hiệu suất',
   'Payroll approved': 'Bảng lương được duyệt',
+  'Payroll calculated': 'Bảng lương đã được tính',
+  'Payslip available': 'Phiếu lương đã sẵn sàng',
   'Don nghi phep': 'Đơn nghỉ phép',
   'Overtime request rejected': 'Yêu cầu làm thêm bị từ chối',
   'KPI assigned': 'Giao chỉ tiêu KPI',
@@ -47,12 +52,16 @@ const EN_TO_VI: Record<string, string> = {
   'Contract expiring': 'Hợp đồng sắp hết hạn',
   'Document expiring': 'Giấy tờ sắp hết hạn',
   'Document verification required': 'Yêu cầu xác minh giấy tờ',
+  'Document verified': 'Giấy tờ đã được xác minh',
+  'Document rejected': 'Giấy tờ bị từ chối',
   'Contract updated': 'Cập nhật hợp đồng',
   'Contract signed': 'Hợp đồng đã ký',
+  'Contract approved': 'Hợp đồng đã duyệt',
   'Cross-department request pending': 'Yêu cầu liên phòng chờ duyệt',
   'Bonus approved': 'Thưởng được duyệt',
   'Deduction approved': 'Khấu trừ được duyệt',
   'Asset assigned': 'Tài sản được bàn giao',
+  'Asset returned': 'Tài sản đã thu hồi',
 };
 
 function stripEmojis(str?: string): string {
@@ -94,23 +103,41 @@ function getNotificationVisual(target: NotificationTargetDto): VisualConfig {
   const title = (item.title || '').toLowerCase();
   const body = (item.body || '').toLowerCase();
   const text = `${title} ${body}`;
+  const metadata = (item.metadata || {}) as Record<string, unknown>;
 
-  // Candidate / Recruitment
+  // 1. Chat & Direct message
+  if (
+    type.includes('CHAT') ||
+    Boolean(metadata.groupId) ||
+    text.includes('tin nhắn') ||
+    text.includes('nhóm chat')
+  ) {
+    const isDirect = metadata.groupType === 'DIRECT';
+    const groupName = typeof metadata.groupName === 'string' ? metadata.groupName : '';
+    return {
+      category: isDirect ? 'Tin nhắn cá nhân' : (groupName ? `Nhóm chat • ${groupName}` : 'Tin nhắn & Trò chuyện'),
+      iconName: 'chatbubbles-outline',
+      isMaterialCommunity: false,
+    };
+  }
+
+  // 2. Candidate / Recruitment
   if (
     type.includes('CANDIDATE') ||
     type.includes('RECRUIT') ||
     text.includes('ứng viên') ||
     text.includes('tuyển dụng') ||
-    text.includes('nộp hồ sơ')
+    text.includes('nộp hồ sơ') ||
+    text.includes('phỏng vấn')
   ) {
     return {
-      category: 'Ứng viên mới nộp hồ sơ',
+      category: text.includes('phỏng vấn') ? 'Lịch hẹn phỏng vấn' : 'Ứng viên mới nộp hồ sơ',
       iconName: 'briefcase-outline',
       isMaterialCommunity: false,
     };
   }
 
-  // Account creation & request
+  // 3. Account creation & request
   if (
     type.includes('ACCOUNT') ||
     text.includes('tạo tài khoản') ||
@@ -124,14 +151,17 @@ function getNotificationVisual(target: NotificationTargetDto): VisualConfig {
     };
   }
 
-  // Leave & Shift & Attendance
+  // 4. Leave & Shift & Attendance
   if (
     type.includes('LEAVE') ||
     type.includes('SHIFT') ||
     type.includes('ATTENDANCE') ||
+    type.includes('TIMESHEET') ||
     text.includes('nghỉ phép') ||
     text.includes('chấm công') ||
-    text.includes('ca làm việc')
+    text.includes('ca làm việc') ||
+    text.includes('đổi ca') ||
+    text.includes('làm thêm')
   ) {
     return {
       category: 'Chấm công & Ca làm việc',
@@ -140,12 +170,15 @@ function getNotificationVisual(target: NotificationTargetDto): VisualConfig {
     };
   }
 
-  // Task & Report
+  // 5. Task & Report & KPI
   if (
     type.includes('TASK') ||
     type.includes('REPORT') ||
+    type.includes('KPI') ||
+    type.includes('PERFORMANCE') ||
     text.includes('báo cáo') ||
-    text.includes('công việc')
+    text.includes('công việc') ||
+    text.includes('nhiệm vụ')
   ) {
     return {
       category: 'Công việc & Báo cáo',
@@ -154,17 +187,81 @@ function getNotificationVisual(target: NotificationTargetDto): VisualConfig {
     };
   }
 
-  // Salary & Wallet
+  // 6. Salary, Bonus, Wallet & Vault
   if (
     type.includes('PAYROLL') ||
+    type.includes('PAYSLIP') ||
     type.includes('VAULT') ||
+    type.includes('BONUS') ||
+    type.includes('DEDUCTION') ||
+    type.includes('COMPENSATION') ||
     text.includes('lương') ||
     text.includes('thưởng') ||
-    text.includes('ví')
+    text.includes('ví') ||
+    text.includes('rút tiền')
   ) {
     return {
       category: 'Lương & Thưởng',
       iconName: 'wallet-outline',
+      isMaterialCommunity: false,
+    };
+  }
+
+  // 7. Documents & Contracts
+  if (
+    type.includes('DOCUMENT') ||
+    type.includes('CONTRACT') ||
+    text.includes('hợp đồng') ||
+    text.includes('tài liệu') ||
+    text.includes('văn bản') ||
+    text.includes('giấy tờ')
+  ) {
+    return {
+      category: 'Tài liệu & Hợp đồng',
+      iconName: 'document-text-outline',
+      isMaterialCommunity: false,
+    };
+  }
+
+  // 8. Violation & Disciplinary
+  if (
+    type.includes('VIOLATION') ||
+    type.includes('DISCIPLINARY') ||
+    text.includes('vi phạm') ||
+    text.includes('kỷ luật')
+  ) {
+    return {
+      category: 'Kỷ luật & Vi phạm',
+      iconName: 'alert-circle-outline',
+      isMaterialCommunity: false,
+    };
+  }
+
+  // 9. Assets & Materials
+  if (
+    type.includes('ASSET') ||
+    type.includes('MATERIAL') ||
+    type.includes('STOCK') ||
+    text.includes('tài sản') ||
+    text.includes('vật tư') ||
+    text.includes('kho hàng')
+  ) {
+    return {
+      category: 'Vật tư & Tài sản',
+      iconName: 'cube-outline',
+      isMaterialCommunity: false,
+    };
+  }
+
+  // 10. Newsfeed
+  if (
+    type.includes('NEWSFEED') ||
+    text.includes('bảng tin') ||
+    text.includes('truyền thông')
+  ) {
+    return {
+      category: 'Bảng tin & Truyền thông',
+      iconName: 'newspaper-outline',
       isMaterialCommunity: false,
     };
   }
@@ -182,40 +279,117 @@ function parseNotificationContent(target: NotificationTargetDto) {
   const rawTitle = stripEmojis(EN_TO_VI[item.title] || item.title || '');
   const rawBody = stripEmojis(item.body || '');
   const visual = getNotificationVisual(target);
+  const metadata = (item.metadata || {}) as Record<string, unknown>;
 
   let category = visual.category;
   let subject = rawTitle;
   let description = rawBody;
 
-  // Smart formatting to match template line 1 (category) - line 2 (bold name/subject) - line 3 (description)
-  if (
-    rawTitle.toLowerCase().includes('tạo tài khoản') ||
-    rawTitle.toLowerCase().includes('ứng viên') ||
-    rawTitle.toLowerCase().includes('duyệt') ||
-    rawTitle.toLowerCase().includes('yêu cầu')
+  const type = (item.type || '').toUpperCase();
+  const lowerTitle = rawTitle.toLowerCase();
+
+  // 1. CHAT MESSAGE
+  if (type.includes('CHAT') || metadata.groupId) {
+    const isDirect = metadata.groupType === 'DIRECT';
+    const groupName = typeof metadata.groupName === 'string' ? metadata.groupName : '';
+    const senderName = typeof metadata.senderName === 'string' ? metadata.senderName : '';
+
+    if (isDirect) {
+      category = 'Tin nhắn cá nhân';
+      subject = senderName || rawTitle || 'Tin nhắn mới';
+    } else {
+      category = groupName ? `Nhóm chat • ${groupName}` : (rawTitle ? `Nhóm chat • ${rawTitle}` : 'Nhóm trò chuyện');
+      subject = senderName || 'Tin nhắn mới';
+    }
+    description = rawBody || 'Bạn có một tin nhắn mới.';
+  }
+  // 2. ACCOUNT APPROVAL REQUEST (Admin/Leader)
+  else if (
+    type === 'ACCOUNT_APPROVAL_REQUESTED' ||
+    lowerTitle.includes('tạo tài khoản') ||
+    lowerTitle.includes('đăng ký tài khoản')
   ) {
-    category = rawTitle;
-    const lines = rawBody.split('\n').map((l) => l.trim()).filter(Boolean);
-    if (lines.length > 1) {
-      subject = lines[0] || rawTitle;
-      description = lines.slice(1).join(' ');
-    } else if (lines.length === 1) {
-      const metaName = item.metadata?.fullName || item.metadata?.userName || item.metadata?.name;
-      if (typeof metaName === 'string' && metaName.trim()) {
-        subject = metaName;
-        description = lines[0] || 'Đề nghị kiểm tra và xét duyệt.';
+    category = 'Yêu cầu tạo tài khoản';
+
+    // Extract employee name from metadata or regex
+    const metaName =
+      (typeof metadata.fullName === 'string' && metadata.fullName) ||
+      (typeof metadata.userName === 'string' && metadata.userName) ||
+      (typeof metadata.name === 'string' && metadata.name);
+
+    if (metaName && metaName.trim()) {
+      subject = metaName.trim();
+    } else {
+      const match = rawBody.match(/(?:Nhân viên|Người dùng)\s+([^(.]+?)(?:\s*\(|\s+vừa|\s+đã|\s*$)/i);
+      if (match && match[1]?.trim()) {
+        subject = match[1].trim();
       } else {
-        subject = lines[0] || rawTitle;
-        description = 'Đề nghị kiểm tra và xét duyệt.';
+        subject = rawTitle;
+      }
+    }
+
+    // Clean description to avoid repeating name on line 3
+    const cleanedDesc = rawBody.replace(/^(?:Nhân viên|Người dùng)\s+[^(.]+?(?:\s*\([^)]*\))?\s*/i, '').trim();
+    if (cleanedDesc) {
+      description = cleanedDesc.charAt(0).toUpperCase() + cleanedDesc.slice(1);
+    } else {
+      description = rawBody || 'Vừa gửi yêu cầu tạo tài khoản mới. Vui lòng kiểm tra và xét duyệt.';
+    }
+  }
+  // 3. CANDIDATE / RECRUITMENT APPLICATION
+  else if (
+    type.includes('RECRUIT') ||
+    type.includes('CANDIDATE') ||
+    lowerTitle.includes('ứng viên') ||
+    lowerTitle.includes('nộp hồ sơ')
+  ) {
+    category = lowerTitle.includes('phỏng vấn') ? 'Lịch hẹn phỏng vấn' : 'Ứng viên mới nộp hồ sơ';
+
+    const candidateName =
+      (typeof metadata.candidateName === 'string' && metadata.candidateName) ||
+      (typeof metadata.fullName === 'string' && metadata.fullName);
+
+    if (candidateName && candidateName.trim()) {
+      subject = candidateName.trim();
+    } else {
+      const match = rawBody.match(/Ứng viên\s+([^(.]+?)(?:\s*\(|\s+vừa|\s+đã|\s+ứng tuyển|\s*$)/i);
+      if (match && match[1]?.trim()) {
+        subject = match[1].trim();
+      } else {
+        subject = rawTitle;
+      }
+    }
+
+    const cleanedDesc = rawBody.replace(/^Ứng viên\s+[^(.]+?(?:\s*\([^)]*\))?\s*/i, '').trim();
+    if (cleanedDesc) {
+      description = cleanedDesc.charAt(0).toUpperCase() + cleanedDesc.slice(1);
+    } else {
+      description = rawBody || 'Đề nghị kiểm tra thông tin ứng viên.';
+    }
+  }
+  // 4. NORMAL NOTIFICATIONS FOR ALL ROLES (Tasks, Leaves, Shifts, Attendance, Payroll, etc.)
+  else {
+    const lines = rawBody.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (!rawTitle || rawTitle === 'Thông báo' || rawTitle === 'Thông báo hệ thống') {
+      if (lines.length > 1) {
+        subject = lines[0] || 'Thông báo hệ thống';
+        description = lines.slice(1).join(' ');
+      } else if (lines.length === 1) {
+        subject = lines[0] || 'Thông báo hệ thống';
+        description = 'Nhấn để xem chi tiết thông báo.';
+      } else {
+        subject = 'Thông báo hệ thống';
+        description = 'Nhấn để xem chi tiết thông báo.';
       }
     } else {
-      description = 'Đề nghị kiểm tra và xét duyệt.';
+      subject = rawTitle;
+      description = rawBody || 'Nhấn để xem chi tiết thông báo.';
     }
-  } else {
-    // Normal notifications
-    if (!description) {
-      description = 'Đề nghị kiểm tra và xét duyệt.';
-    }
+  }
+
+  // Final fallback safety
+  if (!description || !description.trim()) {
+    description = 'Nhấn để xem chi tiết thông báo.';
   }
 
   return {

@@ -65,6 +65,7 @@ import { usePinnedApps } from '../../hooks/usePinnedApps';
 import { APP_REGISTRY, getAppRoute, AppRegistryItem } from '../../constants/app-registry';
 import { AllServicesModal, renderAppIcon } from './components/AllServicesModal';
 import { LiveClockText } from '../../components/common/LiveClockText';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -73,6 +74,7 @@ export function LeaderDashboard() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const tabBarScroll = useTabBarScroll();
 
   // State
   const [refreshing, setRefreshing] = useState(false);
@@ -201,8 +203,10 @@ export function LeaderDashboard() {
           styles.scrollContainer,
           { paddingBottom: Math.max(insets.bottom, 24) + 80 },
         ]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         showsVerticalScrollIndicator={false}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {/* Top overscroll guard: màu xanh khớp đỉnh header khi kéo xuống */}
         <View pointerEvents="none" style={styles.topOverscrollFill} />
@@ -380,7 +384,7 @@ export function LeaderDashboard() {
               <View style={styles.metricColLocation}>
                 <MapPin size={13} color="#64748B" strokeWidth={2.2} />
                 <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
-                  Văn phòng Hà Nội
+                  {user?.department?.branch?.name || (user?.department as any)?.branchName || 'MOVIELEGEND-HÀ NỘI'}
                 </Text>
               </View>
 

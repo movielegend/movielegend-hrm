@@ -23,6 +23,7 @@ import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from './components/AvatarPicker';
 import { formatSeniority } from '../../utils/seniority';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -32,6 +33,7 @@ export function AdminProfileScreen() {
   const { showGuideManual } = useUserGuide();
   const { showConfirm } = useAppAlert();
   const insets = useSafeAreaInsets();
+  const tabBarScroll = useTabBarScroll();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -89,6 +91,8 @@ export function AdminProfileScreen() {
           { paddingBottom: Math.max(insets.bottom, 16) + 80 },
         ]}
         showsVerticalScrollIndicator={false}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={16}
       >
         {/* Top overscroll guard */}
         <View pointerEvents="none" style={styles.topOverscrollFill} />

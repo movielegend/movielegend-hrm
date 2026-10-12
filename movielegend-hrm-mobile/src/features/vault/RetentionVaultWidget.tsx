@@ -341,96 +341,154 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
   return (
     <View style={styles.cardContainer}>
-      {/* VIP Premium Fintech Hero Card */}
-      <View style={styles.vipHeroCard}>
-        {/* Card Header */}
-        <View style={styles.vipHeroHeader}>
-          <View style={styles.vipHeroTitleGroup}>
-            <View style={styles.vipHeroIconBadge}>
-              <Ionicons name="wallet-outline" size={18} color="#2563EB" />
-            </View>
-            <View>
-              <Text style={styles.vipHeroTitle}>Ví Thưởng Tích Lũy {currentYear}</Text>
-              <Text style={styles.vipHeroSubtitle}>Quỹ Thưởng Đồng Hành & Cống Hiến {currentYear}</Text>
-            </View>
-          </View>
-          <View style={styles.vipBadgeChip}>
-            <Ionicons name="shield-checkmark-outline" size={12} color="#0F172A" />
-            <Text style={styles.vipBadgeChipText}>QUỸ TÍCH LŨY {currentYear}</Text>
-          </View>
+      {/* 1. Top Card: Fund Information */}
+      <View style={styles.fundInfoCard}>
+        <View style={styles.fundIconWrap}>
+          <MaterialCommunityIcons name="wallet-outline" size={24} color="#166534" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.fundTitle}>
+            Ví Thưởng Tích Lũy {currentYear}
+          </Text>
+          <Text style={styles.fundSubtitle}>
+            Quỹ Thưởng Đồng Hành & Cống Hiến {currentYear}
+          </Text>
+        </View>
+        <View style={styles.fundBadgeChip}>
+          <MaterialCommunityIcons name="shield-check-outline" size={14} color="#166534" />
+          <Text style={styles.fundBadgeChipText}>
+            QUỸ TÍCH LŨY {currentYear}
+          </Text>
+        </View>
+      </View>
+
+      {/* 2. Hero Dark Green Card: Balance */}
+      <View style={styles.balanceHeroCard}>
+        <View style={styles.decorativeCircleTop} />
+        <View style={styles.decorativeCircleBottom} />
+
+        <Text style={styles.balanceCaption}>
+          SỐ ĐIỂM CÒN LẠI TRONG VÍ
+        </Text>
+
+        <View style={styles.balanceAmountRow}>
+          <Text style={styles.balanceAmountNumber}>
+            {remainingPoints.toLocaleString('vi-VN')}
+          </Text>
+          <Text style={styles.balancePointsLabel}>điểm</Text>
         </View>
 
-        {/* Main Available Balance Centerpiece: SỐ ĐIỂM CÒN LẠI TRONG VÍ */}
-        <View style={styles.vipBalanceCenterpiece}>
-          <Text style={styles.vipBalanceLabel}>SỐ ĐIỂM CÒN LẠI TRONG VÍ</Text>
-          <View style={styles.vipAmountRow}>
-            <Text style={styles.vipAmountNumber}>{remainingPoints.toLocaleString('vi-VN')}</Text>
-            <Text style={styles.vipCurrency}>điểm</Text>
-          </View>
-          <View style={styles.vipPillRow}>
-            <View style={styles.vipPointPill}>
-              <Ionicons name="cash-outline" size={13} color="#059669" />
-              <Text style={styles.vipPointPillText}>
-                Tương đương: {remainingCash.toLocaleString('vi-VN')} VNĐ
-              </Text>
-            </View>
-            {instantBonusPoints > 0 && (
-              <View style={styles.vipInstantPill}>
-                <MaterialCommunityIcons name="lightning-bolt" size={12} color="#D97706" />
-                <Text style={styles.vipInstantPillText}>
-                  Gồm {instantBonusPoints.toLocaleString('vi-VN')} đ thưởng nóng
-                </Text>
-              </View>
-            )}
-          </View>
+        <View style={styles.balanceVndPill}>
+          <MaterialCommunityIcons name="cash-multiple" size={16} color="#FFFFFF" />
+          <Text style={styles.balanceVndPillText}>
+            Tương đương: {remainingCash.toLocaleString('vi-VN')} VNĐ
+          </Text>
         </View>
 
-        {/* Sub-metrics: 3 Equal Columns */}
-        <View style={styles.vipMetricsGrid}>
-          <View style={styles.vipMetricCol}>
-            <Text style={styles.vipMetricLabel}>Tổng Tích Lũy</Text>
-            <Text style={styles.vipMetricValue}>{totalGrantedPoints.toLocaleString('vi-VN')} đ</Text>
-            <Text style={styles.vipMetricSub}>~{totalGrantedCash.toLocaleString('vi-VN')} đ</Text>
-          </View>
-          <View style={styles.vipMetricDivider} />
-          <View style={styles.vipMetricCol}>
-            <Text style={styles.vipMetricLabel}>Đã Rút / Quy Đổi</Text>
-            <Text style={styles.vipMetricValueOrange}>{totalWithdrawnPoints.toLocaleString('vi-VN')} đ</Text>
-            <Text style={styles.vipMetricSubOrange}>~{totalWithdrawnCash.toLocaleString('vi-VN')} đ</Text>
-          </View>
-          <View style={styles.vipMetricDivider} />
-          <View style={styles.vipMetricCol}>
-            <Text style={styles.vipMetricLabel}>Khả Dụng Rút</Text>
-            <Text style={styles.vipMetricValueGold}>{unlockedPoints.toLocaleString('vi-VN')} đ</Text>
-            <Text style={styles.vipMetricSubGold}>~{unlockedCash.toLocaleString('vi-VN')} đ</Text>
-          </View>
-        </View>
-
-        {/* Primary CTA Withdraw Button */}
-        {maxWithdrawable > 0 ? (
-          <TouchableOpacity
-            style={styles.vipWithdrawActionBtn}
-            onPress={openWithdrawModal}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="arrow-up-circle-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.vipWithdrawActionText}>YÊU CẦU QUY ĐỔI / RÚT ĐIỂM</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={[styles.vipWithdrawActionBtn, styles.vipWithdrawActionBtnDisabled]}>
-            <Ionicons name="lock-closed-outline" size={16} color="#94A3B8" />
-            <Text style={styles.vipWithdrawActionTextDisabled}>
-              CHƯA ĐẾN HẠN RÚT ĐIỂM
+        {instantBonusPoints > 0 && (
+          <View style={styles.vipInstantPill}>
+            <MaterialCommunityIcons name="lightning-bolt" size={12} color="#FEF08A" />
+            <Text style={[styles.vipInstantPillText, { color: '#FEF08A' }]}>
+              Gồm {instantBonusPoints.toLocaleString('vi-VN')} đ thưởng nóng
             </Text>
           </View>
         )}
+      </View>
 
-        {/* Advance Note Footer */}
-        <View style={styles.vipFooterNote}>
-          <Ionicons name="information-circle-outline" size={15} color="#64748B" />
-          <Text style={styles.vipFooterNoteText}>
-            Quy định: Đợt nào mở rút đợt đó. Thời hạn rút trong vòng 15 ngày kể từ ngày mở; nếu sau 15 ngày không rút, số điểm sẽ tự động được dồn chia đều cho các đợt còn lại.
+      {/* 3. 3-Column Metrics Card */}
+      <View style={styles.threeColMetricsCard}>
+        <View style={styles.metricColumn}>
+          <Text style={styles.metricLabel}>Tổng tích lũy</Text>
+          <Text style={styles.metricValue}>
+            {totalGrantedPoints.toLocaleString('vi-VN')} điểm
           </Text>
+          <Text style={styles.metricSub}>
+            ~ {totalGrantedCash.toLocaleString('vi-VN')} đ
+          </Text>
+        </View>
+
+        <View style={styles.metricColDivider} />
+
+        <View style={styles.metricColumn}>
+          <Text style={styles.metricLabel}>Đã rút / Quy đổi</Text>
+          <Text style={styles.metricValue}>
+            {totalWithdrawnPoints.toLocaleString('vi-VN')} điểm
+          </Text>
+          <Text style={styles.metricSub}>
+            ~ {totalWithdrawnCash.toLocaleString('vi-VN')} đ
+          </Text>
+        </View>
+
+        <View style={styles.metricColDivider} />
+
+        <View style={styles.metricColumn}>
+          <Text style={styles.metricLabel}>Khả dụng rút</Text>
+          <Text style={[styles.metricValue, { color: '#166534' }]}>
+            {maxWithdrawable.toLocaleString('vi-VN')} điểm
+          </Text>
+          <Text style={styles.metricSub}>
+            ~ {maxWithdrawableCash.toLocaleString('vi-VN')} đ
+          </Text>
+        </View>
+      </View>
+
+      {/* 4. Action / Status Banner */}
+      {maxWithdrawable > 0 ? (
+        <TouchableOpacity
+          style={styles.actionWithdrawBtn}
+          onPress={openWithdrawModal}
+          activeOpacity={0.85}
+        >
+          <MaterialCommunityIcons name="cash-fast" size={20} color="#FFFFFF" />
+          <Text style={styles.actionWithdrawBtnText}>
+            RÚT ĐIỂM NGAY ({maxWithdrawable.toLocaleString('vi-VN')} ĐIỂM)
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.disabledWithdrawBanner}>
+          <MaterialCommunityIcons name="lock-outline" size={20} color="#94A3B8" />
+          <Text style={styles.disabledWithdrawBannerText}>
+            CHƯA ĐẾN HẠN RÚT ĐIỂM
+          </Text>
+        </View>
+      )}
+
+      {/* 5. Rules Card: Quy định rút điểm */}
+      <View style={styles.rulesCard}>
+        <View style={styles.rulesHeaderRow}>
+          <View style={styles.rulesIconWrap}>
+            <MaterialCommunityIcons name="information-outline" size={20} color="#166534" />
+          </View>
+          <Text style={styles.rulesCardTitle}>Quy định rút điểm</Text>
+        </View>
+
+        <View style={styles.rulesList}>
+          <View style={styles.ruleItem}>
+            <View style={styles.ruleNumberCircle}>
+              <Text style={styles.ruleNumberText}>1</Text>
+            </View>
+            <Text style={styles.ruleItemText}>
+              Đợt nào mở rút đợt đó.
+            </Text>
+          </View>
+
+          <View style={styles.ruleItem}>
+            <View style={styles.ruleNumberCircle}>
+              <Text style={styles.ruleNumberText}>2</Text>
+            </View>
+            <Text style={styles.ruleItemText}>
+              Thời hạn rút trong vòng 15 ngày kể từ ngày mở.
+            </Text>
+          </View>
+
+          <View style={styles.ruleItem}>
+            <View style={styles.ruleNumberCircle}>
+              <Text style={styles.ruleNumberText}>3</Text>
+            </View>
+            <Text style={styles.ruleItemText}>
+              Sau 15 ngày không rút, số điểm sẽ tự động được dồn chia đều cho các đợt còn lại.
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -1689,6 +1747,244 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     marginVertical: 4,
+  },
+  fundInfoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  fundIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  fundTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  fundSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  fundBadgeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#DCFCE7',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  fundBadgeChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
+  },
+
+  balanceHeroCard: {
+    backgroundColor: '#163F2C',
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginBottom: 14,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  decorativeCircleTop: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  decorativeCircleBottom: {
+    position: 'absolute',
+    bottom: -50,
+    left: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  balanceCaption: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  balanceAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 10,
+    justifyContent: 'center',
+  },
+  balanceAmountNumber: {
+    fontSize: 38,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  balancePointsLabel: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 6,
+  },
+  balanceVndPill: {
+    marginTop: 14,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  balanceVndPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  threeColMetricsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  metricColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  metricValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 4,
+  },
+  metricSub: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  metricColDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#E2E8F0',
+  },
+
+  actionWithdrawBtn: {
+    backgroundColor: '#1B3B2B',
+    borderRadius: 12,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  actionWithdrawBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  disabledWithdrawBanner: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  disabledWithdrawBannerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
+  },
+
+  rulesCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    marginBottom: 14,
+  },
+  rulesHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  rulesIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rulesCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  rulesList: {
+    gap: 12,
+  },
+  ruleItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  ruleNumberCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  ruleNumberText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  ruleItemText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 20,
   },
   vipHeroCard: {
     backgroundColor: '#FFFFFF',
