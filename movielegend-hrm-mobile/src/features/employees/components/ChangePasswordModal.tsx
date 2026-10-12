@@ -73,7 +73,7 @@ export function ChangePasswordModal({ visible, onClose }: { visible: boolean; on
           {/* Header Bar */}
           <View style={styles.headerRow}>
             <View style={styles.iconPill}>
-              <MaterialCommunityIcons name="shield-lock-outline" size={24} color="#111827" />
+              <MaterialCommunityIcons name="shield-lock-outline" size={24} color="#102739" />
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} disabled={isSaving}>
               <MaterialCommunityIcons name="close" size={20} color="#64748B" />
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 6,
   },
   modalSubtitle: {
@@ -260,8 +260,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
   },
   modalBtnSave: {
-    backgroundColor: '#111827',
-    shadowColor: '#111827',
+    backgroundColor: '#102739',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,

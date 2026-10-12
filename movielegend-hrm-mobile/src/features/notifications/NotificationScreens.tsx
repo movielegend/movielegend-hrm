@@ -25,6 +25,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import type { NotificationTargetDto } from '../../types/notification.types';
 import { notificationRoute } from '../../utils/notification-routing';
 import { CustomAlert } from '../../components/CustomAlert';
+import { GlossyHeaderBackground } from '../../components/common/GlossyHeaderBackground';
 
 type TabType = 'ALL' | 'UNREAD';
 
@@ -466,6 +467,7 @@ export function NotificationListScreen() {
 
       {/* ── Top Header (#102739) ── */}
       <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <GlossyHeaderBackground idPrefix="notiHeader" />
         <View style={styles.headerTopRow}>
           <View style={styles.headerTextCol}>
             <Text style={styles.headerTagline}>MOVIE LEGEND</Text>
@@ -849,7 +851,7 @@ export function NotificationItemRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6F4',
+    backgroundColor: '#F5F7FA',
   },
 
   /* ── Header (#102739) ── */
@@ -859,6 +861,7 @@ const styles = StyleSheet.create({
     paddingBottom: 22,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
+    overflow: 'hidden',
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -963,7 +966,7 @@ const styles = StyleSheet.create({
   groupLabel: {
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginHorizontal: 18,
     marginBottom: 8,
   },
@@ -994,7 +997,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 14,
-    backgroundColor: '#E8F2EC',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1011,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   itemSubject: {
     fontSize: 15,
-    color: '#111827',
+    color: '#102739',
     fontWeight: '700',
     marginBottom: 2,
   },
@@ -1049,7 +1052,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#E8F2EC',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -1057,7 +1060,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 6,
     textAlign: 'center',
   },
@@ -1091,7 +1094,7 @@ const styles = StyleSheet.create({
   modalMenuTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 14,
     textAlign: 'center',
   },

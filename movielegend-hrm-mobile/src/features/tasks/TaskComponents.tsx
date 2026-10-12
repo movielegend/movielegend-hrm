@@ -287,7 +287,7 @@ function AttachmentActionButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color="#111827" />
+        <ActivityIndicator size="small" color="#102739" />
       ) : (
         <View style={styles.attachmentActionContent}>
           <MaterialCommunityIcons name={icon} size={15} color="#374151" style={styles.attachmentActionIcon} />

@@ -73,7 +73,7 @@ export function ConfirmModal({
       <Modal animationType="fade" transparent visible={visible} onRequestClose={onCancel}>
         <Pressable style={styles.backdrop} onPress={onCancel}>
           <Pressable style={styles.logoutPanel} onPress={(e) => e.stopPropagation()}>
-            {/* Top Sage Green Circle with Logout Icon */}
+            {/* Top Red Circle with Logout Icon */}
             <View style={styles.logoutIconCircle}>
               <Ionicons
                 name="log-out-outline"
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#E8F2EC',
+    backgroundColor: '#FEE2E2',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   logoutTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     textAlign: 'center',
     letterSpacing: -0.3,
   },
@@ -327,9 +327,9 @@ const styles = StyleSheet.create({
   logoutUserPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F6F4',
+    backgroundColor: '#F8FAFC',
     borderRadius: 24,
-    paddingVertical: 4,
+    paddingVertical: 5,
     paddingHorizontal: 8,
     paddingRight: 16,
     borderWidth: 1,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#D1E5D8',
+    backgroundColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,

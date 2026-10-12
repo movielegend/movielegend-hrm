@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#102739',
   },
   levelBadge: {
     backgroundColor: '#DBEAFE',

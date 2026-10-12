@@ -1,9 +1,18 @@
 export type UserRole = 'ADMIN' | 'HR' | 'ACCOUNTANT' | 'WAREHOUSE_MANAGER' | 'LEADER' | 'EMPLOYEE' | string;
 
+export interface BranchSummary {
+  id: string;
+  code?: string;
+  name: string;
+  address?: string | null;
+}
+
 export interface DepartmentSummary {
   id: string;
   code?: string;
   name: string;
+  branchId?: string | null;
+  branch?: BranchSummary | null;
 }
 
 export interface PositionSummary {

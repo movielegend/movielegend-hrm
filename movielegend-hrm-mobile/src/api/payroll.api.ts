@@ -17,12 +17,42 @@ export interface PayslipItemDetail {
   note?: string | null;
 }
 
+export interface AdvanceRequestItem {
+  id: string;
+  title: string;
+  content: string;
+  amount: number;
+  status: string;
+  stage: string;
+  createdAt: string;
+  bankName?: string;
+  bankAccount?: string;
+  accountHolder?: string;
+  disbursementProofUrl?: string | null;
+  approvalSteps?: Array<{
+    stage: string;
+    action: string;
+    actorName?: string;
+    note?: string;
+    at?: string;
+  }>;
+}
+
+export interface AdvanceSummary {
+  baseSalary: number;
+  maxAdvanceLimit: number;
+  currentMonthAdvancedAmount: number;
+  remainingAdvanceLimit: number;
+  requests: AdvanceRequestItem[];
+}
+
 export interface MonthlyPayslipData {
   id?: string;
   month: number;
   year: number;
   hasData: boolean;
   finalOfficialImageUrl?: string | null;
+  advanceSummary?: AdvanceSummary;
   periodCode?: string;
   status: string;
   calculatedAt?: string;
@@ -163,3 +193,87 @@ export async function getCompanyMonthlyPayslips(params?: {
   });
   return unwrapData(response);
 }
+
+export interface DepartmentBatchImage {
+  id: string;
+  imageUrl: string;
+  assignedUserId?: string | null;
+  assignedUserName?: string | null;
+  labeledById?: string | null;
+  labeledAt?: string | null;
+}
+
+export interface DepartmentBatchEmployee {
+  userId: string;
+  userCode: string;
+  fullName: string;
+  avatarUrl?: string | null;
+  positionName: string;
+  hasPayslip: boolean;
+  assignedImageId?: string | null;
+  assignedImageUrl?: string | null;
+}
+
+export interface DepartmentPayslipBatchResponse {
+  departmentId: string;
+  departmentName: string;
+  month: number;
+  year: number;
+  totalImages: number;
+  unassignedImages: DepartmentBatchImage[];
+  assignedImages: DepartmentBatchImage[];
+  employees: DepartmentBatchEmployee[];
+}
+
+export async function uploadDepartmentPayslipBatch(payload: {
+  departmentId: string;
+  month: number;
+  year: number;
+  imageUrls: string[];
+  note?: string;
+}): Promise<{ success: boolean; message: string; totalImages: number; unassignedCount: number }> {
+  const response = await apiClient.post<ApiResponse<{ success: boolean; message: string; totalImages: number; unassignedCount: number }>>(
+    '/payrolls/department-batch/upload',
+    payload
+  );
+  return unwrapData(response);
+}
+
+export async function getDepartmentPayslipBatch(params: {
+  departmentId?: string;
+  month?: number;
+  year?: number;
+}): Promise<DepartmentPayslipBatchResponse> {
+  const response = await apiClient.get<ApiResponse<DepartmentPayslipBatchResponse>>('/payrolls/department-batch', {
+    params,
+  });
+  return unwrapData(response);
+}
+
+export async function assignDepartmentPayslipImage(payload: {
+  departmentId: string;
+  month: number;
+  year: number;
+  imageId: string;
+  targetUserId: string;
+}): Promise<{ success: boolean; message: string; assignedUserId: string; assignedImageUrl: string }> {
+  const response = await apiClient.post<ApiResponse<{ success: boolean; message: string; assignedUserId: string; assignedImageUrl: string }>>(
+    '/payrolls/department-batch/assign',
+    payload
+  );
+  return unwrapData(response);
+}
+
+export async function unassignDepartmentPayslipImage(payload: {
+  departmentId: string;
+  month: number;
+  year: number;
+  imageId: string;
+}): Promise<{ success: boolean; message: string; unassignedImageId: string; previousUserId?: string | null }> {
+  const response = await apiClient.post<ApiResponse<{ success: boolean; message: string; unassignedImageId: string; previousUserId?: string | null }>>(
+    '/payrolls/department-batch/unassign',
+    payload
+  );
+  return unwrapData(response);
+}
+

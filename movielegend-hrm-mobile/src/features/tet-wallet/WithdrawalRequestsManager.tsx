@@ -1068,7 +1068,7 @@ const styles = StyleSheet.create({
   ticketEmpName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   ticketEmpMeta: {
     fontSize: 12,
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
   amountValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
   },
   currencyUnit: {
     fontSize: 13,

@@ -83,7 +83,11 @@ export function ForgotPasswordScreen() {
       
       const isEmail = identifier.includes('@');
       if (!isEmail) {
-        await removeRememberedAccount(identifier.trim());
+        try {
+          await removeRememberedAccount(identifier.trim());
+        } catch (e) {
+          console.warn('Failed to remove remembered account:', e);
+        }
       }
       
       Toast.show({ type: 'success', text1: 'Đổi mật khẩu thành công!' });
@@ -115,7 +119,7 @@ export function ForgotPasswordScreen() {
             if (step > 1) setStep((s) => (s - 1) as 1|2|3);
             else router.back();
           }} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#111827" />
+            <Ionicons name="arrow-back" size={24} color="#102739" />
           </Pressable>
           <Text style={styles.title}>Quên mật khẩu</Text>
         </View>
@@ -255,7 +259,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   backBtn: { padding: 4, marginRight: 16 },
-  title: { fontSize: 20, fontWeight: '700', color: '#111827' },
+  title: { fontSize: 20, fontWeight: '700', color: '#102739' },
   content: { flex: 1, padding: 24, zIndex: 1 },
   stepContainer: {},
   description: { fontSize: 14, color: '#4B5563', marginBottom: 24, lineHeight: 22 },
@@ -277,7 +281,7 @@ const styles = StyleSheet.create({
   input: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#111827',
+    color: '#102739',
     padding: 0,
     height: 28,
     backgroundColor: 'transparent',

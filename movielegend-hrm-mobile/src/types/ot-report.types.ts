@@ -42,6 +42,13 @@ export interface OtReport {
     name: string;
     code: string;
   };
+  decidedBy?: {
+    id: string;
+    userCode?: string;
+    profile?: {
+      fullName?: string;
+    };
+  } | null;
 }
 
 export interface CreateOtReportPayload {
@@ -70,9 +77,35 @@ export interface RejectOtReportPayload {
 }
 
 export interface OtReportFilters {
-  status?: OtReportStatus;
+  status?: OtReportStatus | 'ALL';
   fromDate?: string;
   toDate?: string;
   page?: number;
   limit?: number;
 }
+
+export interface EligibleCheckinSession {
+  id: string;
+  checkInAt: string;
+  checkOutAt?: string | null;
+}
+
+export interface EligibleCheckinDay {
+  workDate: string; // YYYY-MM-DD
+  firstCheckInAt: string;
+  lastCheckOutAt?: string | null;
+  sessions: EligibleCheckinSession[];
+  totalWorkedMinutes: number;
+  canReport: boolean;
+  existingReport?: {
+    id: string;
+    status: OtReportStatus;
+    proposedPercent: number;
+    approvedPercent?: number | null;
+    declaredOtMinutes: number;
+    validOtMinutes: number;
+    reason?: string | null;
+    rejectionReason?: string | null;
+  } | null;
+}
+

@@ -548,11 +548,11 @@ export function LeaderDepartmentReportsScreen() {
         headerSlot={({ currentStep }: { currentStep: number }) => (
           <View>
             <StatusBar barStyle="light-content" backgroundColor="#102739" />
-            {/* Dark Forest Green Banner */}
+            {/* Deep Navy Banner */}
             <View style={{
               backgroundColor: '#102739',
               paddingTop: Math.max(insets.top, 16),
-              paddingBottom: 16,
+              paddingBottom: 18,
               paddingHorizontal: 16,
               marginHorizontal: -16,
               marginTop: -8,
@@ -638,11 +638,11 @@ export function LeaderDepartmentReportsScreen() {
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
       <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
-      {/* Screen 2: Dark Forest Green Banner */}
+      {/* Screen 2: Deep Navy Banner */}
       <View style={{
         backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
-        paddingBottom: 16,
+        paddingBottom: 18,
         paddingHorizontal: 16,
       }}>
         {/* Top row: Back button & brand */}
@@ -750,14 +750,14 @@ export function LeaderDepartmentReportsScreen() {
             {!isToday && (
               <Pressable
                 style={{
-                  backgroundColor: '#DCFCE7',
+                  backgroundColor: '#EFF6FF',
                   paddingHorizontal: 8,
                   paddingVertical: 3,
                   borderRadius: 6,
                 }}
                 onPress={handleToday}
               >
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534' }}>Hôm nay</Text>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#1D4ED8' }}>Hôm nay</Text>
               </Pressable>
             )}
           </View>
@@ -773,20 +773,20 @@ export function LeaderDepartmentReportsScreen() {
           <Pressable
             style={{
               flex: 1,
-              backgroundColor: '#DCFCE7',
+              backgroundColor: activeFilter === 'all' ? '#EFF6FF' : '#FFFFFF',
               borderRadius: 12,
               borderWidth: activeFilter === 'all' ? 2 : 1,
-              borderColor: activeFilter === 'all' ? '#166534' : '#86EFAC',
+              borderColor: activeFilter === 'all' ? '#102739' : '#E2E8F0',
               paddingVertical: 12,
               paddingHorizontal: 8,
               alignItems: 'center',
             }}
             onPress={() => setActiveFilter('all')}
           >
-            <Text style={{ fontSize: 22, fontWeight: '800', color: '#166534', marginBottom: 2 }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: activeFilter === 'all' ? '#102739' : '#0F172A', marginBottom: 2 }}>
               {stats.total}
             </Text>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534' }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: activeFilter === 'all' ? '#102739' : '#64748B' }}>
               Nhân sự
             </Text>
           </Pressable>
@@ -855,7 +855,7 @@ export function LeaderDepartmentReportsScreen() {
         {/* Department Member List */}
         {deptReportsQuery.isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#166534" />
+            <ActivityIndicator size="small" color="#102739" />
             <Text style={styles.loadingPromptText}>Đang tải danh sách phòng ban...</Text>
           </View>
         ) : filteredMembers.length === 0 ? (
@@ -908,12 +908,12 @@ export function LeaderDepartmentReportsScreen() {
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: '#DCFCE7',
+                    backgroundColor: '#DBEAFE',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
                   }}>
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#166534' }}>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#102739' }}>
                       {initials || 'NV'}
                     </Text>
                   </View>
@@ -942,7 +942,7 @@ export function LeaderDepartmentReportsScreen() {
                       style={{ paddingVertical: 6, paddingHorizontal: 4 }}
                       onPress={() => handleOpenDetail(item)}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#166534' }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#102739' }}>
                         Xem báo cáo →
                       </Text>
                     </Pressable>
@@ -951,7 +951,7 @@ export function LeaderDepartmentReportsScreen() {
                       style={{ paddingVertical: 6, paddingHorizontal: 4 }}
                       onPress={() => setScope('mine')}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#166534' }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#102739' }}>
                         Viết báo cáo →
                       </Text>
                     </Pressable>

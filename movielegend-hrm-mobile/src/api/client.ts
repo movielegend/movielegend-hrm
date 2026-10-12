@@ -32,6 +32,7 @@ export const apiClient: AxiosInstance = axios.create({
   timeout: 15_000,
   headers: {
     'ngrok-skip-browser-warning': 'true',
+    'bypass-tunnel-reminder': 'true',
   },
 });
 
@@ -40,6 +41,7 @@ const refreshClient = axios.create({
   timeout: 10_000,
   headers: {
     'ngrok-skip-browser-warning': 'true',
+    'bypass-tunnel-reminder': 'true',
   },
 });
 

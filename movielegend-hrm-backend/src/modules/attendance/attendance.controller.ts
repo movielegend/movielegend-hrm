@@ -27,6 +27,12 @@ import { Public } from '../../common/decorators/public.decorator';
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
+  @Public()
+  @Get('ping')
+  ping() {
+    return { status: 'ok', timestamp: Date.now() };
+  }
+
   @Permissions('attendance.checkin')
   @Post('check-in')
   checkIn(@Body() dto: CheckInDto, @CurrentUser() actor: AuthenticatedUser, @Ip() ip: string) {

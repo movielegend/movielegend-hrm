@@ -16,6 +16,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
+import { GlossyHeaderBackground } from '../../components/common/GlossyHeaderBackground';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -192,11 +193,11 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     return (
       <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
         <StatusBar barStyle="light-content" backgroundColor="#102739" />
-        {/* Screen 1: Top Dark Forest Green Banner */}
+        {/* Screen 1: Top Deep Navy Banner */}
         <View style={{
           backgroundColor: '#102739',
           paddingTop: Math.max(insets.top, 16),
-          paddingBottom: 16,
+          paddingBottom: 22,
           paddingHorizontal: 16,
         }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -240,7 +241,15 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
         </View>
 
         <ScrollView
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 16, 24) }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            backgroundColor: '#F8FAFC',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            marginTop: -10,
+            paddingTop: 16,
+            paddingBottom: Math.max(insets.bottom + 16, 24) + 80,
+          }}
           refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}
           showsVerticalScrollIndicator={false}
         >
@@ -314,12 +323,12 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
                   width: 80,
                   height: 80,
                   borderRadius: 40,
-                  backgroundColor: '#DCFCE7',
+                  backgroundColor: '#EFF6FF',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 16,
                 }}>
-                  <MaterialCommunityIcons name="clipboard-check-outline" size={42} color="#166534" />
+                  <MaterialCommunityIcons name="clipboard-check-outline" size={42} color="#1D4ED8" />
                 </View>
                 <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 6, textAlign: 'center' }}>
                   Bạn chưa có công việc nào
@@ -351,7 +360,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
       <StatusBar barStyle="light-content" backgroundColor="#102739" />
-      {/* Screen 1: Top Dark Forest Green Banner */}
+      {/* Screen 1: Top Deep Navy Banner */}
       <View style={{
         backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
@@ -647,6 +656,8 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           paddingTop: Math.max(insets.top, 16),
           paddingBottom: 20,
           paddingHorizontal: 16,
+          position: 'relative',
+          overflow: 'hidden',
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Pressable onPress={() => setSubView('detail')} style={{ paddingRight: 10, paddingVertical: 4 }}>
@@ -757,6 +768,8 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
           paddingTop: Math.max(insets.top, 16),
           paddingBottom: 20,
           paddingHorizontal: 16,
+          position: 'relative',
+          overflow: 'hidden',
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Pressable onPress={() => setSubView('detail')} style={{ paddingRight: 10, paddingVertical: 4 }}>
@@ -854,12 +867,14 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
       <StatusBar barStyle="light-content" backgroundColor="#102739" />
-      {/* Top Dark Forest Green Banner */}
+      {/* Top Deep Navy Banner */}
       <View style={{
         backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,
+        position: 'relative',
+        overflow: 'hidden',
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
@@ -1786,6 +1801,7 @@ function AdminTaskListScreen() {
   return (
     <View style={adminStyles.screen}>
       <View style={[adminStyles.bannerHeader, { paddingTop: Math.max(insets.top, 16) }]}>
+        <GlossyHeaderBackground idPrefix="adminTasksHeader" />
         <View style={adminStyles.bannerTopRow}>
           <View>
             <Text style={adminStyles.bannerSubText}>CÔNG VIỆC ĐÃ GIAO</Text>
@@ -3194,12 +3210,14 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
       <StatusBar barStyle="light-content" backgroundColor="#102739" />
-      {/* Top Dark Forest Green Banner */}
+      {/* Top Deep Navy Banner */}
       <View style={{
         backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,
+        position: 'relative',
+        overflow: 'hidden',
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
@@ -3722,9 +3740,9 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                     <View style={{
                       flexDirection: 'row',
                       alignItems: 'center',
-                      backgroundColor: '#F0FDF4',
+                      backgroundColor: '#EFF6FF',
                       borderWidth: 1,
-                      borderColor: '#86EFAC',
+                      borderColor: '#BFDBFE',
                       borderRadius: 12,
                       padding: 12,
                       gap: 10,
@@ -5983,18 +6001,18 @@ const styles = StyleSheet.create({
   dailyReportHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   dailyReportHeaderBtnText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#FFFFFF',
   },
 });
 
@@ -6007,6 +6025,7 @@ const adminStyles = StyleSheet.create({
     backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingBottom: 14,
+    overflow: 'hidden',
   },
   bannerTopRow: {
     flexDirection: 'row',
@@ -6317,7 +6336,7 @@ const adminStyles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     paddingTop: 10,
-    backgroundColor: 'rgba(248, 250, 252, 0.95)',
+    backgroundColor: 'rgba(245, 247, 250, 0.95)',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },

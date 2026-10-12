@@ -29,9 +29,6 @@ import { formatSeniority } from '../../utils/seniority';
 import { normalizeApiError } from '../../utils/api-error';
 
 const editSchema = z.object({
-  fullName: z.string().min(2, 'Vui lòng nhập họ và tên'),
-  phone: z.string().min(8, 'Số điện thoại chưa hợp lệ'),
-  email: z.string().email('Email chưa hợp lệ').optional().or(z.literal('')),
   departmentId: z.string().optional().or(z.literal('')),
   joinDate: z.string().optional().or(z.literal('')),
   accountStatus: z.enum(['ACTIVE', 'SUSPENDED']),
@@ -107,9 +104,6 @@ export function EmployeeDetailScreen() {
   } = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
     values: {
-      fullName: emp?.profile?.fullName || '',
-      phone: emp?.phone || '',
-      email: emp?.email || '',
       departmentId:
         emp?.departmentLinks?.find(link => link.isPrimary)?.departmentId ||
         (emp as any)?.department?.id ||
@@ -161,9 +155,6 @@ export function EmployeeDetailScreen() {
   const onSave = handleSubmit(async data => {
     try {
       await updateEmployee.mutateAsync({
-        fullName: data.fullName.trim(),
-        phone: data.phone.trim(),
-        email: data.email?.trim() || undefined,
         departmentId: data.departmentId || undefined,
         accountStatus: data.accountStatus,
         joinDate: data.joinDate || undefined,
@@ -394,69 +385,46 @@ export function EmployeeDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* CARD 1: Thông tin cơ bản */}
+        {/* CARD 1: Thông tin cá nhân (Đã khóa - Chỉ nhân viên tự sửa) */}
         <View style={styles.card}>
-          <Text style={styles.cardSectionHeading}>Thông tin cơ bản</Text>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardSectionHeading}>Thông tin cá nhân</Text>
+            <View style={styles.lockedBadge}>
+              <Ionicons name="lock-closed" size={12} color="#475569" />
+              <Text style={styles.lockedBadgeText}>Chỉ người dùng được sửa</Text>
+            </View>
+          </View>
+
+          <View style={styles.lockedNoteBox}>
+            <Ionicons name="information-circle-outline" size={16} color="#D97706" style={{ marginTop: 2 }} />
+            <Text style={styles.lockedNoteText}>
+              Họ tên, Số điện thoại và Email được bảo vệ quyền riêng tư. Quản trị viên không thể chỉnh sửa, chỉ nhân viên mới có thể cập nhật trong trang cá nhân của họ.
+            </Text>
+          </View>
 
           {/* Họ và tên */}
           <Text style={styles.fieldLabel}>Họ và tên</Text>
-          <Controller
-            control={control}
-            name="fullName"
-            render={({ field: { value, onChange } }) => (
-              <View style={[styles.inputBox, errors.fullName && styles.inputBoxError]}>
-                <TextInput
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="Nhập họ và tên"
-                  placeholderTextColor="#94A3B8"
-                  style={styles.textInput}
-                />
-              </View>
-            )}
-          />
-          {errors.fullName && <Text style={styles.errorText}>{errors.fullName.message}</Text>}
+          <View style={[styles.inputBox, styles.inputBoxDisabled]}>
+            <Ionicons name="person-outline" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+            <Text style={styles.disabledInputText}>{emp.profile?.fullName || emp.userCode || 'Chưa cập nhật'}</Text>
+            <Ionicons name="lock-closed" size={14} color="#94A3B8" style={{ marginLeft: 'auto' }} />
+          </View>
 
           {/* Số điện thoại */}
           <Text style={styles.fieldLabel}>Số điện thoại</Text>
-          <Controller
-            control={control}
-            name="phone"
-            render={({ field: { value, onChange } }) => (
-              <View style={[styles.inputBox, errors.phone && styles.inputBoxError]}>
-                <TextInput
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="Nhập số điện thoại"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="phone-pad"
-                  style={styles.textInput}
-                />
-              </View>
-            )}
-          />
-          {errors.phone && <Text style={styles.errorText}>{errors.phone.message}</Text>}
+          <View style={[styles.inputBox, styles.inputBoxDisabled]}>
+            <Ionicons name="call-outline" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+            <Text style={styles.disabledInputText}>{emp.phone || 'Chưa cập nhật'}</Text>
+            <Ionicons name="lock-closed" size={14} color="#94A3B8" style={{ marginLeft: 'auto' }} />
+          </View>
 
           {/* Email */}
           <Text style={styles.fieldLabel}>Email</Text>
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { value, onChange } }) => (
-              <View style={[styles.inputBox, errors.email && styles.inputBoxError]}>
-                <TextInput
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="Nhập email"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={styles.textInput}
-                />
-              </View>
-            )}
-          />
-          {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
+          <View style={[styles.inputBox, styles.inputBoxDisabled]}>
+            <Ionicons name="mail-outline" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+            <Text style={styles.disabledInputText}>{emp.email || 'Chưa cập nhật'}</Text>
+            <Ionicons name="lock-closed" size={14} color="#94A3B8" style={{ marginLeft: 'auto' }} />
+          </View>
         </View>
 
         {/* CARD 2: Thông tin công việc */}
@@ -843,6 +811,54 @@ const styles = StyleSheet.create({
   },
   inputBoxError: {
     borderColor: '#EF4444',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  lockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  lockedBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  lockedNoteBox: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  lockedNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 17,
+  },
+  inputBoxDisabled: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+  },
+  disabledInputText: {
+    fontSize: 14,
+    color: '#475569',
+    fontWeight: '500',
+    flex: 1,
   },
   textInput: {
     fontSize: 14,

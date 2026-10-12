@@ -673,7 +673,7 @@ const localStyles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 4,
   },
   cardSubtitle: {
@@ -693,7 +693,7 @@ const localStyles = StyleSheet.create({
   actionBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginRight: 4,
   },
   detailHeader: {
@@ -720,7 +720,7 @@ const localStyles = StyleSheet.create({
   imagesTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 16,
   },
   imagesGrid: {

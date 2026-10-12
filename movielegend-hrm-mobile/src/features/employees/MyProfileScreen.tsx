@@ -111,6 +111,7 @@ export function MyProfileScreen() {
       <EditProfileModal 
         visible={isEditing} 
         onClose={() => setIsEditing(false)} 
+        initialFullName={user?.fullName || ''}
         initialPhone={user?.phone || ''} 
         initialEmail={user?.email || ''} 
       />
@@ -128,7 +129,7 @@ function InfoRow({ icon, label, value, valueColor, onPress, isLast }: any) {
   return (
     <Container style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]} onPress={onPress}>
       <View style={styles.infoIconBg}>
-        <MaterialCommunityIcons name={icon} size={20} color="#111827" />
+        <MaterialCommunityIcons name={icon} size={20} color="#102739" />
       </View>
       <View style={styles.infoContent}>
         <Text style={styles.infoLabel}>{label}</Text>
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
     minHeight: '100%',
   },
   headerBg: {
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     height: 100,
     width: '100%',
     position: 'absolute',
@@ -182,18 +183,18 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
   },
   userName: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 4,
   },
   userRole: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 2,
   },
   userDepartment: {
@@ -216,7 +217,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
   },
   statusText: {
     color: '#4B5563',
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: spacing.md,
     marginLeft: 4,
   },
@@ -271,6 +272,6 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111827',
+    color: '#102739',
   },
 });

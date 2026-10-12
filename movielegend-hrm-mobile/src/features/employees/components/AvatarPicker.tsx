@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   optionCardPressed: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
     borderColor: '#CBD5E1',
   },
   optionIconBox: {
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   optionSubtitle: {
     fontSize: 12.5,

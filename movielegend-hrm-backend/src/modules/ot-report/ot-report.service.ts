@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, OtReportStatus } from '@prisma/client';
+import { Prisma, OtReportStatus, RoleScopeType, NotificationType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import { BusinessTimeService } from '../time/business-time.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { NotificationType } from '@prisma/client';
 import { badRequest, conflict, forbidden, notFound } from '../../common/utils/error.util';
 import {
   CreateOtReportDto,
@@ -32,6 +31,59 @@ export class OtReportService {
     const name = dept.name?.toLowerCase() || '';
     const code = dept.code?.toLowerCase() || '';
     return name.includes('live') || code.includes('live');
+  }
+
+  /**
+   * Lấy danh sách ID các Leader/Trưởng bộ phận của phòng ban để gửi thông báo duyệt đơn
+   */
+  private async getDepartmentLeaderUserIds(departmentId: string, excludeUserId?: string): Promise<string[]> {
+    const leaderUserIds = new Set<string>();
+
+    const dept = await this.prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { leaderUserId: true },
+    });
+    if (dept?.leaderUserId) {
+      leaderUserIds.add(dept.leaderUserId);
+    }
+
+    const scopedLeaders = await this.prisma.userRole.findMany({
+      where: {
+        role: { code: 'LEADER' },
+        scopeType: RoleScopeType.DEPARTMENT,
+        scopeId: departmentId,
+        user: { accountStatus: 'ACTIVE' },
+      },
+      select: { userId: true },
+    });
+    for (const assignment of scopedLeaders) {
+      leaderUserIds.add(assignment.userId);
+    }
+
+    const departmentLeaderMembers = await this.prisma.departmentMember.findMany({
+      where: {
+        departmentId,
+        leftAt: null,
+        user: {
+          accountStatus: 'ACTIVE',
+          roles: {
+            some: {
+              role: { code: 'LEADER' },
+            },
+          },
+        },
+      },
+      select: { userId: true },
+    });
+    for (const member of departmentLeaderMembers) {
+      leaderUserIds.add(member.userId);
+    }
+
+    if (excludeUserId) {
+      leaderUserIds.delete(excludeUserId);
+    }
+
+    return Array.from(leaderUserIds);
   }
 
   /**
@@ -133,36 +185,189 @@ export class OtReportService {
     return totalValidMinutes > 0 ? totalValidMinutes : declaredOtMinutes;
   }
 
+  /**
+   * Lấy danh sách các ca/ngày đã check-in trong 7 ngày gần nhất để làm báo cáo OT
+   */
+  async getEligibleCheckins(actor: AuthenticatedUser) {
+    const memberships = await this.prisma.departmentMember.findMany({
+      where: { userId: actor.userId, leftAt: null },
+      include: { department: true },
+    });
+    const liveMembership = memberships.find((m) => this.isLiveDepartment(m.department));
+    const isAdmin = actor.roles?.some((r) => r === 'ADMIN' || r === 'SUPER_ADMIN');
+
+    if (!liveMembership && !isAdmin) {
+      throw forbidden('NOT_LIVE_DEPARTMENT', 'Tính năng Báo cáo OT này chỉ áp dụng cho nhân viên phòng Live');
+    }
+
+    const todayStr = this.businessTime.businessDateString(new Date());
+    const todayDate = this.businessTime.startOfBusinessDate(todayStr);
+    const minAllowedDate = this.businessTime.addDays(todayDate, -7);
+
+    // Lấy tất cả lượt điểm danh của user trong vòng 7 ngày gần nhất
+    const records = await this.prisma.attendanceRecord.findMany({
+      where: {
+        userId: actor.userId,
+        workDate: {
+          gte: minAllowedDate,
+          lte: todayDate,
+        },
+      },
+      orderBy: [
+        { workDate: 'desc' },
+        { checkInAt: 'asc' },
+      ],
+    });
+
+    // Lấy các báo cáo OT đã nộp trong khoảng ngày này
+    const existingReports = await this.prisma.otReport.findMany({
+      where: {
+        userId: actor.userId,
+        otDate: {
+          gte: minAllowedDate,
+          lte: todayDate,
+        },
+      },
+    });
+
+    const reportsByDate = new Map<string, (typeof existingReports)[0]>();
+    for (const r of existingReports) {
+      const dateKey = this.businessTime.businessDateString(r.otDate);
+      reportsByDate.set(dateKey, r);
+    }
+
+    // Nhóm records theo ngày công (workDate)
+    const groupedMap = new Map<string, {
+      workDate: string;
+      records: typeof records;
+    }>();
+
+    for (const rec of records) {
+      const dateKey = this.businessTime.businessDateString(rec.workDate);
+      if (!groupedMap.has(dateKey)) {
+        groupedMap.set(dateKey, {
+          workDate: dateKey,
+          records: [],
+        });
+      }
+      groupedMap.get(dateKey)!.records.push(rec);
+    }
+
+    // Xây dựng danh sách kết quả trả về
+    const items = Array.from(groupedMap.values()).map((group) => {
+      const recs = group.records;
+      const firstCheckInAt = recs[0]?.checkInAt ? recs[0].checkInAt.toISOString() : null;
+      let latestOut: Date | null = null;
+      let totalWorkedMinutes = 0;
+
+      const sessions = recs.map((r) => {
+        const inTime = new Date(r.checkInAt);
+        const outTime = r.checkOutAt ? new Date(r.checkOutAt) : null;
+        if (outTime) {
+          if (!latestOut || outTime > latestOut) {
+            latestOut = outTime;
+          }
+          if (outTime > inTime) {
+            totalWorkedMinutes += Math.floor((outTime.getTime() - inTime.getTime()) / 60_000);
+          }
+        }
+        return {
+          id: r.id,
+          checkInAt: r.checkInAt.toISOString(),
+          checkOutAt: r.checkOutAt ? r.checkOutAt.toISOString() : null,
+        };
+      });
+
+      const rep = reportsByDate.get(group.workDate);
+      const existingReport = rep
+        ? {
+            id: rep.id,
+            status: rep.status,
+            proposedPercent: rep.proposedPercent,
+            approvedPercent: rep.approvedPercent,
+            declaredOtMinutes: Math.max(0, Math.floor((rep.endTime.getTime() - rep.startTime.getTime()) / 60_000)),
+            validOtMinutes: rep.validOtMinutes,
+            reason: rep.reason,
+            rejectionReason: rep.rejectionReason,
+          }
+        : null;
+
+      const canReport = !rep || rep.status === OtReportStatus.REJECTED;
+
+      return {
+        workDate: group.workDate,
+        firstCheckInAt,
+        lastCheckOutAt: latestOut ? (latestOut as Date).toISOString() : null,
+        sessions,
+        totalWorkedMinutes,
+        canReport,
+        existingReport,
+      };
+    });
+
+    return items;
+  }
+
   async create(actor: AuthenticatedUser, dto: CreateOtReportDto) {
     // 1. Kiểm tra nhân viên thuộc phòng Live (hỗ trợ nhân sự thuộc nhiều phòng ban)
     const memberships = await this.prisma.departmentMember.findMany({
       where: { userId: actor.userId, leftAt: null },
       include: { department: true },
     });
-    if (!memberships.length) {
+    if (!memberships.length && !actor.roles?.some((r) => r === 'ADMIN' || r === 'SUPER_ADMIN')) {
       throw badRequest('NO_DEPARTMENT', 'Chưa xác định được phòng ban của bạn');
     }
 
-    const liveMembership = memberships.find((m) => this.isLiveDepartment(m.department));
-    if (!liveMembership || !liveMembership.department) {
+    let liveMembership = memberships.find((m) => this.isLiveDepartment(m.department));
+    let department = liveMembership?.department;
+
+    if (!department) {
+      const isAdmin = actor.roles?.some((r) => r === 'ADMIN' || r === 'SUPER_ADMIN');
+      if (isAdmin) {
+        const liveDept = await this.prisma.department.findFirst({
+          where: {
+            OR: [
+              { name: { contains: 'Live', mode: 'insensitive' } },
+              { code: { contains: 'LIVE', mode: 'insensitive' } },
+            ],
+          },
+        });
+        if (liveDept) {
+          department = liveDept;
+        }
+      }
+    }
+
+    if (!department) {
       throw forbidden('NOT_LIVE_DEPARTMENT', 'Tính năng Báo cáo OT này chỉ áp dụng cho nhân viên phòng Live');
     }
-    const department = liveMembership.department;
 
-    // 2. Kiểm tra khoảng ngày OT: Trong hôm nay và 2 ngày trước (Window T-2 đến T)
+    // 2. Kiểm tra khoảng ngày OT: Trong vòng 7 ngày gần nhất (Window T-7 đến T)
     const todayStr = this.businessTime.businessDateString(new Date());
     const todayDate = this.businessTime.startOfBusinessDate(todayStr);
     const otWorkDate = this.businessTime.startOfBusinessDate(dto.otDate);
 
-    const minAllowedDate = this.businessTime.addDays(todayDate, -2);
+    const minAllowedDate = this.businessTime.addDays(todayDate, -7);
     if (otWorkDate < minAllowedDate || otWorkDate > todayDate) {
       throw badRequest(
         'INVALID_OT_DATE_RANGE',
-        `Chỉ được tạo báo cáo OT cho ngày hôm nay và 2 ngày trước (${this.businessTime.businessDateString(minAllowedDate)} đến ${todayStr})`,
+        `Chỉ được tạo báo cáo OT cho các ngày trong vòng 7 ngày gần nhất (${this.businessTime.businessDateString(minAllowedDate)} đến ${todayStr})`,
       );
     }
 
-    // 3. Không bắt buộc phải có check-in trong ngày (cho phép gửi báo cáo OT ngay cả khi chưa/không check-in)
+    // 3. Bắt buộc phải có check-in trong ngày làm việc
+    const checkInRecords = await this.prisma.attendanceRecord.findMany({
+      where: {
+        userId: actor.userId,
+        workDate: otWorkDate,
+      },
+    });
+    if (!checkInRecords || checkInRecords.length === 0) {
+      throw badRequest(
+        'CHECK_IN_REQUIRED',
+        'Bạn phải có lượt check-in trong ngày làm việc này mới được tạo báo cáo OT',
+      );
+    }
 
     // 4. Kiểm tra mỗi nhân viên chỉ có 1 báo cáo cho mỗi ngày OT (nếu đã REJECTED thì cho phép nộp lại)
     const existing = await this.prisma.otReport.findUnique({
@@ -193,7 +398,7 @@ export class OtReportService {
     const validOtMinutes = await this.calculateValidOtMinutes(actor.userId, otWorkDate, otStart, otEnd);
 
     // 6. Lưu báo cáo và đính kèm ảnh
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       let report;
       if (existing && existing.status === OtReportStatus.REJECTED) {
         // Xóa ảnh cũ của báo cáo bị từ chối
@@ -274,8 +479,28 @@ export class OtReportService {
         },
       });
 
-      return report;
+      // Gửi thông báo cho Leader của phòng ban
+      const leaderUserIds = await this.getDepartmentLeaderUserIds(department.id, actor.userId);
+      let notif;
+      if (leaderUserIds.length > 0) {
+        const submitterName = report.user?.profile?.fullName || report.user?.userCode || 'Nhân viên';
+        const otDateFormatted = this.businessTime.businessDateString(report.otDate);
+        notif = await this.notifications.createForUsers(tx, leaderUserIds, {
+          type: NotificationType.SYSTEM,
+          title: 'Báo cáo OT Live mới chờ duyệt',
+          body: `${submitterName} đã gửi báo cáo OT Live ngày ${otDateFormatted} (${report.proposedPercent}%) chờ bạn phê duyệt.`,
+          metadata: { otReportId: report.id, route: '/leader/ot-report' },
+        });
+      }
+
+      return { report, notif };
     });
+
+    if (result.notif) {
+      this.notifications.emitCreated(result.notif);
+    }
+
+    return result.report;
   }
 
   /**
@@ -307,7 +532,7 @@ export class OtReportService {
 
     const validOtMinutes = await this.calculateValidOtMinutes(actor.userId, report.otDate, otStart, otEnd);
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Cập nhật ảnh nếu có truyền
       if (dto.photoFileIds && dto.photoFileIds.length > 0) {
         await tx.otReportPhoto.deleteMany({ where: { otReportId: id } });
@@ -353,8 +578,28 @@ export class OtReportService {
         },
       });
 
-      return updated;
+      // Gửi thông báo cho Leader phòng ban khi cập nhật báo cáo OT
+      const leaderUserIds = await this.getDepartmentLeaderUserIds(updated.departmentId, actor.userId);
+      let notif;
+      if (leaderUserIds.length > 0) {
+        const submitterName = updated.user?.profile?.fullName || updated.user?.userCode || 'Nhân viên';
+        const otDateFormatted = this.businessTime.businessDateString(updated.otDate);
+        notif = await this.notifications.createForUsers(tx, leaderUserIds, {
+          type: NotificationType.SYSTEM,
+          title: 'Báo cáo OT Live được cập nhật',
+          body: `${submitterName} đã cập nhật lại báo cáo OT Live ngày ${otDateFormatted} (${updated.proposedPercent}%) chờ bạn phê duyệt.`,
+          metadata: { otReportId: updated.id, route: '/leader/ot-report' },
+        });
+      }
+
+      return { updated, notif };
     });
+
+    if (result.notif) {
+      this.notifications.emitCreated(result.notif);
+    }
+
+    return result.updated;
   }
 
   /**
@@ -480,9 +725,11 @@ export class OtReportService {
    * Lấy danh sách báo cáo OT của tôi
    */
   async findMyReports(actor: AuthenticatedUser, query: OtReportQueryDto) {
+    const targetStatus = query.status === 'ALL' ? undefined : query.status;
+
     const where: Prisma.OtReportWhereInput = {
       userId: actor.userId,
-      ...(query.status ? { status: query.status } : {}),
+      ...(targetStatus ? { status: targetStatus as OtReportStatus } : {}),
       ...(this.businessTime.inclusiveDateRange(query.fromDate, query.toDate)
         ? { otDate: this.businessTime.inclusiveDateRange(query.fromDate, query.toDate) }
         : {}),
@@ -505,6 +752,17 @@ export class OtReportService {
       this.prisma.otReport.count({ where }),
     ]);
 
+    // Lấy thông tin người duyệt nếu có decidedByUserId
+    const deciderIds = Array.from(new Set(items.map((i) => i.decidedByUserId).filter(Boolean))) as string[];
+    let decidersMap = new Map<string, { id: string; userCode: string; profile?: { fullName?: string } | null }>();
+    if (deciderIds.length > 0) {
+      const deciders = await this.prisma.user.findMany({
+        where: { id: { in: deciderIds } },
+        select: { id: true, userCode: true, profile: { select: { fullName: true } } },
+      });
+      decidersMap = new Map(deciders.map((d) => [d.id, d]));
+    }
+
     const populatedItems = await Promise.all(
       items.map(async (item) => {
         if (item.status === OtReportStatus.PENDING) {
@@ -524,7 +782,10 @@ export class OtReportService {
               .catch(() => null);
           }
         }
-        return item;
+        return {
+          ...item,
+          decidedBy: item.decidedByUserId ? decidersMap.get(item.decidedByUserId) || null : null,
+        };
       }),
     );
 
@@ -540,13 +801,16 @@ export class OtReportService {
   }
 
   /**
-   * Lấy danh sách báo cáo OT chờ duyệt (Leader phòng Live)
+   * Lấy danh sách báo cáo OT chờ duyệt / đã duyệt / từ chối (Leader phòng Live & Admin)
    */
   async findPendingReports(actor: AuthenticatedUser, query: OtReportQueryDto) {
     const visibleDepartmentIds = await this.scope.getVisibleDepartmentIds(actor);
 
+    // Xử lý status: nếu truyền 'ALL' thì không lọc status; nếu truyền 'APPROVED' / 'REJECTED' / 'PENDING' thì lọc đúng status đó; nếu không truyền thì mặc định là PENDING
+    const targetStatus = query.status === 'ALL' ? undefined : (query.status || OtReportStatus.PENDING);
+
     const where: Prisma.OtReportWhereInput = {
-      status: query.status || OtReportStatus.PENDING,
+      ...(targetStatus ? { status: targetStatus as OtReportStatus } : {}),
       ...(visibleDepartmentIds ? { departmentId: { in: visibleDepartmentIds } } : {}),
       ...(this.businessTime.inclusiveDateRange(query.fromDate, query.toDate)
         ? { otDate: this.businessTime.inclusiveDateRange(query.fromDate, query.toDate) }
@@ -573,6 +837,17 @@ export class OtReportService {
       this.prisma.otReport.count({ where }),
     ]);
 
+    // Lấy thông tin người duyệt nếu có decidedByUserId
+    const deciderIds = Array.from(new Set(items.map((i) => i.decidedByUserId).filter(Boolean))) as string[];
+    let decidersMap = new Map<string, { id: string; userCode: string; profile?: { fullName?: string } | null }>();
+    if (deciderIds.length > 0) {
+      const deciders = await this.prisma.user.findMany({
+        where: { id: { in: deciderIds } },
+        select: { id: true, userCode: true, profile: { select: { fullName: true } } },
+      });
+      decidersMap = new Map(deciders.map((d) => [d.id, d]));
+    }
+
     const populatedItems = await Promise.all(
       items.map(async (item) => {
         if (item.status === OtReportStatus.PENDING) {
@@ -592,7 +867,10 @@ export class OtReportService {
               .catch(() => null);
           }
         }
-        return item;
+        return {
+          ...item,
+          decidedBy: item.decidedByUserId ? decidersMap.get(item.decidedByUserId) || null : null,
+        };
       }),
     );
 
@@ -646,6 +924,17 @@ export class OtReportService {
       }
     }
 
-    return report;
+    let decidedBy = null;
+    if (report.decidedByUserId) {
+      decidedBy = await this.prisma.user.findUnique({
+        where: { id: report.decidedByUserId },
+        select: { id: true, userCode: true, profile: { select: { fullName: true } } },
+      });
+    }
+
+    return {
+      ...report,
+      decidedBy,
+    };
   }
 }

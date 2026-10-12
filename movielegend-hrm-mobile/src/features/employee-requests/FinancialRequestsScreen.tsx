@@ -16,6 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../providers/AuthProvider';
 import { CustomAlert } from '../../components/CustomAlert';
+import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
 import { getRoleBaseRoute } from '../../utils/role-routing';
 import { Screen } from '../../components/Screen';
 import { getEmployeeRequests } from '../../api/employee-requests.api';
@@ -41,8 +42,15 @@ export function FinancialRequestsScreen() {
 
   // Modal export date selection
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [exportDateMode, setExportDateMode] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'CUSTOM'>('ALL');
-  const [customDate, setCustomDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [exportDateMode, setExportDateMode] = useState<'ALL' | 'TODAY' | 'YESTERDAY' | 'SINGLE' | 'RANGE'>('ALL');
+  const [selectedSingleDate, setSelectedSingleDate] = useState<Date>(() => new Date());
+  const [rangeFromDate, setRangeFromDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d;
+  });
+  const [rangeToDate, setRangeToDate] = useState<Date>(() => new Date());
+  const [pickerTarget, setPickerTarget] = useState<'SINGLE' | 'RANGE_FROM' | 'RANGE_TO' | null>(null);
   const [exportVatOption, setExportVatOption] = useState<'ALL' | 'VAT_ONLY' | 'NO_VAT_ONLY'>('ALL');
 
   const { data: allRequests = [], isLoading, refetch, isRefetching } = useQuery({
@@ -92,36 +100,47 @@ export function FinancialRequestsScreen() {
     return { pendingCount, approvedCount, totalPendingAmount, totalApprovedAmount };
   }, [allRequests]);
 
-  const handleQuickExportToday = async () => {
-    setIsExporting(true);
-    try {
-      // Xuất toàn bộ danh sách đơn tài chính (hoặc theo loại đang chọn) để luôn đầy đủ dữ liệu
-      await exportAndShareFinancialExcel({
-        date: 'ALL',
-        vatOption: 'ALL',
-        type: selectedType !== 'ALL' ? selectedType : undefined,
-      });
-    } finally {
-      setIsExporting(false);
-    }
+  const formatDateToYMD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   };
+
+  const formatDateDisplay = (d: Date) => {
+    const day = String(d.getDate()).padStart(2, '0');
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const y = d.getFullYear();
+    return `${day}/${m}/${y}`;
+  };
+
 
   const handleCustomExport = async () => {
     setIsExporting(true);
     try {
-      let targetDate = 'ALL';
-      if (exportDateMode === 'TODAY') {
-        targetDate = new Date().toISOString().split('T')[0];
+      let targetDate: string | undefined = undefined;
+      let targetFromDate: string | undefined = undefined;
+      let targetToDate: string | undefined = undefined;
+
+      if (exportDateMode === 'ALL') {
+        targetDate = 'ALL';
+      } else if (exportDateMode === 'TODAY') {
+        targetDate = formatDateToYMD(new Date());
       } else if (exportDateMode === 'YESTERDAY') {
         const d = new Date();
         d.setDate(d.getDate() - 1);
-        targetDate = d.toISOString().split('T')[0];
-      } else if (exportDateMode === 'CUSTOM') {
-        targetDate = customDate.trim() || 'ALL';
+        targetDate = formatDateToYMD(d);
+      } else if (exportDateMode === 'SINGLE') {
+        targetDate = formatDateToYMD(selectedSingleDate);
+      } else if (exportDateMode === 'RANGE') {
+        targetFromDate = formatDateToYMD(rangeFromDate);
+        targetToDate = formatDateToYMD(rangeToDate);
       }
 
       await exportAndShareFinancialExcel({
         date: targetDate,
+        fromDate: targetFromDate,
+        toDate: targetToDate,
         vatOption: exportVatOption,
         type: selectedType !== 'ALL' ? selectedType : undefined,
       });
@@ -176,38 +195,21 @@ export function FinancialRequestsScreen() {
       {/* 1. Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View style={styles.headerRow}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-              <MaterialCommunityIcons name="chevron-left" size={26} color="#0F172A" />
-            </Pressable>
-            <View>
-              <Text style={styles.title}>Duyệt Tài chính & Chi phí</Text>
-              <Text style={styles.subtitle}>Dành riêng cho Kế toán & Ban Giám Đốc</Text>
-            </View>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <MaterialCommunityIcons name="chevron-left" size={26} color="#0F172A" />
+          </Pressable>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.title} numberOfLines={1}>Duyệt Tài chính</Text>
+            <Text style={styles.subtitle} numberOfLines={1}>Kế toán & Ban Giám Đốc</Text>
           </View>
-          <View style={styles.headerActions}>
-            <Pressable
-              style={[styles.exportBtn, isExporting && styles.exportBtnDisabled]}
-              onPress={handleQuickExportToday}
-              disabled={isExporting}
-            >
-              {isExporting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="file-excel-box" size={16} color="#FFFFFF" />
-                  <Text style={styles.exportBtnText}>Xuất Excel</Text>
-                </>
-              )}
-            </Pressable>
-            <Pressable
-              style={styles.calendarFilterBtn}
-              onPress={() => setIsExportModalOpen(true)}
-              hitSlop={8}
-            >
-              <MaterialCommunityIcons name="tune-variant" size={18} color="#059669" />
-            </Pressable>
-          </View>
+          <Pressable
+            style={styles.exportHeaderBtn}
+            onPress={() => setIsExportModalOpen(true)}
+            hitSlop={6}
+          >
+            <MaterialCommunityIcons name="file-excel-box" size={18} color="#059669" />
+            <Text style={styles.exportHeaderBtnText}>Xuất Excel</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -417,37 +419,75 @@ export function FinancialRequestsScreen() {
               <Text style={styles.formLabel}>Khoảng thời gian xuất:</Text>
               <View style={styles.vatOptionGroup}>
                 {[
-                  { key: 'ALL', label: 'Toàn bộ đơn (Tất cả ngày - Khuyên dùng)' },
-                  { key: 'TODAY', label: 'Chỉ đơn hôm nay (2026-10-09)' },
-                  { key: 'YESTERDAY', label: 'Đơn đợt hôm qua (2026-10-08)' },
-                  { key: 'CUSTOM', label: 'Tự nhập ngày cụ thể (YYYY-MM-DD)' },
+                  { key: 'ALL', label: 'Toàn bộ đơn (Tất cả ngày - Khuyên dùng)', icon: 'earth' },
+                  { key: 'TODAY', label: `Hôm nay (${formatDateDisplay(new Date())})`, icon: 'calendar-today' },
+                  { key: 'YESTERDAY', label: 'Đơn đợt hôm qua', icon: 'history' },
+                  { key: 'SINGLE', label: 'Chọn 1 ngày trên Lịch 📅', icon: 'calendar-month' },
+                  { key: 'RANGE', label: 'Chọn theo khoảng ngày 📆', icon: 'calendar-range' },
                 ].map((opt) => (
                   <Pressable
                     key={opt.key}
                     style={[styles.vatOptionBtn, exportDateMode === opt.key && styles.vatOptionBtnActive]}
                     onPress={() => setExportDateMode(opt.key as any)}
                   >
-                    <Text
-                      style={[
-                        styles.vatOptionText,
-                        exportDateMode === opt.key && styles.vatOptionTextActive,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <MaterialCommunityIcons
+                        name={opt.icon as any}
+                        size={17}
+                        color={exportDateMode === opt.key ? '#059669' : '#64748B'}
+                      />
+                      <Text
+                        style={[
+                          styles.vatOptionText,
+                          exportDateMode === opt.key && styles.vatOptionTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </View>
                   </Pressable>
                 ))}
               </View>
 
-              {exportDateMode === 'CUSTOM' && (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={styles.formLabel}>Nhập ngày cần xuất (YYYY-MM-DD):</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={customDate}
-                    onChangeText={setCustomDate}
-                    placeholder="2026-10-08"
-                  />
+              {exportDateMode === 'SINGLE' && (
+                <View style={styles.datePickerContainer}>
+                  <Text style={styles.formLabel}>Ngày cần xuất (Bấm để chọn lịch):</Text>
+                  <Pressable
+                    style={styles.datePickerBtn}
+                    onPress={() => setPickerTarget('SINGLE')}
+                  >
+                    <MaterialCommunityIcons name="calendar" size={20} color="#059669" />
+                    <Text style={styles.datePickerBtnText}>{formatDateDisplay(selectedSingleDate)}</Text>
+                    <Text style={styles.datePickerChangeHint}>Đổi ngày 📅</Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {exportDateMode === 'RANGE' && (
+                <View style={styles.datePickerContainer}>
+                  <Text style={styles.formLabel}>Khoảng ngày (Từ ngày - Đến ngày):</Text>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.subFieldLabel}>Từ ngày:</Text>
+                      <Pressable
+                        style={styles.datePickerBtnSmall}
+                        onPress={() => setPickerTarget('RANGE_FROM')}
+                      >
+                        <MaterialCommunityIcons name="calendar" size={16} color="#059669" />
+                        <Text style={styles.datePickerBtnTextSmall}>{formatDateDisplay(rangeFromDate)}</Text>
+                      </Pressable>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.subFieldLabel}>Đến ngày:</Text>
+                      <Pressable
+                        style={styles.datePickerBtnSmall}
+                        onPress={() => setPickerTarget('RANGE_TO')}
+                      >
+                        <MaterialCommunityIcons name="calendar" size={16} color="#059669" />
+                        <Text style={styles.datePickerBtnTextSmall}>{formatDateDisplay(rangeToDate)}</Text>
+                      </Pressable>
+                    </View>
+                  </View>
                 </View>
               )}
 
@@ -502,6 +542,29 @@ export function FinancialRequestsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Interactive CustomDatePickerModal */}
+      <CustomDatePickerModal
+        visible={pickerTarget !== null}
+        initialDate={
+          pickerTarget === 'SINGLE'
+            ? selectedSingleDate
+            : pickerTarget === 'RANGE_FROM'
+            ? rangeFromDate
+            : rangeToDate
+        }
+        onClose={() => setPickerTarget(null)}
+        onSelect={(selectedDate: Date) => {
+          if (pickerTarget === 'SINGLE') {
+            setSelectedSingleDate(selectedDate);
+          } else if (pickerTarget === 'RANGE_FROM') {
+            setRangeFromDate(selectedDate);
+          } else if (pickerTarget === 'RANGE_TO') {
+            setRangeToDate(selectedDate);
+          }
+          setPickerTarget(null);
+        }}
+      />
     </Screen>
   );
 }
@@ -518,60 +581,41 @@ const styles = StyleSheet.create({
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+    gap: 8,
   },
   backBtn: {
-    marginRight: 6,
     padding: 2,
+    marginRight: 2,
+  },
+  headerTitleWrap: {
+    flex: 1,
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#0F172A',
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748B',
     marginTop: 1,
   },
-  headerActions: {
+  exportHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-  },
-  exportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#059669',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-    gap: 4,
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  exportBtnDisabled: {
-    opacity: 0.6,
-  },
-  exportBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  calendarFilterBtn: {
     backgroundColor: '#ECFDF5',
     borderWidth: 1,
     borderColor: '#A7F3D0',
-    padding: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
+    gap: 5,
+  },
+  exportHeaderBtnText: {
+    color: '#059669',
+    fontSize: 12,
+    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',
@@ -954,5 +998,58 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  datePickerContainer: {
+    marginTop: 8,
+    padding: 10,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    gap: 6,
+  },
+  datePickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#059669',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  datePickerBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  datePickerChangeHint: {
+    fontSize: 12,
+    color: '#059669',
+    marginLeft: 'auto',
+    fontWeight: '600',
+  },
+  subFieldLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  datePickerBtnSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  datePickerBtnTextSmall: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
   },
 });

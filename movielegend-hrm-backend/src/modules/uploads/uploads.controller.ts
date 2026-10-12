@@ -1,6 +1,6 @@
 import { Controller, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
@@ -12,11 +12,11 @@ interface UploadRequest extends Request {
 
 @ApiTags('Uploads')
 @ApiBearerAuth()
+@SkipThrottle()
 @Controller('uploads')
 export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {

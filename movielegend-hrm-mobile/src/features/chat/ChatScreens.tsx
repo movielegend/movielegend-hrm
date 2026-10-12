@@ -75,6 +75,37 @@ function getInitials(name: string): string {
   return name.split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase();
 }
 
+function getAvatarColor(name: string) {
+  const bgColors = [
+    { bg: '#E0F2FE', text: '#0369A1' }, // sky
+    { bg: '#DCFCE7', text: '#15803D' }, // green
+    { bg: '#FEF3C7', text: '#B45309' }, // amber
+    { bg: '#F3E8FF', text: '#7E22CE' }, // purple
+    { bg: '#FFE4E6', text: '#BE123C' }, // rose
+    { bg: '#E0E7FF', text: '#4338CA' }, // indigo
+    { bg: '#CCFBF1', text: '#0F766E' }, // teal
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return bgColors[Math.abs(hash) % bgColors.length];
+}
+
+function getShortDeptName(deptName?: string) {
+  if (!deptName) return 'Leader';
+  const clean = deptName.replace(/^Trưởng phòng\s*/i, '').trim();
+  if (/hành chính nhân sự|nhân sự/i.test(clean)) return 'HCNS';
+  if (/livestream|live/i.test(clean)) return 'Live';
+  if (/kế toán/i.test(clean)) return 'Kế toán';
+  if (/kinh doanh/i.test(clean)) return 'Kinh doanh';
+  if (/marketing/i.test(clean)) return 'MKT';
+  if (/cskh|chăm sóc/i.test(clean)) return 'CSKH';
+  if (/phát triển thị trường/i.test(clean)) return 'PTTT';
+  if (/it|dev|kỹ thuật/i.test(clean)) return 'Kỹ thuật';
+  return clean.length > 10 ? clean.slice(0, 9) + '…' : clean;
+}
+
 // ── Mock Stickers ──
 
 import axios from 'axios';
@@ -439,7 +470,8 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
       <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
-      <View style={[adminChatStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+      <View style={[adminChatStyles.headerWrap, { paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 44 : 20) + 6 }]}>
+        <View style={adminChatStyles.decorativeCurve} />
         <View style={adminChatStyles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={adminChatStyles.headerTitle}>Nhóm chat</Text>
@@ -469,59 +501,98 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={groups.isRefetching} onRefresh={() => void groups.refetch()} />}
         >
-          {/* Section 1: Trưởng phòng */}
+          {/* Section 1: Trưởng phòng (Messenger Stories / Active Style) */}
           {departmentLeaders.length > 0 && (
             <View style={adminChatStyles.leadersSection}>
               <View style={adminChatStyles.sectionHeaderRow}>
-                <Text style={adminChatStyles.sectionTitle}>Trưởng phòng</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={adminChatStyles.sectionTitle}>Trưởng phòng</Text>
+                  <View style={adminChatStyles.onlineCountBadge}>
+                    <View style={adminChatStyles.onlineCountDot} />
+                    <Text style={adminChatStyles.onlineCountText}>{departmentLeaders.length}</Text>
+                  </View>
+                </View>
                 <TouchableOpacity
                   onPress={() => setLeaderModalVisible(true)}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
+                  activeOpacity={0.7}
                 >
-                  <Text style={adminChatStyles.seeAllLeadersText}>
-                    Tất cả ({departmentLeaders.length})
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-right" size={16} color="#2563EB" />
+                  <Text style={adminChatStyles.seeAllLeadersText}>Tất cả</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={16} color="#102739" />
                 </TouchableOpacity>
               </View>
 
-              {/* Vertical list of top 3 leaders */}
-              <View style={adminChatStyles.leaderListContainer}>
-                {departmentLeaders.slice(0, 3).map((leader) => (
-                  <TouchableOpacity
-                    key={leader.userId}
-                    style={adminChatStyles.leaderItemRow}
-                    activeOpacity={0.7}
-                    disabled={connectingLeaderId === leader.userId}
-                    onPress={() => handleOpenDirectChat(leader)}
-                  >
-                    <View style={adminChatStyles.leaderAvatarCircle}>
-                      <Text style={adminChatStyles.leaderAvatarInitials}>
-                        {getInitials(leader.fullName)}
-                      </Text>
-                    </View>
+              {/* Horizontal Story / Active Bubbles */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={adminChatStyles.leaderHorizontalScroll}
+                nestedScrollEnabled
+              >
+                {departmentLeaders.map((leader) => {
+                  const colorScheme = getAvatarColor(leader.fullName);
+                  const isConnecting = connectingLeaderId === leader.userId;
 
-                    <View style={adminChatStyles.leaderInfoWrap}>
-                      <Text style={adminChatStyles.leaderName} numberOfLines={1}>
+                  return (
+                    <TouchableOpacity
+                      key={leader.userId}
+                      style={adminChatStyles.leaderBubbleItem}
+                      activeOpacity={0.75}
+                      disabled={isConnecting}
+                      onPress={() => handleOpenDirectChat(leader)}
+                    >
+                      <View style={adminChatStyles.leaderAvatarWrap}>
+                        {leader.avatarUrl ? (
+                          <Image
+                            source={{ uri: leader.avatarUrl }}
+                            style={adminChatStyles.leaderBubbleAvatar}
+                          />
+                        ) : (
+                          <View style={[adminChatStyles.leaderBubbleAvatar, { backgroundColor: colorScheme.bg }]}>
+                            <Text style={[adminChatStyles.leaderBubbleInitials, { color: colorScheme.text }]}>
+                              {getInitials(leader.fullName)}
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Online Green Badge */}
+                        <View style={adminChatStyles.activeOnlineDot} />
+
+                        {/* Loading Spinner overlay if connecting */}
+                        {isConnecting && (
+                          <View style={adminChatStyles.leaderBubbleLoadingOverlay}>
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          </View>
+                        )}
+                      </View>
+
+                      <Text style={adminChatStyles.leaderBubbleName} numberOfLines={1}>
                         {leader.fullName}
                       </Text>
-                      <Text style={adminChatStyles.leaderDept} numberOfLines={2}>
-                        {leader.departmentName.startsWith('Trưởng phòng')
-                          ? leader.departmentName
-                          : `Trưởng phòng ${leader.departmentName}`}
+                      <Text style={adminChatStyles.leaderBubbleDept} numberOfLines={1}>
+                        {getShortDeptName(leader.departmentName)}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
+                  );
+                })}
 
-                    <View style={adminChatStyles.leaderChatBtn}>
-                      {connectingLeaderId === leader.userId ? (
-                        <ActivityIndicator size="small" color="#102739" />
-                      ) : (
-                        <MaterialCommunityIcons name="chat-outline" size={20} color="#334155" />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                {/* Button: Xem tất cả */}
+                <TouchableOpacity
+                  style={adminChatStyles.leaderBubbleItem}
+                  activeOpacity={0.75}
+                  onPress={() => setLeaderModalVisible(true)}
+                >
+                  <View style={adminChatStyles.seeAllBubbleCircle}>
+                    <MaterialCommunityIcons name="dots-horizontal" size={24} color="#102739" />
+                  </View>
+                  <Text style={adminChatStyles.leaderBubbleName} numberOfLines={1}>
+                    Xem thêm
+                  </Text>
+                  <Text style={adminChatStyles.leaderBubbleDept} numberOfLines={1}>
+                    Tất cả ({departmentLeaders.length})
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
           )}
 
@@ -627,19 +698,25 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
           if (!isCreatingGroup) setCreateGroupModalVisible(false);
         }}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#102739' }} edges={['top']}>
+        <View style={{ flex: 1, backgroundColor: '#102739' }}>
           <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
           {/* Modal Header */}
-          <View style={adminChatStyles.modalHeaderWrap}>
+          <View
+            style={[
+              adminChatStyles.modalHeaderWrap,
+              { paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 47 : 20) + 10 },
+            ]}
+          >
+            <View style={adminChatStyles.decorativeCurve} />
             <View style={adminChatStyles.modalHeaderRow}>
               <TouchableOpacity
                 onPress={() => setCreateGroupModalVisible(false)}
                 style={adminChatStyles.modalBackBtn}
-                hitSlop={10}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                 disabled={isCreatingGroup}
               >
-                <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+                <MaterialCommunityIcons name="chevron-left" size={32} color="#FFFFFF" />
               </TouchableOpacity>
               <View style={adminChatStyles.modalHeaderTextWrap}>
                 <Text style={adminChatStyles.modalTitle}>Tạo nhóm chat</Text>
@@ -770,7 +847,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
               </Text>
             </View>
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
 
       {/* ── Modal: Chọn phòng ban ── */}
@@ -856,18 +933,24 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
         animationType="slide"
         onRequestClose={() => setLeaderModalVisible(false)}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#102739' }} edges={['top']}>
+        <View style={{ flex: 1, backgroundColor: '#102739' }}>
           <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
           {/* Modal Header */}
-          <View style={adminChatStyles.modalHeaderWrap}>
+          <View
+            style={[
+              adminChatStyles.modalHeaderWrap,
+              { paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 47 : 20) + 10 },
+            ]}
+          >
+            <View style={adminChatStyles.decorativeCurve} />
             <View style={adminChatStyles.modalHeaderRow}>
               <TouchableOpacity
                 onPress={() => setLeaderModalVisible(false)}
                 style={adminChatStyles.modalBackBtn}
-                hitSlop={10}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
               >
-                <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+                <MaterialCommunityIcons name="chevron-left" size={32} color="#FFFFFF" />
               </TouchableOpacity>
               <View style={adminChatStyles.modalHeaderTextWrap}>
                 <Text style={adminChatStyles.modalTitle}>Trưởng phòng</Text>
@@ -902,42 +985,56 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                 keyExtractor={(item) => item.userId}
                 contentContainerStyle={{ paddingBottom: 24, paddingTop: 8 }}
                 showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={adminChatStyles.leaderItemRow}
-                    activeOpacity={0.7}
-                    disabled={connectingLeaderId === item.userId}
-                    onPress={() => handleOpenDirectChat(item)}
-                  >
-                    <View style={adminChatStyles.leaderAvatarCircle}>
-                      <Text style={adminChatStyles.leaderAvatarInitials}>
-                        {getInitials(item.fullName)}
-                      </Text>
-                    </View>
+                renderItem={({ item }) => {
+                  const colorScheme = getAvatarColor(item.fullName);
+                  return (
+                    <TouchableOpacity
+                      style={adminChatStyles.leaderModalItemRow}
+                      activeOpacity={0.7}
+                      disabled={connectingLeaderId === item.userId}
+                      onPress={() => handleOpenDirectChat(item)}
+                    >
+                      <View style={adminChatStyles.leaderModalAvatarWrap}>
+                        {item.avatarUrl ? (
+                          <Image source={{ uri: item.avatarUrl }} style={adminChatStyles.leaderModalAvatar} />
+                        ) : (
+                          <View style={[adminChatStyles.leaderModalAvatar, { backgroundColor: colorScheme.bg }]}>
+                            <Text style={[adminChatStyles.leaderAvatarInitials, { color: colorScheme.text }]}>
+                              {getInitials(item.fullName)}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={adminChatStyles.activeOnlineDotSmall} />
+                      </View>
 
-                    <View style={adminChatStyles.leaderInfoWrap}>
-                      <Text style={adminChatStyles.leaderName}>{item.fullName}</Text>
-                      <Text style={adminChatStyles.leaderDept}>
-                        {item.departmentName.startsWith('Trưởng phòng')
-                          ? item.departmentName
-                          : `Trưởng phòng ${item.departmentName}`}
-                      </Text>
-                    </View>
+                      <View style={adminChatStyles.leaderInfoWrap}>
+                        <Text style={adminChatStyles.leaderName}>{item.fullName}</Text>
+                        <Text style={adminChatStyles.leaderDept} numberOfLines={1}>
+                          {item.departmentName.startsWith('Trưởng phòng')
+                            ? item.departmentName
+                            : `Trưởng phòng ${item.departmentName}`}
+                          {item.branchName ? ` (${item.branchName})` : ''}
+                        </Text>
+                      </View>
 
-                    <View style={adminChatStyles.leaderChatBtn}>
-                      {connectingLeaderId === item.userId ? (
-                        <ActivityIndicator size="small" color="#102739" />
-                      ) : (
-                        <MaterialCommunityIcons name="chat-outline" size={20} color="#334155" />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                )}
-                ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                      <View style={adminChatStyles.leaderChatPillBtn}>
+                        {connectingLeaderId === item.userId ? (
+                          <ActivityIndicator size="small" color="#102739" />
+                        ) : (
+                          <>
+                            <MaterialCommunityIcons name="chat-outline" size={16} color="#102739" />
+                            <Text style={adminChatStyles.leaderChatPillText}>Nhắn tin</Text>
+                          </>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+                ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
               />
             </View>
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
     </View>
   );
@@ -1409,8 +1506,8 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           <ChatWatermark />
 
           {/* Header */}
-          <View style={[adminChatStyles.roomHeaderWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-            <TouchableOpacity onPress={() => router.back()} style={adminChatStyles.roomBackBtn} hitSlop={10}>
+          <View style={[adminChatStyles.roomHeaderWrap, { paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 44 : 20) + 6 }]}>
+            <TouchableOpacity onPress={() => router.back()} style={adminChatStyles.roomBackBtn} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
               <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
             </TouchableOpacity>
 
@@ -1498,7 +1595,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     )}
                     <View style={[styles.messageRow, isMine && styles.messageRowMine, Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }]}>
                       {!isMine && (
-                        <View style={[styles.messageBubbleAvatar, { backgroundColor: '#D8E9DC' }]}>
+                        <View style={[styles.messageBubbleAvatar, { backgroundColor: '#DBEAFE' }]}>
                           {msg.sender?.profile?.avatarUrl ? (
                             <Image source={{ uri: msg.sender.profile.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
                           ) : (
@@ -1548,7 +1645,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                       Platform.OS === 'web' && { transform: [{ scaleY: -1 }] }
                     ]}>
                       {!isMine && (
-                        <View style={[styles.messageBubbleAvatar, { backgroundColor: '#D8E9DC' }]}>
+                        <View style={[styles.messageBubbleAvatar, { backgroundColor: '#DBEAFE' }]}>
                           {msg.sender?.profile?.avatarUrl ? (
                             <Image source={{ uri: msg.sender.profile.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 100 }} />
                           ) : (
@@ -2328,7 +2425,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
             <View style={{ backgroundColor: '#fff', height: '60%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#111827' }}>Chọn người để gọi</Text>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#102739' }}>Chọn người để gọi</Text>
                 <TouchableOpacity onPress={() => setIsCallModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                   <MaterialCommunityIcons name="close" size={24} color="#666" />
                 </TouchableOpacity>
@@ -2364,7 +2461,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                         </View>
                       )}
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>{displayName}</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: '#102739' }}>{displayName}</Text>
                         {item.userCode ? (
                           <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{item.userCode}</Text>
                         ) : null}
@@ -2467,6 +2564,19 @@ const adminChatStyles = StyleSheet.create({
     backgroundColor: '#102739',
     paddingHorizontal: 20,
     paddingBottom: 18,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  decorativeCurve: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   headerRow: {
     flexDirection: 'row',
@@ -2515,28 +2625,165 @@ const adminChatStyles = StyleSheet.create({
     paddingBottom: 110,
   },
 
-  /* Section 1: Trưởng phòng */
+  /* Section 1: Trưởng phòng (Messenger Stories / Active Contacts Style) */
   leadersSection: {
-    marginBottom: 8,
+    marginBottom: 16,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  onlineCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 12,
+    gap: 4,
+  },
+  onlineCountDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  onlineCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
   },
   seeAllLeadersText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2563EB',
+    color: '#102739',
   },
-  leaderListContainer: {
+  leaderHorizontalScroll: {
+    paddingVertical: 4,
+    gap: 14,
+    alignItems: 'flex-start',
+  },
+  leaderBubbleItem: {
+    alignItems: 'center',
+    width: 68,
+  },
+  leaderAvatarWrap: {
+    position: 'relative',
+    marginBottom: 6,
+  },
+  leaderBubbleAvatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E2E8F0',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+  },
+  leaderBubbleInitials: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  activeOnlineDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#10B981',
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+  },
+  leaderBubbleLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  leaderBubbleName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    width: '100%',
+  },
+  leaderBubbleDept: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 1,
+    width: '100%',
+  },
+  seeAllBubbleCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+
+  /* Leader list in modal */
+  leaderModalItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
     gap: 12,
+  },
+  leaderModalAvatarWrap: {
+    position: 'relative',
+  },
+  leaderModalAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E2E8F0',
+  },
+  activeOnlineDotSmall: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  leaderChatPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 20,
+  },
+  leaderChatPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#102739',
   },
   leaderItemRow: {
     flexDirection: 'row',
@@ -2547,7 +2794,7 @@ const adminChatStyles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#D8E9DC',
+    backgroundColor: '#DBEAFE',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2598,7 +2845,7 @@ const adminChatStyles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#D8E9DC',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2636,6 +2883,8 @@ const adminChatStyles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 16,
+    position: 'relative',
+    overflow: 'hidden',
   },
   modalHeaderRow: {
     flexDirection: 'row',
@@ -2762,7 +3011,7 @@ const adminChatStyles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#D8E9DC',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2799,7 +3048,7 @@ const adminChatStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   createGroupSubmitBtnDisabled: {
-    backgroundColor: '#C5DEC9',
+    backgroundColor: '#CBD5E1',
   },
   createGroupSubmitBtnText: {
     color: '#FFFFFF',
@@ -2822,6 +3071,8 @@ const adminChatStyles = StyleSheet.create({
     paddingBottom: 12,
     gap: 10,
     zIndex: 10,
+    position: 'relative',
+    overflow: 'hidden',
   },
   roomBackBtn: {
     padding: 4,
@@ -2831,7 +3082,7 @@ const adminChatStyles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#D8E9DC',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2991,7 +3242,7 @@ const styles = StyleSheet.create({
   messageBubbleAvatarText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
 
   messageBubble: {
@@ -3020,7 +3271,7 @@ const styles = StyleSheet.create({
   messageSender: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 2,
   },
   messageText: {
@@ -3259,7 +3510,7 @@ const styles = StyleSheet.create({
   mentionAvatarText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   mentionName: {
     fontSize: 14,

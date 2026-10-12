@@ -4,6 +4,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { EmployeeRequestStatus } from '@prisma/client';
 import {
   CreateEmployeeRequestDto,
   EmployeeRequestQueryDto,
@@ -27,8 +28,12 @@ export class EmployeeRequestsController {
 
   @Permissions('employee.request.approve')
   @Get()
-  findAll(@CurrentUser() actor: AuthenticatedUser, @Query('departmentId') departmentId?: string) {
-    return this.employeeRequestsService.findAll(actor, departmentId);
+  findAll(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Query('departmentId') departmentId?: string,
+    @Query('status') status?: EmployeeRequestStatus,
+  ) {
+    return this.employeeRequestsService.findAll(actor, departmentId, status);
   }
 
   @Permissions('employee.request.approve')

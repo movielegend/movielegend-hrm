@@ -26,6 +26,7 @@ import { assertSocketUrl } from '../../constants/env';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
+import { GlossyHeaderBackground } from '../../components/common/GlossyHeaderBackground';
 import { PrimaryButton } from '../../components/Buttons';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { FacebookPhotoGrid, type FacebookGridLayoutType } from './components/FacebookPhotoGrid';
@@ -196,8 +197,10 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <GlossyHeaderBackground idPrefix="newsfeedHeader" />
         <View style={newsStyles.headerMainRow}>
           <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={newsStyles.headerBrand}>MOVIE LEGEND</Text>
             <Text style={newsStyles.headerTitle}>Bảng tin công ty</Text>
             <Text style={newsStyles.headerSubtitle}>Tin tức & thông báo nội bộ</Text>
           </View>
@@ -638,7 +641,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
             {likedNames.length > 0 && (
               <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'flex-start' }}>
-                <MaterialCommunityIcons name="heart" size={16} color="#111827" style={{ marginRight: 6, marginTop: 2 }} />
+                <MaterialCommunityIcons name="heart" size={16} color="#102739" style={{ marginRight: 6, marginTop: 2 }} />
                 <Text style={{ fontSize: 13, color: colors.text, flex: 1, lineHeight: 20 }}>
                   Thích bởi <Text style={{ fontWeight: '600' }}>{likedNames.join(', ')}</Text>
                 </Text>
@@ -1575,7 +1578,7 @@ const styles = StyleSheet.create({
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
@@ -1601,7 +1604,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterBtnActive: {
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
   },
   filterBtnText: {
     color: '#475569',
@@ -1633,7 +1636,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -1955,7 +1958,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2011,7 +2014,7 @@ const styles = StyleSheet.create({
   },
   imagePickerText: {
     fontSize: 14,
-    color: '#111827',
+    color: '#102739',
     fontWeight: '600',
   },
   previewImage: {
@@ -2232,6 +2235,7 @@ const newsStyles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
     backgroundColor: '#102739',
+    overflow: 'hidden',
   },
   headerMainRow: {
     flexDirection: 'row',
@@ -2312,7 +2316,7 @@ const newsStyles = StyleSheet.create({
   },
   curvedSheet: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
@@ -2505,7 +2509,7 @@ const newsStyles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },

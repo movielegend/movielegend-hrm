@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   title: {
-    color: '#111827',
+    color: '#102739',
     fontSize: 17,
     fontWeight: '800',
   },

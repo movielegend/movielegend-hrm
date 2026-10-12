@@ -95,10 +95,10 @@ export class RejectOtReportDto {
 }
 
 export class OtReportQueryDto {
-  @ApiPropertyOptional({ description: 'Trạng thái lọc', enum: OtReportStatus })
+  @ApiPropertyOptional({ description: 'Trạng thái lọc (PENDING, APPROVED, REJECTED, ALL)' })
   @IsOptional()
-  @IsIn(['PENDING', 'APPROVED', 'REJECTED'])
-  status?: OtReportStatus;
+  @IsIn(['PENDING', 'APPROVED', 'REJECTED', 'ALL'])
+  status?: OtReportStatus | 'ALL';
 
   @ApiPropertyOptional({ description: 'Từ ngày (YYYY-MM-DD)' })
   @IsOptional()

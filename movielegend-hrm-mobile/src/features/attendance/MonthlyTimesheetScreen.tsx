@@ -17,7 +17,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import ImageViewing from 'react-native-image-viewing';
+import ImageView from '../../components/ImageViewer/ImageViewer';
 import { useAuth } from '../../providers/AuthProvider';
 import {
   getCompanyMonthlyTimesheet,
@@ -740,7 +740,7 @@ export function MonthlyTimesheetScreen() {
 
       {/* ── Fullscreen Image Viewer ── */}
       {viewerImages.length > 0 ? (
-        <ImageViewing
+        <ImageView
           images={viewerImages}
           imageIndex={0}
           visible={isImageViewerVisible}

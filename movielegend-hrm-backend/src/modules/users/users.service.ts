@@ -5,6 +5,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { StorageService } from '../storage/storage.service';
 import { UpdateFaceDto, UpdateMeDto } from './dto/update-me.dto';
+import { DEFAULT_PINNED_APPS, UpdatePinnedAppsDto } from './dto/update-pinned-apps.dto';
 import { FacePoseType, UploadPurpose } from '@prisma/client';
 import { badRequest } from '../../common/utils/error.util';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
@@ -29,13 +30,17 @@ export class UsersService {
       });
       if (!user) throw notFound('USER_NOT_FOUND', 'Người dùng không tồn tại');
 
-      if (dto.phone && dto.phone !== user.phone) {
-        const existingPhone = await tx.user.findUnique({ where: { phone: dto.phone } });
+      const targetFullName = (dto.fullName || dto.name)?.trim();
+      const cleanedPhone = dto.phone ? dto.phone.trim() : undefined;
+      const cleanedEmail = dto.email !== undefined ? (dto.email?.trim() || null) : undefined;
+
+      if (cleanedPhone && cleanedPhone !== user.phone) {
+        const existingPhone = await tx.user.findUnique({ where: { phone: cleanedPhone } });
         if (existingPhone) throw badRequest('PHONE_ALREADY_EXISTS', 'Số điện thoại này đã được sử dụng bởi tài khoản khác');
       }
 
-      if (dto.email && dto.email !== user.email) {
-        const existingEmail = await tx.user.findUnique({ where: { email: dto.email } });
+      if (cleanedEmail && cleanedEmail !== user.email) {
+        const existingEmail = await tx.user.findUnique({ where: { email: cleanedEmail } });
         if (existingEmail) throw badRequest('EMAIL_ALREADY_EXISTS', 'Email này đã được sử dụng bởi tài khoản khác');
       }
 
@@ -47,20 +52,28 @@ export class UsersService {
         }
       }
 
+      const profileUpdate: any = {};
+      if (dto.avatarUrl !== undefined) {
+        profileUpdate.avatarUrl = dto.avatarUrl;
+      }
+      if (targetFullName !== undefined && targetFullName !== '') {
+        profileUpdate.fullName = targetFullName;
+      }
+
       const updatedUser = await tx.user.update({
         where: { id: actor.userId },
         data: {
-          ...(dto.phone ? { phone: dto.phone } : {}),
-          ...(dto.email ? { email: dto.email } : {}),
-          ...(dto.avatarUrl !== undefined
+          ...(cleanedPhone ? { phone: cleanedPhone } : {}),
+          ...(cleanedEmail !== undefined ? { email: cleanedEmail } : {}),
+          ...(Object.keys(profileUpdate).length > 0
             ? {
               profile: {
                 upsert: {
-                  update: { avatarUrl: dto.avatarUrl },
+                  update: profileUpdate,
                   create: {
+                    fullName: targetFullName || 'Người dùng',
                     avatarUrl: dto.avatarUrl,
-                    fullName: 'System Admin',
-                    idCardNumber: `ADMIN_${actor.userId}`,
+                    idCardNumber: `USER_${actor.userId}`,
                   },
                 },
               },
@@ -148,32 +161,8 @@ export class UsersService {
         await this.uploads.attachTemporaryFiles(fileIds, actor.userId, UploadPurpose.FACE_REGISTRATION, tx);
       }
 
-      // Verify that the FRONT face image contains a valid face descriptor
-      const frontImage = dto.faceImages.find(img => img.pose === FacePoseType.FRONT) || dto.faceImages[0];
-      if (frontImage) {
-        try {
-          const key = this.storage.extractKeyFromUrl(frontImage.imageUrl);
-          if (key) {
-            const buffer = await this.storage.read(key);
-            if (buffer) {
-              const verifyResult = await this.faceVerification.verifyAttendanceFace({
-                userId: actor.userId,
-                imageBuffer: buffer,
-              }).catch(() => null);
-
-              if (verifyResult && !verifyResult.matched && verifyResult.reason?.includes('Không tìm thấy khuôn mặt')) {
-                throw badRequest('INVALID_FACE_IMAGE', 'Ảnh đăng ký không nhận diện được khuôn mặt rõ ràng. Vui lòng chụp lại ảnh chính diện rõ mặt hơn.');
-              }
-            }
-          }
-        } catch (err: any) {
-          if (err?.response?.message || err?.message?.includes('khuôn mặt')) {
-            throw err;
-          }
-          // Non-blocking log if file read fails during dev
-          console.warn('Face validation check warning during updateMyFace:', err?.message || err);
-        }
-      }
+      // Clear user face cache
+      this.faceVerification.clearUserCache(actor.userId);
 
       await tx.auditLog.create({
         data: {
@@ -190,5 +179,61 @@ export class UsersService {
 
       return { success: true, message: 'Cap nhat hinh anh thanh cong' };
     });
+  }
+
+  async getMyPinnedApps(actor: AuthenticatedUser) {
+    const pinned = await this.prisma.userPinnedApp.findMany({
+      where: { userId: actor.userId },
+      orderBy: { sortOrder: 'asc' },
+    });
+
+    if (!pinned || pinned.length === 0) {
+      return {
+        isCustomized: false,
+        pinnedApps: DEFAULT_PINNED_APPS,
+      };
+    }
+
+    return {
+      isCustomized: true,
+      pinnedApps: pinned.map((p) => p.appKey),
+    };
+  }
+
+  async updateMyPinnedApps(dto: UpdatePinnedAppsDto, actor: AuthenticatedUser) {
+    const uniqueKeys = Array.from(new Set(dto.appKeys.filter(Boolean)));
+    if (uniqueKeys.length < 4) {
+      throw badRequest('MIN_PINNED_APPS', 'Trang chủ cần tối thiểu 4 ứng dụng');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userPinnedApp.deleteMany({
+        where: { userId: actor.userId },
+      });
+
+      await tx.userPinnedApp.createMany({
+        data: uniqueKeys.map((appKey, index) => ({
+          userId: actor.userId,
+          appKey,
+          sortOrder: index,
+        })),
+      });
+    });
+
+    return {
+      isCustomized: true,
+      pinnedApps: uniqueKeys,
+    };
+  }
+
+  async resetMyPinnedApps(actor: AuthenticatedUser) {
+    await this.prisma.userPinnedApp.deleteMany({
+      where: { userId: actor.userId },
+    });
+
+    return {
+      isCustomized: false,
+      pinnedApps: DEFAULT_PINNED_APPS,
+    };
   }
 }

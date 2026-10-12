@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   assetName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#102739',
     flex: 1,
   },
   notes: {

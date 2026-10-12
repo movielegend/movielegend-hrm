@@ -585,6 +585,7 @@ export function EmployeeProfileScreen() {
       <EditProfileModal
         visible={isEditing}
         onClose={() => setIsEditing(false)}
+        initialFullName={user?.fullName || ''}
         initialPhone={user?.phone || ''}
         initialEmail={user?.email || ''}
       />
@@ -644,7 +645,7 @@ function InfoItem({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
   },
   scrollBody: {
     flex: 1,
@@ -1018,7 +1019,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   infoModalCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 6,

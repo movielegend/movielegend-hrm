@@ -71,6 +71,99 @@ export class NotificationsService {
     ).catch(e => this.logger.error('Failed to send push notification', e));
   }
 
+  async findAccountantUserIds(prismaClient?: Prisma.TransactionClient | PrismaService): Promise<string[]> {
+    const client = prismaClient || this.prisma;
+    const accountantRoles = await client.role.findMany({
+      where: {
+        code: { in: ['ACCOUNTANT', 'ACCOUNTANT_LEAD', 'ACCOUNTANT_PAYROLL', 'ACCOUNTANT_TAX', 'ACCOUNTANT_GENERAL'] },
+      },
+      select: { id: true },
+    });
+    const roleIds = accountantRoles.map((r) => r.id);
+    const userRoles = await client.userRole.findMany({
+      where: { roleId: { in: roleIds } },
+      select: { userId: true },
+    });
+    const deptMembers = await client.departmentMember.findMany({
+      where: {
+        department: {
+          OR: [
+            { name: { contains: 'KẾ TOÁN', mode: 'insensitive' } },
+            { name: { contains: 'TÀI CHÍNH', mode: 'insensitive' } },
+            { code: { in: ['KT', 'ACC', 'ACCOUNTING'] } },
+          ],
+        },
+        leftAt: null,
+      },
+      select: { userId: true },
+    });
+    return [...new Set([...userRoles.map((ur) => ur.userId), ...deptMembers.map((dm) => dm.userId)])];
+  }
+
+  async notifyAccountantsOnHrEvent(
+    tx: Prisma.TransactionClient,
+    payload: {
+      eventType: 'NEW_EMPLOYEE' | 'RESIGNED_EMPLOYEE' | 'SUSPENDED_EMPLOYEE' | 'ACTIVATED_EMPLOYEE' | 'DELETED_EMPLOYEE';
+      employeeName: string;
+      userCode: string;
+      departmentName?: string;
+      reason?: string;
+      performedByName?: string;
+    },
+  ) {
+    try {
+      const accountantUserIds = await this.findAccountantUserIds(tx);
+      if (!accountantUserIds.length) return;
+
+      let title = '';
+      let body = '';
+
+      const deptInfo = payload.departmentName ? ` (${payload.departmentName})` : '';
+      const actorInfo = payload.performedByName ? ` bởi ${payload.performedByName}` : '';
+
+      switch (payload.eventType) {
+        case 'NEW_EMPLOYEE':
+          title = 'Biến động nhân sự: Tiếp nhận nhân viên mới 👤';
+          body = `Nhân viên mới: ${payload.employeeName} - Mã NV: ${payload.userCode}${deptInfo} vừa được tiếp nhận vào hệ thống. Kế toán lưu ý cập nhật hồ sơ & bảng lương.`;
+          break;
+        case 'RESIGNED_EMPLOYEE':
+          title = 'Biến động nhân sự: Nhân viên nghỉ việc 📋';
+          body = `Nhân viên: ${payload.employeeName} - Mã NV: ${payload.userCode}${deptInfo} đã chuyển sang trạng thái Nghỉ việc.${payload.reason ? ` Lý do: ${payload.reason}.` : ''} Kế toán vui lòng kiểm tra công và quyết toán các khoản tồn đọng.`;
+          break;
+        case 'SUSPENDED_EMPLOYEE':
+          title = 'Biến động nhân sự: Khóa tài khoản nhân viên 🔒';
+          body = `Tài khoản của nhân viên: ${payload.employeeName} - Mã NV: ${payload.userCode}${deptInfo} đã bị tạm khóa${actorInfo}.${payload.reason ? ` Lý do: ${payload.reason}.` : ''}`;
+          break;
+        case 'ACTIVATED_EMPLOYEE':
+          title = 'Biến động nhân sự: Kích hoạt / Mở khóa tài khoản 🔓';
+          body = `Tài khoản của nhân viên: ${payload.employeeName} - Mã NV: ${payload.userCode}${deptInfo} đã được mở khóa và kích hoạt lại${actorInfo}.`;
+          break;
+        case 'DELETED_EMPLOYEE':
+          title = 'Biến động nhân sự: Xóa nhân viên khỏi hệ thống ⚠️';
+          body = `Nhân viên: ${payload.employeeName} - Mã NV: ${payload.userCode}${deptInfo} đã bị xóa/đặt lịch xóa khỏi hệ thống${actorInfo}.`;
+          break;
+      }
+
+      const notif = await this.createForUsers(tx, accountantUserIds, {
+        type: 'SYSTEM' as NotificationType,
+        title,
+        body,
+        metadata: {
+          category: 'HR_CHANGE',
+          eventType: payload.eventType,
+          userCode: payload.userCode,
+          employeeName: payload.employeeName,
+        },
+      });
+
+      if (notif) {
+        this.emitCreated(notif);
+      }
+    } catch (err) {
+      this.logger.error('Failed to notify accountants on HR event', err);
+    }
+  }
+
   async findMine(actor: AuthenticatedUser, skip = 0, take = 20) {
     const targets = await this.prisma.notificationTarget.findMany({
       where: {

@@ -121,28 +121,30 @@ export function LeaderApprovalScreen() {
   };
 
   const handleConfirmDisburse = async () => {
-    if (!disbursementProofUri) {
+    if (!disbursementProofUri && !isAdmin) {
       showAlert('Yêu cầu ảnh bill', 'Vui lòng tải lên hoặc chụp ảnh bill chuyển khoản / ủy nhiệm chi để hoàn tất giải ngân.');
       return;
     }
 
     let proofUrl = undefined;
-    try {
-      setIsUploadingProof(true);
-      const res = await uploadFile({
-        uri: disbursementProofUri,
-        name: `disbursement_${Date.now()}.jpg`,
-        mimeType: 'image/jpeg',
-        purpose: 'EMPLOYEE_DOCUMENT'
-      });
-      proofUrl = res.fileUrl;
-    } catch (err) {
-      console.log('Proof upload error', err);
-      showAlert('Lỗi', 'Không thể tải ảnh chứng từ giải ngân lên.');
-      setIsUploadingProof(false);
-      return;
-    } finally {
-      setIsUploadingProof(false);
+    if (disbursementProofUri) {
+      try {
+        setIsUploadingProof(true);
+        const res = await uploadFile({
+          uri: disbursementProofUri,
+          name: `disbursement_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          purpose: 'EMPLOYEE_DOCUMENT'
+        });
+        proofUrl = res.fileUrl;
+      } catch (err) {
+        console.log('Proof upload error', err);
+        showAlert('Lỗi', 'Không thể tải ảnh chứng từ giải ngân lên.');
+        setIsUploadingProof(false);
+        return;
+      } finally {
+        setIsUploadingProof(false);
+      }
     }
 
     approveMutation.mutate({
@@ -199,7 +201,7 @@ export function LeaderApprovalScreen() {
   if (isLoading) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#111827" />
+        <ActivityIndicator size="large" color="#102739" />
       </SafeAreaView>
     );
   }
@@ -306,7 +308,7 @@ export function LeaderApprovalScreen() {
   } else {
     // Financial workflow
     if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
-      if (isDeptLeader || isAdmin || isHr) {
+      if (isDeptLeader || isAdmin) {
         canActOnCurrentStage = true;
       } else {
         waitingStageDescription = `Đang chờ Trưởng bộ phận (${userDept}) duyệt sơ bộ.`;
@@ -339,22 +341,19 @@ export function LeaderApprovalScreen() {
   let approveButtonLabel = 'Phê duyệt';
   let approveSubtext = '';
   if (isFinancial) {
-    if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
+    if (isAdmin) {
+      approveButtonLabel = 'Duyệt & Giải ngân';
+      approveSubtext = 'Ban Giám Đốc duyệt chi & hoàn tất giải ngân';
+    } else if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
       approveButtonLabel = 'Duyệt & Giải ngân';
       approveSubtext = 'Kế toán trưởng phê duyệt chi & hoàn tất';
     } else if (stage === 'PENDING_ADMIN') {
-      approveButtonLabel = 'Duyệt chuyển Kế toán';
-      approveSubtext = 'Ban Giám Đốc duyệt chi > 2 triệu';
+      approveButtonLabel = 'Duyệt & Giải ngân';
+      approveSubtext = 'Ban Giám Đốc duyệt chi & hoàn tất giải ngân';
     } else if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
-      if (request.type === 'EXPENSE' || request.type === 'PURCHASE') {
-        const hasVat = Boolean(meta.hasVat);
-        if (hasVat || amount <= 2000000) {
-          approveButtonLabel = 'Duyệt chuyển Kế toán';
-          approveSubtext = hasVat ? 'Có VAT: chuyển Kế toán chi' : 'Đơn ≤ 2 triệu: chuyển Kế toán chi';
-        } else {
-          approveButtonLabel = 'Duyệt chuyển Ban Giám Đốc';
-          approveSubtext = 'Không VAT trên 2 triệu: chuyển Ban Giám Đốc duyệt';
-        }
+      if (request.type === 'EXPENSE' || request.type === 'PURCHASE' || request.type === 'ADVANCE') {
+        approveButtonLabel = 'Duyệt chuyển Kế toán';
+        approveSubtext = 'Trưởng bộ phận duyệt sơ bộ - Chuyển Kế toán xem xét';
       } else {
         approveButtonLabel = 'Duyệt chuyển tiếp';
         approveSubtext = 'Trưởng bộ phận phê duyệt';
@@ -414,15 +413,15 @@ export function LeaderApprovalScreen() {
     }
     if (stage === 'PENDING_ADMIN') {
       return {
-        label: 'Chờ Admin duyệt',
+        label: 'Chờ Ban Giám Đốc duyệt',
         bg: '#FEF3C7',
         color: '#B45309',
         icon: 'clock-outline' as const,
       };
     }
-    if (stage === 'PENDING_DISBURSEMENT') {
+    if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
       return {
-        label: 'Chờ giải ngân',
+        label: 'Chờ Kế toán xử lý',
         bg: '#FEF3C7',
         color: '#B45309',
         icon: 'clock-outline' as const,
@@ -776,6 +775,64 @@ export function LeaderApprovalScreen() {
           </View>
         )}
 
+        {/* ADVANCE - Salary Advance Details */}
+        {request.type === 'ADVANCE' && (
+          <View style={[styles.card, shadows.sm]}>
+            <Text style={styles.metaSectionTitle}>Thông tin tạm ứng lương (Tối đa 50%)</Text>
+            
+            {meta.baseSalary ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Lương cơ sở</Text>
+                <Text style={styles.metaValue}>{Number(meta.baseSalary).toLocaleString('vi-VN')} VNĐ</Text>
+              </View>
+            ) : null}
+
+            {meta.maxAdvanceLimit ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Hạn mức tối đa (50%)</Text>
+                <Text style={[styles.metaValue, { color: '#059669', fontWeight: '700' }]}>
+                  {Number(meta.maxAdvanceLimit).toLocaleString('vi-VN')} VNĐ
+                </Text>
+              </View>
+            ) : null}
+
+            {(meta.bankName || meta.bankAccount || meta.accountHolder) && (
+              <>
+                {meta.bankName && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngân hàng thụ hưởng</Text>
+                    <Text style={styles.metaValue}>{meta.bankName}</Text>
+                  </View>
+                )}
+                {meta.bankAccount && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Số tài khoản</Text>
+                    <Text style={[styles.metaValue, { fontWeight: '700', color: '#0F172A' }]}>{meta.bankAccount}</Text>
+                  </View>
+                )}
+                {meta.accountHolder && (
+                  <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                    <Text style={styles.metaLabel}>Chủ tài khoản</Text>
+                    <Text style={styles.metaValue}>{meta.accountHolder}</Text>
+                  </View>
+                )}
+              </>
+            )}
+
+            <View style={[styles.approvalWorkflowBanner, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', marginTop: 12, marginBottom: 0 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                <MaterialCommunityIcons name="cash-fast" size={16} color="#059669" />
+                <Text style={[styles.approvalWorkflowTitle, { color: '#065F46', marginLeft: 4 }]}>
+                  Quy trình duyệt Tạm ứng Lương
+                </Text>
+              </View>
+              <Text style={[styles.approvalWorkflowSubtitle, { color: '#065F46' }]}>
+                1. Nhân viên đề xuất (Tối đa 50% lương) ➔ 2. Leader duyệt ➔ 3. Kế toán trưởng duyệt & Đi lương (Giải ngân).
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Bank info */}
         {meta.bankInfo && (
           <View style={[styles.card, shadows.sm]}>
@@ -992,7 +1049,7 @@ export function LeaderApprovalScreen() {
             ) : null}
 
             {/* Button Row */}
-            {isNonVatOver2M && (stage === 'PENDING_LEADER' || stage === 'PENDING_ACCOUNTANT') ? (
+            {!isAdmin && isNonVatOver2M && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') ? (
               <View style={{ gap: 8 }}>
                 <View style={styles.actionButtonsRow}>
                   <Pressable 
@@ -1055,7 +1112,7 @@ export function LeaderApprovalScreen() {
                   onPress={() => {
                     if (request.type === 'PURCHASE') {
                       handleApprove();
-                    } else if (isFinancial && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT')) {
+                    } else if (isFinancial && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT' || stage === 'PENDING_ADMIN' || isAdmin)) {
                       setIsDisburseModalOpen(true);
                     } else {
                       handleApprove();

@@ -10,6 +10,8 @@ interface ScreenProps extends PropsWithChildren {
   unsafe?: boolean;
   edges?: Edge[];
   withBottomInset?: boolean;
+  statusBarStyle?: 'light' | 'dark' | 'auto';
+  statusBarTranslucent?: boolean;
 }
 
 export function Screen({
@@ -18,11 +20,16 @@ export function Screen({
   unsafe = false,
   edges,
   withBottomInset = false,
+  statusBarStyle = 'dark',
+  statusBarTranslucent,
 }: ScreenProps) {
+  const isNoTopEdge = edges !== undefined && !edges.includes('top');
+  const isTranslucent = statusBarTranslucent !== undefined ? statusBarTranslucent : isNoTopEdge;
+
   if (unsafe) {
     return (
       <View style={[styles.container, { backgroundColor }]}>
-        <StatusBar style="dark" />
+        <StatusBar style={statusBarStyle} translucent={isTranslucent} backgroundColor="transparent" />
         <KeyboardAvoidingView 
           style={styles.keyboardView} 
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -41,7 +48,7 @@ export function Screen({
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor }]} edges={effectiveEdges}>
-      <StatusBar style="dark" />
+      <StatusBar style={statusBarStyle} translucent={isTranslucent} backgroundColor="transparent" />
       <KeyboardAvoidingView 
         style={styles.keyboardView} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

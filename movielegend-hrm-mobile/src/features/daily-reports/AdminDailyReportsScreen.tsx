@@ -909,7 +909,7 @@ export function AdminDailyReportsScreen() {
               Thử đổi ngày, phòng ban hoặc trạng thái.
             </Text>
             <Pressable style={styles.templateResetBtn} onPress={handleResetFilters}>
-              <Ionicons name="reload" size={16} color="#111827" />
+              <Ionicons name="reload" size={16} color="#102739" />
               <Text style={styles.templateResetBtnText}>Đặt lại bộ lọc</Text>
             </Pressable>
           </View>
@@ -1978,7 +1978,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   weekDayNumActive: {
-    color: '#111827',
+    color: '#102739',
     fontWeight: '800',
   },
 
@@ -2007,7 +2007,7 @@ const styles = StyleSheet.create({
   deptSelectText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: '#102739',
   },
 
   /* 4 Metric Underline Tabs */
@@ -2082,7 +2082,7 @@ const styles = StyleSheet.create({
   templateEmptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 6,
     textAlign: 'center',
   },
@@ -2104,6 +2104,6 @@ const styles = StyleSheet.create({
   templateResetBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
 });

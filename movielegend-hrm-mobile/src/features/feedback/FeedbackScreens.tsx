@@ -318,7 +318,7 @@ export function CreateFeedbackScreen() {
 
         <View style={styles.switchGroup}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontWeight: '500', color: '#111827', fontSize: 15 }}>Gửi ẩn danh</Text>
+            <Text style={{ fontWeight: '500', color: '#102739', fontSize: 15 }}>Gửi ẩn danh</Text>
           </View>
           <Controller
             control={control}

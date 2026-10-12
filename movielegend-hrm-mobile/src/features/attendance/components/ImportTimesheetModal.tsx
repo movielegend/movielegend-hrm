@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   closeBtn: {
     padding: 4,
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   },
   boldText: {
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   body: {
     paddingHorizontal: 20,
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   previewUserCode: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   previewFullName: {
     fontSize: 12,
