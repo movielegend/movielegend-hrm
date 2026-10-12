@@ -15,6 +15,7 @@ import {
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import {
@@ -250,7 +251,7 @@ export function AdminDailyReportsScreen() {
     const hiddenCompletedCount = Math.max(0, completedCount - 3);
 
     return (
-      <Screen backgroundColor="#F6F7FB">
+      <Screen backgroundColor="#F5F7FA">
         <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
           {/* DETAIL HEADER */}
           <View style={styles.detailHeaderCard}>
@@ -752,9 +753,10 @@ export function AdminDailyReportsScreen() {
   // RENDER LIST VIEW
   // -------------------------------------------------------------
   return (
-    <Screen backgroundColor="#F5F7FA">
-      {/* ── Solid Forest Green Hero Banner matching Screen 2 ── */}
-      <View style={styles.greenBannerContainer}>
+    <View style={styles.screenWrapper}>
+      <StatusBar style="light" />
+      {/* ── Solid Navy Hero Banner (Full-Bleed Header) ── */}
+      <View style={[styles.greenBannerContainer, { paddingTop: Math.max(insets.top + 8, 16) }]}>
         <View style={styles.greenBannerTopNav}>
           <Pressable onPress={() => router.back()} style={styles.greenBannerBackBtn} hitSlop={10}>
             <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
@@ -1067,7 +1069,7 @@ export function AdminDailyReportsScreen() {
           </Pressable>
         </Modal>
       </ScreenContainer>
-    </Screen>
+    </View>
   );
 }
 
@@ -1888,10 +1890,14 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
+  screenWrapper: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+
   /* Green Hero Banner & Calendar (Screen 2) */
   greenBannerContainer: {
     backgroundColor: '#102739',
-    paddingTop: 12,
     paddingBottom: 16,
     paddingHorizontal: 16,
     borderBottomLeftRadius: 20,
