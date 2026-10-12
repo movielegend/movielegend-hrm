@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   X,
   Clock,
@@ -80,38 +81,38 @@ interface AllServicesModalProps {
   initialEditMode?: boolean;
 }
 
-export function renderAppIcon(iconName: string, color: string, size = 22) {
+export function renderAppIcon(iconName: string, color: string, size = 24, strokeWidth = 1.4) {
   switch (iconName) {
-    case 'Clock': return <Clock size={size} color={color} strokeWidth={2.2} />;
-    case 'Calendar': return <Calendar size={size} color={color} strokeWidth={2.2} />;
-    case 'CalendarDays': return <CalendarDays size={size} color={color} strokeWidth={2.2} />;
-    case 'Users': return <Users size={size} color={color} strokeWidth={2.2} />;
-    case 'Building2': return <Building2 size={size} color={color} strokeWidth={2.2} />;
-    case 'UserCheck': return <UserCheck size={size} color={color} strokeWidth={2.2} />;
-    case 'MapPin': return <MapPin size={size} color={color} strokeWidth={2.2} />;
-    case 'Tv': return <Tv size={size} color={color} strokeWidth={2.2} />;
-    case 'SquareCheck': return <SquareCheck size={size} color={color} strokeWidth={2.2} />;
-    case 'Briefcase': return <Briefcase size={size} color={color} strokeWidth={2.2} />;
-    case 'MessageSquare': return <MessageSquare size={size} color={color} strokeWidth={2.2} />;
-    case 'FileText': return <FileText size={size} color={color} strokeWidth={2.2} />;
-    case 'FolderOpen': return <FolderOpen size={size} color={color} strokeWidth={2.2} />;
-    case 'Layers': return <Layers size={size} color={color} strokeWidth={2.2} />;
-    case 'FileSpreadsheet': return <FileSpreadsheet size={size} color={color} strokeWidth={2.2} />;
-    case 'Newspaper': return <Newspaper size={size} color={color} strokeWidth={2.2} />;
-    case 'Receipt': return <Receipt size={size} color={color} strokeWidth={2.2} />;
-    case 'CreditCard': return <CreditCard size={size} color={color} strokeWidth={2.2} />;
-    case 'Coins': return <Coins size={size} color={color} strokeWidth={2.2} />;
-    case 'Crown': return <Crown size={size} color={color} strokeWidth={2.2} />;
-    case 'Trophy': return <Trophy size={size} color={color} strokeWidth={2.2} />;
-    case 'Laptop': return <Laptop size={size} color={color} strokeWidth={2.2} />;
-    case 'AlertTriangle': return <AlertTriangle size={size} color={color} strokeWidth={2.2} />;
-    case 'Warehouse': return <Warehouse size={size} color={color} strokeWidth={2.2} />;
-    case 'Package': return <Package size={size} color={color} strokeWidth={2.2} />;
-    case 'Boxes': return <Boxes size={size} color={color} strokeWidth={2.2} />;
-    case 'ClipboardCheck': return <ClipboardCheck size={size} color={color} strokeWidth={2.2} />;
-    case 'Zap': return <Zap size={size} color={color} strokeWidth={2.2} />;
-    case 'ArrowRightLeft': return <ArrowRightLeft size={size} color={color} strokeWidth={2.2} />;
-    default: return <Briefcase size={size} color={color} strokeWidth={2.2} />;
+    case 'Clock': return <Clock size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Calendar': return <Calendar size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'CalendarDays': return <CalendarDays size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Users': return <Users size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Building2': return <Building2 size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'UserCheck': return <UserCheck size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'MapPin': return <MapPin size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Tv': return <Tv size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'SquareCheck': return <SquareCheck size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Briefcase': return <Briefcase size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'MessageSquare': return <MessageSquare size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'FileText': return <FileText size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'FolderOpen': return <FolderOpen size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Layers': return <Layers size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'FileSpreadsheet': return <FileSpreadsheet size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Newspaper': return <Newspaper size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Receipt': return <Receipt size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'CreditCard': return <CreditCard size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Coins': return <Coins size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Crown': return <Crown size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Trophy': return <Trophy size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Laptop': return <Laptop size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'AlertTriangle': return <AlertTriangle size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Warehouse': return <Warehouse size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Package': return <Package size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Boxes': return <Boxes size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'ClipboardCheck': return <ClipboardCheck size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Zap': return <Zap size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'ArrowRightLeft': return <ArrowRightLeft size={size} color={color} strokeWidth={strokeWidth} />;
+    default: return <Briefcase size={size} color={color} strokeWidth={strokeWidth} />;
   }
 }
 
@@ -358,7 +359,7 @@ export function AllServicesModal({
                   style={styles.editToggleBtn}
                   onPress={() => setIsEditMode(true)}
                 >
-                  <SlidersHorizontal size={16} color="#2563EB" strokeWidth={2.2} />
+                  <SlidersHorizontal size={16} color="#102739" strokeWidth={2.2} />
                   <Text style={styles.editToggleText}>Tùy chỉnh</Text>
                 </Pressable>
               ) : (
@@ -493,7 +494,7 @@ const styles = StyleSheet.create({
   modalSheetTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#102739',
     letterSpacing: -0.4,
   },
   modalSheetSubtitle: {
@@ -511,7 +512,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
@@ -519,13 +520,13 @@ const styles = StyleSheet.create({
   editToggleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#102739',
   },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#102739',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 10,
@@ -539,14 +540,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   // Edit Summary Box
   editSummaryBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
     borderRadius: 16,
     padding: 12,
     marginBottom: 18,
@@ -648,7 +649,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalTilePinnedActive: {
-    backgroundColor: 'rgba(37, 99, 235, 0.05)',
+    backgroundColor: '#E7F0F7',
   },
   modalTileIconWrapper: {
     position: 'relative',
@@ -660,6 +661,25 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
+    shadowColor: '#334155',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  modalTileIconGloss: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 22,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.40)',
   },
   modalTileBadge: {
     position: 'absolute',

@@ -16,6 +16,7 @@ import { useUserGuide } from '../../components/UserGuideManager';
 import { formatSeniority } from '../../utils/seniority';
 
 import { AvatarPicker } from './components/AvatarPicker';
+import { GlossyHeaderBackground } from '../../components/common/GlossyHeaderBackground';
 
 export function EmployeeProfileScreen() {
   const router = useRouter();
@@ -54,7 +55,13 @@ export function EmployeeProfileScreen() {
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
         {/* Background Header */}
-        <View style={[styles.headerBg, { height: 160 + insets.top }]} />
+        <View style={[styles.headerBg, { height: 170 + insets.top }]}>
+          <GlossyHeaderBackground idPrefix="profileHeader" />
+          <View style={[styles.brandRow, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
+            <Text style={styles.brandTitle}>movielegend</Text>
+            <Text style={styles.brandSubtitle}>PEOPLE</Text>
+          </View>
+        </View>
 
         {/* Profile Card */}
         <View style={[styles.profileCard, { marginTop: 80 + insets.top }]}>
@@ -149,7 +156,7 @@ function InfoRow({ icon, label, value, valueColor, onPress, isLast }: any) {
   return (
     <Container style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]} onPress={onPress}>
       <View style={styles.infoIconBg}>
-        <MaterialCommunityIcons name={icon} size={20} color="#111827" />
+        <MaterialCommunityIcons name={icon} size={20} color="#102739" />
       </View>
       <View style={styles.infoContent}>
         <Text style={styles.infoLabel}>{label}</Text>
@@ -164,7 +171,7 @@ function ActionRow({ icon, title, onPress, isLast }: any) {
   return (
     <Pressable style={[styles.actionRow, isLast && { borderBottomWidth: 0 }]} onPress={onPress}>
       <View style={styles.actionIconBg}>
-        <MaterialCommunityIcons name={icon} size={20} color="#111827" />
+        <MaterialCommunityIcons name={icon} size={20} color="#102739" />
       </View>
       <Text style={styles.actionLabel}>{title}</Text>
       <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
@@ -175,67 +182,87 @@ function ActionRow({ icon, title, onPress, isLast }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F5F7FA',
   },
   scrollContent: {
     paddingBottom: 140,
   },
   headerBg: {
-    backgroundColor: '#111827',
-    height: 160,
+    height: 170,
     width: '100%',
     position: 'absolute',
     top: 0,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
+    overflow: 'hidden',
+  },
+  brandRow: {
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  brandTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+  },
+  brandSubtitle: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: 'rgba(255, 255, 255, 0.75)',
+    letterSpacing: 1.5,
   },
   profileCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     marginTop: 80,
     marginHorizontal: spacing.lg,
     borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     padding: spacing.xl,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
-    elevation: 5,
+    elevation: 4,
   },
   avatarContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 4,
-    borderColor: '#fff',
+    borderColor: '#FFFFFF',
     marginTop: -50,
     marginBottom: spacing.md,
   },
   avatarText: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
   },
   userName: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 4,
   },
   userRole: {
     fontSize: 15,
-    color: '#6B7280',
+    color: '#64748B',
     marginBottom: spacing.md,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -245,10 +272,10 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
   },
   statusText: {
-    color: '#4B5563',
+    color: '#102739',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -259,17 +286,19 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: spacing.md,
     marginLeft: 4,
   },
   infoCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     paddingHorizontal: spacing.lg,
-    shadowColor: '#000',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -278,13 +307,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F1F5F9',
   },
   infoIconBg: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -294,26 +323,26 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#64748B',
     marginBottom: 2,
   },
   infoValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111827',
+    color: '#102739',
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F1F5F9',
   },
   actionIconBg: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -322,11 +351,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: '#111827',
+    color: '#102739',
   },
   versionText: {
     textAlign: 'center',
-    color: '#9CA3AF',
+    color: '#94A3B8',
     marginTop: spacing.xl,
     fontSize: 13,
   }

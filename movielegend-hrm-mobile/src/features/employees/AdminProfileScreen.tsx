@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Dimensions,
   Modal,
   Pressable,
   ScrollView,
@@ -9,7 +10,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { ShieldCheck, ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppAlert } from '../../contexts/AlertContext';
@@ -19,6 +23,8 @@ import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from './components/AvatarPicker';
 import { formatSeniority } from '../../utils/seniority';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function AdminProfileScreen() {
   const router = useRouter();
@@ -32,7 +38,7 @@ export function AdminProfileScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
 
-  // Accordion state: by default, Group 'Nhân sự' is open as shown in Screen 2
+  // Accordion state: by default, Group 'Nhân sự' is open
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     hr: true,
     ops: false,
@@ -74,7 +80,7 @@ export function AdminProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
       <ScrollView
         style={styles.scrollBody}
@@ -84,64 +90,122 @@ export function AdminProfileScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Top Header (#1B3B2B) ── */}
-        <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-          {/* Subtle Decorative Wave Curve Background */}
-          <View style={styles.decorativeCurve} />
+        {/* Top overscroll guard */}
+        <View pointerEvents="none" style={styles.topOverscrollFill} />
 
-          <View style={styles.headerTopRow}>
-            <View>
-              <Text style={styles.brandTagline}>MOVIE LEGEND</Text>
-              <Text style={styles.screenTitle}>Hồ sơ</Text>
-            </View>
-
-            <Pressable
-              style={styles.helpBtn}
-              onPress={showGuideManual}
-              hitSlop={8}
-              accessibilityLabel="Hướng dẫn sử dụng"
-            >
-              <Ionicons name="help-circle-outline" size={22} color="#FFFFFF" />
-            </Pressable>
+        {/* ================= 1. GLOSSY HEADER ================= */}
+        <LinearGradient
+          colors={['#102739', '#143147', '#183B55', '#225275']}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={[styles.glossyHeader, { paddingTop: Math.max(insets.top, 16) + 6 }]}
+        >
+          {/* Subtle Ambient Specular Light Aura */}
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <Svg width="100%" height="100%">
+              <Defs>
+                <SvgLinearGradient id="profileGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.25" />
+                  <Stop offset="50%" stopColor="#FFFFFF" stopOpacity="0.08" />
+                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
+                </SvgLinearGradient>
+              </Defs>
+              <Circle cx={SCREEN_WIDTH - 20} cy={20} r={120} fill="url(#profileGlow)" />
+            </Svg>
           </View>
 
-          {/* ── Floating User Profile Card ── */}
-          <View style={styles.profileCard}>
-            <View style={styles.profileCardTop}>
-              <View style={styles.avatarWrap}>
-                <AvatarPicker getInitials={getInitials} />
+          {/* Title Row with Quick Action Buttons */}
+          <View style={styles.headerTopRow}>
+            <View style={styles.headerTitleWrap}>
+              <Text style={styles.screenTitle}>Hồ sơ tài khoản</Text>
+              <Text style={styles.screenSubtitle}>Thông tin định danh & quyền hạn hệ thống</Text>
+            </View>
+
+            <View style={styles.headerActionsGroup}>
+              <Pressable
+                style={styles.headerActionBtn}
+                onPress={() => setIsEditing(true)}
+                hitSlop={8}
+                accessibilityLabel="Chỉnh sửa hồ sơ"
+              >
+                <MaterialCommunityIcons name="account-edit-outline" size={20} color="#FFFFFF" />
+              </Pressable>
+
+              <Pressable
+                style={styles.headerActionBtn}
+                onPress={showGuideManual}
+                hitSlop={8}
+                accessibilityLabel="Hướng dẫn sử dụng"
+              >
+                <Ionicons name="help-circle-outline" size={21} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* ================= 2. HERO IDENTITY CARD (AVATAR TRUNG TÂM & METRIC PILLS) ================= */}
+        <View style={styles.heroCardWrapper}>
+          <View style={styles.heroCard}>
+            {/* Center Avatar & Identity */}
+            <View style={styles.profileCenterStage}>
+              <View style={styles.avatarHaloRing}>
+                <AvatarPicker
+                  getInitials={getInitials}
+                  size={76}
+                  bgColor="#E7F0F7"
+                  textColor="#102739"
+                  badgeBgColor="#102739"
+                  badgeIconColor="#FFFFFF"
+                />
               </View>
 
-              <View style={styles.profileMetaCol}>
-                <Text style={styles.userName} numberOfLines={1}>
-                  {user?.fullName || 'Admin Movie Legend'}
-                </Text>
-                <Text style={styles.userRole}>{adminRoleLabel}</Text>
-                <View style={styles.statusRow}>
+              <Text style={styles.userName} numberOfLines={1}>
+                {user?.fullName || 'Admin Movie Legend'}
+              </Text>
+
+              {/* Badges Row (Role + Active Status) */}
+              <View style={styles.badgePillsRow}>
+                <View style={styles.adminRoleTag}>
+                  <ShieldCheck size={13} color="#1D4ED8" strokeWidth={2.4} />
+                  <Text style={styles.adminRoleTagText}>{adminRoleLabel}</Text>
+                </View>
+
+                <View style={styles.statusBadge}>
                   <View style={styles.statusDot} />
                   <Text style={styles.statusText}>Đang hoạt động</Text>
                 </View>
               </View>
+
+              {/* Department & Email info */}
+              <Text style={styles.userSubInfo} numberOfLines={1}>
+                {user?.department?.name || 'Ban Quản Trị Hệ Thống'}
+              </Text>
+              <Text style={styles.userEmailText} numberOfLines={1}>
+                {user?.email || 'admin@movielegend.vn'}
+              </Text>
             </View>
 
-            <View style={styles.profileDivider} />
-
-            <View style={styles.profileCardBottom}>
-              <View style={styles.profileStatCol}>
-                <Text style={styles.profileStatLabel}>Mã nhân viên</Text>
-                <Text style={styles.profileStatValue}>{userCodeText}</Text>
+            {/* Smart Micro-Pills Bar (Thay thế cho 3 cột kẻ vạch như thẻ chấm công) */}
+            <View style={styles.infoPillsBar}>
+              <View style={styles.infoPillCard}>
+                <Text style={styles.infoPillLabel}>MÃ NHÂN VIÊN</Text>
+                <Text style={styles.infoPillValue} numberOfLines={1}>{userCodeText}</Text>
               </View>
 
-              <View style={styles.statVerticalDivider} />
+              <View style={styles.infoPillCard}>
+                <Text style={styles.infoPillLabel}>THÂM NIÊN</Text>
+                <Text style={styles.infoPillValue} numberOfLines={1}>{seniorityText}</Text>
+              </View>
 
-              <View style={styles.profileStatCol}>
-                <Text style={styles.profileStatLabel}>Thâm niên</Text>
-                <Text style={styles.profileStatValue}>{seniorityText}</Text>
+              <View style={styles.infoPillCard}>
+                <Text style={styles.infoPillLabel}>QUYỀN HẠN</Text>
+                <Text style={styles.infoPillValue} numberOfLines={1}>{isSuperAdmin ? 'Toàn công ty' : 'Phân quyền'}</Text>
               </View>
             </View>
           </View>
         </View>
 
+        {/* ================= 3. BODY CONTENT ================= */}
         <View style={styles.bodyContent}>
           {/* ── Card: Thông tin cá nhân ── */}
           <Pressable
@@ -149,7 +213,7 @@ export function AdminProfileScreen() {
             onPress={() => setShowPersonalInfoModal(true)}
           >
             <View style={styles.personalIconBox}>
-              <MaterialCommunityIcons name="card-account-details-outline" size={22} color="#1B3B2B" />
+              <MaterialCommunityIcons name="card-account-details-outline" size={22} color="#2563EB" />
             </View>
             <View style={styles.personalTextWrap}>
               <Text style={styles.personalTitle}>Thông tin cá nhân</Text>
@@ -168,7 +232,7 @@ export function AdminProfileScreen() {
                 onPress={() => router.push('/admin/timesheet' as any)}
               >
                 <View style={styles.utilityIconWrap}>
-                  <Ionicons name="calendar-outline" size={24} color="#0F172A" />
+                  <Ionicons name="calendar-outline" size={22} color="#2563EB" />
                 </View>
                 <Text style={styles.utilityTitle}>Bảng công</Text>
               </Pressable>
@@ -179,9 +243,7 @@ export function AdminProfileScreen() {
                 onPress={() => router.push('/admin/payslip' as any)}
               >
                 <View style={styles.utilityIconWrap}>
-                  <View style={styles.payslipIconBox}>
-                    <Text style={styles.payslipDollarText}>$</Text>
-                  </View>
+                  <MaterialCommunityIcons name="cash-multiple" size={22} color="#2563EB" />
                 </View>
                 <Text style={styles.utilityTitle}>Phiếu lương</Text>
               </Pressable>
@@ -192,17 +254,16 @@ export function AdminProfileScreen() {
                 onPress={() => router.push('/admin/attendance' as any)}
               >
                 <View style={styles.utilityIconWrap}>
-                  <Ionicons name="time-outline" size={24} color="#0F172A" />
+                  <Ionicons name="time-outline" size={22} color="#2563EB" />
                 </View>
                 <Text style={styles.utilityTitle}>Chấm công</Text>
-                <Text style={styles.utilitySubtitle}>Lịch sử</Text>
               </Pressable>
             </View>
           </View>
 
           {/* ── Section: Không gian làm việc ── */}
           <View style={styles.sectionWrap}>
-            <Text style={styles.sectionHeaderTitle}>Không gian làm việc</Text>
+            <Text style={styles.sectionHeaderTitle}>Không gian quản trị & Vận hành</Text>
 
             {/* ── Accordion Group 1: Nhân sự ── */}
             <View style={styles.accordionCard}>
@@ -211,7 +272,7 @@ export function AdminProfileScreen() {
                 onPress={() => toggleGroup('hr')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="account-group-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="account-group-outline" size={22} color="#2563EB" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Nhân sự</Text>
@@ -228,7 +289,7 @@ export function AdminProfileScreen() {
                 <View style={styles.accordionBody}>
                   {/* Sub-group: Tổ chức & phát triển */}
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Tổ chức & phát triển</Text>
+                    <Text style={styles.subGroupTitle}>TỔ CHỨC & PHÁT TRIỂN</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="sitemap-outline"
@@ -261,7 +322,7 @@ export function AdminProfileScreen() {
 
                   {/* Sub-group: Chấm công & phê duyệt */}
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Chấm công & phê duyệt</Text>
+                    <Text style={styles.subGroupTitle}>CHẤM CÔNG & PHÊ DUYỆT</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="time-outline"
@@ -294,7 +355,7 @@ export function AdminProfileScreen() {
 
                   {/* Sub-group: Hồ sơ & quản lý */}
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Hồ sơ & quản lý</Text>
+                    <Text style={styles.subGroupTitle}>HỒ SƠ & QUẢN LÝ</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="swap-horizontal"
@@ -333,7 +394,7 @@ export function AdminProfileScreen() {
                 onPress={() => toggleGroup('ops')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="cube-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="cube-outline" size={22} color="#2563EB" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Vận hành</Text>
@@ -349,7 +410,7 @@ export function AdminProfileScreen() {
               {expandedGroups.ops && (
                 <View style={styles.accordionBody}>
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Công việc & trao đổi</Text>
+                    <Text style={styles.subGroupTitle}>CÔNG VIỆC & TRAO ĐỔI</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="newspaper-outline"
@@ -381,7 +442,7 @@ export function AdminProfileScreen() {
                   <View style={styles.featureDivider} />
 
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Kho & vật tư</Text>
+                    <Text style={styles.subGroupTitle}>KHO & VẬT TƯ</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="cube-outline"
@@ -408,7 +469,7 @@ export function AdminProfileScreen() {
                 onPress={() => toggleGroup('settings')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="cog-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="cog-outline" size={22} color="#2563EB" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Cài đặt</Text>
@@ -424,7 +485,7 @@ export function AdminProfileScreen() {
               {expandedGroups.settings && (
                 <View style={styles.accordionBody}>
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Tài khoản & hệ thống</Text>
+                    <Text style={styles.subGroupTitle}>TÀI KHOẢN & HỆ THỐNG</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="help-circle-outline"
@@ -453,11 +514,11 @@ export function AdminProfileScreen() {
 
           {/* ── Logout Button ── */}
           <Pressable style={styles.logoutBtn} onPress={handleLogout}>
-            <MaterialCommunityIcons name="logout-variant" size={18} color="#B91C1C" />
-            <Text style={styles.logoutBtnText}>Đăng xuất</Text>
+            <MaterialCommunityIcons name="logout-variant" size={18} color="#DC2626" />
+            <Text style={styles.logoutBtnText}>Đăng xuất tài khoản</Text>
           </Pressable>
 
-          <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
+          <Text style={styles.versionText}>Phiên bản 1.0.0 • Movie Legend HRM</Text>
         </View>
       </ScrollView>
 
@@ -491,7 +552,7 @@ export function AdminProfileScreen() {
                 <InfoItem label="Email" value={user?.email || 'Chưa cập nhật'} />
                 <InfoItem
                   label="Phòng ban"
-                  value={user?.department?.name || 'Quản trị hệ thống'}
+                  value={user?.department?.name || 'Ban Quản Trị Hệ Thống'}
                 />
                 <InfoItem label="Chức vụ" value={adminRoleLabel} />
                 <InfoItem
@@ -555,9 +616,9 @@ function FeatureItem({ icon, iconType = 'mci', title, onPress }: FeatureItemProp
     <Pressable style={styles.featureItem} onPress={onPress}>
       <View style={styles.featureIconWrap}>
         {iconType === 'ionicons' ? (
-          <Ionicons name={icon as any} size={20} color="#0F172A" />
+          <Ionicons name={icon as any} size={18} color="#2563EB" />
         ) : (
-          <MaterialCommunityIcons name={icon as any} size={20} color="#0F172A" />
+          <MaterialCommunityIcons name={icon as any} size={18} color="#2563EB" />
         )}
       </View>
       <Text style={styles.featureItemText} numberOfLines={1}>
@@ -587,143 +648,211 @@ function InfoItem({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
+  },
+  topOverscrollFill: {
+    position: 'absolute',
+    top: -500,
+    left: 0,
+    right: 0,
+    height: 500,
+    backgroundColor: '#102739',
   },
   scrollBody: {
     flex: 1,
+    backgroundColor: '#F5F7FA',
   },
-  scrollContent: {},
+  scrollContent: {
+    backgroundColor: '#F5F7FA',
+  },
 
-  /* ── Header (#1B3B2B) ── */
-  headerContainer: {
-    backgroundColor: '#1B3B2B',
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+  /* ── 1. Glossy Royal Blue Header ── */
+  glossyHeader: {
     position: 'relative',
+    paddingHorizontal: 20,
+    paddingBottom: 48,
     overflow: 'hidden',
-  },
-  decorativeCurve: {
-    position: 'absolute',
-    top: -40,
-    right: -40,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   headerTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginTop: 6,
   },
-  brandTagline: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.7)',
-    letterSpacing: 2,
+  headerTitleWrap: {
+    flex: 1,
   },
   screenTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
-    marginTop: 2,
     letterSpacing: -0.3,
   },
-  helpBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  screenSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.78)',
+    marginTop: 2,
+  },
+  headerActionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerActionBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  /* ── Profile Card ── */
-  profileCard: {
+  /* ── 2. Hero Identity Profile Card ── */
+  heroCardWrapper: {
+    paddingHorizontal: 16,
+    marginTop: -26,
+    zIndex: 10,
+  },
+  heroCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 4,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 3,
+    position: 'relative',
   },
-  profileCardTop: {
-    flexDirection: 'row',
+  profileCenterStage: {
     alignItems: 'center',
-    gap: 14,
+    paddingHorizontal: 4,
   },
-  avatarWrap: {},
-  profileMetaCol: {
-    flex: 1,
+  avatarHaloRing: {
+    marginBottom: 10,
+    padding: 3,
+    borderRadius: 44,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 2,
   },
   userName: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '800',
     color: '#0F172A',
+    letterSpacing: -0.3,
+    textAlign: 'center',
+    marginBottom: 6,
   },
-  userRole: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  statusRow: {
+  badgePillsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  adminRoleTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  adminRoleTagText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
   statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#16A34A',
-    marginRight: 6,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 5,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  userSubInfo: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#16A34A',
+    color: '#2563EB',
+    textAlign: 'center',
   },
-  profileDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 12,
-  },
-  profileCardBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  profileStatCol: {
-    flex: 1,
-  },
-  profileStatLabel: {
+  userEmailText: {
     fontSize: 12,
     color: '#64748B',
-  },
-  profileStatValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
+    textAlign: 'center',
     marginTop: 2,
   },
-  statVerticalDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: '#E2E8F0',
-    marginHorizontal: 12,
+
+  /* Smart Micro-Pills Bar (3 cards riêng biệt thay cho 3 cột kẻ vạch) */
+  infoPillsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  infoPillCard: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  infoPillLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
+  infoPillValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
   },
 
-  /* ── Body Content ── */
+  /* ── 3. Body Content ── */
   bodyContent: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 16,
   },
 
-  /* ── Thông tin cá nhân Card ── */
+  /* Thông tin cá nhân Card */
   personalInfoCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -733,12 +862,17 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     padding: 14,
     marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
   personalIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -747,7 +881,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   personalTitle: {
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -757,18 +891,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  /* ── Sections ── */
+  /* Sections */
   sectionWrap: {
     marginBottom: 16,
   },
   sectionHeaderTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
     marginBottom: 10,
+    letterSpacing: -0.2,
   },
 
-  /* ── Utilities Row ── */
+  /* Utilities Row */
   utilitiesRow: {
     flexDirection: 'row',
     gap: 10,
@@ -776,47 +911,35 @@ const styles = StyleSheet.create({
   utilityCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 90,
+    minHeight: 88,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
   utilityIconWrap: {
-    height: 28,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  payslipIconBox: {
-    width: 20,
-    height: 26,
-    borderRadius: 4,
-    borderWidth: 1.8,
-    borderColor: '#0F172A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  payslipDollarText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginTop: -1,
   },
   utilityTitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
     color: '#0F172A',
     marginTop: 8,
   },
-  utilitySubtitle: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
 
-  /* ── Accordion Cards ── */
+  /* Accordion Cards */
   accordionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -824,6 +947,11 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     padding: 14,
     marginBottom: 10,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
   accordionHeader: {
     flexDirection: 'row',
@@ -832,8 +960,8 @@ const styles = StyleSheet.create({
   accordionIconBox: {
     width: 40,
     height: 40,
-    borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -852,7 +980,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  /* Accordion Body */
   accordionBody: {
     marginTop: 12,
     paddingTop: 8,
@@ -863,10 +990,11 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   subGroupTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 10,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#2563EB',
+    letterSpacing: 0.6,
+    marginBottom: 8,
   },
   featureGrid: {
     flexDirection: 'row',
@@ -877,11 +1005,14 @@ const styles = StyleSheet.create({
     width: '50%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 7,
+    paddingVertical: 6,
     paddingRight: 6,
   },
   featureIconWrap: {
-    width: 24,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
@@ -898,31 +1029,35 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
 
-  /* ── Logout Button ── */
+  /* Logout Button */
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    borderRadius: 14,
+    paddingVertical: 14,
     marginTop: 6,
   },
   logoutBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#B91C1C',
+    color: '#DC2626',
   },
   versionText: {
     textAlign: 'center',
     fontSize: 12,
     color: '#94A3B8',
-    marginTop: 6,
+    marginTop: 10,
   },
 
-  /* ── Personal Info Modal ── */
+  /* Personal Info Modal */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -985,8 +1120,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1B3B2B',
-    height: 46,
+    backgroundColor: '#2563EB',
+    height: 48,
     borderRadius: 12,
     marginTop: 4,
   },

@@ -1,16 +1,17 @@
 export const colors = {
-  primary: '#111827', // Gray 900 (Blackish)
-  primaryDark: '#000000', // Black
-  primarySoft: '#E5E7EB', // Gray 200
-  surface: '#FFFFFF', // White
-  background: '#F9FAFB', // Gray 50
-  border: '#E5E7EB', // Gray 200
-  text: '#111827', // Gray 900
-  muted: '#6B7280', // Gray 500
+  primary: '#102739', // Màu chủ đạo: header, nút, tab đang chọn
+  primaryDark: '#0A1B28',
+  primarySoft: '#E7F0F7', // Nền xanh nhạt cho icon
+  surface: '#FFFFFF', // Thẻ nội dung
+  background: '#F5F7FA', // Nền trang
+  border: '#E2E8F0',
+  text: '#102739',
+  textLight: '#64748B',
+  muted: '#64748B',
   danger: '#EF4444',
   dangerSoft: '#FEE2E2',
   warning: '#F59E0B',
   warningSoft: '#FEF3C7',
   success: '#22C55E',
-  info: '#3B82F6',
+  info: '#102739',
 };

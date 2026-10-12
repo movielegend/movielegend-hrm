@@ -11,9 +11,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
 
-const AURA_WIDTH = 48;
+const AURA_WIDTH = 50;
 const AURA_HEIGHT = 32;
-const TOP_PILL_WIDTH = 24;
 
 export const MagicTabBar = React.memo(function MagicTabBar({
   state,
@@ -41,30 +40,20 @@ export const MagicTabBar = React.memo(function MagicTabBar({
   const isCurrentRouteVisible = activeVisibleIndex >= 0;
   const safeIndex = isCurrentRouteVisible ? activeVisibleIndex : 0;
 
-  // Tọa độ X ban đầu cho con trượt hào quang và vạch chỉ báo
+  // Tọa độ X ban đầu cho con trượt hào quang
   const initialAuraX = tabWidth > 0 ? tabWidth * safeIndex + (tabWidth - AURA_WIDTH) / 2 : 0;
-  const initialPillX = tabWidth > 0 ? tabWidth * safeIndex + (tabWidth - TOP_PILL_WIDTH) / 2 : 0;
 
   const auraTranslateX = useRef(new Animated.Value(initialAuraX)).current;
-  const pillTranslateX = useRef(new Animated.Value(initialPillX)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Lắng nghe chuyển tab để chạy animation lò xo 60fps Native Driver
   useEffect(() => {
     if (tabWidth > 0 && isCurrentRouteVisible) {
       const targetAuraX = tabWidth * activeVisibleIndex + (tabWidth - AURA_WIDTH) / 2;
-      const targetPillX = tabWidth * activeVisibleIndex + (tabWidth - TOP_PILL_WIDTH) / 2;
 
       Animated.parallel([
         Animated.spring(auraTranslateX, {
           toValue: targetAuraX,
-          damping: 16,
-          mass: 0.7,
-          stiffness: 150,
-          useNativeDriver: true,
-        }),
-        Animated.spring(pillTranslateX, {
-          toValue: targetPillX,
           damping: 16,
           mass: 0.7,
           stiffness: 150,
@@ -104,18 +93,6 @@ export const MagicTabBar = React.memo(function MagicTabBar({
         }
       }}
     >
-      {/* Vạch chỉ báo mảnh 2.5px ở mép đỉnh trượt đồng bộ với tab active */}
-      {tabWidth > 0 && isCurrentRouteVisible && (
-        <Animated.View
-          style={[
-            styles.topPillIndicator,
-            {
-              transform: [{ translateX: pillTranslateX }],
-            },
-          ]}
-          pointerEvents="none"
-        />
-      )}
 
       {/* Vầng hào quang / Pill nền xanh nhạt sau icon active */}
       {tabWidth > 0 && isCurrentRouteVisible && (
@@ -180,7 +157,7 @@ export const MagicTabBar = React.memo(function MagicTabBar({
                 <View style={styles.iconBox}>
                   {options.tabBarIcon
                     ? options.tabBarIcon({
-                        color: isFocused ? '#1B3B2B' : '#94A3B8',
+                        color: isFocused ? '#102739' : '#64748B',
                         focused: isFocused,
                         size: 24,
                       })
@@ -230,20 +207,10 @@ const styles = StyleSheet.create({
     // Đổ bóng hắt lên nhẹ tạo chiều sâu cho thanh footer
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
     elevation: 8,
     zIndex: 999,
-  },
-  // Vạch chỉ báo mảnh 2.5px ở mép đỉnh
-  topPillIndicator: {
-    position: 'absolute',
-    top: -1,
-    width: TOP_PILL_WIDTH,
-    height: 2.5,
-    borderRadius: 1.5,
-    backgroundColor: '#1B3B2B',
-    zIndex: 20,
   },
   // Vầng hào quang / Pill nền xanh nhạt sau icon active
   auraGlowWrapper: {
@@ -257,7 +224,9 @@ const styles = StyleSheet.create({
     width: AURA_WIDTH,
     height: AURA_HEIGHT,
     borderRadius: 16,
-    backgroundColor: '#D8E9DC',
+    backgroundColor: '#E7F0F7',
+    borderWidth: 1,
+    borderColor: '#D1E1EF',
   },
   tabsRow: {
     flexDirection: 'row',
@@ -308,11 +277,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   tabLabelActive: {
-    color: '#1B3B2B',
+    color: '#102739',
     fontWeight: '700',
   },
   tabLabelInactive: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontWeight: '500',
   },
 });

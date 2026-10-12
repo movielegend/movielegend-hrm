@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Path, Defs, LinearGradient as SvgLinearGradient, RadialGradient as SvgRadialGradient, Stop, Rect, Line } from 'react-native-svg';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
@@ -21,7 +21,10 @@ import { useAuth } from '../../providers/AuthProvider';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { useMySchedule } from '../../hooks/useShifts';
 import { useMyTasks } from '../../hooks/useTasks';
+import { useMyEmployeeRequests } from '../../hooks/useEmployeeRequests';
 import { useNewsfeedPosts } from '../../hooks/useNewsfeed';
+import { useMyFeedbacks } from '../../hooks/useFeedback';
+import { FeedbackStatusBadge } from '../feedback/components/FeedbackStatusBadge';
 import { getMyVault } from '../../api/employees.api';
 import { getNextVaultMilestone } from '../vault/vault-utils';
 import { scheduleShiftNotifications, scheduleTaskNotifications } from '../../services/NotificationService';
@@ -94,12 +97,32 @@ export function EmployeeDashboardScreen() {
   const { data: currentAttendance } = useCurrentAttendance();
   const { data: schedule } = useMySchedule();
   const { data: myTasks } = useMyTasks({ limit: 100 });
+  const { data: myRequestsData } = useMyEmployeeRequests({ status: 'PENDING' });
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
   const { data: unreadChat = 0 } = useUnreadChatCount();
   const { data: newsPosts = [] } = useNewsfeedPosts();
+  const { data: myFeedbacksData } = useMyFeedbacks({ limit: 5 });
+
+  const pendingRequestsCount = useMemo(() => {
+    if (typeof myRequestsData?.pagination?.total === 'number') {
+      return myRequestsData.pagination.total;
+    }
+    if (Array.isArray(myRequestsData?.items)) {
+      return myRequestsData.items.filter((r: any) => r.status === 'PENDING').length;
+    }
+    return 0;
+  }, [myRequestsData]);
+
+  const latestFeedback = useMemo(() => {
+    const list = Array.isArray(myFeedbacksData)
+      ? myFeedbacksData
+      : (myFeedbacksData as any)?.items || [];
+    return list.length > 0 ? list[0] : null;
+  }, [myFeedbacksData]);
 
   const latestPost = useMemo(() => {
-    return Array.isArray(newsPosts) && newsPosts.length > 0 ? newsPosts[0] : null;
+    const list = Array.isArray(newsPosts) ? newsPosts : (newsPosts as any)?.items || [];
+    return list.length > 0 ? list[0] : null;
   }, [newsPosts]);
 
   const { data: myVault } = useQuery({
@@ -210,8 +233,14 @@ export function EmployeeDashboardScreen() {
   };
 
   return (
-    <Screen backgroundColor="#F8FAFC">
+    <Screen
+      backgroundColor="#F8FAFC"
+      edges={['left', 'right']}
+      statusBarStyle="light"
+      statusBarTranslucent
+    >
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContainer,
           { paddingBottom: Math.max(insets.bottom, 24) + 80 },
@@ -219,9 +248,12 @@ export function EmployeeDashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
-        {/* ================= 1. GLOSSY ROYAL BLUE HEADER (Nửa box trên bóng bẩy) ================= */}
+        {/* Top overscroll guard: màu xanh khớp đỉnh header khi kéo xuống */}
+        <View pointerEvents="none" style={styles.topOverscrollFill} />
+
+        {/* ================= 1. GLOSSY HEADER (Navy #102739 Gradient) ================= */}
         <LinearGradient
-          colors={['#002C88', '#0748BD', '#1064EE', '#2575FC']}
+          colors={['#102739', '#143147', '#183B55', '#225275']}
           start={{ x: 0.1, y: 0 }}
           end={{ x: 0.9, y: 1 }}
           style={[styles.glossyHeader, { paddingTop: Math.max(insets.top, 16) + 6 }]}
@@ -230,18 +262,90 @@ export function EmployeeDashboardScreen() {
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             <Svg width="100%" height="100%">
               <Defs>
+                {/* 1. Loang loang: Vùng sáng cực quang (Aura light bleed) góc trên bên phải */}
+                <SvgRadialGradient
+                  id="empHeaderAuraRight"
+                  cx="85%"
+                  cy="20%"
+                  rx="60%"
+                  ry="50%"
+                  fx="85%"
+                  fy="20%"
+                >
+                  <Stop offset="0%" stopColor="#38BDF8" stopOpacity="0.22" />
+                  <Stop offset="50%" stopColor="#0EA5E9" stopOpacity="0.08" />
+                  <Stop offset="100%" stopColor="#102739" stopOpacity="0" />
+                </SvgRadialGradient>
+
+                {/* 2. Loang loang: Vệt sáng chìm góc dưới trái */}
+                <SvgRadialGradient
+                  id="empHeaderAuraLeft"
+                  cx="15%"
+                  cy="85%"
+                  rx="50%"
+                  ry="50%"
+                  fx="15%"
+                  fy="85%"
+                >
+                  <Stop offset="0%" stopColor="#60A5FA" stopOpacity="0.18" />
+                  <Stop offset="60%" stopColor="#3B82F6" stopOpacity="0.06" />
+                  <Stop offset="100%" stopColor="#102739" stopOpacity="0" />
+                </SvgRadialGradient>
+
+                {/* 3. Dải vệt sáng chéo mờ (Diagonal light beam) */}
                 <SvgLinearGradient id="empGlossHighlight" x1="0%" y1="0%" x2="100%" y2="80%">
-                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.32" />
-                  <Stop offset="45%" stopColor="#FFFFFF" stopOpacity="0.08" />
+                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.22" />
+                  <Stop offset="45%" stopColor="#FFFFFF" stopOpacity="0.06" />
+                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
+                </SvgLinearGradient>
+
+                {/* 4. Sọc chéo vi tế (Subtle diagonal accent line) */}
+                <SvgLinearGradient id="empLineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.0" />
+                  <Stop offset="35%" stopColor="#FFFFFF" stopOpacity="0.18" />
+                  <Stop offset="70%" stopColor="#38BDF8" stopOpacity="0.22" />
                   <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.0" />
                 </SvgLinearGradient>
               </Defs>
+
+              {/* Lớp nền loang ánh sáng (Ambient Aura Blurs - hiệu ứng loang mềm mại) */}
+              <Rect x="0" y="0" width="100%" height="100%" fill="url(#empHeaderAuraRight)" />
+              <Rect x="0" y="0" width="100%" height="100%" fill="url(#empHeaderAuraLeft)" />
+
+              {/* Dải phản chiếu chéo bóng bẩy */}
               <Path
                 d="M -60 -40 L 260 -40 L 140 240 L -60 240 Z"
                 fill="url(#empGlossHighlight)"
               />
-              <Circle cx={SCREEN_WIDTH - 20} cy={30} r={140} fill="none" stroke="rgba(255, 255, 255, 0.12)" strokeWidth={24} />
-              <Circle cx={SCREEN_WIDTH - 20} cy={30} r={90} fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth={16} />
+
+              {/* Các đường sọc chéo vi tế thanh mảnh thay cho vòng tròn */}
+              <Line
+                x1={SCREEN_WIDTH - 120}
+                y1={-10}
+                x2={SCREEN_WIDTH + 80}
+                y2={190}
+                stroke="url(#empLineGrad)"
+                strokeWidth={2}
+                strokeDasharray="6, 6"
+              />
+              <Line
+                x1={SCREEN_WIDTH - 60}
+                y1={-10}
+                x2={SCREEN_WIDTH + 140}
+                y2={190}
+                stroke="url(#empLineGrad)"
+                strokeWidth={1.5}
+              />
+              <Line
+                x1={SCREEN_WIDTH - 180}
+                y1={-10}
+                x2={SCREEN_WIDTH + 20}
+                y2={190}
+                stroke="url(#empLineGrad)"
+                strokeWidth={1}
+                strokeDasharray="4, 8"
+                opacity={0.6}
+              />
             </Svg>
           </View>
 
@@ -292,13 +396,13 @@ export function EmployeeDashboardScreen() {
         {/* ================= 2. HERO CARD (OVERVIEW WHITE CARD CÓ RIPPLE) ================= */}
         <View style={styles.heroCardWrapper}>
           <View style={styles.heroCard}>
-            {/* Concentric circular ripples on the right side */}
-            <View pointerEvents="none" style={styles.cardRippleWrapper}>
-              <Svg width={220} height={220} viewBox="0 0 220 220">
-                <Circle cx={170} cy={105} r={120} stroke="#E0F2FE" strokeWidth={26} fill="none" opacity={0.65} />
-                <Circle cx={170} cy={105} r={84} stroke="#BAE6FD" strokeWidth={20} fill="none" opacity={0.55} />
-                <Circle cx={170} cy={105} r={48} stroke="#7DD3FC" strokeWidth={14} fill="none" opacity={0.4} />
-              </Svg>
+            {/* Vân địa hình hữu cơ / Topographic contour ripples */}
+            <View pointerEvents="none" style={styles.heroTopographicWrapper}>
+              <Image
+                source={require('../../../assets/topographic-contour-employee-v2.png')}
+                style={styles.heroTopographicBg}
+                resizeMode="cover"
+              />
             </View>
 
             {/* Top row inside card: Level Tag + Ngày hôm nay thay lời chào */}
@@ -368,11 +472,10 @@ export function EmployeeDashboardScreen() {
           {/* Section: Tổng quan hôm nay */}
           <Text style={styles.overviewHeading}>Tổng quan hôm nay</Text>
 
-          {/* ================= 3. CẦN BẠN XỬ LÝ (Dữ liệu minh họa) ================= */}
+          {/* ================= 3. CẦN BẠN XỬ LÝ ================= */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionMainTitle}>Cần bạn xử lý</Text>
-              <Text style={styles.sectionSubtitle}>Dữ liệu minh họa</Text>
             </View>
 
             {/* Item 1: Đơn chờ duyệt */}
@@ -381,8 +484,9 @@ export function EmployeeDashboardScreen() {
               onPress={() => router.push('/employee/requests' as any)}
             >
               <View style={styles.actionCardLeft}>
-                <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
-                  <FileText size={22} color="#2563EB" strokeWidth={2} />
+                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
+                  <View pointerEvents="none" style={styles.actionIconGloss} />
+                  <FileText size={22} color="#102739" strokeWidth={2.2} />
                 </View>
                 <View style={styles.actionCardTexts}>
                   <Text style={styles.actionCardTitle}>Đơn từ &amp; Phép</Text>
@@ -392,7 +496,9 @@ export function EmployeeDashboardScreen() {
 
               <View style={styles.actionCardRight}>
                 <View style={styles.coralBadge}>
-                  <Text style={styles.coralBadgeText}>05</Text>
+                  <Text style={styles.coralBadgeText}>
+                    {String(pendingRequestsCount).padStart(2, '0')}
+                  </Text>
                 </View>
                 <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
               </View>
@@ -404,8 +510,9 @@ export function EmployeeDashboardScreen() {
               onPress={() => router.push('/employee/tasks' as any)}
             >
               <View style={styles.actionCardLeft}>
-                <View style={[styles.actionIconBox, { backgroundColor: '#EFF6FF' }]}>
-                  <Clock size={22} color="#2563EB" strokeWidth={2} />
+                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
+                  <View pointerEvents="none" style={styles.actionIconGloss} />
+                  <Clock size={22} color="#102739" strokeWidth={2.2} />
                 </View>
                 <View style={styles.actionCardTexts}>
                   <Text style={styles.actionCardTitle}>Công việc đến hạn</Text>
@@ -416,7 +523,7 @@ export function EmployeeDashboardScreen() {
               <View style={styles.actionCardRight}>
                 <View style={styles.coralBadge}>
                   <Text style={styles.coralBadgeText}>
-                    {String(uncompletedTasksCount > 0 ? uncompletedTasksCount : 2).padStart(2, '0')}
+                    {String(uncompletedTasksCount).padStart(2, '0')}
                   </Text>
                 </View>
                 <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
@@ -585,8 +692,8 @@ export function EmployeeDashboardScreen() {
                             <View key={`empty-r3-${i}`} style={styles.quickGrid8Item} />
                           ))}
                           <QuickGrid8Item
-                            title="Tất cả" bgColor="#F1F5F9"
-                            icon={<LayoutGrid size={26} color="#475569" strokeWidth={2.2} />}
+                            title="Tất cả" bgColor="#E7F0F7"
+                            icon={<LayoutGrid size={26} color="#102739" strokeWidth={2.2} />}
                             onPress={() => { setModalEditMode(false); setShowAllServicesModal(true); }}
                           />
                         </View>
@@ -613,8 +720,8 @@ export function EmployeeDashboardScreen() {
                             );
                           })}
                           <QuickGrid8Item
-                            title="Tất cả" bgColor="#F1F5F9"
-                            icon={<LayoutGrid size={26} color="#475569" strokeWidth={2.2} />}
+                            title="Tất cả" bgColor="#E7F0F7"
+                            icon={<LayoutGrid size={26} color="#102739" strokeWidth={2.2} />}
                             onPress={() => { setModalEditMode(false); setShowAllServicesModal(true); }}
                           />
                         </View>
@@ -667,17 +774,19 @@ export function EmployeeDashboardScreen() {
                 </View>
               )}
 
-              {/* Nút mũi tên xuống (Chevron Down / Up) luôn có mặt để mở/đóng dropdown */}
+              {/* Nút mũi tên xuống (Chevron Down / Up) thiết kế capsule tinh tế */}
               <Pressable
                 style={styles.expandToggleButton}
                 onPress={handleToggleQuickExpanded}
                 hitSlop={8}
               >
-                {isQuickExpanded ? (
-                  <ChevronUp size={20} color="#94A3B8" strokeWidth={2.2} />
-                ) : (
-                  <ChevronDown size={20} color="#94A3B8" strokeWidth={2.2} />
-                )}
+                <View style={styles.expandTogglePill}>
+                  {isQuickExpanded ? (
+                    <ChevronUp size={15} color="#64748B" strokeWidth={2.5} />
+                  ) : (
+                    <ChevronDown size={15} color="#64748B" strokeWidth={2.5} />
+                  )}
+                </View>
               </Pressable>
             </View>
           </View>
@@ -737,8 +846,8 @@ export function EmployeeDashboardScreen() {
                     onPress={() => router.push('/employee/vault' as any)}
                   >
                     <View style={styles.hubRow}>
-                      <View style={[styles.hubIconCircle, { backgroundColor: '#EFF6FF' }]}>
-                        <Coins size={20} color="#2563EB" />
+                      <View style={[styles.hubIconCircle, { backgroundColor: '#E7F0F7' }]}>
+                        <Coins size={20} color="#102739" />
                       </View>
                       <View style={styles.hubInfoBlock}>
                         <View style={styles.hubTitleRow}>
@@ -760,47 +869,116 @@ export function EmployeeDashboardScreen() {
             </View>
           </View>
 
-          {/* ================= 6. BẢNG TIN NỘI BỘ ================= */}
+          {/* ================= 6. HÒM THƯ GÓP Ý ================= */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionMainTitle}>Bảng tin nội bộ</Text>
-              <Pressable onPress={() => router.push('/employee/newsfeed' as any)}>
+              <Text style={styles.sectionMainTitle}>Hòm thư góp ý</Text>
+              <Pressable onPress={() => router.push('/employee/feedbacks' as any)}>
                 <Text style={styles.customizeLink}>Xem tất cả &gt;</Text>
               </Pressable>
             </View>
 
-            {/* News Card */}
-            <Pressable
-              style={styles.newsCard}
-              onPress={() => router.push('/employee/newsfeed' as any)}
-            >
-              <Image
-                source={{
-                  uri:
-                    (latestPost as any)?.images?.[0] ||
-                    (latestPost as any)?.coverUrl ||
-                    'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=600&q=80',
-                }}
-                style={styles.newsThumbnail}
-              />
-
-              <View style={styles.newsContent}>
-                <View style={styles.newsTagPill}>
-                  <Text style={styles.newsTagText}>NỘI BỘ</Text>
+            {latestFeedback ? (
+              <Pressable
+                style={styles.feedbackCard}
+                onPress={() => router.push(`/employee/feedbacks/${latestFeedback.id}` as any)}
+              >
+                <View style={styles.feedbackCardHeader}>
+                  <View style={styles.feedbackLeftHeader}>
+                    <View style={styles.feedbackIconCircle}>
+                      <MessageSquare size={16} color="#102739" strokeWidth={2.2} />
+                    </View>
+                    <Text style={styles.feedbackTitle} numberOfLines={1}>
+                      {latestFeedback.title}
+                    </Text>
+                  </View>
+                  <FeedbackStatusBadge status={latestFeedback.status} />
                 </View>
 
-                <Text style={styles.newsTitle} numberOfLines={2}>
-                  {(latestPost as any)?.title || 'Kết nối đội ngũ Movie Legend'}
+                <Text style={styles.feedbackContentSnippet} numberOfLines={2}>
+                  {latestFeedback.content}
                 </Text>
 
-                <Text style={styles.newsSubtitle} numberOfLines={1}>
-                  {(latestPost as any)?.author?.fullName ? `Bởi ${(latestPost as any).author.fullName}` : 'Bản tin mẫu dành cho nhân viên'}
-                </Text>
+                <View style={styles.feedbackFooter}>
+                  <Text style={styles.feedbackDateText}>
+                    {latestFeedback.createdAt ? new Date(latestFeedback.createdAt).toLocaleDateString('vi-VN') : ''}
+                  </Text>
+                  <View style={styles.feedbackActionRow}>
+                    <Text style={styles.feedbackActionHint}>Chi tiết</Text>
+                    <ChevronRight size={14} color="#102739" strokeWidth={2.2} />
+                  </View>
+                </View>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.feedbackEmptyCard}
+                onPress={() => router.push('/employee/feedbacks/create' as any)}
+              >
+                <View style={styles.feedbackEmptyIconBox}>
+                  <MessageSquare size={22} color="#102739" strokeWidth={2.2} />
+                </View>
+                <View style={styles.feedbackEmptyInfo}>
+                  <Text style={styles.feedbackEmptyTitle}>Bạn có ý kiến hoặc đề xuất?</Text>
+                  <Text style={styles.feedbackEmptyDesc} numberOfLines={2}>
+                    Đóng góp ý kiến để cải thiện môi trường làm việc. Thông tin có thể gửi ẩn danh.
+                  </Text>
+                </View>
+                <View style={styles.feedbackCreateButton}>
+                  <Text style={styles.feedbackCreateButtonText}>Gửi góp ý</Text>
+                </View>
+              </Pressable>
+            )}
+          </View>
+
+          {/* ================= 7. BẢNG TIN NỘI BỘ (Chỉ hiển thị khi có bài viết thật) ================= */}
+          {latestPost && (
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionMainTitle}>Bảng tin nội bộ</Text>
+                <Pressable onPress={() => router.push('/employee/newsfeed' as any)}>
+                  <Text style={styles.customizeLink}>Xem tất cả &gt;</Text>
+                </Pressable>
               </View>
 
-              <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
-            </Pressable>
-          </View>
+              <Pressable
+                style={styles.newsCard}
+                onPress={() => router.push('/employee/newsfeed' as any)}
+              >
+                {((latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl) ? (
+                  <Image
+                    source={{
+                      uri: (latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl,
+                    }}
+                    style={styles.newsThumbnail}
+                  />
+                ) : (
+                  <View style={[styles.newsThumbnail, styles.newsThumbnailFallback]}>
+                    <Newspaper size={28} color="#2563EB" strokeWidth={1.8} />
+                  </View>
+                )}
+
+                <View style={styles.newsContent}>
+                  <View style={styles.newsTagPill}>
+                    <Text style={styles.newsTagText}>NỘI BỘ</Text>
+                  </View>
+
+                  <Text style={styles.newsTitle} numberOfLines={2}>
+                    {(latestPost as any)?.title || (latestPost as any)?.content?.substring(0, 50) || 'Tin nội bộ'}
+                  </Text>
+
+                  <Text style={styles.newsSubtitle} numberOfLines={1}>
+                    {(latestPost as any)?.author?.profile?.fullName
+                      ? `Bởi ${(latestPost as any).author.profile.fullName}`
+                      : (latestPost as any)?.author?.userCode
+                      ? `Bởi ${(latestPost as any).author.userCode}`
+                      : 'Bởi Ban Quản Trị'}
+                  </Text>
+                </View>
+
+                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
+              </Pressable>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -838,6 +1016,8 @@ const QuickGrid8Item = React.memo(function QuickGrid8Item({
       onPress={onPress}
     >
       <View style={[styles.quickIconBox8, { backgroundColor: bgColor }]}>
+        {/* Lớp bóng gương kính mờ (Frosted/Morphic specular reflex) */}
+        <View pointerEvents="none" style={styles.iconGlossHighlight} />
         {icon}
         {Boolean(badge) && (
           <View style={styles.quickItemBadge}>
@@ -853,14 +1033,27 @@ const QuickGrid8Item = React.memo(function QuickGrid8Item({
 });
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  topOverscrollFill: {
+    position: 'absolute',
+    top: -500,
+    left: 0,
+    right: 0,
+    height: 500,
+    backgroundColor: '#102739',
+  },
   scrollContainer: {
+    backgroundColor: '#F5F7FA',
     paddingBottom: 24,
   },
 
   // 1. Glossy Royal Blue Header
   glossyHeader: {
     paddingHorizontal: 20,
-    paddingBottom: 38,
+    paddingBottom: 86,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -912,7 +1105,7 @@ const styles = StyleSheet.create({
   avatarInitialsText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#002C88',
+    color: '#102739',
   },
   avatarLevelBadge: {
     position: 'absolute',
@@ -973,7 +1166,7 @@ const styles = StyleSheet.create({
   // 2. Overlapping White Hero Card
   heroCardWrapper: {
     paddingHorizontal: 18,
-    marginTop: -22,
+    marginTop: -68,
     zIndex: 10,
   },
   heroCard: {
@@ -982,7 +1175,7 @@ const styles = StyleSheet.create({
     padding: 18,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: '#002C88',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.08,
     shadowRadius: 20,
@@ -990,13 +1183,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F1F5F9',
   },
-  cardRippleWrapper: {
+  heroTopographicWrapper: {
     position: 'absolute',
-    right: -25,
-    top: -10,
-    bottom: -10,
-    width: 220,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 22,
     overflow: 'hidden',
+  },
+  heroTopographicBg: {
+    width: '100%',
+    height: '100%',
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -1007,7 +1205,7 @@ const styles = StyleSheet.create({
   adminRoleTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1016,7 +1214,7 @@ const styles = StyleSheet.create({
   adminRoleTagText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1D4ED8',
+    color: '#102739',
   },
   cardHeaderDateText: {
     fontSize: 13,
@@ -1117,7 +1315,7 @@ const styles = StyleSheet.create({
   customizeLink: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2563EB',
+    color: '#102739',
   },
 
   // 3. Action Cards ("Cần bạn xử lý")
@@ -1142,12 +1340,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    shadowColor: '#102739',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  actionIconGloss: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 18,
+    borderTopLeftRadius: 13,
+    borderTopRightRadius: 13,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
   },
   actionCardTexts: {
     flex: 1,
@@ -1185,7 +1402,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingTop: 16,
-    paddingBottom: 6,
+    paddingBottom: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
@@ -1206,7 +1423,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   quickGrid8ItemPressed: {
-    opacity: 0.7,
+    opacity: 0.8,
+    transform: [{ scale: 0.94 }],
   },
   quickIconBox8: {
     width: 58,
@@ -1215,12 +1433,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
+    shadowColor: '#334155',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  iconGlossHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 24,
+    borderTopLeftRadius: 17,
+    borderTopRightRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.40)',
   },
   quickIconBoxAdd: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#CBD5E1',
+    borderColor: '#94A3B8',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   quickGrid8Label: {
     fontSize: 12,
@@ -1254,8 +1493,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 10,
-    paddingBottom: 4,
-    marginTop: 4,
+    paddingBottom: 2,
+  },
+  expandTogglePill: {
+    width: 32,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // 5. Hub Cấp Bậc & Quỹ Thưởng
@@ -1328,7 +1574,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
   },
   vaultBadge: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -1336,37 +1582,29 @@ const styles = StyleSheet.create({
   vaultBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#102739',
   },
-
-  // 6. Newsfeed Card
   newsCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   newsThumbnail: {
-    width: 80,
-    height: 64,
+    width: 68,
+    height: 68,
     borderRadius: 12,
-    backgroundColor: '#E2E8F0',
   },
   newsContent: {
     flex: 1,
-    paddingHorizontal: 12,
   },
   newsTagPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1375,19 +1613,142 @@ const styles = StyleSheet.create({
   newsTagText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#2563EB',
+    color: '#102739',
     letterSpacing: 0.5,
   },
   newsTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
-    lineHeight: 18,
+    lineHeight: 19,
     marginBottom: 2,
   },
   newsSubtitle: {
     fontSize: 11,
     color: '#64748B',
+  },
+  newsThumbnailFallback: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E7F0F7',
+  },
+
+  // 6. Feedback Cards
+  feedbackCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  feedbackCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  feedbackLeftHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  feedbackIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E7F0F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  feedbackTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    flex: 1,
+  },
+  feedbackContentSnippet: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  feedbackFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  feedbackDateText: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  feedbackActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  feedbackActionHint: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#102739',
+  },
+  feedbackEmptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  feedbackEmptyIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#E7F0F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  feedbackEmptyInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  feedbackEmptyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  feedbackEmptyDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  feedbackCreateButton: {
+    backgroundColor: '#102739',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  feedbackCreateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 
   // Modal Sheet

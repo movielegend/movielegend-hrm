@@ -16,6 +16,7 @@ import { ErrorState } from '../../components/ErrorState';
 import { FormField } from '../../components/FormField';
 import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
+import { GlossyHeaderBackground } from '../../components/common/GlossyHeaderBackground';
 import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -189,12 +190,15 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     <Screen>
       <ScreenContainer style={{ paddingBottom: Math.max(insets.bottom + 16, 16) }} refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}>
         <PageHeader
+          variant="card"
+          idPrefix="taskListHeader"
+          tagline="MOVIE LEGEND • NHIỆM VỤ"
           title={title}
           subtitle={subtitle}
           showBack={false}
           right={
             <Pressable style={styles.dailyReportHeaderBtn} onPress={handleDailyReportPress}>
-              <MaterialCommunityIcons name="file-document-edit-outline" size={16} color="#2563EB" />
+              <MaterialCommunityIcons name="file-document-edit-outline" size={16} color="#FFFFFF" />
               <Text style={styles.dailyReportHeaderBtnText}>Báo cáo</Text>
             </Pressable>
           }
@@ -983,7 +987,7 @@ function AdminAttachmentList({
                 </View>
               ) : (
                 <View style={adminStyles.submissionFileIconBox}>
-                  <MaterialCommunityIcons name="file-document-outline" size={24} color="#204E3B" />
+                  <MaterialCommunityIcons name="file-document-outline" size={24} color="#102739" />
                 </View>
               )}
 
@@ -1057,8 +1061,8 @@ function AdminTaskCard({ task, onPress }: { task: TaskDto; onPress: () => void }
           <View style={[adminStyles.badgePill, { backgroundColor: statusBadge.bg }]}>
             <Text style={[adminStyles.badgePillText, { color: statusBadge.color }]}>{statusBadge.label}</Text>
           </View>
-          <View style={[adminStyles.badgePill, { backgroundColor: '#E2EBE5' }]}>
-            <Text style={[adminStyles.badgePillText, { color: '#204E3B' }]}>
+          <View style={[adminStyles.badgePill, { backgroundColor: '#E7F0F7' }]}>
+            <Text style={[adminStyles.badgePillText, { color: '#102739' }]}>
               {PRIORITY_LABELS[task.priority] || 'Bình thường'}
             </Text>
           </View>
@@ -1153,6 +1157,7 @@ function AdminTaskListScreen() {
   return (
     <View style={adminStyles.screen}>
       <View style={[adminStyles.bannerHeader, { paddingTop: Math.max(insets.top, 16) }]}>
+        <GlossyHeaderBackground idPrefix="adminTasksHeader" />
         <View style={adminStyles.bannerTopRow}>
           <View>
             <Text style={adminStyles.bannerSubText}>CÔNG VIỆC ĐÃ GIAO</Text>
@@ -1162,7 +1167,7 @@ function AdminTaskListScreen() {
             style={adminStyles.reportHeaderBtn} 
             onPress={() => router.push('/admin/daily-reports' as any)}
           >
-            <MaterialCommunityIcons name="file-document-outline" size={16} color="#204E3B" />
+            <MaterialCommunityIcons name="file-document-outline" size={16} color="#102739" />
             <Text style={adminStyles.reportHeaderBtnText}>Báo cáo</Text>
           </Pressable>
         </View>
@@ -1189,7 +1194,7 @@ function AdminTaskListScreen() {
           style={adminStyles.reviewQueueBtn} 
           onPress={() => router.push('/admin/tasks/review' as any)}
         >
-          <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#204E3B" />
+          <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#102739" />
           <Text style={adminStyles.reviewQueueBtnText}>
             Hàng đợi duyệt {queueCount > 0 ? `(${queueCount})` : ''}
           </Text>
@@ -1201,9 +1206,9 @@ function AdminTaskListScreen() {
           <MaterialCommunityIcons 
             name="filter-variant" 
             size={18} 
-            color={status === 'OVERDUE' ? '#204E3B' : '#475569'} 
+            color={status === 'OVERDUE' ? '#102739' : '#475569'} 
           />
-          <Text style={[adminStyles.filterBtnText, status === 'OVERDUE' && { color: '#204E3B', fontWeight: '700' }]}>
+          <Text style={[adminStyles.filterBtnText, status === 'OVERDUE' && { color: '#102739', fontWeight: '700' }]}>
             Bộ lọc
           </Text>
         </Pressable>
@@ -1484,7 +1489,7 @@ function AdminCreateTaskScreen() {
           <>
             <View style={adminStyles.cardBox}>
               <View style={adminStyles.cardHeaderRow}>
-                <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#204E3B" />
+                <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#102739" />
                 <Text style={adminStyles.cardTitle}>Thông tin công việc</Text>
               </View>
 
@@ -1531,7 +1536,7 @@ function AdminCreateTaskScreen() {
 
             <View style={adminStyles.cardBox}>
               <View style={adminStyles.cardHeaderRow}>
-                <MaterialCommunityIcons name="clock-outline" size={20} color="#204E3B" />
+                <MaterialCommunityIcons name="clock-outline" size={20} color="#102739" />
                 <Text style={adminStyles.cardTitle}>Ưu tiên & Thời hạn</Text>
               </View>
 
@@ -1559,7 +1564,7 @@ function AdminCreateTaskScreen() {
                   style={adminStyles.splitDatePickerBtn} 
                   onPress={() => { setShowDueDatePicker(false); setShowStartDatePicker(true); }}
                 >
-                  <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#204E3B" />
+                  <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#102739" />
                   <Text style={adminStyles.splitDateText}>
                     {startAt ? formatDateOnly(startAt.toISOString()) : 'Chọn ngày'}
                   </Text>
@@ -1568,7 +1573,7 @@ function AdminCreateTaskScreen() {
                   style={adminStyles.splitDatePickerBtn} 
                   onPress={() => { setShowDueDatePicker(false); setShowStartDatePicker(true); }}
                 >
-                  <MaterialCommunityIcons name="clock-outline" size={18} color="#204E3B" />
+                  <MaterialCommunityIcons name="clock-outline" size={18} color="#102739" />
                   <Text style={adminStyles.splitDateText}>
                     {startAt ? formatTimeOnly(startAt.toISOString()) : 'Chọn giờ'}
                   </Text>
@@ -1581,7 +1586,7 @@ function AdminCreateTaskScreen() {
                   style={adminStyles.splitDatePickerBtn} 
                   onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}
                 >
-                  <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#204E3B" />
+                  <MaterialCommunityIcons name="calendar-month-outline" size={18} color="#102739" />
                   <Text style={adminStyles.splitDateText}>
                     {dueAt ? formatDateOnly(dueAt.toISOString()) : 'Chọn ngày'}
                   </Text>
@@ -1590,7 +1595,7 @@ function AdminCreateTaskScreen() {
                   style={adminStyles.splitDatePickerBtn} 
                   onPress={() => { setShowStartDatePicker(false); setShowDueDatePicker(true); }}
                 >
-                  <MaterialCommunityIcons name="clock-outline" size={18} color="#204E3B" />
+                  <MaterialCommunityIcons name="clock-outline" size={18} color="#102739" />
                   <Text style={adminStyles.splitDateText}>
                     {dueAt ? formatTimeOnly(dueAt.toISOString()) : 'Chọn giờ'}
                   </Text>
@@ -1664,7 +1669,7 @@ function AdminCreateTaskScreen() {
               {assigneeMode === 'DEPARTMENT' ? (
                 <>
                   <View style={adminStyles.sageNoticeCard}>
-                    <MaterialCommunityIcons name="information" size={20} color="#204E3B" />
+                    <MaterialCommunityIcons name="information" size={20} color="#102739" />
                     <View style={{ flex: 1 }}>
                       <Text style={adminStyles.sageNoticeTitle}>Giao qua trưởng phòng</Text>
                       <Text style={adminStyles.sageNoticeDesc}>
@@ -1679,7 +1684,7 @@ function AdminCreateTaskScreen() {
                     onPress={() => setDeptModalVisible(true)}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                      <MaterialCommunityIcons name="domain" size={20} color="#204E3B" />
+                      <MaterialCommunityIcons name="domain" size={20} color="#102739" />
                       <Text style={adminStyles.dropdownSelectorText}>
                         {selectedDept?.name || 'Chọn phòng ban'}
                       </Text>
@@ -1711,7 +1716,7 @@ function AdminCreateTaskScreen() {
                     onPress={() => setUserModalVisible(true)}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                      <MaterialCommunityIcons name="account" size={20} color="#204E3B" />
+                      <MaterialCommunityIcons name="account" size={20} color="#102739" />
                       <Text style={adminStyles.dropdownSelectorText}>
                         {(selectedUser as any)?.profile?.fullName || (selectedUser as any)?.fullName || 'Chọn nhân viên'}
                       </Text>
@@ -1727,7 +1732,7 @@ function AdminCreateTaskScreen() {
                     onPress={() => setMemberModalVisible(true)}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                      <MaterialCommunityIcons name="account-group" size={20} color="#204E3B" />
+                      <MaterialCommunityIcons name="account-group" size={20} color="#102739" />
                       <Text style={adminStyles.dropdownSelectorText}>
                         {memberIds.length > 0 ? `Đã chọn ${memberIds.length} thành viên` : 'Chọn thành viên nhóm'}
                       </Text>
@@ -1908,8 +1913,8 @@ function AdminTaskDetailScreen({ id }: { id?: string }) {
                 {isWaitingReview ? 'Chờ duyệt' : isCompleted ? 'Hoàn thành' : item.status}
               </Text>
             </View>
-            <View style={[adminStyles.badgePill, { backgroundColor: '#E2EBE5' }]}>
-              <Text style={[adminStyles.badgePillText, { color: '#204E3B' }]}>
+            <View style={[adminStyles.badgePill, { backgroundColor: '#E7F0F7' }]}>
+              <Text style={[adminStyles.badgePillText, { color: '#102739' }]}>
                 {PRIORITY_LABELS[item.priority] || 'Bình thường'}
               </Text>
             </View>
@@ -1951,7 +1956,7 @@ function AdminTaskDetailScreen({ id }: { id?: string }) {
         {displayInitialAtts.length > 0 && (
           <View style={adminStyles.cardBox}>
             <View style={adminStyles.cardHeaderRow}>
-              <MaterialCommunityIcons name="paperclip" size={20} color="#204E3B" />
+              <MaterialCommunityIcons name="paperclip" size={20} color="#102739" />
               <Text style={adminStyles.cardTitle}>Tài liệu đính kèm ({displayInitialAtts.length})</Text>
             </View>
             <AdminAttachmentList attachments={displayInitialAtts} />
@@ -5085,30 +5090,30 @@ const styles = StyleSheet.create({
   dailyReportHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   dailyReportHeaderBtnText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#FFFFFF',
   },
 });
 
 const adminStyles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
   },
   bannerHeader: {
-    backgroundColor: '#204E3B',
     paddingHorizontal: 16,
     paddingBottom: 14,
+    overflow: 'hidden',
   },
   bannerTopRow: {
     flexDirection: 'row',
@@ -5143,7 +5148,7 @@ const adminStyles = StyleSheet.create({
     shadowRadius: 2,
   },
   reportHeaderBtnText: {
-    color: '#204E3B',
+    color: '#102739',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -5167,7 +5172,7 @@ const adminStyles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
   },
   reviewQueueBtn: {
     flex: 1,
@@ -5199,8 +5204,8 @@ const adminStyles = StyleSheet.create({
     gap: 6,
   },
   filterBtnActive: {
-    borderColor: '#204E3B',
-    backgroundColor: '#E2EBE5',
+    borderColor: '#102739',
+    backgroundColor: '#E7F0F7',
   },
   filterBtnText: {
     color: '#475569',
@@ -5211,7 +5216,7 @@ const adminStyles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
     paddingHorizontal: 16,
   },
   underlineTab: {
@@ -5221,7 +5226,7 @@ const adminStyles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   underlineTabActive: {
-    borderBottomColor: '#204E3B',
+    borderBottomColor: '#102739',
   },
   underlineTabText: {
     fontSize: 14,
@@ -5229,7 +5234,7 @@ const adminStyles = StyleSheet.create({
     fontWeight: '500',
   },
   underlineTabTextActive: {
-    color: '#204E3B',
+    color: '#102739',
     fontWeight: '700',
   },
   overduePillRow: {
@@ -5357,7 +5362,7 @@ const adminStyles = StyleSheet.create({
   },
   taskCardProgressValue: {
     fontSize: 12,
-    color: '#204E3B',
+    color: '#102739',
     fontWeight: '700',
   },
   taskCardProgressBarTrack: {
@@ -5368,7 +5373,7 @@ const adminStyles = StyleSheet.create({
   },
   taskCardProgressBarFill: {
     height: '100%',
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     borderRadius: 3,
   },
   taskCardFooter: {
@@ -5389,12 +5394,12 @@ const adminStyles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
   taskCardAvatarText: {
-    color: '#204E3B',
+    color: '#102739',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -5419,19 +5424,19 @@ const adminStyles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
     paddingTop: 10,
-    backgroundColor: 'rgba(248, 250, 252, 0.95)',
+    backgroundColor: 'rgba(245, 247, 250, 0.95)',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
   addTaskFloatingBtn: {
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     height: 48,
     borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    shadowColor: '#204E3B',
+    shadowColor: '#102739',
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 3 },
     shadowRadius: 5,
@@ -5497,7 +5502,7 @@ const adminStyles = StyleSheet.create({
     alignItems: 'center',
   },
   stepperCircleActive: {
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
   },
   stepperCircleText: {
     fontSize: 12,
@@ -5513,7 +5518,7 @@ const adminStyles = StyleSheet.create({
     fontWeight: '500',
   },
   stepperLabelActive: {
-    color: '#204E3B',
+    color: '#102739',
     fontWeight: '700',
   },
   stepperLine: {
@@ -5523,7 +5528,7 @@ const adminStyles = StyleSheet.create({
     marginHorizontal: 12,
   },
   stepperLineActive: {
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
   },
 
   /* Forms & Cards */
@@ -5604,8 +5609,8 @@ const adminStyles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   priorityPillBtnActive: {
-    backgroundColor: '#204E3B',
-    borderColor: '#204E3B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   priorityPillBtnText: {
     fontSize: 12,
@@ -5658,8 +5663,8 @@ const adminStyles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   assigneeModeBtnActive: {
-    backgroundColor: '#204E3B',
-    borderColor: '#204E3B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   assigneeModeBtnText: {
     fontSize: 12,
@@ -5671,7 +5676,7 @@ const adminStyles = StyleSheet.create({
     fontWeight: '700',
   },
   sageNoticeCard: {
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     borderRadius: 10,
     padding: 12,
     flexDirection: 'row',
@@ -5682,7 +5687,7 @@ const adminStyles = StyleSheet.create({
   sageNoticeTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#204E3B',
+    color: '#102739',
     marginBottom: 2,
   },
   sageNoticeDesc: {
@@ -5729,7 +5734,7 @@ const adminStyles = StyleSheet.create({
   workflowStepNum: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#204E3B',
+    color: '#102739',
   },
   workflowStepText: {
     fontSize: 12,
@@ -5759,7 +5764,7 @@ const adminStyles = StyleSheet.create({
     color: '#64748B',
   },
   footerNextBtn: {
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 18,
@@ -5783,7 +5788,7 @@ const adminStyles = StyleSheet.create({
     fontWeight: '600',
   },
   footerSubmitBtn: {
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 18,
@@ -5836,14 +5841,14 @@ const adminStyles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
   detailAssigneeAvatarText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#204E3B',
+    color: '#102739',
   },
   detailAssigneeName: {
     fontSize: 14,
@@ -5904,7 +5909,7 @@ const adminStyles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 6,
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -5938,7 +5943,7 @@ const adminStyles = StyleSheet.create({
   },
   approveBtn: {
     flex: 1,
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
@@ -5989,7 +5994,7 @@ const adminStyles = StyleSheet.create({
   },
   openTaskLinkText: {
     fontSize: 13,
-    color: '#204E3B',
+    color: '#102739',
     fontWeight: '700',
   },
   viewReportBtn: {

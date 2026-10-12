@@ -25,6 +25,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import type { NotificationTargetDto } from '../../types/notification.types';
 import { notificationRoute } from '../../utils/notification-routing';
 import { CustomAlert } from '../../components/CustomAlert';
+import { GlossyHeaderBackground } from '../../components/common/GlossyHeaderBackground';
 
 type TabType = 'ALL' | 'UNREAD';
 
@@ -290,8 +291,9 @@ export function NotificationListScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* ── Top Header (#1B3B2B) ── */}
+      {/* ── Top Header (Glossy Royal Blue) ── */}
       <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <GlossyHeaderBackground idPrefix="notiHeader" />
         <View style={styles.headerTopRow}>
           <View style={styles.headerTextCol}>
             <Text style={styles.headerTagline}>MOVIE LEGEND</Text>
@@ -406,8 +408,8 @@ export function NotificationListScreen() {
           <RefreshControl
             refreshing={notifications.isRefetching}
             onRefresh={() => void notifications.refetch()}
-            colors={['#1B3B2B']}
-            tintColor="#1B3B2B"
+            colors={['#102739']}
+            tintColor="#102739"
           />
         }
         ListEmptyComponent={
@@ -456,13 +458,13 @@ export function NotificationListScreen() {
                           <MaterialCommunityIcons
                             name={visual.iconName as any}
                             size={22}
-                            color="#1B3B2B"
+                            color="#102739"
                           />
                         ) : (
                           <Ionicons
                             name={visual.iconName as any}
                             size={22}
-                            color="#1B3B2B"
+                            color="#102739"
                           />
                         )}
                       </View>
@@ -522,7 +524,7 @@ export function NotificationListScreen() {
                   void markAll.mutateAsync();
                 }}
               >
-                <Ionicons name="checkmark-done-outline" size={20} color="#1B3B2B" />
+                <Ionicons name="checkmark-done-outline" size={20} color="#102739" />
                 <Text style={styles.modalMenuItemText}>Đánh dấu tất cả đã đọc</Text>
               </Pressable>
             )}
@@ -534,7 +536,7 @@ export function NotificationListScreen() {
                 void notifications.refetch();
               }}
             >
-              <Ionicons name="refresh-outline" size={20} color="#1B3B2B" />
+              <Ionicons name="refresh-outline" size={20} color="#102739" />
               <Text style={styles.modalMenuItemText}>Làm mới danh sách</Text>
             </Pressable>
 
@@ -658,9 +660,9 @@ export function NotificationItemRow({
     <Pressable style={styles.itemRow} onPress={onPress}>
       <View style={styles.itemIconBox}>
         {visual.isMaterialCommunity ? (
-          <MaterialCommunityIcons name={visual.iconName as any} size={22} color="#1B3B2B" />
+          <MaterialCommunityIcons name={visual.iconName as any} size={22} color="#102739" />
         ) : (
-          <Ionicons name={visual.iconName as any} size={22} color="#1B3B2B" />
+          <Ionicons name={visual.iconName as any} size={22} color="#102739" />
         )}
       </View>
       <View style={styles.itemContentCol}>
@@ -675,16 +677,16 @@ export function NotificationItemRow({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6F4',
+    backgroundColor: '#F5F7FA',
   },
 
-  /* ── Header (#1B3B2B) ── */
+  /* ── Header (Royal Blue) ── */
   headerContainer: {
-    backgroundColor: '#1B3B2B',
     paddingHorizontal: 20,
     paddingBottom: 22,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
+    overflow: 'hidden',
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -741,10 +743,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabPillActive: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   tabPillInactive: {
-    backgroundColor: '#E8F2EC',
+    backgroundColor: '#E7F0F7',
   },
   tabPillText: {
     fontSize: 13.5,
@@ -754,7 +756,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   tabPillTextInactive: {
-    color: '#1B3B2B',
+    color: '#102739',
   },
   tabCountPill: {
     paddingHorizontal: 7,
@@ -765,7 +767,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
   tabCountPillInactive: {
-    backgroundColor: '#D6E7DC',
+    backgroundColor: '#D1E1EF',
   },
   tabCountPillText: {
     fontSize: 11.5,
@@ -775,7 +777,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   tabCountPillTextInactive: {
-    color: '#1B3B2B',
+    color: '#102739',
   },
 
   /* ── List & Group Sections ── */
@@ -820,7 +822,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 14,
-    backgroundColor: '#E8F2EC',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -875,7 +877,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#E8F2EC',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,

@@ -26,6 +26,7 @@ import { assertSocketUrl } from '../../constants/env';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
+import { GlossyHeaderBackground } from '../../components/common/GlossyHeaderBackground';
 import { PrimaryButton } from '../../components/Buttons';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { FacebookPhotoGrid, type FacebookGridLayoutType } from './components/FacebookPhotoGrid';
@@ -190,12 +191,14 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <GlossyHeaderBackground idPrefix="newsfeedHeader" />
         <View style={newsStyles.headerMainRow}>
           <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={newsStyles.headerBrand}>MOVIE LEGEND</Text>
             <Text style={newsStyles.headerTitle}>Bảng tin công ty</Text>
             <Text style={newsStyles.headerSubtitle}>Tin tức & thông báo nội bộ</Text>
           </View>
@@ -224,7 +227,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
             <MaterialCommunityIcons
               name="clock-outline"
               size={16}
-              color={activeTab === 'latest' ? '#1B3B2B' : '#94A3B8'}
+              color={activeTab === 'latest' ? '#1064EE' : '#94A3B8'}
             />
             <Text style={[newsStyles.tabText, activeTab === 'latest' && newsStyles.tabTextActive]}>
               Mới nhất
@@ -239,7 +242,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
             <MaterialCommunityIcons
               name="star-outline"
               size={16}
-              color={activeTab === 'following' ? '#1B3B2B' : '#94A3B8'}
+              color={activeTab === 'following' ? '#1064EE' : '#94A3B8'}
             />
             <Text style={[newsStyles.tabText, activeTab === 'following' && newsStyles.tabTextActive]}>
               Theo dõi
@@ -257,7 +260,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
             paddingBottom: Math.max(insets.bottom, 16) + 84,
           }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#1B3B2B" />
+            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#1064EE" />
           }
           showsVerticalScrollIndicator={false}
         >
@@ -2222,12 +2225,12 @@ const styles = StyleSheet.create({
 const newsStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   headerWrap: {
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#1B3B2B',
+    overflow: 'hidden',
   },
   headerMainRow: {
     flexDirection: 'row',
@@ -2308,7 +2311,7 @@ const newsStyles = StyleSheet.create({
   },
   curvedSheet: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: 'hidden',
@@ -2341,7 +2344,7 @@ const newsStyles = StyleSheet.create({
     color: '#64748B',
   },
   tabTextActive: {
-    color: '#1B3B2B',
+    color: '#1064EE',
     fontWeight: '700',
   },
   tabIndicator: {
@@ -2350,7 +2353,7 @@ const newsStyles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2.5,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#1064EE',
     borderRadius: 2,
   },
   emptyWrap: {
@@ -2363,7 +2366,7 @@ const newsStyles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -2386,11 +2389,11 @@ const newsStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#1064EE',
     paddingHorizontal: 22,
     paddingVertical: 11,
     borderRadius: 22,
-    shadowColor: '#1B3B2B',
+    shadowColor: '#1064EE',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -2420,7 +2423,7 @@ const newsStyles = StyleSheet.create({
   fabBtn: {
     position: 'absolute',
     right: 20,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#1064EE',
     borderRadius: 28,
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -2501,14 +2504,14 @@ const newsStyles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   dropzoneText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1B3B2B',
+    color: '#1064EE',
   },
   fixedFooter: {
     paddingHorizontal: 20,
@@ -2518,14 +2521,14 @@ const newsStyles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
   },
   primarySubmitBtn: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#1064EE',
     borderRadius: 14,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#1B3B2B',
+    shadowColor: '#1064EE',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -2555,7 +2558,7 @@ const newsStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#1064EE',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -2620,7 +2623,7 @@ const newsStyles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#1064EE',
   },
   approveBtnText: {
     fontSize: 13,

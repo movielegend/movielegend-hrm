@@ -1,9 +1,10 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useAppAlert } from '../../../src/contexts/AlertContext';
 import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { requestCameraPermissionWithFallback } from '../../../src/utils/mediaPermissions';
 import { Screen } from '../../../src/components/Screen';
@@ -89,7 +90,11 @@ export default function CreateRequestScreen() {
   const [leaveType, setLeaveType] = useState('');
   const [explanationType, setExplanationType] = useState('');
   const [handoverEmployee, setHandoverEmployee] = useState<EmployeeUser | null>(null);
-  const [fromDate, setFromDate] = useState<Date | null>(new Date());
+  const [fromDate, setFromDate] = useState<Date | null>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
   const [toDate, setToDate] = useState<Date | null>(null);
   const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
 
@@ -97,6 +102,7 @@ export default function CreateRequestScreen() {
   const [calendarViewDate, setCalendarViewDate] = useState<Date>(new Date());
   const [selectedHour, setSelectedHour] = useState<number>(8);
   const [selectedMinute, setSelectedMinute] = useState<number>(0);
+  const [timePickerTab, setTimePickerTab] = useState<'hour' | 'minute'>('hour');
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState<'start' | 'end' | null>(null);
   const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | 'single' | null>(null);
@@ -120,15 +126,57 @@ export default function CreateRequestScreen() {
   };
 
   const handleOpenTimePicker = (mode: 'start' | 'end') => {
-    let t = mode === 'start' ? startTime : endTime;
-    if (t) {
-      setSelectedHour(t.getHours());
-      setSelectedMinute(t.getMinutes());
-    } else {
-      setSelectedHour(mode === 'start' ? 8 : 17);
-      setSelectedMinute(mode === 'start' ? 0 : 30);
+    const existing = mode === 'start' ? startTime : endTime;
+    const baseDate = (mode === 'start' ? fromDate : (toDate || fromDate)) || new Date();
+    const initialTime = existing ? new Date(existing) : new Date(baseDate);
+    if (!existing) {
+      initialTime.setHours(mode === 'start' ? 8 : 17, mode === 'start' ? 0 : 30, 0, 0);
     }
+
+    // Trên điện thoại Android: Sử dụng trực tiếp Dialog Đồng hồ mặc định của hệ thống
+    if (Platform.OS === 'android') {
+      try {
+        DateTimePickerAndroid.open({
+          value: initialTime,
+          mode: 'time',
+          is24Hour: true,
+          display: 'clock',
+          onChange: (event: any, selectedDate?: Date) => {
+            if (event.type === 'set' && selectedDate) {
+              const res = new Date(baseDate);
+              res.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+              if (mode === 'start') {
+                setStartTime(res);
+              } else {
+                setEndTime(res);
+              }
+            }
+          },
+        });
+        return;
+      } catch (err) {
+        console.warn('Native Android DateTimePicker error:', err);
+      }
+    }
+
+    // Dự phòng cho iOS hoặc Web
+    setSelectedHour(initialTime.getHours());
+    setSelectedMinute(initialTime.getMinutes());
+    setTimePickerTab('hour');
     setShowTimeModal(mode);
+  };
+
+  const handleStepHour = (delta: number) => {
+    setSelectedHour((prev) => (prev + delta + 24) % 24);
+  };
+
+  const handleStepMinute = (delta: number) => {
+    setSelectedMinute((prev) => (prev + delta + 60) % 60);
+  };
+
+  const handleSelectHour = (h: number) => {
+    setSelectedHour(h);
+    setTimePickerTab('minute');
   };
 
   const leaveDurationTypes = ["1/4 ngày", "1/2 ngày", "3/4 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
@@ -294,11 +342,15 @@ export default function CreateRequestScreen() {
   };
 
   const handleSelectDay = (day: number) => {
-    const chosen = new Date(calendarYear, calendarMonth, day, 12, 0, 0);
+    const chosen = new Date(calendarYear, calendarMonth, day, 0, 0, 0, 0);
     if (showDatePicker === 'from' || showDatePicker === 'single') {
       setFromDate(chosen);
-      if (showDatePicker === 'from' && toDate && chosen > toDate) {
-        setToDate(null);
+      if (showDatePicker === 'from' && toDate) {
+        const toNormalized = new Date(toDate);
+        toNormalized.setHours(0, 0, 0, 0);
+        if (chosen.getTime() > toNormalized.getTime()) {
+          setToDate(null);
+        }
       }
     } else if (showDatePicker === 'to') {
       setToDate(chosen);
@@ -309,16 +361,53 @@ export default function CreateRequestScreen() {
   const handleQuickDateSelect = (daysOffset: number) => {
     const target = new Date();
     target.setDate(target.getDate() + daysOffset);
-    target.setHours(12, 0, 0, 0);
+    target.setHours(0, 0, 0, 0);
     if (showDatePicker === 'from' || showDatePicker === 'single') {
       setFromDate(target);
-      if (showDatePicker === 'from' && toDate && target > toDate) {
-        setToDate(null);
+      if (showDatePicker === 'from' && toDate) {
+        const toNormalized = new Date(toDate);
+        toNormalized.setHours(0, 0, 0, 0);
+        if (target.getTime() > toNormalized.getTime()) {
+          setToDate(null);
+        }
       }
     } else if (showDatePicker === 'to') {
       setToDate(target);
     }
     setShowDatePicker(null);
+  };
+
+  const currentPickerTime = useMemo(() => {
+    if (showTimeModal === 'start') {
+      if (startTime) return startTime;
+      const d = new Date(fromDate || new Date());
+      d.setHours(8, 0, 0, 0);
+      return d;
+    }
+    if (showTimeModal === 'end') {
+      if (endTime) return endTime;
+      const d = new Date(toDate || fromDate || new Date());
+      d.setHours(17, 30, 0, 0);
+      return d;
+    }
+    return new Date();
+  }, [showTimeModal, startTime, endTime, fromDate, toDate]);
+
+  const handleNativeTimeChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimeModal(null);
+    }
+    if (selectedDate && (event.type === 'set' || Platform.OS === 'ios')) {
+      const baseDate = (showTimeModal === 'start' ? fromDate : (toDate || fromDate)) || new Date();
+      const resultTime = new Date(baseDate);
+      resultTime.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+
+      if (showTimeModal === 'start') {
+        setStartTime(resultTime);
+      } else if (showTimeModal === 'end') {
+        setEndTime(resultTime);
+      }
+    }
   };
 
   const handleConfirmTime = () => {
@@ -349,7 +438,9 @@ export default function CreateRequestScreen() {
 
   const formatTime = (date: Date | null) => {
     if (!date) return '';
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const h = String(date.getHours()).padStart(2, '0');
+    const m = String(date.getMinutes()).padStart(2, '0');
+    return `${h}:${m}`;
   };
 
   const formatDate = (date: Date | null) => {
@@ -399,7 +490,11 @@ export default function CreateRequestScreen() {
         showAlert('Lỗi', 'Vui lòng chọn Ngày kết thúc công tác.');
         return;
       }
-      if (toDate < fromDate) {
+      const fromDay = new Date(fromDate);
+      fromDay.setHours(0, 0, 0, 0);
+      const toDay = new Date(toDate);
+      toDay.setHours(0, 0, 0, 0);
+      if (toDay.getTime() < fromDay.getTime()) {
         showAlert('Lỗi', 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.');
         return;
       }
@@ -437,9 +532,19 @@ export default function CreateRequestScreen() {
         showAlert('Lỗi', 'Vui lòng nhập đầy đủ thông tin Loại nghỉ, Ngày nghỉ');
         return;
       }
-      if (leaveDurationType === 'Nhiều ngày' && !toDate) {
-        showAlert('Lỗi', 'Vui lòng chọn Ngày kết thúc');
-        return;
+      if (leaveDurationType === 'Nhiều ngày') {
+        if (!toDate) {
+          showAlert('Lỗi', 'Vui lòng chọn Ngày kết thúc');
+          return;
+        }
+        const fromDay = new Date(fromDate);
+        fromDay.setHours(0, 0, 0, 0);
+        const toDay = new Date(toDate);
+        toDay.setHours(0, 0, 0, 0);
+        if (toDay.getTime() < fromDay.getTime()) {
+          showAlert('Lỗi', 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.');
+          return;
+        }
       }
     }
     if (isLateOrEarly) {
@@ -1618,51 +1723,220 @@ export default function CreateRequestScreen() {
         </View>
       </Modal>
 
-      {/* Custom Cross-Platform Time Picker Modal */}
+      {/* Modern High-End Time Picker Modal (Hoạt động mượt mà trên mọi nền tảng: Web, iOS, Android) */}
       <Modal visible={showTimeModal !== null} transparent animationType="fade" onRequestClose={() => setShowTimeModal(null)}>
         <View style={styles.modalOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowTimeModal(null)} />
-          <View style={styles.timeModalContent}>
+          <View style={styles.modernTimeModalContent}>
             {/* Header */}
-            <View style={styles.modalHeaderRow}>
-              <View style={{ width: 28 }} />
-              <Text style={styles.modalTitle}>
-                {showTimeModal === 'start' ? 'Chọn giờ bắt đầu' : 'Chọn giờ kết thúc'}
-              </Text>
-              <Pressable onPress={() => setShowTimeModal(null)} style={styles.modalCloseBtn}>
-                <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
+            <View style={styles.timeHeaderRow}>
+              <View style={styles.timeHeaderLeft}>
+                <View style={styles.timeHeaderIconCircle}>
+                  <MaterialCommunityIcons name="clock-outline" size={20} color="#2563EB" />
+                </View>
+                <View>
+                  <Text style={styles.timeModalTitle}>
+                    {showTimeModal === 'start' ? 'Chọn giờ bắt đầu' : 'Chọn giờ kết thúc'}
+                  </Text>
+                  <Text style={styles.timeModalSubtitle}>Chạm để chỉnh giờ hoặc phút</Text>
+                </View>
+              </View>
+              <Pressable onPress={() => setShowTimeModal(null)} style={styles.modalCloseBtn} hitSlop={8}>
+                <MaterialCommunityIcons name="close" size={18} color="#64748B" />
               </Pressable>
             </View>
 
-            {/* Digital Display */}
-            <View style={styles.timeDisplayBox}>
-              <Text style={styles.timeDisplayText}>
-                {`${String(selectedHour).padStart(2, '0')} : ${String(selectedMinute).padStart(2, '0')}`}
-              </Text>
+            {/* Hero Digital Clock Box with Steppers */}
+            <View style={styles.heroClockWrap}>
+              {/* Hour Box */}
+              <View style={styles.clockBlockCol}>
+                <Pressable
+                  style={[
+                    styles.clockDigitalCard,
+                    timePickerTab === 'hour' && styles.clockDigitalCardActive,
+                  ]}
+                  onPress={() => setTimePickerTab('hour')}
+                >
+                  <Text style={[
+                    styles.clockDigitalNum,
+                    timePickerTab === 'hour' && styles.clockDigitalNumActive,
+                  ]}>
+                    {String(selectedHour).padStart(2, '0')}
+                  </Text>
+                  <Text style={[
+                    styles.clockDigitalLabel,
+                    timePickerTab === 'hour' && styles.clockDigitalLabelActive,
+                  ]}>
+                    GIỜ
+                  </Text>
+                </Pressable>
+                <View style={styles.clockStepperRow}>
+                  <TouchableOpacity
+                    style={styles.clockStepperBtn}
+                    onPress={() => handleStepHour(-1)}
+                    hitSlop={6}
+                  >
+                    <MaterialCommunityIcons name="minus" size={16} color="#475569" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.clockStepperBtn}
+                    onPress={() => handleStepHour(1)}
+                    hitSlop={6}
+                  >
+                    <MaterialCommunityIcons name="plus" size={16} color="#475569" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Colon */}
+              <View style={styles.clockColonWrap}>
+                <Text style={styles.clockColonText}>:</Text>
+              </View>
+
+              {/* Minute Box */}
+              <View style={styles.clockBlockCol}>
+                <Pressable
+                  style={[
+                    styles.clockDigitalCard,
+                    timePickerTab === 'minute' && styles.clockDigitalCardActive,
+                  ]}
+                  onPress={() => setTimePickerTab('minute')}
+                >
+                  <Text style={[
+                    styles.clockDigitalNum,
+                    timePickerTab === 'minute' && styles.clockDigitalNumActive,
+                  ]}>
+                    {String(selectedMinute).padStart(2, '0')}
+                  </Text>
+                  <Text style={[
+                    styles.clockDigitalLabel,
+                    timePickerTab === 'minute' && styles.clockDigitalLabelActive,
+                  ]}>
+                    PHÚT
+                  </Text>
+                </Pressable>
+                <View style={styles.clockStepperRow}>
+                  <TouchableOpacity
+                    style={styles.clockStepperBtn}
+                    onPress={() => handleStepMinute(-5)}
+                    hitSlop={6}
+                  >
+                    <MaterialCommunityIcons name="minus" size={16} color="#475569" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.clockStepperBtn}
+                    onPress={() => handleStepMinute(5)}
+                    hitSlop={6}
+                  >
+                    <MaterialCommunityIcons name="plus" size={16} color="#475569" />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
 
-            {/* Quick Presets */}
-            <Text style={styles.pickerSectionLabel}>Khung giờ phổ biến</Text>
-            <View style={styles.presetPillsWrap}>
+            {/* Segment Tab Switcher */}
+            <View style={styles.timeTabSwitcher}>
+              <Pressable
+                style={[styles.timeTabItem, timePickerTab === 'hour' && styles.timeTabItemActive]}
+                onPress={() => setTimePickerTab('hour')}
+              >
+                <Text style={[styles.timeTabText, timePickerTab === 'hour' && styles.timeTabTextActive]}>
+                  Bảng chọn Giờ (00 - 23)
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.timeTabItem, timePickerTab === 'minute' && styles.timeTabItemActive]}
+                onPress={() => setTimePickerTab('minute')}
+              >
+                <Text style={[styles.timeTabText, timePickerTab === 'minute' && styles.timeTabTextActive]}>
+                  Bảng chọn Phút (:00 - :55)
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Numeric Grid Container */}
+            <View style={styles.timePadContainer}>
+              {timePickerTab === 'hour' ? (
+                <View>
+                  <Text style={styles.timeGroupLabel}>Giờ ban ngày & hành chính</Text>
+                  <View style={styles.timeGrid6}>
+                    {[6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((h) => {
+                      const isSel = selectedHour === h;
+                      return (
+                        <TouchableOpacity
+                          key={`h-${h}`}
+                          style={[styles.timeChip6, isSel && styles.timeChipActive]}
+                          onPress={() => handleSelectHour(h)}
+                        >
+                          <Text style={[styles.timeChipText, isSel && styles.timeChipTextActive]}>
+                            {String(h).padStart(2, '0')}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={[styles.timeGroupLabel, { marginTop: 10 }]}>Giờ tối & sáng sớm</Text>
+                  <View style={styles.timeGrid6}>
+                    {[19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5].map((h) => {
+                      const isSel = selectedHour === h;
+                      return (
+                        <TouchableOpacity
+                          key={`h-${h}`}
+                          style={[styles.timeChip6, isSel && styles.timeChipActive]}
+                          onPress={() => handleSelectHour(h)}
+                        >
+                          <Text style={[styles.timeChipText, isSel && styles.timeChipTextActive]}>
+                            {String(h).padStart(2, '0')}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : (
+                <View>
+                  <Text style={styles.timeGroupLabel}>Chọn nhanh theo 5 phút</Text>
+                  <View style={styles.timeGrid4}>
+                    {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => {
+                      const isSel = selectedMinute === m;
+                      return (
+                        <TouchableOpacity
+                          key={`m-${m}`}
+                          style={[styles.timeChip4, isSel && styles.timeChipActive]}
+                          onPress={() => setSelectedMinute(m)}
+                        >
+                          <Text style={[styles.timeChipText4, isSel && styles.timeChipTextActive]}>
+                            :{String(m).padStart(2, '0')}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Quick Presets for work shifts */}
+            <Text style={[styles.timeGroupLabel, { marginTop: 12 }]}>Khung giờ làm việc phổ biến</Text>
+            <View style={styles.presetPillsRow}>
               {[
                 { label: '08:00', h: 8, m: 0 },
                 { label: '08:30', h: 8, m: 30 },
                 { label: '09:00', h: 9, m: 0 },
-                { label: '11:30', h: 11, m: 30 },
                 { label: '12:00', h: 12, m: 0 },
                 { label: '13:30', h: 13, m: 30 },
-                { label: '17:00', h: 17, m: 0 },
                 { label: '17:30', h: 17, m: 30 },
                 { label: '18:00', h: 18, m: 0 },
               ].map((p, idx) => {
-                const isCurrent = selectedHour === p.h && selectedMinute === p.m;
+                const isCur = selectedHour === p.h && selectedMinute === p.m;
                 return (
                   <TouchableOpacity
                     key={idx}
-                    style={[styles.presetPill, isCurrent && styles.presetPillActive]}
+                    style={[styles.presetChip, isCur && styles.presetChipActive]}
                     onPress={() => handleSelectPresetTime(p.h, p.m)}
                   >
-                    <Text style={[styles.presetPillText, isCurrent && styles.presetPillTextActive]}>
+                    <Text style={[styles.presetChipText, isCur && styles.presetChipTextActive]}>
                       {p.label}
                     </Text>
                   </TouchableOpacity>
@@ -1670,51 +1944,16 @@ export default function CreateRequestScreen() {
               })}
             </View>
 
-            {/* Hour Selector */}
-            <Text style={styles.pickerSectionLabel}>Chọn giờ (0 - 23)</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScrollRow}>
-              {Array.from({ length: 24 }, (_, i) => i).map((h) => {
-                const isSelected = selectedHour === h;
-                return (
-                  <TouchableOpacity
-                    key={`h-${h}`}
-                    style={[styles.selectorChip, isSelected && styles.selectorChipActive]}
-                    onPress={() => setSelectedHour(h)}
-                  >
-                    <Text style={[styles.selectorChipText, isSelected && styles.selectorChipTextActive]}>
-                      {String(h).padStart(2, '0')}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {/* Minute Selector */}
-            <Text style={styles.pickerSectionLabel}>Chọn phút</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.selectorScrollRow}>
-              {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => {
-                const isSelected = selectedMinute === m;
-                return (
-                  <TouchableOpacity
-                    key={`m-${m}`}
-                    style={[styles.selectorChip, isSelected && styles.selectorChipActive]}
-                    onPress={() => setSelectedMinute(m)}
-                  >
-                    <Text style={[styles.selectorChipText, isSelected && styles.selectorChipTextActive]}>
-                      {String(m).padStart(2, '0')}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {/* Confirm Actions */}
-            <View style={styles.timeModalActions}>
-              <TouchableOpacity style={styles.timeCancelBtn} onPress={() => setShowTimeModal(null)}>
-                <Text style={styles.timeCancelBtnText}>Hủy</Text>
+            {/* Footer Confirm Actions */}
+            <View style={styles.timeFooterActions}>
+              <TouchableOpacity style={styles.timeCancelBtnNew} onPress={() => setShowTimeModal(null)}>
+                <Text style={styles.timeCancelBtnTextNew}>Đóng</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.timeConfirmBtn} onPress={handleConfirmTime}>
-                <Text style={styles.timeConfirmBtnText}>Xác nhận</Text>
+              <TouchableOpacity style={styles.timeConfirmBtnNew} onPress={handleConfirmTime}>
+                <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.timeConfirmBtnTextNew}>
+                  {`Xác nhận ${String(selectedHour).padStart(2, '0')}:${String(selectedMinute).padStart(2, '0')}`}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2558,63 +2797,190 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#15803D',
   },
-  timeDisplayBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    paddingVertical: 12,
+  modernTimeModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  timeHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  timeHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  timeHeaderIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  timeModalSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  heroClockWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    marginBottom: 14,
   },
-  timeDisplayText: {
-    fontSize: 26,
+  clockBlockCol: {
+    alignItems: 'center',
+  },
+  clockDigitalCard: {
+    width: 88,
+    height: 72,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  clockDigitalCardActive: {
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 2,
+  },
+  clockDigitalNum: {
+    fontSize: 32,
     fontWeight: '800',
-    color: '#1B382B',
-    letterSpacing: 2,
+    color: '#334155',
+    letterSpacing: 1,
   },
-  pickerSectionLabel: {
+  clockDigitalNumActive: {
+    color: '#1D4ED8',
+  },
+  clockDigitalLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 1,
+    marginTop: 1,
+  },
+  clockDigitalLabelActive: {
+    color: '#2563EB',
+  },
+  clockStepperRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  clockStepperBtn: {
+    width: 36,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clockColonWrap: {
+    paddingHorizontal: 12,
+    paddingBottom: 28,
+  },
+  clockColonText: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  timeTabSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 12,
+  },
+  timeTabItem: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 9,
+    alignItems: 'center',
+  },
+  timeTabItemActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  timeTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  timeTabTextActive: {
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  timePadContainer: {
+    minHeight: 120,
+    justifyContent: 'center',
+  },
+  timeGroupLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: '#64748B',
-    marginTop: 8,
     marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
-  presetPillsWrap: {
+  timeGrid6: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: 8,
+    justifyContent: 'flex-start',
   },
-  presetPill: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+  timeChip6: {
+    width: '14.8%',
+    height: 34,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  presetPillActive: {
-    backgroundColor: '#1B382B',
-    borderColor: '#1B382B',
-  },
-  presetPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  presetPillTextActive: {
-    color: '#FFFFFF',
-  },
-  selectorScrollRow: {
+  timeGrid4: {
     flexDirection: 'row',
-    gap: 6,
-    paddingVertical: 4,
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
   },
-  selectorChip: {
-    width: 44,
+  timeChip4: {
+    width: '22.8%',
     height: 38,
     borderRadius: 10,
     backgroundColor: '#F8FAFC',
@@ -2623,47 +2989,87 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  selectorChipActive: {
-    backgroundColor: '#1B382B',
-    borderColor: '#1B382B',
+  timeChipActive: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
   },
-  selectorChipText: {
+  timeChipText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#334155',
   },
-  selectorChipTextActive: {
+  timeChipText4: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  timeChipTextActive: {
     color: '#FFFFFF',
     fontWeight: '700',
   },
-  timeModalActions: {
+  presetPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  presetChip: {
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  presetChipActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
+  },
+  presetChipText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  presetChipTextActive: {
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+  timeFooterActions: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 16,
+    marginTop: 18,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
-  timeCancelBtn: {
+  timeCancelBtnNew: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  timeCancelBtnText: {
+  timeCancelBtnTextNew: {
     fontSize: 14,
     fontWeight: '600',
     color: '#64748B',
   },
-  timeConfirmBtn: {
-    flex: 1,
+  timeConfirmBtnNew: {
+    flex: 2,
+    flexDirection: 'row',
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#1B382B',
+    backgroundColor: '#2563EB',
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  timeConfirmBtnText: {
+  timeConfirmBtnTextNew: {
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
