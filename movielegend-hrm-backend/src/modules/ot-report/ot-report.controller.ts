@@ -52,6 +52,12 @@ export class OtReportController {
     return this.otReportService.findPendingReports(actor, query);
   }
 
+  @ApiOperation({ summary: 'Lấy danh sách các ca/ngày đã check-in trong 7 ngày gần nhất để làm báo cáo OT' })
+  @Get('eligible-checkins')
+  getEligibleCheckins(@CurrentUser() actor: AuthenticatedUser) {
+    return this.otReportService.getEligibleCheckins(actor);
+  }
+
   @ApiOperation({ summary: 'Xem chi tiết 1 báo cáo OT' })
   @Get(':id')
   findOne(

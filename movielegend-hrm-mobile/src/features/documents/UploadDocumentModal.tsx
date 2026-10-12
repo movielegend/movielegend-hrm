@@ -285,7 +285,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
           <View style={styles.headerRow}>
             <View style={styles.headerLeftGroup}>
               <View style={styles.headerIconBox}>
-                <MaterialCommunityIcons name="cloud-upload-outline" size={20} color="#1B3B2B" />
+                <MaterialCommunityIcons name="cloud-upload-outline" size={20} color="#102739" />
               </View>
               <Text style={styles.headerTitle}>Tải lên tài liệu</Text>
             </View>
@@ -331,7 +331,7 @@ export function UploadDocumentModal({ visible, onClose, onSuccess, currentDepart
                 </View>
               ) : (
                 <View style={styles.emptyUploadBox}>
-                  <MaterialCommunityIcons name="cloud-upload-outline" size={38} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="cloud-upload-outline" size={38} color="#102739" />
                   <Text style={styles.uploadZoneTitle}>Chạm để chọn tệp</Text>
                   <Text style={styles.uploadZoneSubtitle}>PDF, Word, Excel, hình ảnh</Text>
                   <Text style={styles.uploadZoneSubtitle}>Tối đa 10 MB</Text>
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   /* Upload Dropzone Card */
   uploadZoneCard: {
     borderWidth: 1.5,
-    borderColor: '#A7F3D0',
+    borderColor: '#94B5CB',
     borderStyle: 'dashed',
     borderRadius: 14,
     backgroundColor: '#F0FDF4',
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 46,
     borderRadius: 12,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
   },

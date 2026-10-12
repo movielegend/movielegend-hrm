@@ -143,7 +143,7 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
       {/* 4. Content List or Empty State */}
       {list.isLoading ? (
         <View style={crossListStyles.centerBox}>
-          <ActivityIndicator size="large" color="#1B382B" />
+          <ActivityIndicator size="large" color="#102739" />
         </View>
       ) : list.isError ? (
         <View style={crossListStyles.centerBox}>
@@ -158,7 +158,7 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
           refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => void list.refetch()} />}
         >
           <View style={crossListStyles.emptyIconBg}>
-            <MaterialCommunityIcons name="inbox-arrow-down-outline" size={38} color="#166534" />
+            <MaterialCommunityIcons name="inbox-arrow-down-outline" size={38} color="#102739" />
           </View>
           <Text style={crossListStyles.emptyTitle}>Không có yêu cầu phù hợp</Text>
           <Text style={crossListStyles.emptySubtitle}>
@@ -224,7 +224,7 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
                   {opt.label}
                 </Text>
                 {activeTab === opt.key && (
-                  <MaterialCommunityIcons name="check" size={18} color="#166534" />
+                  <MaterialCommunityIcons name="check" size={18} color="#102739" />
                 )}
               </Pressable>
             ))}
@@ -1277,7 +1277,7 @@ const crossListStyles = StyleSheet.create({
   headerAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -1305,7 +1305,7 @@ const crossListStyles = StyleSheet.create({
     borderRadius: 8,
   },
   segmentBtnActive: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -1379,7 +1379,7 @@ const crossListStyles = StyleSheet.create({
   },
   resetFilterBtn: {
     borderWidth: 1.5,
-    borderColor: '#1B382B',
+    borderColor: '#102739',
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 20,
@@ -1387,7 +1387,7 @@ const crossListStyles = StyleSheet.create({
   resetFilterText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1B382B',
+    color: '#102739',
   },
   listContent: {
     padding: 16,
@@ -1426,7 +1426,7 @@ const crossListStyles = StyleSheet.create({
     borderRadius: 8,
   },
   modalOptionActive: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#E7F0F7',
   },
   modalOptionText: {
     fontSize: 14,
@@ -1435,6 +1435,6 @@ const crossListStyles = StyleSheet.create({
   },
   modalOptionTextActive: {
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
 });

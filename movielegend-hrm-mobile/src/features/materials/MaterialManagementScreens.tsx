@@ -44,7 +44,7 @@ export function AssetDepartmentListScreen() {
           showBack={false}
           right={
             <Pressable style={styles.historyBtn}>
-              <MaterialCommunityIcons name="history" size={22} color="#111827" />
+              <MaterialCommunityIcons name="history" size={22} color="#102739" />
             </Pressable>
           }
         />
@@ -67,7 +67,7 @@ export function AssetDepartmentListScreen() {
           <View style={[styles.sectionHeaderRow, { marginTop: 0, marginBottom: 0 }]}>
             <Text style={[styles.sectionLabelHeader, { marginTop: 0, marginHorizontal: 0, marginBottom: 0 }]}>Danh sách phòng ban</Text>
             <View style={styles.countBadge}>
-              <MaterialCommunityIcons name="office-building" size={14} color="#111827" />
+              <MaterialCommunityIcons name="office-building" size={14} color="#102739" />
               <Text style={styles.countBadgeText}>{filteredDepartments?.length || 0} Đơn vị</Text>
             </View>
           </View>
@@ -80,7 +80,7 @@ export function AssetDepartmentListScreen() {
               <View style={[styles.popularDeptCard, { marginBottom: 0 }]}>
                 <View style={styles.deptCardTop}>
                   <View style={styles.popularDeptIcon}>
-                    <MaterialCommunityIcons name="office-building" size={24} color="#111827" />
+                    <MaterialCommunityIcons name="office-building" size={24} color="#102739" />
                   </View>
                   <View style={styles.popularDeptInfo}>
                     <Text style={styles.popularDeptName}>{dept.name}</Text>
@@ -329,15 +329,15 @@ export function AssetDepartmentScreen() {
       >
         <View style={{ marginBottom: 16 }}>
           <Pressable style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }} onPress={() => setDamagedAction('DAMAGED')}>
-            <MaterialCommunityIcons name={damagedAction === 'DAMAGED' ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={damagedAction === 'DAMAGED' ? '#111827' : '#98A0A8'} />
+            <MaterialCommunityIcons name={damagedAction === 'DAMAGED' ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={damagedAction === 'DAMAGED' ? '#102739' : '#98A0A8'} />
             <Text style={{ marginLeft: 8, fontSize: 16 }}>Thu hồi về kho</Text>
           </Pressable>
           <Pressable style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }} onPress={() => setDamagedAction('MAINTENANCE')}>
-            <MaterialCommunityIcons name={damagedAction === 'MAINTENANCE' ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={damagedAction === 'MAINTENANCE' ? '#111827' : '#98A0A8'} />
+            <MaterialCommunityIcons name={damagedAction === 'MAINTENANCE' ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={damagedAction === 'MAINTENANCE' ? '#102739' : '#98A0A8'} />
             <Text style={{ marginLeft: 8, fontSize: 16 }}>Chuyển đi sửa chữa</Text>
           </Pressable>
           <Pressable style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => setDamagedAction('DISPOSED')}>
-            <MaterialCommunityIcons name={damagedAction === 'DISPOSED' ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={damagedAction === 'DISPOSED' ? '#111827' : '#98A0A8'} />
+            <MaterialCommunityIcons name={damagedAction === 'DISPOSED' ? 'radiobox-marked' : 'radiobox-blank'} size={24} color={damagedAction === 'DISPOSED' ? '#102739' : '#98A0A8'} />
             <Text style={{ marginLeft: 8, fontSize: 16 }}>Thanh lý</Text>
           </Pressable>
         </View>
@@ -490,17 +490,17 @@ function AssetCard({ asset, employees, onPress, onRevoke, onAssign, onTransfer, 
 
         <View style={styles.assetActionsTeal}>
           <Pressable style={styles.actionBtnTeal} onPress={() => router.push(`/admin/assets/${asset.id}/edit` as never)}>
-            <MaterialCommunityIcons name="pencil-outline" size={18} color="#111827" />
+            <MaterialCommunityIcons name="pencil-outline" size={18} color="#102739" />
             <Text style={styles.actionBtnTealText}>Sửa</Text>
           </Pressable>
           {asset.assetStatus === 'IN_STOCK' ? (
             <>
               <Pressable style={styles.actionBtnTeal} onPress={onAssign}>
-                <MaterialCommunityIcons name="rocket-launch-outline" size={18} color="#111827" />
+                <MaterialCommunityIcons name="rocket-launch-outline" size={18} color="#102739" />
                 <Text style={styles.actionBtnTealText}>Giao</Text>
               </Pressable>
               <Pressable style={styles.actionBtnTeal} onPress={onTransfer}>
-                <MaterialCommunityIcons name="swap-horizontal" size={18} color="#111827" />
+                <MaterialCommunityIcons name="swap-horizontal" size={18} color="#102739" />
                 <Text style={styles.actionBtnTealText}>Chuyển</Text>
               </Pressable>
             </>
@@ -593,39 +593,39 @@ const styles = StyleSheet.create({
   sectionLabelHeader: { fontSize: 16, fontWeight: '700', color: colors.text, marginHorizontal: spacing.md, marginTop: spacing.md, marginBottom: spacing.sm },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.md },
   countBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, gap: 4 },
-  countBadgeText: { color: '#111827', fontSize: 13, fontWeight: '600' },
+  countBadgeText: { color: '#102739', fontSize: 13, fontWeight: '600' },
   pickerContainer: { marginHorizontal: spacing.md },
   searchDropdown: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF' },
   searchDropdownText: { fontSize: 14 },
   popularDeptCard: { backgroundColor: '#FFF', padding: 16, marginHorizontal: spacing.md, marginBottom: 12, borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   deptCardTop: { flexDirection: 'row', alignItems: 'center' },
-  popularDeptCardSelected: { borderColor: '#111827', backgroundColor: '#F9FAFB' },
+  popularDeptCardSelected: { borderColor: '#102739', backgroundColor: '#F9FAFB' },
   popularDeptIcon: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
   popularDeptInfo: { flex: 1 },
-  popularDeptName: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  popularDeptName: { fontSize: 16, fontWeight: '700', color: '#102739' },
   popularDeptDesc: { fontSize: 13, color: '#64748B', marginTop: 2 },
   deptStatsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, marginTop: 16, gap: 12 },
   deptStatItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   deptStatTextCol: {},
-  deptStatValue: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  deptStatValue: { fontSize: 14, fontWeight: '700', color: '#102739' },
   deptStatLabel: { fontSize: 11, color: '#64748B' },
   deptStatDivider: { width: 1, height: 24, backgroundColor: '#E2E8F0' },
   historyBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
   bannerCard: { flexDirection: 'row', backgroundColor: '#FFF', marginHorizontal: spacing.md, marginTop: 8, marginBottom: spacing.lg, borderRadius: 16, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 },
-  bannerIconBox: { width: 56, height: 56, borderRadius: 16, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+  bannerIconBox: { width: 56, height: 56, borderRadius: 16, backgroundColor: '#102739', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
   bannerTextContainer: { flex: 1, zIndex: 1 },
-  bannerTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 },
+  bannerTitle: { fontSize: 18, fontWeight: '700', color: '#102739', marginBottom: 4 },
   bannerSubtitle: { fontSize: 13, color: '#64748B', lineHeight: 18 },
   bannerImage: { position: 'absolute', right: -10, top: 10, opacity: 0.5 },
   tipCard: { flexDirection: 'row', backgroundColor: '#F9FAFB', marginHorizontal: spacing.md, marginTop: spacing.md, marginBottom: spacing.xl, padding: 16, borderRadius: 12, alignItems: 'flex-start' },
   tipTextContainer: { flex: 1, marginHorizontal: 12 },
-  tipTitle: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 },
+  tipTitle: { fontSize: 14, fontWeight: '700', color: '#102739', marginBottom: 2 },
   tipDesc: { fontSize: 13, color: '#64748B', lineHeight: 18 },
   bottomBar: { padding: spacing.lg, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  continueButton: { backgroundColor: '#111827', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  continueButton: { backgroundColor: '#102739', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
   continueButtonDisabled: { backgroundColor: '#D1D5DB' },
   continueButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  createAssetButton: { backgroundColor: '#111827', borderRadius: 12, paddingVertical: 16, marginHorizontal: spacing.lg, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
+  createAssetButton: { backgroundColor: '#102739', borderRadius: 12, paddingVertical: 16, marginHorizontal: spacing.lg, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
   createAssetButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700', marginLeft: 8 },
   filterDropdownRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.md },
   miniDropdown: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#FFF' },
@@ -642,8 +642,8 @@ const styles = StyleSheet.create({
   assetDetailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   assetDetailText: { fontSize: 12, color: '#64748B', marginLeft: 4 },
   assetActionsTeal: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  actionBtnTeal: { flex: 1, minWidth: '25%', paddingVertical: 8, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#111827', borderRadius: 8 },
-  actionBtnTealText: { color: '#111827', fontSize: 14, fontWeight: '600', marginLeft: 4 },
+  actionBtnTeal: { flex: 1, minWidth: '25%', paddingVertical: 8, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#102739', borderRadius: 8 },
+  actionBtnTealText: { color: '#102739', fontSize: 14, fontWeight: '600', marginLeft: 4 },
   searchBarContainerDept: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#F1F5F9', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12, marginHorizontal: spacing.md, backgroundColor: '#F8FAFC', marginBottom: spacing.md },
   searchInputDept: { flex: 1, marginLeft: 12, fontSize: 15, color: '#334155' },
 });

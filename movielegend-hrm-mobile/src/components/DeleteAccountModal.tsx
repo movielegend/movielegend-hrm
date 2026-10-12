@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
   },
   subtitle: {
     fontSize: 12,
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   selectedName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   selectedSub: {
     fontSize: 11,
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 12,
-    color: '#111827',
+    color: '#102739',
     marginLeft: 6,
     paddingVertical: 0,
   },
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
     fontSize: 13,
-    color: '#111827',
+    color: '#102739',
     textAlignVertical: 'top',
     height: 60,
   },
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     height: 44,
     fontSize: 13,
-    color: '#111827',
+    color: '#102739',
   },
   buttonRow: {
     flexDirection: 'row',

@@ -185,36 +185,189 @@ export class OtReportService {
     return totalValidMinutes > 0 ? totalValidMinutes : declaredOtMinutes;
   }
 
+  /**
+   * Lấy danh sách các ca/ngày đã check-in trong 7 ngày gần nhất để làm báo cáo OT
+   */
+  async getEligibleCheckins(actor: AuthenticatedUser) {
+    const memberships = await this.prisma.departmentMember.findMany({
+      where: { userId: actor.userId, leftAt: null },
+      include: { department: true },
+    });
+    const liveMembership = memberships.find((m) => this.isLiveDepartment(m.department));
+    const isAdmin = actor.roles?.some((r) => r === 'ADMIN' || r === 'SUPER_ADMIN');
+
+    if (!liveMembership && !isAdmin) {
+      throw forbidden('NOT_LIVE_DEPARTMENT', 'Tính năng Báo cáo OT này chỉ áp dụng cho nhân viên phòng Live');
+    }
+
+    const todayStr = this.businessTime.businessDateString(new Date());
+    const todayDate = this.businessTime.startOfBusinessDate(todayStr);
+    const minAllowedDate = this.businessTime.addDays(todayDate, -7);
+
+    // Lấy tất cả lượt điểm danh của user trong vòng 7 ngày gần nhất
+    const records = await this.prisma.attendanceRecord.findMany({
+      where: {
+        userId: actor.userId,
+        workDate: {
+          gte: minAllowedDate,
+          lte: todayDate,
+        },
+      },
+      orderBy: [
+        { workDate: 'desc' },
+        { checkInAt: 'asc' },
+      ],
+    });
+
+    // Lấy các báo cáo OT đã nộp trong khoảng ngày này
+    const existingReports = await this.prisma.otReport.findMany({
+      where: {
+        userId: actor.userId,
+        otDate: {
+          gte: minAllowedDate,
+          lte: todayDate,
+        },
+      },
+    });
+
+    const reportsByDate = new Map<string, (typeof existingReports)[0]>();
+    for (const r of existingReports) {
+      const dateKey = this.businessTime.businessDateString(r.otDate);
+      reportsByDate.set(dateKey, r);
+    }
+
+    // Nhóm records theo ngày công (workDate)
+    const groupedMap = new Map<string, {
+      workDate: string;
+      records: typeof records;
+    }>();
+
+    for (const rec of records) {
+      const dateKey = this.businessTime.businessDateString(rec.workDate);
+      if (!groupedMap.has(dateKey)) {
+        groupedMap.set(dateKey, {
+          workDate: dateKey,
+          records: [],
+        });
+      }
+      groupedMap.get(dateKey)!.records.push(rec);
+    }
+
+    // Xây dựng danh sách kết quả trả về
+    const items = Array.from(groupedMap.values()).map((group) => {
+      const recs = group.records;
+      const firstCheckInAt = recs[0]?.checkInAt ? recs[0].checkInAt.toISOString() : null;
+      let latestOut: Date | null = null;
+      let totalWorkedMinutes = 0;
+
+      const sessions = recs.map((r) => {
+        const inTime = new Date(r.checkInAt);
+        const outTime = r.checkOutAt ? new Date(r.checkOutAt) : null;
+        if (outTime) {
+          if (!latestOut || outTime > latestOut) {
+            latestOut = outTime;
+          }
+          if (outTime > inTime) {
+            totalWorkedMinutes += Math.floor((outTime.getTime() - inTime.getTime()) / 60_000);
+          }
+        }
+        return {
+          id: r.id,
+          checkInAt: r.checkInAt.toISOString(),
+          checkOutAt: r.checkOutAt ? r.checkOutAt.toISOString() : null,
+        };
+      });
+
+      const rep = reportsByDate.get(group.workDate);
+      const existingReport = rep
+        ? {
+            id: rep.id,
+            status: rep.status,
+            proposedPercent: rep.proposedPercent,
+            approvedPercent: rep.approvedPercent,
+            declaredOtMinutes: Math.max(0, Math.floor((rep.endTime.getTime() - rep.startTime.getTime()) / 60_000)),
+            validOtMinutes: rep.validOtMinutes,
+            reason: rep.reason,
+            rejectionReason: rep.rejectionReason,
+          }
+        : null;
+
+      const canReport = !rep || rep.status === OtReportStatus.REJECTED;
+
+      return {
+        workDate: group.workDate,
+        firstCheckInAt,
+        lastCheckOutAt: latestOut ? (latestOut as Date).toISOString() : null,
+        sessions,
+        totalWorkedMinutes,
+        canReport,
+        existingReport,
+      };
+    });
+
+    return items;
+  }
+
   async create(actor: AuthenticatedUser, dto: CreateOtReportDto) {
     // 1. Kiểm tra nhân viên thuộc phòng Live (hỗ trợ nhân sự thuộc nhiều phòng ban)
     const memberships = await this.prisma.departmentMember.findMany({
       where: { userId: actor.userId, leftAt: null },
       include: { department: true },
     });
-    if (!memberships.length) {
+    if (!memberships.length && !actor.roles?.some((r) => r === 'ADMIN' || r === 'SUPER_ADMIN')) {
       throw badRequest('NO_DEPARTMENT', 'Chưa xác định được phòng ban của bạn');
     }
 
-    const liveMembership = memberships.find((m) => this.isLiveDepartment(m.department));
-    if (!liveMembership || !liveMembership.department) {
+    let liveMembership = memberships.find((m) => this.isLiveDepartment(m.department));
+    let department = liveMembership?.department;
+
+    if (!department) {
+      const isAdmin = actor.roles?.some((r) => r === 'ADMIN' || r === 'SUPER_ADMIN');
+      if (isAdmin) {
+        const liveDept = await this.prisma.department.findFirst({
+          where: {
+            OR: [
+              { name: { contains: 'Live', mode: 'insensitive' } },
+              { code: { contains: 'LIVE', mode: 'insensitive' } },
+            ],
+          },
+        });
+        if (liveDept) {
+          department = liveDept;
+        }
+      }
+    }
+
+    if (!department) {
       throw forbidden('NOT_LIVE_DEPARTMENT', 'Tính năng Báo cáo OT này chỉ áp dụng cho nhân viên phòng Live');
     }
-    const department = liveMembership.department;
 
-    // 2. Kiểm tra khoảng ngày OT: Trong hôm nay và 2 ngày trước (Window T-2 đến T)
+    // 2. Kiểm tra khoảng ngày OT: Trong vòng 7 ngày gần nhất (Window T-7 đến T)
     const todayStr = this.businessTime.businessDateString(new Date());
     const todayDate = this.businessTime.startOfBusinessDate(todayStr);
     const otWorkDate = this.businessTime.startOfBusinessDate(dto.otDate);
 
-    const minAllowedDate = this.businessTime.addDays(todayDate, -2);
+    const minAllowedDate = this.businessTime.addDays(todayDate, -7);
     if (otWorkDate < minAllowedDate || otWorkDate > todayDate) {
       throw badRequest(
         'INVALID_OT_DATE_RANGE',
-        `Chỉ được tạo báo cáo OT cho ngày hôm nay và 2 ngày trước (${this.businessTime.businessDateString(minAllowedDate)} đến ${todayStr})`,
+        `Chỉ được tạo báo cáo OT cho các ngày trong vòng 7 ngày gần nhất (${this.businessTime.businessDateString(minAllowedDate)} đến ${todayStr})`,
       );
     }
 
-    // 3. Không bắt buộc phải có check-in trong ngày (cho phép gửi báo cáo OT ngay cả khi chưa/không check-in)
+    // 3. Bắt buộc phải có check-in trong ngày làm việc
+    const checkInRecords = await this.prisma.attendanceRecord.findMany({
+      where: {
+        userId: actor.userId,
+        workDate: otWorkDate,
+      },
+    });
+    if (!checkInRecords || checkInRecords.length === 0) {
+      throw badRequest(
+        'CHECK_IN_REQUIRED',
+        'Bạn phải có lượt check-in trong ngày làm việc này mới được tạo báo cáo OT',
+      );
+    }
 
     // 4. Kiểm tra mỗi nhân viên chỉ có 1 báo cáo cho mỗi ngày OT (nếu đã REJECTED thì cho phép nộp lại)
     const existing = await this.prisma.otReport.findUnique({

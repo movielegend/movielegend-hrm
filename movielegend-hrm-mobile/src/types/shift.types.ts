@@ -80,7 +80,11 @@ export interface ShiftSwap {
   toShiftId: string;
   fromDate: string;
   toDate: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'PENDING_TARGET_APPROVAL' | 'PENDING_LEADER_APPROVAL';
   reason?: string | null;
   createdAt?: string;
+  requester?: EmployeeUser & { fullName?: string };
+  target?: EmployeeUser & { fullName?: string };
+  fromShift?: Shift;
+  toShift?: Shift;
 }

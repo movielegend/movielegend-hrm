@@ -60,17 +60,17 @@ export function RegistrationIntroScreen() {
               resizeMode="contain" 
             />
             <Text style={{ fontSize: 22, fontWeight: '900', color: '#000000', letterSpacing: 1.5, marginBottom: 12 }}>MOVIE LEGEND</Text>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 }}>Đăng ký</Text>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#102739', marginBottom: 4 }}>Đăng ký</Text>
             <Text style={{ fontSize: 14, fontWeight: '500', color: '#6B7280' }}>Tạo tài khoản mới cho ML Group</Text>
           </View>
           
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 }}>Quy trình đăng ký</Text>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#102739', marginBottom: 16 }}>Quy trình đăng ký</Text>
             <View style={{ gap: 16, marginBottom: 32 }}>
               {['Thông tin tài khoản', 'Hồ sơ cá nhân', 'Chọn phòng ban', 'Kiểm tra và gửi'].map((item, index) => (
                 <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: 'rgba(255, 255, 255, 0.88)', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: '#ECEEF3' }}>
                   <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>{index + 1}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#102739' }}>{index + 1}</Text>
                   </View>
                   <Text style={{ fontSize: 16, fontWeight: '600', color: '#374151' }}>{item}</Text>
                 </View>
@@ -83,7 +83,7 @@ export function RegistrationIntroScreen() {
             <View style={{ flexDirection: 'row', marginTop: 24, justifyContent: 'center' }}>
               <Text style={{ fontSize: 14, fontWeight: '500', color: '#6B7280' }}>Đã có tài khoản? </Text>
               <Pressable onPress={() => router.replace('/login')}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>Đăng nhập</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#102739' }}>Đăng nhập</Text>
               </Pressable>
             </View>
           </View>
@@ -202,9 +202,9 @@ export function RegistrationAccountScreen() {
             <View style={{ marginBottom: 24, paddingTop: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
                 <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-                  <Ionicons name="arrow-back" size={24} color="#111827" />
+                  <Ionicons name="arrow-back" size={24} color="#102739" />
                 </Pressable>
-                <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Thông tin tài khoản</Text>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#102739' }}>Thông tin tài khoản</Text>
               </View>
               <StepBar currentStep={1} />
             </View>
@@ -437,9 +437,9 @@ export function RegistrationPersonalScreen() {
             <View style={{ marginBottom: 24, paddingTop: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
                 <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-                  <Ionicons name="arrow-back" size={24} color="#111827" />
+                  <Ionicons name="arrow-back" size={24} color="#102739" />
                 </Pressable>
-                <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Hồ sơ cá nhân</Text>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#102739' }}>Hồ sơ cá nhân</Text>
               </View>
               <StepBar currentStep={2} />
             </View>
@@ -503,8 +503,8 @@ export function RegistrationPersonalScreen() {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Ionicons name="calendar-outline" size={20} color={dob ? '#111827' : '#9CA3AF'} />
-                    <Text style={{ color: dob ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: dob ? '600' : '400' }}>
+                    <Ionicons name="calendar-outline" size={20} color={dob ? '#102739' : '#9CA3AF'} />
+                    <Text style={{ color: dob ? '#102739' : '#9CA3AF', fontSize: 15, fontWeight: dob ? '600' : '400' }}>
                       {dob ? (() => {
                         const parts = dob.split('-');
                         return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dob;
@@ -547,13 +547,13 @@ export function RegistrationPersonalScreen() {
                           gap: 6,
                           height: 56, 
                           borderWidth: 1, 
-                          borderColor: isSelected ? '#111827' : '#ECEEF3', 
+                          borderColor: isSelected ? '#102739' : '#ECEEF3', 
                           borderRadius: 12, 
                           backgroundColor: isSelected ? '#F9FAFB' : '#FFFFFF' 
                         }}
                       >
-                        <Ionicons name={item.icon as any} size={18} color={isSelected ? '#111827' : '#6B7280'} />
-                        <Text style={{ color: isSelected ? '#111827' : '#6B7280', fontSize: 15, fontWeight: isSelected ? '600' : '500' }}>
+                        <Ionicons name={item.icon as any} size={18} color={isSelected ? '#102739' : '#6B7280'} />
+                        <Text style={{ color: isSelected ? '#102739' : '#6B7280', fontSize: 15, fontWeight: isSelected ? '600' : '500' }}>
                           {item.label}
                         </Text>
                       </Pressable>
@@ -587,8 +587,8 @@ export function RegistrationPersonalScreen() {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 }}>
-                    <Ionicons name="briefcase-outline" size={20} color={joinDate ? '#111827' : '#9CA3AF'} />
-                    <Text numberOfLines={1} style={{ color: joinDate ? '#111827' : '#9CA3AF', fontSize: 15, fontWeight: joinDate ? '600' : '400' }}>
+                    <Ionicons name="briefcase-outline" size={20} color={joinDate ? '#102739' : '#9CA3AF'} />
+                    <Text numberOfLines={1} style={{ color: joinDate ? '#102739' : '#9CA3AF', fontSize: 15, fontWeight: joinDate ? '600' : '400' }}>
                       {joinDate ? (() => {
                         const parts = joinDate.split('-');
                         return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : joinDate;
@@ -617,7 +617,7 @@ export function RegistrationPersonalScreen() {
                 onPress={submit}
                 disabled={checking}
                 style={{
-                  backgroundColor: checking ? '#475569' : '#111827',
+                  backgroundColor: checking ? '#475569' : '#102739',
                   height: 60,
                   borderRadius: 12,
                   alignItems: 'center',
@@ -721,9 +721,9 @@ export function RegistrationDepartmentScreen() {
           <View style={{ marginBottom: 24, paddingTop: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <Pressable onPress={handleBack} style={{ padding: 4, marginRight: 12 }}>
-                <Ionicons name="arrow-back" size={24} color="#111827" />
+                <Ionicons name="arrow-back" size={24} color="#102739" />
               </Pressable>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>{getTitle()}</Text>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: '#102739' }}>{getTitle()}</Text>
             </View>
             <StepBar currentStep={3} />
           </View>
@@ -742,7 +742,7 @@ export function RegistrationDepartmentScreen() {
                 onPress={() => setSelectedRegionId(region.id)}
                 style={{ backgroundColor: '#FFFFFF', borderColor: '#ECEEF3', borderRadius: 12, borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
               >
-                <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700' }}>{region.name}</Text>
+                <Text style={{ color: '#102739', fontSize: 16, fontWeight: '700' }}>{region.name}</Text>
                 <Ionicons name="chevron-forward" size={24} color="#CBD5E1" />
               </Pressable>
             ))}
@@ -753,7 +753,7 @@ export function RegistrationDepartmentScreen() {
                 onPress={() => setSelectedBranchId(branch.id)}
                 style={{ backgroundColor: '#FFFFFF', borderColor: '#ECEEF3', borderRadius: 12, borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
               >
-                <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700' }}>{branch.name}</Text>
+                <Text style={{ color: '#102739', fontSize: 16, fontWeight: '700' }}>{branch.name}</Text>
                 <Ionicons name="chevron-forward" size={24} color="#CBD5E1" />
               </Pressable>
             ))}
@@ -775,7 +775,7 @@ export function RegistrationDepartmentScreen() {
            <Pressable 
              onPress={submit} 
              disabled={!selectedId}
-             style={{ backgroundColor: !selectedId ? '#9CA3AF' : '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
+             style={{ backgroundColor: !selectedId ? '#9CA3AF' : '#102739', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
             >
               <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
             </Pressable>
@@ -872,13 +872,13 @@ export function RegistrationFaceScreen() {
           <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
             <View style={{ backgroundColor: '#FFFFFF', borderRadius: 24, padding: 32, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 5 }}>
               <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}>
-                <Ionicons name="camera-outline" size={40} color="#111827" />
+                <Ionicons name="camera-outline" size={40} color="#102739" />
               </View>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827', marginBottom: 12, textAlign: 'center' }}>Quyền Camera</Text>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: '#102739', marginBottom: 12, textAlign: 'center' }}>Quyền Camera</Text>
               <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22, marginBottom: 32 }}>
                 Ứng dụng cần quyền truy cập camera để chụp ảnh khuôn mặt (Góc thẳng, trái, phải) phục vụ quá trình định danh bảo mật.
               </Text>
-              <Pressable onPress={() => void requestPermission()} style={{ width: '100%', backgroundColor: '#111827', height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+              <Pressable onPress={() => void requestPermission()} style={{ width: '100%', backgroundColor: '#102739', height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>CẤP QUYỀN CAMERA</Text>
               </Pressable>
               <Pressable onPress={() => router.back()} style={{ width: '100%', height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginTop: 12, borderWidth: 1, borderColor: '#ECEEF3' }}>
@@ -916,7 +916,7 @@ export function RegistrationFaceScreen() {
               return (
                 <View key={pose} style={{ alignItems: 'center', flex: 1 }}>
                   <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isSuccess ? '#10B981' : isActive ? '#FFFFFF' : 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: isActive ? 2 : 0, borderColor: '#FFFFFF' }}>
-                    <Ionicons name={isSuccess ? "checkmark" : "person"} size={16} color={isActive && !isSuccess ? "#111827" : "#FFFFFF"} />
+                    <Ionicons name={isSuccess ? "checkmark" : "person"} size={16} color={isActive && !isSuccess ? "#102739" : "#FFFFFF"} />
                   </View>
                   <Text style={{ color: isActive ? '#FFFFFF' : 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '700' }}>{pose}</Text>
                 </View>
@@ -953,7 +953,7 @@ export function RegistrationFaceScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             {currentImage?.uploadStatus === 'SUCCESS' ? (
               <Pressable disabled={activePose === 'RIGHT' && !complete} onPress={() => setActivePose(nextPose(activePose))} style={{ flex: 1, backgroundColor: (activePose === 'RIGHT' && !complete) ? '#475569' : '#FFFFFF', height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: (activePose === 'RIGHT' && !complete) ? '#9CA3AF' : '#111827', fontSize: 16, fontWeight: '600' }}>{activePose === 'RIGHT' ? 'HOÀN THÀNH' : 'CHỤP GÓC TIẾP THEO'}</Text>
+                <Text style={{ color: (activePose === 'RIGHT' && !complete) ? '#9CA3AF' : '#102739', fontSize: 16, fontWeight: '600' }}>{activePose === 'RIGHT' ? 'HOÀN THÀNH' : 'CHỤP GÓC TIẾP THEO'}</Text>
               </Pressable>
             ) : (
               <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24 }}>
@@ -1030,17 +1030,17 @@ export function RegistrationReviewScreen() {
           <View style={{ marginBottom: 24, paddingTop: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-                <Ionicons name="arrow-back" size={24} color="#111827" />
+                <Ionicons name="arrow-back" size={24} color="#102739" />
               </Pressable>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>Kiểm tra & Gửi</Text>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: '#102739' }}>Kiểm tra & Gửi</Text>
             </View>
             <StepBar currentStep={4} />
           </View>
 
           <View style={{ borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 12, padding: 20, marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <Ionicons name="person-outline" size={20} color="#111827" />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Tài khoản</Text>
+              <Ionicons name="person-outline" size={20} color="#102739" />
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#102739' }}>Tài khoản</Text>
             </View>
             <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}><Text style={{ fontWeight: '600' }}>Họ tên:</Text> {values.fullName}</Text>
             <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}><Text style={{ fontWeight: '600' }}>SĐT:</Text> {values.phone}</Text>
@@ -1049,8 +1049,8 @@ export function RegistrationReviewScreen() {
           
           <View style={{ borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 12, padding: 20, marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <Ionicons name="document-text-outline" size={20} color="#111827" />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Hồ sơ</Text>
+              <Ionicons name="document-text-outline" size={20} color="#102739" />
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#102739' }}>Hồ sơ</Text>
             </View>
             <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}><Text style={{ fontWeight: '600' }}>CCCD:</Text> ********{values.idCardNumber.slice(-4)}</Text>
             {values.dateOfBirth ? (
@@ -1085,7 +1085,7 @@ export function RegistrationReviewScreen() {
         </ScrollView>
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
-           <Pressable disabled={!canSubmit || mutation.isPending} onPress={() => void submit()} style={{ backgroundColor: (!canSubmit || mutation.isPending) ? '#9CA3AF' : '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+           <Pressable disabled={!canSubmit || mutation.isPending} onPress={() => void submit()} style={{ backgroundColor: (!canSubmit || mutation.isPending) ? '#9CA3AF' : '#102739', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>{mutation.isPending ? 'ĐANG GỬI...' : 'GỬI ĐĂNG KÝ'}</Text>
             </Pressable>
         </View>
@@ -1104,11 +1104,11 @@ export function RegistrationSuccessScreen() {
             <View style={{ width: 80, height: 80, backgroundColor: '#10B981', borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
               <Ionicons name="checkmark-sharp" size={48} color="#FFFFFF" />
             </View>
-            <Text style={{ fontSize: 24, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 8 }}>Đăng ký thành công!</Text>
+            <Text style={{ fontSize: 24, fontWeight: '700', color: '#102739', textAlign: 'center', marginBottom: 8 }}>Đăng ký thành công!</Text>
             <Text style={{ fontSize: 15, color: '#6B7280', textAlign: 'center', lineHeight: 24, paddingHorizontal: 16 }}>Tài khoản của bạn đang chờ phê duyệt từ Ban quản lý. Vui lòng chờ thông báo.</Text>
           </View>
           
-          <Pressable onPress={() => router.replace('/login')} style={{ backgroundColor: '#111827', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable onPress={() => router.replace('/login')} style={{ backgroundColor: '#102739', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>QUAY VỀ ĐĂNG NHẬP</Text>
           </Pressable>
         </View>
@@ -1120,12 +1120,12 @@ export function RegistrationSuccessScreen() {
 
 function DepartmentOption({ department, selected, onPress }: { department: Department; selected: boolean; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={{ backgroundColor: selected ? '#F9FAFB' : '#FFFFFF', borderColor: selected ? '#111827' : '#ECEEF3', borderRadius: 12, borderWidth: selected ? 2 : 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={{ backgroundColor: selected ? '#F9FAFB' : '#FFFFFF', borderColor: selected ? '#102739' : '#ECEEF3', borderRadius: 12, borderWidth: selected ? 2 : 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: '#111827', fontSize: 16, fontWeight: '700', marginBottom: 4 }}>{department.name}</Text>
+        <Text style={{ color: '#102739', fontSize: 16, fontWeight: '700', marginBottom: 4 }}>{department.name}</Text>
         <Text style={{ color: '#6B7280', fontSize: 13 }}>{department.description ?? department.code}</Text>
       </View>
-      {selected ? <Ionicons name="checkmark-circle" size={24} color="#111827" /> : <Ionicons name="ellipse-outline" size={24} color="#CBD5E1" />}
+      {selected ? <Ionicons name="checkmark-circle" size={24} color="#102739" /> : <Ionicons name="ellipse-outline" size={24} color="#CBD5E1" />}
     </Pressable>
   );
 }
@@ -1176,7 +1176,7 @@ function StepBar({ currentStep, totalSteps = 4 }: { currentStep: number; totalSt
               flex: 1, 
               height: 4, 
               borderRadius: 2, 
-              backgroundColor: isActive || isCompleted ? '#111827' : '#E5E7EB' 
+              backgroundColor: isActive || isCompleted ? '#102739' : '#E5E7EB' 
             }} 
           />
         );

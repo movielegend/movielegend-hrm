@@ -59,7 +59,7 @@ function UserInitialAvatar({ name, uri, size = 52 }: { name: string; uri?: strin
         alignItems: 'center',
       }}
     >
-      <Text style={{ color: '#1B382B', fontSize: 16, fontWeight: '800' }}>{initials}</Text>
+      <Text style={{ color: '#102739', fontSize: 16, fontWeight: '800' }}>{initials}</Text>
     </View>
   );
 }
@@ -187,7 +187,7 @@ export function AdminAttendanceDetailScreen() {
         {/* Card 4: Vị trí ghi nhận */}
         <View style={styles.locationCard}>
           <View style={styles.locIconWrapper}>
-            <Ionicons name="location-outline" size={20} color="#166534" />
+            <Ionicons name="location-outline" size={20} color="#102739" />
           </View>
 
           <View style={{ flex: 1, marginLeft: 12 }}>
@@ -232,7 +232,7 @@ export function AdminAttendanceDetailScreen() {
               {photoUrl && (
                 <Pressable onPress={() => setSelectedImage(photoUrl)} style={styles.viewPhotoLink} hitSlop={6}>
                   <Text style={styles.viewPhotoLinkText}>Xem ảnh</Text>
-                  <Ionicons name="arrow-forward-outline" size={12} color="#166534" style={{ transform: [{ rotate: '-45deg' }] }} />
+                  <Ionicons name="arrow-forward-outline" size={12} color="#102739" style={{ transform: [{ rotate: '-45deg' }] }} />
                 </Pressable>
               )}
             </View>
@@ -272,7 +272,7 @@ export function AdminAttendanceDetailScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   brandHeader: {
     paddingHorizontal: 20,
@@ -287,13 +287,13 @@ const styles = StyleSheet.create({
   brandTitle: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#132E22',
+    color: '#102739',
     letterSpacing: -0.3,
   },
   brandSubtitle: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#16A34A',
+    color: '#2563EB',
     letterSpacing: 1.5,
   },
   titleRow: {
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   presentBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 16,
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   presentBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   dateCard: {
     flexDirection: 'row',
@@ -380,13 +380,13 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   checkInHeroCard: {
-    backgroundColor: '#1B382B', // Deep forest green matching template
+    backgroundColor: '#102739', // Deep forest green matching template
     borderRadius: 20,
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   viewPhotoLinkText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   checkOutCard: {
     flexDirection: 'row',

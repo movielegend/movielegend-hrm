@@ -185,7 +185,7 @@ export class EmployeeRequestsService {
     return request;
   }
 
-  async findAll(actor: AuthenticatedUser, departmentId?: string) {
+  async findAll(actor: AuthenticatedUser, departmentId?: string, status?: EmployeeRequestStatus) {
     const isAccountant = await this.isAccountantActor(actor);
     const isHr = await this.isHrActor(actor);
     const isRegionAdmin = this.scope.isRegionAdmin(actor);
@@ -294,8 +294,12 @@ export class EmployeeRequestsService {
       }
     }
 
+    const finalWhere: Prisma.EmployeeRequestWhereInput = status
+      ? { AND: [where, { status }] }
+      : where;
+
     return this.prisma.employeeRequest.findMany({
-      where,
+      where: finalWhere,
       include: {
         user: {
           select: {

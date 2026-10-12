@@ -214,7 +214,7 @@ export function LoginScreen() {
 
               <View style={styles.rememberMeRow}>
                 <Pressable onPress={() => setRememberMe(!rememberMe)} style={styles.checkboxPressable}>
-                  <Ionicons name={rememberMe ? 'checkbox' : 'square-outline'} size={20} color={rememberMe ? '#111827' : '#9CA3AF'} />
+                  <Ionicons name={rememberMe ? 'checkbox' : 'square-outline'} size={20} color={rememberMe ? '#102739' : '#9CA3AF'} />
                   <Text style={styles.rememberMeText}>Ghi nhớ tài khoản và mật khẩu</Text>
                 </Pressable>
               </View>
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   inputText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#111827',
+    color: '#102739',
     height: 28,
     padding: 0,
     backgroundColor: 'transparent',
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   suggestionsDropdown: {
     position: 'absolute',
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   suggestionPhoneText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#111827',
+    color: '#102739',
   },
   suggestionRemoveBtn: {
     padding: 4,

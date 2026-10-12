@@ -29,12 +29,9 @@ import { formatSeniority } from '../../utils/seniority';
 import { normalizeApiError } from '../../utils/api-error';
 
 const editSchema = z.object({
-  fullName: z.string().min(2, 'Vui lòng nhập họ và tên'),
-  phone: z.string().min(8, 'Số điện thoại chưa hợp lệ'),
-  email: z.string().email('Email chưa hợp lệ').optional().or(z.literal('')),
   departmentId: z.string().optional().or(z.literal('')),
   joinDate: z.string().optional().or(z.literal('')),
-  accountStatus: z.enum(['ACTIVE', 'SUSPENDED']).default('ACTIVE'),
+  accountStatus: z.enum(['ACTIVE', 'SUSPENDED']),
 });
 
 type EditFormValues = z.infer<typeof editSchema>;
@@ -56,12 +53,12 @@ function UserInitialAvatar({ name, size = 64 }: { name: string; size?: number })
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: '#DCFCE7',
+        backgroundColor: '#E7F0F7',
         justifyContent: 'center',
         alignItems: 'center',
       }}
     >
-      <Text style={{ color: '#166534', fontSize: 22, fontWeight: '900' }}>{initials}</Text>
+      <Text style={{ color: '#102739', fontSize: 22, fontWeight: '900' }}>{initials}</Text>
     </View>
   );
 }
@@ -81,6 +78,20 @@ export function EmployeeDetailScreen() {
   const [deptModalVisible, setDeptModalVisible] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  const currentUserRoles = useMemo(() => {
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    return roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || r?.role?.code || '').toUpperCase());
+  }, [user?.roles]);
+
+  const isCurrentUserAdmin = useMemo(() => {
+    return currentUserRoles.includes('ADMIN') || currentUserRoles.includes('SUPER_ADMIN');
+  }, [currentUserRoles]);
+
+  const isCurrentUserManager = useMemo(() => {
+    return isCurrentUserAdmin || currentUserRoles.includes('HR') || currentUserRoles.includes('HUMAN_RESOURCE');
+  }, [currentUserRoles, isCurrentUserAdmin]);
+
   const emp = employeeQuery.data;
 
   const {
@@ -93,9 +104,6 @@ export function EmployeeDetailScreen() {
   } = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
     values: {
-      fullName: emp?.profile?.fullName || '',
-      phone: emp?.phone || '',
-      email: emp?.email || '',
       departmentId:
         emp?.departmentLinks?.find(link => link.isPrimary)?.departmentId ||
         (emp as any)?.department?.id ||
@@ -147,9 +155,6 @@ export function EmployeeDetailScreen() {
   const onSave = handleSubmit(async data => {
     try {
       await updateEmployee.mutateAsync({
-        fullName: data.fullName.trim(),
-        phone: data.phone.trim(),
-        email: data.email?.trim() || undefined,
         departmentId: data.departmentId || undefined,
         accountStatus: data.accountStatus,
         joinDate: data.joinDate || undefined,
@@ -192,9 +197,13 @@ export function EmployeeDetailScreen() {
             <Ionicons name="chevron-back" size={24} color="#0F172A" />
           </Pressable>
           <Text style={styles.title}>Hồ sơ nhân viên</Text>
-          <Pressable onPress={() => setIsEditing(true)} hitSlop={8}>
-            <Ionicons name="ellipsis-horizontal" size={22} color="#0F172A" />
-          </Pressable>
+          {isCurrentUserManager ? (
+            <Pressable onPress={() => setIsEditing(true)} hitSlop={8}>
+              <Ionicons name="ellipsis-horizontal" size={22} color="#0F172A" />
+            </Pressable>
+          ) : (
+            <View style={{ width: 24 }} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -220,7 +229,7 @@ export function EmployeeDetailScreen() {
             {/* Phone */}
             <View style={styles.infoRow}>
               <View style={styles.infoIconWrap}>
-                <Ionicons name="call-outline" size={18} color="#166534" />
+                <Ionicons name="call-outline" size={18} color="#102739" />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.infoLabel}>Số điện thoại</Text>
@@ -233,7 +242,7 @@ export function EmployeeDetailScreen() {
             {/* Email */}
             <View style={styles.infoRow}>
               <View style={styles.infoIconWrap}>
-                <Ionicons name="mail-outline" size={18} color="#166534" />
+                <Ionicons name="mail-outline" size={18} color="#102739" />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.infoLabel}>Email</Text>
@@ -246,7 +255,7 @@ export function EmployeeDetailScreen() {
             {/* CCCD */}
             <View style={styles.infoRow}>
               <View style={styles.infoIconWrap}>
-                <Ionicons name="card-outline" size={18} color="#166534" />
+                <Ionicons name="card-outline" size={18} color="#102739" />
               </View>
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.infoLabel}>CCCD</Text>
@@ -263,7 +272,7 @@ export function EmployeeDetailScreen() {
             <View style={styles.tableRow}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="business-outline" size={16} color="#166534" />
+                  <Ionicons name="business-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Phòng ban</Text>
               </View>
@@ -274,7 +283,7 @@ export function EmployeeDetailScreen() {
             <View style={styles.tableRow}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="person-outline" size={16} color="#166534" />
+                  <Ionicons name="person-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Vị trí</Text>
               </View>
@@ -285,7 +294,7 @@ export function EmployeeDetailScreen() {
             <View style={styles.tableRow}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="shield-checkmark-outline" size={16} color="#166534" />
+                  <Ionicons name="shield-checkmark-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Phân quyền</Text>
               </View>
@@ -296,7 +305,7 @@ export function EmployeeDetailScreen() {
             <View style={styles.tableRow}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="calendar-outline" size={16} color="#166534" />
+                  <Ionicons name="calendar-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Ngày vào làm</Text>
               </View>
@@ -307,11 +316,11 @@ export function EmployeeDetailScreen() {
             <View style={styles.tableRow}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="time-outline" size={16} color="#166534" />
+                  <Ionicons name="time-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Thâm niên</Text>
               </View>
-              <Text style={[styles.tableValue, { color: '#166534', fontWeight: '800' }]}>
+              <Text style={[styles.tableValue, { color: '#102739', fontWeight: '800' }]}>
                 {seniorityStr}
               </Text>
             </View>
@@ -320,7 +329,7 @@ export function EmployeeDetailScreen() {
             <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
               <View style={styles.tableLeft}>
                 <View style={styles.infoIconWrap}>
-                  <Ionicons name="scan-outline" size={16} color="#166534" />
+                  <Ionicons name="scan-outline" size={16} color="#102739" />
                 </View>
                 <Text style={styles.tableLabel}>Dữ liệu khuôn mặt</Text>
               </View>
@@ -328,24 +337,28 @@ export function EmployeeDetailScreen() {
             </View>
           </View>
 
-          {/* Nút Xóa nhân sự text link */}
-          <Pressable onPress={handleDelete} style={styles.deleteLinkRow} hitSlop={8}>
-            <Ionicons name="trash-outline" size={16} color="#DC2626" />
-            <Text style={styles.deleteLinkText}>Xóa nhân sự</Text>
-          </Pressable>
+          {/* Nút Xóa nhân sự text link - chỉ Admin */}
+          {isCurrentUserAdmin && (
+            <Pressable onPress={handleDelete} style={styles.deleteLinkRow} hitSlop={8}>
+              <Ionicons name="trash-outline" size={16} color="#DC2626" />
+              <Text style={styles.deleteLinkText}>Xóa nhân sự</Text>
+            </Pressable>
+          )}
         </ScrollView>
 
-        {/* BOTTOM STICKY BUTTON: [ Chỉnh sửa hồ sơ ] */}
-        <View style={styles.bottomBar}>
-          <Pressable
-            onPress={() => setIsEditing(true)}
-            style={styles.ctaPrimaryBtn}
-            android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-          >
-            <Ionicons name="pencil-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.ctaPrimaryBtnText}>Chỉnh sửa hồ sơ</Text>
-          </Pressable>
-        </View>
+        {/* BOTTOM STICKY BUTTON: [ Chỉnh sửa hồ sơ ] - chỉ Quản trị viên và HR */}
+        {isCurrentUserManager && (
+          <View style={styles.bottomBar}>
+            <Pressable
+              onPress={() => setIsEditing(true)}
+              style={styles.ctaPrimaryBtn}
+              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+            >
+              <Ionicons name="pencil-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.ctaPrimaryBtnText}>Chỉnh sửa hồ sơ</Text>
+            </Pressable>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -372,69 +385,46 @@ export function EmployeeDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* CARD 1: Thông tin cơ bản */}
+        {/* CARD 1: Thông tin cá nhân (Đã khóa - Chỉ nhân viên tự sửa) */}
         <View style={styles.card}>
-          <Text style={styles.cardSectionHeading}>Thông tin cơ bản</Text>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardSectionHeading}>Thông tin cá nhân</Text>
+            <View style={styles.lockedBadge}>
+              <Ionicons name="lock-closed" size={12} color="#475569" />
+              <Text style={styles.lockedBadgeText}>Chỉ người dùng được sửa</Text>
+            </View>
+          </View>
+
+          <View style={styles.lockedNoteBox}>
+            <Ionicons name="information-circle-outline" size={16} color="#D97706" style={{ marginTop: 2 }} />
+            <Text style={styles.lockedNoteText}>
+              Họ tên, Số điện thoại và Email được bảo vệ quyền riêng tư. Quản trị viên không thể chỉnh sửa, chỉ nhân viên mới có thể cập nhật trong trang cá nhân của họ.
+            </Text>
+          </View>
 
           {/* Họ và tên */}
           <Text style={styles.fieldLabel}>Họ và tên</Text>
-          <Controller
-            control={control}
-            name="fullName"
-            render={({ field: { value, onChange } }) => (
-              <View style={[styles.inputBox, errors.fullName && styles.inputBoxError]}>
-                <TextInput
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="Nhập họ và tên"
-                  placeholderTextColor="#94A3B8"
-                  style={styles.textInput}
-                />
-              </View>
-            )}
-          />
-          {errors.fullName && <Text style={styles.errorText}>{errors.fullName.message}</Text>}
+          <View style={[styles.inputBox, styles.inputBoxDisabled]}>
+            <Ionicons name="person-outline" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+            <Text style={styles.disabledInputText}>{emp.profile?.fullName || emp.userCode || 'Chưa cập nhật'}</Text>
+            <Ionicons name="lock-closed" size={14} color="#94A3B8" style={{ marginLeft: 'auto' }} />
+          </View>
 
           {/* Số điện thoại */}
           <Text style={styles.fieldLabel}>Số điện thoại</Text>
-          <Controller
-            control={control}
-            name="phone"
-            render={({ field: { value, onChange } }) => (
-              <View style={[styles.inputBox, errors.phone && styles.inputBoxError]}>
-                <TextInput
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="Nhập số điện thoại"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="phone-pad"
-                  style={styles.textInput}
-                />
-              </View>
-            )}
-          />
-          {errors.phone && <Text style={styles.errorText}>{errors.phone.message}</Text>}
+          <View style={[styles.inputBox, styles.inputBoxDisabled]}>
+            <Ionicons name="call-outline" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+            <Text style={styles.disabledInputText}>{emp.phone || 'Chưa cập nhật'}</Text>
+            <Ionicons name="lock-closed" size={14} color="#94A3B8" style={{ marginLeft: 'auto' }} />
+          </View>
 
           {/* Email */}
           <Text style={styles.fieldLabel}>Email</Text>
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { value, onChange } }) => (
-              <View style={[styles.inputBox, errors.email && styles.inputBoxError]}>
-                <TextInput
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="Nhập email"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={styles.textInput}
-                />
-              </View>
-            )}
-          />
-          {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
+          <View style={[styles.inputBox, styles.inputBoxDisabled]}>
+            <Ionicons name="mail-outline" size={16} color="#94A3B8" style={{ marginRight: 8 }} />
+            <Text style={styles.disabledInputText}>{emp.email || 'Chưa cập nhật'}</Text>
+            <Ionicons name="lock-closed" size={14} color="#94A3B8" style={{ marginLeft: 'auto' }} />
+          </View>
         </View>
 
         {/* CARD 2: Thông tin công việc */}
@@ -449,7 +439,7 @@ export function EmployeeDetailScreen() {
           <Pressable style={styles.selectPill} onPress={() => setDeptModalVisible(true)}>
             <View style={styles.selectLeft}>
               <View style={styles.infoIconWrap}>
-                <Ionicons name="business-outline" size={18} color="#166534" />
+                <Ionicons name="business-outline" size={18} color="#102739" />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.selectText}>{selectedDeptName || 'Chưa xếp phòng'}</Text>
@@ -470,7 +460,7 @@ export function EmployeeDetailScreen() {
           </View>
           <Pressable style={styles.selectPill} onPress={() => setShowDatePicker(true)}>
             <View style={styles.selectLeft}>
-              <Ionicons name="calendar-outline" size={18} color="#166534" />
+              <Ionicons name="calendar-outline" size={18} color="#102739" />
               <Text style={[styles.selectText, { marginLeft: 10 }]}>{formattedJoinDateShort}</Text>
             </View>
             <Ionicons name="chevron-down" size={16} color="#64748B" />
@@ -494,7 +484,7 @@ export function EmployeeDetailScreen() {
               <Ionicons
                 name="checkmark-circle"
                 size={18}
-                color={selectedAccountStatus === 'ACTIVE' ? '#166534' : '#94A3B8'}
+                color={selectedAccountStatus === 'ACTIVE' ? '#102739' : '#94A3B8'}
               />
               <Text
                 style={[
@@ -580,7 +570,7 @@ export function EmployeeDetailScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
 
   header: {
@@ -657,7 +647,7 @@ const styles = StyleSheet.create({
   heroActiveText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -686,7 +676,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -763,12 +753,12 @@ const styles = StyleSheet.create({
   ctaPrimaryBtn: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#1B382B', // Dark forest green
+    backgroundColor: '#102739', // Dark forest green
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
@@ -821,6 +811,54 @@ const styles = StyleSheet.create({
   },
   inputBoxError: {
     borderColor: '#EF4444',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  lockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  lockedBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  lockedNoteBox: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  lockedNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 17,
+  },
+  inputBoxDisabled: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+  },
+  disabledInputText: {
+    fontSize: 14,
+    color: '#475569',
+    fontWeight: '500',
+    flex: 1,
   },
   textInput: {
     fontSize: 14,
@@ -883,8 +921,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   statusToggleBtnActive: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#166534',
+    backgroundColor: '#E7F0F7',
+    borderColor: '#102739',
   },
   statusToggleBtnSuspended: {
     backgroundColor: '#FEE2E2',
@@ -896,7 +934,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   statusToggleTextActive: {
-    color: '#166534',
+    color: '#102739',
   },
   statusToggleTextSuspended: {
     color: '#DC2626',

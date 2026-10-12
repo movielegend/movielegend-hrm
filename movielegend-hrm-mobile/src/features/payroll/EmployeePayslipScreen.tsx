@@ -243,6 +243,7 @@ export function EmployeePayslipScreen() {
   const selectedDeptLabel =
     departments.find((d) => d.id === selectedDepartmentId)?.name || 'Tất cả phòng ban';
 
+
   const netSalaryAmount = payslip?.netSalary ?? 0;
   const isDataAvailable = netSalaryAmount > 0 || Boolean(payslip?.finalOfficialImageUrl);
 
@@ -250,7 +251,7 @@ export function EmployeePayslipScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* ── Top Header (#1B3B2B) ── */}
+      {/* ── Top Header (#102739) ── */}
       <View style={[styles.modernHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={styles.decorativeCurve} />
 
@@ -263,9 +264,10 @@ export function EmployeePayslipScreen() {
           >
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.screenTitle}>Phiếu lương</Text>
-          <View style={{ flex: 1 }} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={[styles.screenTitle, { flex: 1 }]}>Phiếu lương</Text>
+
+          <View style={styles.topBarActions}>
+            {/* Nút cho Kế toán: Tải lô ảnh */}
             {canViewCompany && (
               <Pressable
                 style={styles.batchUploadTopBtn}
@@ -281,7 +283,7 @@ export function EmployeePayslipScreen() {
               <Pressable
                 style={styles.labelingTopBtn}
                 onPress={() => {
-                  setLabelingDeptId(selectedDepartmentId !== 'ALL' ? selectedDepartmentId : undefined);
+                  setLabelingDeptId(selectedDepartmentId !== "ALL" ? selectedDepartmentId : undefined);
                   setIsLabelingModalOpen(true);
                 }}
                 hitSlop={6}
@@ -332,7 +334,7 @@ export function EmployeePayslipScreen() {
 
       {isLoading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#1B3B2B" />
+          <ActivityIndicator size="large" color="#102739" />
           <Text style={styles.loadingText}>Đang tải dữ liệu phiếu lương...</Text>
         </View>
       ) : activeTab === 'MY' ? (
@@ -348,7 +350,7 @@ export function EmployeePayslipScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor="#1B3B2B"
+              tintColor="#102739"
             />
           }
           showsVerticalScrollIndicator={false}
@@ -401,20 +403,20 @@ export function EmployeePayslipScreen() {
             }}
           >
             <View style={styles.officialIconBox}>
-              <MaterialCommunityIcons name="file-document-outline" size={22} color="#1B3B2B" />
+              <MaterialCommunityIcons name="file-document-outline" size={22} color="#102739" />
             </View>
             <View style={styles.officialMetaCol}>
               <Text style={styles.officialTitle}>Phiếu lương chính thức</Text>
               <Text style={styles.officialSubtitle}>
                 {payslip?.finalOfficialImageUrl
-                  ? 'Đã có ảnh phiếu lương'
-                  : 'Chờ ảnh từ Kế toán'}
+                  ? "Đã có ảnh phiếu lương"
+                  : "Chờ ảnh từ Kế toán"}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </Pressable>
 
-          {/* Salary Advance (Tạm Ứng Lương) Feature Card */}
+          {/* Salary Advance (Tạm Ứng Lương) Hero Feature Card */}
           <View style={styles.advanceCard}>
             <View style={styles.advanceCardHeader}>
               <View style={styles.advanceIconCircle}>
@@ -443,15 +445,15 @@ export function EmployeePayslipScreen() {
               </View>
               <View style={styles.advanceMetricDivider} />
               <View style={styles.advanceMetricItem}>
-                <Text style={styles.advanceMetricLabel}>Đã ứng</Text>
+                <Text style={styles.advanceMetricLabel}>Đã tạm ứng</Text>
                 <Text style={[styles.advanceMetricVal, { color: '#D97706' }]}>
                   {formatVnd(payslip?.advanceSummary?.currentMonthAdvancedAmount ?? payslip?.advanceAmount ?? 0)}
                 </Text>
               </View>
               <View style={styles.advanceMetricDivider} />
               <View style={styles.advanceMetricItem}>
-                <Text style={styles.advanceMetricLabel}>Còn được ứng</Text>
-                <Text style={[styles.advanceMetricVal, { color: '#059669' }]}>
+                <Text style={styles.advanceMetricLabel}>Khả dụng còn lại</Text>
+                <Text style={[styles.advanceMetricVal, { color: '#059669', fontWeight: '800' }]}>
                   {formatVnd(payslip?.advanceSummary?.remainingAdvanceLimit ?? ((payslip?.baseSalary || 0) * 0.5))}
                 </Text>
               </View>
@@ -469,9 +471,7 @@ export function EmployeePayslipScreen() {
             {/* Advance Requests List (History in month) */}
             {payslip?.advanceSummary?.requests && payslip.advanceSummary.requests.length > 0 && (
               <View style={styles.advanceHistoryWrap}>
-                <Text style={styles.advanceHistoryTitle}>
-                  Đơn tạm ứng trong tháng ({payslip.advanceSummary.requests.length}):
-                </Text>
+                <Text style={styles.advanceHistoryTitle}>Đơn tạm ứng trong tháng ({payslip.advanceSummary.requests.length}):</Text>
                 {payslip.advanceSummary.requests.map((req) => {
                   const isDisbursed = req.status === 'APPROVED' || req.stage === 'DISBURSED';
                   const isPendingAccountant = req.stage === 'PENDING_ACCOUNTANT';
@@ -490,7 +490,7 @@ export function EmployeePayslipScreen() {
                         <Text style={styles.advanceReqAmount}>{formatVnd(req.amount)}</Text>
                       </View>
 
-                      {/* Status Badge */}
+                      {/* Status Badge & 3-Step Timeline */}
                       <View style={styles.advanceReqStatusRow}>
                         <View
                           style={[
@@ -513,7 +513,7 @@ export function EmployeePayslipScreen() {
                             {isDisbursed
                               ? 'Đã đi lương (Giải ngân) 💸'
                               : isPendingAccountant
-                              ? 'Chờ Kế toán trưởng duyệt'
+                              ? 'Leader đã duyệt • Chờ Kế toán trưởng chi'
                               : isPendingLeader
                               ? 'Chờ Leader duyệt'
                               : isRejected
@@ -521,6 +521,17 @@ export function EmployeePayslipScreen() {
                               : 'Đang xử lý'}
                           </Text>
                         </View>
+
+                        {/* Bill image if disbursed */}
+                        {req.disbursementProofUrl && (
+                          <Pressable
+                            style={styles.proofBtn}
+                            onPress={() => openViewer(req.disbursementProofUrl!)}
+                          >
+                            <MaterialCommunityIcons name="receipt" size={14} color="#059669" />
+                            <Text style={styles.proofBtnText}>Xem ủy nhiệm chi</Text>
+                          </Pressable>
+                        )}
                       </View>
                     </View>
                   );
@@ -602,7 +613,7 @@ export function EmployeePayslipScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor="#1B3B2B"
+              tintColor="#102739"
             />
           }
           showsVerticalScrollIndicator={false}
@@ -730,10 +741,10 @@ export function EmployeePayslipScreen() {
                       disabled={isThisUploading}
                     >
                       {isThisUploading ? (
-                        <ActivityIndicator size="small" color="#1B3B2B" />
+                        <ActivityIndicator size="small" color="#102739" />
                       ) : (
                         <>
-                          <MaterialCommunityIcons name="camera-outline" size={15} color="#1B3B2B" />
+                          <MaterialCommunityIcons name="camera-outline" size={15} color="#102739" />
                           <Text style={styles.uploadImageInlineBtnText}>
                             {item.finalOfficialImageUrl ? 'Đổi ảnh' : 'Tải ảnh'}
                           </Text>
@@ -791,7 +802,7 @@ export function EmployeePayslipScreen() {
                   Tất cả phòng ban
                 </Text>
                 {selectedDepartmentId === 'ALL' && (
-                  <Ionicons name="checkmark" size={18} color="#1B3B2B" />
+                  <Ionicons name="checkmark" size={18} color="#102739" />
                 )}
               </Pressable>
 
@@ -816,7 +827,7 @@ export function EmployeePayslipScreen() {
                     {d.name}
                   </Text>
                   {selectedDepartmentId === d.id && (
-                    <Ionicons name="checkmark" size={18} color="#1B3B2B" />
+                    <Ionicons name="checkmark" size={18} color="#102739" />
                   )}
                 </Pressable>
               ))}
@@ -885,9 +896,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
 
-  /* ── Header (#1B3B2B) ── */
+  /* ── Header (#102739) ── */
   modernHeader: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingBottom: 0,
     position: 'relative',
@@ -923,6 +934,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: -0.3,
+  },
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tabContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
 
   /* ── Tabs Bar ── */
@@ -1240,7 +1260,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -1248,7 +1268,7 @@ const styles = StyleSheet.create({
   companyAvatarText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   companyMetaCol: {
     flex: 1,
@@ -1345,12 +1365,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
   },
   uploadImageInlineBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
 
   /* Empty State */
@@ -1411,7 +1431,7 @@ const styles = StyleSheet.create({
   },
   modalItemTextActive: {
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
 
   /* ── Header Buttons ── */
@@ -1625,5 +1645,21 @@ const styles = StyleSheet.create({
   },
   advanceStatusRejectedText: {
     color: '#DC2626',
+  },
+  proofBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  proofBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
   },
 });

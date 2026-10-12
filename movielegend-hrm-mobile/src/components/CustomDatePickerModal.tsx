@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   todayBtn: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 14,
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   todayBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   monthNav: {
     flexDirection: 'row',
@@ -274,8 +274,8 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   selectedDayCell: {
-    backgroundColor: '#1B382B', // Deep forest green matching template
-    shadowColor: '#1B382B',
+    backgroundColor: '#102739', // Deep forest green matching template
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 5,
@@ -310,12 +310,12 @@ const styles = StyleSheet.create({
   },
   applyBtn: {
     flex: 1.6,
-    backgroundColor: '#1B382B', // Deep forest green matching template
+    backgroundColor: '#102739', // Deep forest green matching template
     paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,

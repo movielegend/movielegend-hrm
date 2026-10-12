@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
   },
   description: {
     fontSize: 14,
@@ -135,12 +135,12 @@ const styles = StyleSheet.create({
     color: '#4B5563',
   },
   acceptBtn: {
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     paddingVertical: 12,
     paddingHorizontal: 28,
     borderRadius: 12,
     elevation: 2,
-    shadowColor: '#111827',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,

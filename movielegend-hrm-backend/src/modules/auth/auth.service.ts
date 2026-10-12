@@ -613,7 +613,7 @@ export class AuthService {
       },
       departmentLinks: {
         where: { leftAt: null, isPrimary: true },
-        include: { department: true, position: true },
+        include: { department: { include: { branch: true } }, position: true },
       },
     } satisfies Prisma.UserInclude;
   }

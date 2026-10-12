@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   inputFocused: {
-    borderColor: '#111827',
+    borderColor: '#102739',
   },
   inputError: {
     borderColor: colors.danger,
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   inputText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#111827',
+    color: '#102739',
     minHeight: 26,
     padding: 0,
   },

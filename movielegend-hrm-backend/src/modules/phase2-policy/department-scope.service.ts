@@ -143,6 +143,7 @@ export class DepartmentScopeService {
    * - Employee: ONLY their primary department ID
    */
   async getVisibleDepartmentIds(actor: AuthenticatedUser): Promise<string[] | null> {
+    if (this.isGlobalAdmin(actor)) return null;
     // Accountant scope handling:
     // Accountants with explicit region scope -> visible departments in that region.
     // Accountants with global scope or no region scope -> visible to all departments (null).

@@ -361,10 +361,10 @@ export function MonthlyTimesheetScreen() {
               disabled={isThisUploading}
             >
               {isThisUploading ? (
-                <ActivityIndicator size="small" color="#1B3B2B" />
+                <ActivityIndicator size="small" color="#102739" />
               ) : (
                 <>
-                  <MaterialCommunityIcons name="camera-outline" size={15} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="camera-outline" size={15} color="#102739" />
                   <Text style={styles.uploadImageInlineBtnText}>
                     {item.finalOfficialImageUrl ? 'Đổi ảnh' : 'Tải ảnh'}
                   </Text>
@@ -381,7 +381,7 @@ export function MonthlyTimesheetScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* ── Top Header (#1B3B2B) ── */}
+      {/* ── Top Header (#102739) ── */}
       <View style={[styles.modernHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={styles.decorativeCurve} />
 
@@ -436,7 +436,7 @@ export function MonthlyTimesheetScreen() {
 
       {isLoading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#1B3B2B" />
+          <ActivityIndicator size="large" color="#102739" />
           <Text style={styles.loadingText}>Đang tải dữ liệu bảng công...</Text>
         </View>
       ) : activeTab === 'MY' ? (
@@ -455,7 +455,7 @@ export function MonthlyTimesheetScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor="#1B3B2B"
+              tintColor="#102739"
             />
           }
           showsVerticalScrollIndicator={false}
@@ -537,7 +537,7 @@ export function MonthlyTimesheetScreen() {
                 }}
               >
                 <View style={styles.officialIconBox}>
-                  <MaterialCommunityIcons name="file-document-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="file-document-outline" size={22} color="#102739" />
                 </View>
                 <View style={styles.officialMetaCol}>
                   <Text style={styles.officialTitle}>Bảng công HR</Text>
@@ -595,7 +595,7 @@ export function MonthlyTimesheetScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor="#1B3B2B"
+              tintColor="#102739"
             />
           }
           showsVerticalScrollIndicator={false}
@@ -704,7 +704,7 @@ export function MonthlyTimesheetScreen() {
                   Tất cả phòng ban
                 </Text>
                 {selectedDepartmentId === 'ALL' && (
-                  <Ionicons name="checkmark" size={18} color="#1B3B2B" />
+                  <Ionicons name="checkmark" size={18} color="#102739" />
                 )}
               </Pressable>
 
@@ -729,7 +729,7 @@ export function MonthlyTimesheetScreen() {
                     {d.name}
                   </Text>
                   {selectedDepartmentId === d.id && (
-                    <Ionicons name="checkmark" size={18} color="#1B3B2B" />
+                    <Ionicons name="checkmark" size={18} color="#102739" />
                   )}
                 </Pressable>
               ))}
@@ -757,9 +757,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
 
-  /* ── Header (#1B3B2B) ── */
+  /* ── Header (#102739) ── */
   modernHeader: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingBottom: 0,
     position: 'relative',
@@ -978,7 +978,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -1151,7 +1151,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -1159,7 +1159,7 @@ const styles = StyleSheet.create({
   companyAvatarText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   companyMetaCol: {
     flex: 1,
@@ -1243,12 +1243,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
   },
   uploadImageInlineBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
 
   /* Empty State */
@@ -1309,6 +1309,6 @@ const styles = StyleSheet.create({
   },
   modalItemTextActive: {
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
 });

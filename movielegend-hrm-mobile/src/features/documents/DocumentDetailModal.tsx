@@ -106,7 +106,7 @@ export function DocumentDetailModal({
           <View style={styles.headerRow}>
             <View style={styles.headerLeftGroup}>
               <View style={styles.headerIconBox}>
-                <MaterialCommunityIcons name="file-document-outline" size={20} color="#1B3B2B" />
+                <MaterialCommunityIcons name="file-document-outline" size={20} color="#102739" />
               </View>
               <Text style={styles.headerTitle}>Chi tiết tài liệu</Text>
             </View>
@@ -205,7 +205,7 @@ export function DocumentDetailModal({
             {/* Secondary Action Row: Sao chép liên kết + Xóa */}
             <View style={styles.bottomActionsRow}>
               <Pressable style={styles.copyLinkBtn} onPress={handleCopyLink}>
-                <Ionicons name="copy-outline" size={16} color="#1B3B2B" />
+                <Ionicons name="copy-outline" size={16} color="#102739" />
                 <Text style={styles.copyLinkBtnText}>Sao chép liên kết</Text>
               </Pressable>
 
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   categoryPill: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   categoryPillText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   fileSizeRow: {
     flexDirection: 'row',
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     height: 46,
     borderRadius: 12,
     marginTop: 4,
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   copyLinkBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   deleteDocBtn: {
     width: 100,

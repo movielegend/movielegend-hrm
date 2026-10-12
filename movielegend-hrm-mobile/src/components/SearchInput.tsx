@@ -15,7 +15,7 @@ export function SearchInput({ value, onChangeText, placeholder = 'Tìm kiếm' }
 
   return (
     <View style={[styles.container, isFocused && styles.containerFocused]}>
-      <MaterialCommunityIcons name="magnify" size={20} color={isFocused ? '#111827' : '#9CA3AF'} style={styles.icon} />
+      <MaterialCommunityIcons name="magnify" size={20} color={isFocused ? '#102739' : '#9CA3AF'} style={styles.icon} />
       <TextInput 
         accessibilityLabel={placeholder} 
         onChangeText={onChangeText} 
@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   containerFocused: {
-    borderColor: '#111827',
+    borderColor: '#102739',
     backgroundColor: '#FFFFFF',
   },
   icon: {
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: '#111827',
+    color: '#102739',
     fontSize: 15,
     paddingVertical: Platform.OS === 'ios' ? 10 : 6,
   },

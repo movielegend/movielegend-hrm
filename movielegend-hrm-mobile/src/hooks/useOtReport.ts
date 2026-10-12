@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  getEligibleOtCheckins,
   createOtReport,
   getMyOtReports,
   getPendingOtReports,
@@ -8,6 +9,13 @@ import {
   approveOtReport,
   rejectOtReport,
 } from '../api/ot-report.api';
+
+export function useEligibleOtCheckins() {
+  return useQuery({
+    queryKey: ['ot-reports', 'eligible-checkins'],
+    queryFn: () => getEligibleOtCheckins(),
+  });
+}
 import type {
   CreateOtReportPayload,
   UpdateOtReportPayload,

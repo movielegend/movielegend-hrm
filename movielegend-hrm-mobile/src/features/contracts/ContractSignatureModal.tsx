@@ -170,10 +170,10 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
             title="Xem hợp đồng"
           />
           
-          {fieldsToFill.length > 0 && (
+            {fieldsToFill.length > 0 && (
             <View style={styles.cardContainer}>
               <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="form-textbox" size={20} color="#1E3E2F" />
+                <MaterialCommunityIcons name="form-textbox" size={20} color="#102739" />
                 <Text style={styles.cardTitle}>Thông tin bổ sung hợp đồng</Text>
               </View>
               {fieldsToFill.map(field => {
@@ -214,7 +214,7 @@ export function ContractSignatureModal({ visible, onClose, onSave, pdfUrl, field
 
           <View style={styles.cardContainer}>
             <View style={styles.cardHeader}>
-              <MaterialCommunityIcons name="draw-pen" size={20} color="#1E3E2F" />
+              <MaterialCommunityIcons name="draw-pen" size={20} color="#102739" />
               <Text style={styles.cardTitle}>Ký tên xác nhận</Text>
             </View>
             <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 10 }}>
@@ -367,8 +367,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   checkboxActive: {
-    backgroundColor: '#1E3E2F',
-    borderColor: '#1E3E2F',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   padWrapper: {
     height: 200,
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     flex: 2,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#1E3E2F',
+    backgroundColor: '#102739',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

@@ -12,6 +12,8 @@ export async function updateMyFace(payload: UpdateFacePayload): Promise<{ succes
 }
 
 export interface UpdateMePayload {
+  fullName?: string;
+  name?: string;
   phone?: string;
   email?: string;
   avatarUrl?: string;

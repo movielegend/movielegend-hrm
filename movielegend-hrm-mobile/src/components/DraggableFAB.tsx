@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_SIZE / 2,
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

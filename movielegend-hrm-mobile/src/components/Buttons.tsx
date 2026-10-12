@@ -47,7 +47,7 @@ export function SecondaryButton({ children, onPress, disabled, loading, accessib
         style
       ]}
     >
-      {loading ? <ActivityIndicator color="#111827" /> : <Text style={[styles.secondaryText, textStyle]}>{children}</Text>}
+      {loading ? <ActivityIndicator color="#102739" /> : <Text style={[styles.secondaryText, textStyle]}>{children}</Text>}
     </Pressable>
   );
 }
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   primary: {
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
   },
   primaryPressed: {
     backgroundColor: '#374151',
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
   },
   secondaryText: {
-    color: '#111827',
+    color: '#102739',
     fontSize: 16,
     fontWeight: '800',
   },

@@ -64,7 +64,7 @@ export function AdminFeedbackListScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
       <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -122,11 +122,11 @@ export function AdminFeedbackListScreen() {
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 24) + 12 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#1B3B2B" />
+            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#102739" />
           }
         >
           {feedbacksQuery.isLoading ? (
-            <ActivityIndicator style={{ marginVertical: 32 }} color="#1B3B2B" size="large" />
+            <ActivityIndicator style={{ marginVertical: 32 }} color="#102739" size="large" />
           ) : !feedbacksQuery.data || !feedbacksQuery.data.items || feedbacksQuery.data.items.length === 0 ? (
             <View style={{ paddingVertical: 48, alignItems: 'center' }}>
               <MaterialCommunityIcons name="email-outline" size={56} color="#CBD5E1" />
@@ -238,7 +238,7 @@ export function AdminFeedbackDetailScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       {/* Header Container */}
       <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -270,7 +270,7 @@ export function AdminFeedbackDetailScreen() {
           {/* Card 2: Sender Info */}
           <View style={styles.senderCard}>
             <View style={styles.senderAvatarBox}>
-              <Ionicons name="person-outline" size={22} color="#1B3B2B" />
+              <Ionicons name="person-outline" size={22} color="#102739" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.senderLabel}>Người gửi</Text>
@@ -448,10 +448,10 @@ export function AdminFeedbackDetailScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   headerWrap: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
@@ -566,8 +566,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   filterPillActive: {
-    backgroundColor: '#1B3B2B',
-    borderColor: '#1B3B2B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   filterPillText: {
     fontSize: 13,
@@ -696,7 +696,7 @@ const styles = StyleSheet.create({
     flex: 1.4,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -804,7 +804,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#C2410C',
   },
   modalConfirmBtnResolve: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   modalConfirmBtnText: {
     fontSize: 16,

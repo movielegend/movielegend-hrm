@@ -7,8 +7,14 @@ import type {
   RejectOtReportPayload,
   OtReport,
   OtReportFilters,
+  EligibleCheckinDay,
 } from '../types/ot-report.types';
 import type { PaginatedResult } from '../types/pagination.types';
+
+export async function getEligibleOtCheckins(): Promise<EligibleCheckinDay[]> {
+  const response = await apiClient.get<ApiResponse<EligibleCheckinDay[]>>('/ot-reports/eligible-checkins');
+  return unwrapData(response);
+}
 
 export async function createOtReport(payload: CreateOtReportPayload): Promise<OtReport> {
   const response = await apiClient.post<ApiResponse<OtReport>>('/ot-reports', payload);

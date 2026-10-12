@@ -381,7 +381,7 @@ export function WithdrawalRequestsManager({ onBadgeCountChange }: WithdrawalRequ
             <MaterialCommunityIcons
               name="file-document-check-outline"
               size={36}
-              color="#204E3B"
+              color="#102739"
             />
           </View>
           <Text style={styles.customEmptyTitle}>Chưa có yêu cầu chờ duyệt</Text>
@@ -943,12 +943,12 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: '#CBD5E1',
   },
   customEmptyTitle: {
     fontSize: 17,
@@ -987,7 +987,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   filterPillActive: {
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
   },
   filterPillText: {
     fontSize: 12,
@@ -1068,7 +1068,7 @@ const styles = StyleSheet.create({
   ticketEmpName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
   ticketEmpMeta: {
     fontSize: 12,
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
   amountValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
   },
   currencyUnit: {
     fontSize: 13,

@@ -955,8 +955,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   segmentBtnActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   segmentBtnText: {
     fontSize: 12.5,
@@ -1052,8 +1052,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 10,
-    backgroundColor: '#0F172A',
-    shadowColor: '#0F172A',
+    backgroundColor: '#102739',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,

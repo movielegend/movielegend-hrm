@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
   },
   header: {
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
     padding: 20,
     alignItems: 'center',
   },
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   separatorText: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#111827',
+    color: '#102739',
   },
   itemButton: {
     paddingVertical: 10,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
   },
   okButton: {
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
   },
   cancelText: {
     fontSize: 13,

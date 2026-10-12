@@ -742,7 +742,7 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: '#111827',
+    color: '#102739',
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.5,
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
   },
 
   navigationTitle: {
-    color: '#111827',
+    color: '#102739',
     fontSize: 20,
     fontWeight: '800',
     marginBottom: spacing.xs,
@@ -823,7 +823,7 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    color: '#111827',
+    color: '#102739',
     fontSize: 20,
     fontWeight: '800',
   },

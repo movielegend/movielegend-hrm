@@ -617,7 +617,7 @@ export function AdminTetWalletScreen() {
                           onPress={() => toggleDepartment(dept.id)}
                         >
                           <View style={styles.deptIconCircle}>
-                            <MaterialCommunityIcons name="account-group" size={20} color="#204E3B" />
+                            <MaterialCommunityIcons name="account-group" size={20} color="#102739" />
                           </View>
 
                           <View style={styles.deptInfoCol}>
@@ -690,14 +690,14 @@ export function AdminTetWalletScreen() {
                                   <View style={styles.memberSwitchRow}>
                                     <Text style={styles.memberSwitchLabel}>Quyền ví</Text>
                                     {isToggling ? (
-                                      <ActivityIndicator size="small" color="#204E3B" style={{ marginHorizontal: 2 }} />
+                                      <ActivityIndicator size="small" color="#102739" style={{ marginHorizontal: 2 }} />
                                     ) : (
                                       <Switch
                                         value={isVaultEnabled}
                                         disabled={!canManageTetWallet || isToggling}
                                         onValueChange={(val) => handleToggleVault(emp, val)}
-                                        trackColor={{ false: '#E2E8F0', true: 'rgba(32, 78, 59, 0.4)' }}
-                                        thumbColor={isVaultEnabled ? '#204E3B' : '#94A3B8'}
+                                        trackColor={{ false: '#E2E8F0', true: 'rgba(16, 39, 57, 0.4)' }}
+                                        thumbColor={isVaultEnabled ? '#102739' : '#94A3B8'}
                                         style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }] } : undefined}
                                       />
                                     )}
@@ -947,7 +947,7 @@ function EmployeeRowItem({
         <View style={styles.pointsBadgeRow}>
           {totalPoints > 0 ? (
             <View style={styles.grantedPointTag}>
-              <MaterialCommunityIcons name="star-shooting" size={11} color="#204E3B" />
+              <MaterialCommunityIcons name="star-shooting" size={11} color="#102739" />
               <Text style={styles.grantedPointText}>
                 ✦ {totalPoints.toLocaleString('vi-VN')} điểm = {(totalPoints * 1000).toLocaleString('vi-VN')} VNĐ
               </Text>
@@ -969,7 +969,7 @@ function EmployeeRowItem({
               onGrantPoints?.();
             }}
           >
-            <MaterialCommunityIcons name="gift-outline" size={13} color="#204E3B" />
+            <MaterialCommunityIcons name="gift-outline" size={13} color="#102739" />
             <Text style={styles.rowGrantBtnText}>Trao điểm</Text>
           </Pressable>
         )}
@@ -978,14 +978,14 @@ function EmployeeRowItem({
         <View style={styles.switchRow}>
           <Text style={styles.switchLabelText}>Quyền ví</Text>
           {isToggling ? (
-            <ActivityIndicator size="small" color="#204E3B" style={{ marginHorizontal: 2 }} />
+            <ActivityIndicator size="small" color="#102739" style={{ marginHorizontal: 2 }} />
           ) : (
             <Switch
               value={isVaultEnabled}
               disabled={!canManage || isToggling}
               onValueChange={onToggle}
-              trackColor={{ false: '#E2E8F0', true: 'rgba(32, 78, 59, 0.35)' }}
-              thumbColor={isVaultEnabled ? '#204E3B' : '#94A3B8'}
+              trackColor={{ false: '#E2E8F0', true: 'rgba(16, 39, 57, 0.35)' }}
+              thumbColor={isVaultEnabled ? '#102739' : '#94A3B8'}
               style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] } : undefined}
             />
           )}
@@ -999,7 +999,7 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: 4,
     paddingBottom: 140,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
   },
 
   /* Top Header: Back button + Title on the same row */
@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
 
   /* Solid Hero Banner matching Screen 1 */
   solidHeroBanner: {
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1078,7 +1078,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     marginHorizontal: 16,
     marginBottom: 14,
-    shadowColor: '#204E3B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -1127,7 +1127,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   underlineTabTextActive: {
-    color: '#204E3B',
+    color: '#102739',
     fontWeight: '700',
   },
   activeUnderline: {
@@ -1136,7 +1136,7 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     height: 3,
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     borderRadius: 2,
   },
   pendingBadgeCircle: {
@@ -1257,7 +1257,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -1292,13 +1292,13 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#204E3B',
+    borderColor: '#102739',
     backgroundColor: '#FFFFFF',
   },
   deptGrantBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#204E3B',
+    color: '#102739',
   },
   deptMoreDotsBtn: {
     padding: 4,
@@ -1327,7 +1327,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     borderWidth: 1,
     borderColor: '#CBD5E1',
     alignItems: 'center',
@@ -1337,7 +1337,7 @@ const styles = StyleSheet.create({
   memberAvatarText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#204E3B',
+    color: '#102739',
   },
   memberInfoCol: {
     flex: 1,
@@ -1362,13 +1362,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#204E3B',
+    borderColor: '#102739',
     backgroundColor: '#FFFFFF',
   },
   memberGrantBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#204E3B',
+    color: '#102739',
   },
   memberSwitchRow: {
     flexDirection: 'row',
@@ -1458,7 +1458,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     borderWidth: 1,
     borderColor: '#CBD5E1',
     alignItems: 'center',
@@ -1467,7 +1467,7 @@ const styles = StyleSheet.create({
   avatarFallbackText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#204E3B',
+    color: '#102739',
   },
   empInfo: {
     flex: 1,
@@ -1526,7 +1526,7 @@ const styles = StyleSheet.create({
   grantedPointTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1536,7 +1536,7 @@ const styles = StyleSheet.create({
   grantedPointText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#204E3B',
+    color: '#102739',
   },
   noPointsText: {
     fontSize: 10,
@@ -1550,9 +1550,9 @@ const styles = StyleSheet.create({
   rowGrantBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     borderWidth: 1,
-    borderColor: 'rgba(32, 78, 59, 0.35)',
+    borderColor: 'rgba(16, 39, 57, 0.25)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1561,7 +1561,7 @@ const styles = StyleSheet.create({
   rowGrantBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#204E3B',
+    color: '#102739',
   },
   switchRow: {
     flexDirection: 'row',

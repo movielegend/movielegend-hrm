@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
@@ -19,6 +19,7 @@ import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from './components/AvatarPicker';
 import { formatSeniority } from '../../utils/seniority';
+import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
 
 export function AdminProfileScreen() {
   const router = useRouter();
@@ -26,13 +27,14 @@ export function AdminProfileScreen() {
   const { showGuideManual } = useUserGuide();
   const { showConfirm } = useAppAlert();
   const insets = useSafeAreaInsets();
+  const tabBarScroll = useTabBarScroll();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPersonalInfoModal, setShowPersonalInfoModal] = useState(false);
 
-  // Accordion state: by default, Group 'Nhân sự' is open as shown in Screen 2
+  // Accordion state: by default, Group 'Nhân sự' is open
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     hr: true,
     ops: false,
@@ -69,12 +71,13 @@ export function AdminProfileScreen() {
     return (first + last).toUpperCase() || 'AL';
   };
 
-  const seniorityText = formatSeniority(user?.joinDate || (user as any)?.createdAt) || '18 ngày';
+  const seniorityText = formatSeniority(user?.joinDate || (user as any)?.createdAt) || 'Chưa cập nhật';
   const userCodeText = user?.userCode || 'NV000001';
+  const departmentName = user?.department?.name || 'Ban Quản Trị Hệ Thống';
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
 
       <ScrollView
         style={styles.scrollBody}
@@ -83,8 +86,10 @@ export function AdminProfileScreen() {
           { paddingBottom: Math.max(insets.bottom, 16) + 80 },
         ]}
         showsVerticalScrollIndicator={false}
+        onScroll={tabBarScroll.onScroll}
+        scrollEventThrottle={16}
       >
-        {/* ── Top Header (#1B3B2B) ── */}
+        {/* ── Top Header (#102739) ── */}
         <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
           {/* Subtle Decorative Wave Curve Background */}
           <View style={styles.decorativeCurve} />
@@ -117,6 +122,9 @@ export function AdminProfileScreen() {
                   {user?.fullName || 'Admin Movie Legend'}
                 </Text>
                 <Text style={styles.userRole}>{adminRoleLabel}</Text>
+                <Text style={styles.userDepartment} numberOfLines={1}>
+                  {departmentName}
+                </Text>
                 <View style={styles.statusRow}>
                   <View style={styles.statusDot} />
                   <Text style={styles.statusText}>Đang hoạt động</Text>
@@ -138,6 +146,13 @@ export function AdminProfileScreen() {
                 <Text style={styles.profileStatLabel}>Thâm niên</Text>
                 <Text style={styles.profileStatValue}>{seniorityText}</Text>
               </View>
+
+              <View style={styles.statVerticalDivider} />
+
+              <View style={styles.profileStatCol}>
+                <Text style={styles.profileStatLabel}>Quyền hạn</Text>
+                <Text style={styles.profileStatValue}>{isSuperAdmin ? 'Toàn quyền' : 'Admin'}</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -149,7 +164,7 @@ export function AdminProfileScreen() {
             onPress={() => setShowPersonalInfoModal(true)}
           >
             <View style={styles.personalIconBox}>
-              <MaterialCommunityIcons name="card-account-details-outline" size={22} color="#1B3B2B" />
+              <MaterialCommunityIcons name="card-account-details-outline" size={22} color="#102739" />
             </View>
             <View style={styles.personalTextWrap}>
               <Text style={styles.personalTitle}>Thông tin cá nhân</Text>
@@ -195,14 +210,14 @@ export function AdminProfileScreen() {
                   <Ionicons name="time-outline" size={24} color="#0F172A" />
                 </View>
                 <Text style={styles.utilityTitle}>Chấm công</Text>
-                <Text style={styles.utilitySubtitle}>Lịch sử</Text>
+                <Text style={styles.utilitySubtitle}>Dữ liệu</Text>
               </Pressable>
             </View>
           </View>
 
-          {/* ── Section: Không gian làm việc ── */}
+          {/* ── Section: Không gian quản trị & Vận hành ── */}
           <View style={styles.sectionWrap}>
-            <Text style={styles.sectionHeaderTitle}>Không gian làm việc</Text>
+            <Text style={styles.sectionHeaderTitle}>Không gian quản trị & Vận hành</Text>
 
             {/* ── Accordion Group 1: Nhân sự ── */}
             <View style={styles.accordionCard}>
@@ -211,7 +226,7 @@ export function AdminProfileScreen() {
                 onPress={() => toggleGroup('hr')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="account-group-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="account-group-outline" size={22} color="#102739" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Nhân sự</Text>
@@ -228,7 +243,7 @@ export function AdminProfileScreen() {
                 <View style={styles.accordionBody}>
                   {/* Sub-group: Tổ chức & phát triển */}
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Tổ chức & phát triển</Text>
+                    <Text style={styles.subGroupTitle}>TỔ CHỨC & PHÁT TRIỂN</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="sitemap-outline"
@@ -261,7 +276,7 @@ export function AdminProfileScreen() {
 
                   {/* Sub-group: Chấm công & phê duyệt */}
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Chấm công & phê duyệt</Text>
+                    <Text style={styles.subGroupTitle}>CHẤM CÔNG & PHÊ DUYỆT</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="time-outline"
@@ -294,12 +309,12 @@ export function AdminProfileScreen() {
 
                   {/* Sub-group: Hồ sơ & quản lý */}
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Hồ sơ & quản lý</Text>
+                    <Text style={styles.subGroupTitle}>HỒ SƠ & QUẢN LÝ</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="swap-horizontal"
                         iconType="mci"
-                        title="Luân chuyển phòng ban"
+                        title="Luân chuyển PB"
                         onPress={() => router.push('/admin/cross-department')}
                       />
                       <FeatureItem
@@ -333,7 +348,7 @@ export function AdminProfileScreen() {
                 onPress={() => toggleGroup('ops')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="cube-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="cube-outline" size={22} color="#102739" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Vận hành</Text>
@@ -349,7 +364,7 @@ export function AdminProfileScreen() {
               {expandedGroups.ops && (
                 <View style={styles.accordionBody}>
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Công việc & trao đổi</Text>
+                    <Text style={styles.subGroupTitle}>CÔNG VIỆC & TRAO ĐỔI</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="newspaper-outline"
@@ -381,7 +396,7 @@ export function AdminProfileScreen() {
                   <View style={styles.featureDivider} />
 
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Kho & vật tư</Text>
+                    <Text style={styles.subGroupTitle}>KHO & VẬT TƯ</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="cube-outline"
@@ -408,7 +423,7 @@ export function AdminProfileScreen() {
                 onPress={() => toggleGroup('settings')}
               >
                 <View style={styles.accordionIconBox}>
-                  <MaterialCommunityIcons name="cog-outline" size={22} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="cog-outline" size={22} color="#102739" />
                 </View>
                 <View style={styles.accordionTitleCol}>
                   <Text style={styles.accordionTitle}>Cài đặt</Text>
@@ -424,7 +439,7 @@ export function AdminProfileScreen() {
               {expandedGroups.settings && (
                 <View style={styles.accordionBody}>
                   <View style={styles.subGroupSection}>
-                    <Text style={styles.subGroupTitle}>Tài khoản & hệ thống</Text>
+                    <Text style={styles.subGroupTitle}>TÀI KHOẢN & HỆ THỐNG</Text>
                     <View style={styles.featureGrid}>
                       <FeatureItem
                         icon="help-circle-outline"
@@ -441,7 +456,7 @@ export function AdminProfileScreen() {
                       <FeatureItem
                         icon="shield-outline"
                         iconType="ionicons"
-                        title="Quyền & Xóa tài khoản"
+                        title="Quyền & Xóa TK"
                         onPress={() => setIsDeleting(true)}
                       />
                     </View>
@@ -454,10 +469,10 @@ export function AdminProfileScreen() {
           {/* ── Logout Button ── */}
           <Pressable style={styles.logoutBtn} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout-variant" size={18} color="#B91C1C" />
-            <Text style={styles.logoutBtnText}>Đăng xuất</Text>
+            <Text style={styles.logoutBtnText}>Đăng xuất tài khoản</Text>
           </Pressable>
 
-          <Text style={styles.versionText}>Phiên bản 1.0.0</Text>
+          <Text style={styles.versionText}>Phiên bản 1.0.0 • Movie Legend HRM</Text>
         </View>
       </ScrollView>
 
@@ -491,7 +506,7 @@ export function AdminProfileScreen() {
                 <InfoItem label="Email" value={user?.email || 'Chưa cập nhật'} />
                 <InfoItem
                   label="Phòng ban"
-                  value={user?.department?.name || 'Quản trị hệ thống'}
+                  value={departmentName}
                 />
                 <InfoItem label="Chức vụ" value={adminRoleLabel} />
                 <InfoItem
@@ -514,31 +529,24 @@ export function AdminProfileScreen() {
                   setIsEditing(true);
                 }}
               >
-                <Ionicons name="pencil-outline" size={16} color="#FFFFFF" />
-                <Text style={styles.editContactBtnText}>Chỉnh sửa thông tin liên hệ</Text>
+                <MaterialCommunityIcons name="pencil-outline" size={18} color="#FFFFFF" />
+                <Text style={styles.editContactBtnText}>Chỉnh sửa thông tin</Text>
               </Pressable>
             </ScrollView>
-
-            <SafeAreaView edges={['bottom']} />
           </View>
         </View>
       </Modal>
 
-      {/* Existing Edit, Change Password & Delete Account Modals */}
+      {/* Modals hỗ trợ: Sửa hồ sơ, Đổi mật khẩu, Xóa tài khoản */}
       <EditProfileModal
         visible={isEditing}
         onClose={() => setIsEditing(false)}
+        initialFullName={user?.fullName || ''}
         initialPhone={user?.phone || ''}
         initialEmail={user?.email || ''}
       />
-      <ChangePasswordModal
-        visible={isChangingPassword}
-        onClose={() => setIsChangingPassword(false)}
-      />
-      <DeleteAccountModal
-        visible={isDeleting}
-        onClose={() => setIsDeleting(false)}
-      />
+      <ChangePasswordModal visible={isChangingPassword} onClose={() => setIsChangingPassword(false)} />
+      <DeleteAccountModal visible={isDeleting} onClose={() => setIsDeleting(false)} />
     </View>
   );
 }
@@ -587,16 +595,16 @@ function InfoItem({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
   },
   scrollBody: {
     flex: 1,
   },
   scrollContent: {},
 
-  /* ── Header (#1B3B2B) ── */
+  /* ── Header (#102739) ── */
   headerContainer: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingBottom: 24,
     position: 'relative',
@@ -671,6 +679,11 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 1,
   },
+  userDepartment: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -738,7 +751,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -833,7 +846,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -931,7 +944,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   modalDragHandle: {
     width: 36,
@@ -943,12 +956,12 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -956,12 +969,13 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   infoModalCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F5F7FA',
     borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 14,
-    marginBottom: 14,
   },
   infoItemRow: {
     flexDirection: 'row',
@@ -969,14 +983,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: '#EDF2F7',
   },
   infoItemLabel: {
     fontSize: 13,
     color: '#64748B',
   },
   infoItemValue: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -985,10 +999,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     height: 46,
     borderRadius: 12,
+    paddingVertical: 12,
     marginTop: 4,
+    marginBottom: 12,
   },
   editContactBtnText: {
     fontSize: 14,

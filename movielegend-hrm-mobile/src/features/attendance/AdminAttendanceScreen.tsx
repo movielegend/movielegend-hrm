@@ -10,6 +10,7 @@ import {
   Modal,
   Image,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useSegments } from 'expo-router';
@@ -55,7 +56,7 @@ function CircularProgressRing({ percentage, size = 64, strokeWidth = 6 }: { perc
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#4ADE80" // Bright mint green
+          stroke="#38BDF8"
           strokeWidth={strokeWidth}
           strokeDasharray={`${circumference} ${circumference}`}
           strokeDashoffset={strokeDashoffset}
@@ -63,7 +64,7 @@ function CircularProgressRing({ percentage, size = 64, strokeWidth = 6 }: { perc
           fill="transparent"
         />
       </Svg>
-      <View style={StyleSheet.absoluteFillObject && { position: 'absolute', justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ position: 'absolute', justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '700' }}>{Math.round(percentage)}%</Text>
       </View>
     </View>
@@ -74,9 +75,12 @@ function CircularProgressRing({ percentage, size = 64, strokeWidth = 6 }: { perc
 function UserInitialAvatar({ name, uri, size = 44 }: { name: string; uri?: string | null; size?: number }) {
   const initials = useMemo(() => {
     if (!name) return 'ML';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'ML';
+    if (parts.length === 1) return (parts[0] || 'ML').slice(0, 2).toUpperCase();
+    const first = (parts[0] || '').charAt(0);
+    const last = (parts[parts.length - 1] || '').charAt(0);
+    return (first + last).toUpperCase() || 'ML';
   }, [name]);
 
   const absoluteUri = getAbsoluteImageUrl(uri);
@@ -96,14 +100,14 @@ function UserInitialAvatar({ name, uri, size = 44 }: { name: string; uri?: strin
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: '#E8F5E9',
+        backgroundColor: '#E7F0F7',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#C8E6C9',
+        borderColor: '#CBD5E1',
       }}
     >
-      <Text style={{ color: '#1B382B', fontSize: Math.max(12, Math.floor(size * 0.36)), fontWeight: '800' }}>
+      <Text style={{ color: '#102739', fontSize: Math.max(12, Math.floor(size * 0.36)), fontWeight: '800' }}>
         {initials}
       </Text>
     </View>
@@ -213,7 +217,7 @@ export function AdminAttendanceScreen() {
 
   // Load config if 1 department selected
   useEffect(() => {
-    if (selectedDeptIds.length === 1) {
+    if (selectedDeptIds.length === 1 && selectedDeptIds[0]) {
       deptOvertimeConfigApi.findByDepartment(selectedDeptIds[0])
         .then((existing) => {
           if (existing) {
@@ -290,13 +294,11 @@ export function AdminAttendanceScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       {/* 1. Header (Brand: movielegend PEOPLE + Title + Date Pill) */}
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, isLeader && { paddingBottom: 10 }]}>
         <View style={styles.headerTopRow}>
-          <View>
-            <Text style={styles.screenTitle}>
-              {isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}
-            </Text>
-          </View>
+          <Text style={styles.screenTitle} numberOfLines={1}>
+            {isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}
+          </Text>
 
           {/* Date Picker Pill Trigger */}
           <Pressable
@@ -304,34 +306,36 @@ export function AdminAttendanceScreen() {
             style={styles.datePill}
             android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
           >
-            <Ionicons name="calendar-outline" size={14} color="#183B2B" style={{ marginRight: 6 }} />
+            <Ionicons name="calendar-outline" size={13.5} color="#102739" style={{ marginRight: 5 }} />
             <Text style={styles.datePillText}>{formattedDatePill}</Text>
-            <Ionicons name="chevron-down" size={13} color="#6B7280" style={{ marginLeft: 4 }} />
+            <Ionicons name="chevron-down" size={12} color="#6B7280" style={{ marginLeft: 3 }} />
           </Pressable>
         </View>
 
-        {/* 2. Segmented Switcher [Chấm công] vs [Cấu hình] */}
-        <View style={styles.segmentContainer}>
-          <Pressable
-            onPress={() => setActiveTab('attendance')}
-            style={[styles.segmentButton, activeTab === 'attendance' && styles.segmentButtonActive]}
-          >
-            <Text style={[styles.segmentButtonText, activeTab === 'attendance' && styles.segmentButtonTextActive]}>
-              Chấm công
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setActiveTab('config');
-              setConfigStep(1);
-            }}
-            style={[styles.segmentButton, activeTab === 'config' && styles.segmentButtonActive]}
-          >
-            <Text style={[styles.segmentButtonText, activeTab === 'config' && styles.segmentButtonTextActive]}>
-              Cấu hình
-            </Text>
-          </Pressable>
-        </View>
+        {/* 2. Segmented Switcher [Chấm công] vs [Cấu hình] - Ẩn với Leader */}
+        {!isLeader && (
+          <View style={styles.segmentContainer}>
+            <Pressable
+              onPress={() => setActiveTab('attendance')}
+              style={[styles.segmentButton, activeTab === 'attendance' && styles.segmentButtonActive]}
+            >
+              <Text style={[styles.segmentButtonText, activeTab === 'attendance' && styles.segmentButtonTextActive]}>
+                Chấm công
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setActiveTab('config');
+                setConfigStep(1);
+              }}
+              style={[styles.segmentButton, activeTab === 'config' && styles.segmentButtonActive]}
+            >
+              <Text style={[styles.segmentButtonText, activeTab === 'config' && styles.segmentButtonTextActive]}>
+                Cấu hình
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       {/* Date Picker Modal */}
@@ -352,7 +356,7 @@ export function AdminAttendanceScreen() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#1A3B2F" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#102739" />}
         >
           {/* Hero Card: Dark Forest Green */}
           <View style={styles.heroCard}>
@@ -380,8 +384,8 @@ export function AdminAttendanceScreen() {
             <View style={styles.statMiniCard}>
               <View style={styles.statIconRow}>
                 <Text style={styles.statValue}>{onTimePercentage}%</Text>
-                <View style={[styles.statIconCircle, { backgroundColor: '#E8F5E9' }]}>
-                  <Ionicons name="time" size={16} color="#166534" />
+                <View style={[styles.statIconCircle, { backgroundColor: '#E7F0F7' }]}>
+                  <Ionicons name="time" size={16} color="#102739" />
                 </View>
               </View>
               <Text style={styles.statLabel}>Đúng giờ</Text>
@@ -413,13 +417,15 @@ export function AdminAttendanceScreen() {
           {/* Section: Danh sách nhân viên */}
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionHeading}>Danh sách nhân viên</Text>
-            <Pressable
-              onPress={() => router.push(`${basePath}/attendance/report` as any)}
-              style={styles.exportBtn}
-              hitSlop={8}
-            >
-              <Ionicons name="share-outline" size={20} color="#1B382B" />
-            </Pressable>
+            {!isLeader && (
+              <Pressable
+                onPress={() => router.push(`${basePath}/attendance/report` as any)}
+                style={styles.exportBtn}
+                hitSlop={8}
+              >
+                <Ionicons name="share-outline" size={20} color="#102739" />
+              </Pressable>
+            )}
           </View>
 
           {/* Search Bar: Tìm tên hoặc mã nhân viên */}
@@ -443,7 +449,7 @@ export function AdminAttendanceScreen() {
           {/* Employee Records List */}
           {reportQuery.isLoading ? (
             <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-              <ActivityIndicator color="#1B382B" size="small" />
+              <ActivityIndicator color="#102739" size="small" />
               <Text style={{ marginTop: 8, fontSize: 13, color: '#6B7280' }}>Đang tải danh sách chấm công...</Text>
             </View>
           ) : filteredRecords.length === 0 ? (
@@ -503,8 +509,8 @@ export function AdminAttendanceScreen() {
         </ScrollView>
       )}
 
-      {/* TAB 2: CẤU HÌNH CHẤM CÔNG (Screen 2 & Screen 3 in Template) */}
-      {activeTab === 'config' && (
+      {/* TAB 2: CẤU HÌNH CHẤM CÔNG (Screen 2 & Screen 3 in Template - Chỉ dành cho Admin/HR) */}
+      {!isLeader && activeTab === 'config' && (
         <View style={{ flex: 1 }}>
           {/* Subheader: Cấu hình chấm công & Stepper Progress */}
           <View style={styles.configSubHeader}>
@@ -565,7 +571,7 @@ export function AdminAttendanceScreen() {
                 {/* Department Checklist */}
                 {loadingDepts ? (
                   <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                    <ActivityIndicator color="#1B382B" size="small" />
+                    <ActivityIndicator color="#102739" size="small" />
                     <Text style={{ marginTop: 8, fontSize: 13, color: '#6B7280' }}>Đang tải danh sách phòng ban...</Text>
                   </View>
                 ) : filteredDepartments.length === 0 ? (
@@ -629,13 +635,13 @@ export function AdminAttendanceScreen() {
               <ScrollView contentContainerStyle={styles.configScrollContent} showsVerticalScrollIndicator={false}>
                 {/* Back to Step 1 pill */}
                 <Pressable onPress={() => setConfigStep(1)} style={styles.backStepRow}>
-                  <Ionicons name="arrow-back" size={16} color="#1B382B" />
+                  <Ionicons name="arrow-back" size={16} color="#102739" />
                   <Text style={styles.backStepText}>Quay lại chọn phòng ban</Text>
                 </Pressable>
 
                 {/* Info Banner: Áp dụng cho X phòng ban */}
                 <View style={styles.infoBanner}>
-                  <Ionicons name="people" size={16} color="#166534" />
+                  <Ionicons name="people" size={16} color="#102739" />
                   <Text style={styles.infoBannerText}>Áp dụng cho {selectedDeptIds.length} phòng ban đã chọn</Text>
                 </View>
 
@@ -791,19 +797,20 @@ export function AdminAttendanceScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   headerContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: Platform.OS === 'ios' ? 14 : 8,
     paddingBottom: 12,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
   },
   brandRow: {
     flexDirection: 'row',
@@ -814,27 +821,28 @@ const styles = StyleSheet.create({
   brandTitle: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#132E22',
+    color: '#102739',
     letterSpacing: -0.3,
   },
   brandSubtitle: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#16A34A',
+    color: '#2563EB',
     letterSpacing: 1.5,
   },
   screenTitle: {
-    fontSize: 22,
+    flex: 1,
+    fontSize: 20,
     fontWeight: '800',
     color: '#0F172A',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   datePill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -843,16 +851,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
-    marginTop: 4,
+    flexShrink: 0,
   },
   datePillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1B382B',
+    color: '#102739',
   },
   segmentContainer: {
     flexDirection: 'row',
-    backgroundColor: '#EAEFEA',
+    backgroundColor: '#E7F0F7',
     borderRadius: 14,
     padding: 4,
   },
@@ -864,7 +872,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentButtonActive: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -886,14 +894,14 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   heroCard: {
-    backgroundColor: '#1B382B', // Deep forest green
+    backgroundColor: '#102739',
     borderRadius: 20,
     padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
@@ -911,12 +919,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#4ADE80',
+    backgroundColor: '#38BDF8',
   },
   heroBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#86EFAC',
+    color: '#94B5CB',
     letterSpacing: 0.8,
   },
   heroMainCount: {
@@ -995,7 +1003,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#EAEFEA',
+    backgroundColor: '#E7F0F7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1053,7 +1061,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   presentBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -1062,7 +1070,7 @@ const styles = StyleSheet.create({
   presentBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   employeeTime: {
     fontSize: 12,
@@ -1112,7 +1120,7 @@ const styles = StyleSheet.create({
   configSubHeader: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   stepperContainer: {
     flexDirection: 'row',
@@ -1139,7 +1147,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stepCircleActive: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
   },
   stepNumber: {
     fontSize: 12,
@@ -1157,7 +1165,7 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   stepTextActive: {
-    color: '#1B382B',
+    color: '#102739',
     fontWeight: '700',
   },
   stepDivider: {
@@ -1167,7 +1175,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   stepDividerActive: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
   },
   configScrollContent: {
     paddingHorizontal: 16,
@@ -1189,7 +1197,7 @@ const styles = StyleSheet.create({
   selectAllText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   deptListCard: {
     backgroundColor: '#FFFFFF',
@@ -1217,8 +1225,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxBoxSelected: {
-    backgroundColor: '#1B382B',
-    borderColor: '#1B382B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   deptItemName: {
     fontSize: 14,
@@ -1242,12 +1250,12 @@ const styles = StyleSheet.create({
     borderTopColor: '#E2E8F0',
   },
   ctaPrimaryBtn: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -1267,13 +1275,13 @@ const styles = StyleSheet.create({
   backStepText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1B382B',
+    color: '#102739',
   },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E7F0F7',
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
@@ -1282,7 +1290,7 @@ const styles = StyleSheet.create({
   infoBannerText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   ruleCard: {
     backgroundColor: '#FFFFFF',
@@ -1315,7 +1323,7 @@ const styles = StyleSheet.create({
   fieldInputSuffixWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 10,

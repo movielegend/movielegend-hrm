@@ -429,7 +429,7 @@ export function AttendanceReportScreen() {
           {/* Employee List Items */}
           {loading ? (
             <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-              <ActivityIndicator color="#1B382B" size="small" />
+              <ActivityIndicator color="#102739" size="small" />
             </View>
           ) : filteredUsers.length === 0 ? (
             <Text style={styles.emptyText}>Không tìm thấy nhân viên phù hợp</Text>
@@ -627,7 +627,7 @@ export function AttendanceReportScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F8FAF8',
+    backgroundColor: '#F5F7FA',
   },
   header: {
     paddingHorizontal: 16,
@@ -696,7 +696,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   badgePill: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 10,
     paddingVertical: 2,
     borderRadius: 12,
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
   badgePillText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#166534',
+    color: '#102739',
   },
   dateModeRow: {
     flexDirection: 'row',
@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dateModeBtnActive: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E7F0F7',
   },
   dateModeText: {
     fontSize: 13,
@@ -728,7 +728,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   dateModeTextActive: {
-    color: '#166534',
+    color: '#102739',
     fontWeight: '800',
   },
   dateInputsRow: {
@@ -836,8 +836,8 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   checkboxActive: {
-    backgroundColor: '#1B382B',
-    borderColor: '#1B382B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   employeeItemRow: {
     flexDirection: 'row',
@@ -893,13 +893,13 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   exportBtn: {
-    backgroundColor: '#1B382B', // Deep forest green matching template
+    backgroundColor: '#102739', // Deep forest green matching template
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
@@ -995,12 +995,12 @@ const styles = StyleSheet.create({
   },
   modalApplyBtn: {
     flex: 1.6,
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1B382B',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 5,

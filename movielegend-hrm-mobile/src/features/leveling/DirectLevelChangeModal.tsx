@@ -264,14 +264,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1B3B2B',
+    color: '#102739',
   },
   userMetaCol: {
     flex: 1,
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   levelOptionRowSelected: {
-    borderColor: '#1B3B2B',
+    borderColor: '#102739',
     backgroundColor: '#F0FDF4',
   },
   levelOptionLeft: {
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   numBadgeHighlight: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
   },
   numBadgeText: {
     fontSize: 12,
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   numBadgeTextHighlight: {
-    color: '#1B3B2B',
+    color: '#102739',
   },
   levelNameText: {
     fontSize: 14,
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   currentBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E7F0F7',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   currentBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1B3B2B',
+    color: '#102739',
   },
 
   /* Radio Button */
@@ -368,13 +368,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioCircleSelected: {
-    borderColor: '#1B3B2B',
+    borderColor: '#102739',
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
 
   hintText: {
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   confirmBtnActive: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
   },
   confirmBtnText: {
     fontSize: 14,

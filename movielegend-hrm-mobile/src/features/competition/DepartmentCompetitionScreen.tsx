@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   memberName: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#102739',
   },
   roleBadge: {
     paddingHorizontal: 6,

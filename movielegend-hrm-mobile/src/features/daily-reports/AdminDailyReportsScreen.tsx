@@ -15,6 +15,7 @@ import {
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import {
@@ -250,7 +251,7 @@ export function AdminDailyReportsScreen() {
     const hiddenCompletedCount = Math.max(0, completedCount - 3);
 
     return (
-      <Screen backgroundColor="#F6F7FB">
+      <Screen backgroundColor="#F5F7FA">
         <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
           {/* DETAIL HEADER */}
           <View style={styles.detailHeaderCard}>
@@ -752,9 +753,10 @@ export function AdminDailyReportsScreen() {
   // RENDER LIST VIEW
   // -------------------------------------------------------------
   return (
-    <Screen backgroundColor="#F8FAFC">
-      {/* ── Solid Forest Green Hero Banner matching Screen 2 ── */}
-      <View style={styles.greenBannerContainer}>
+    <View style={styles.screenWrapper}>
+      <StatusBar style="light" />
+      {/* ── Solid Navy Hero Banner (Full-Bleed Header) ── */}
+      <View style={[styles.greenBannerContainer, { paddingTop: Math.max(insets.top, 10) }]}>
         <View style={styles.greenBannerTopNav}>
           <Pressable onPress={() => router.back()} style={styles.greenBannerBackBtn} hitSlop={10}>
             <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
@@ -809,7 +811,7 @@ export function AdminDailyReportsScreen() {
             onPress={() => setIsDeptModalVisible(true)}
           >
             <View style={styles.deptSelectLeft}>
-              <MaterialCommunityIcons name="domain" size={20} color="#204E3B" />
+              <MaterialCommunityIcons name="domain" size={20} color="#102739" />
               <Text style={styles.deptSelectText} numberOfLines={1}>
                 {selectedDeptName}
               </Text>
@@ -891,15 +893,15 @@ export function AdminDailyReportsScreen() {
         {/* Report Cards List */}
         {reportsQuery.isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#204E3B" />
+            <ActivityIndicator size="small" color="#102739" />
             <Text style={styles.loadingPromptText}>Đang tải danh sách báo cáo...</Text>
           </View>
         ) : reports.length === 0 ? (
           <View style={styles.templateEmptyContainer}>
             <View style={styles.templateEmptyIconCircle}>
-              <MaterialCommunityIcons name="file-document-outline" size={38} color="#204E3B" />
+              <MaterialCommunityIcons name="file-document-outline" size={38} color="#102739" />
               <View style={styles.templateMagnifyIconBadge}>
-                <Ionicons name="search" size={14} color="#204E3B" />
+                <Ionicons name="search" size={14} color="#102739" />
               </View>
             </View>
             <Text style={styles.templateEmptyTitle}>Chưa có báo cáo phù hợp</Text>
@@ -907,7 +909,7 @@ export function AdminDailyReportsScreen() {
               Thử đổi ngày, phòng ban hoặc trạng thái.
             </Text>
             <Pressable style={styles.templateResetBtn} onPress={handleResetFilters}>
-              <Ionicons name="reload" size={16} color="#111827" />
+              <Ionicons name="reload" size={16} color="#102739" />
               <Text style={styles.templateResetBtnText}>Đặt lại bộ lọc</Text>
             </Pressable>
           </View>
@@ -1067,7 +1069,7 @@ export function AdminDailyReportsScreen() {
           </Pressable>
         </Modal>
       </ScreenContainer>
-    </Screen>
+    </View>
   );
 }
 
@@ -1888,10 +1890,14 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
+  screenWrapper: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+
   /* Green Hero Banner & Calendar (Screen 2) */
   greenBannerContainer: {
-    backgroundColor: '#204E3B',
-    paddingTop: 12,
+    backgroundColor: '#102739',
     paddingBottom: 16,
     paddingHorizontal: 16,
     borderBottomLeftRadius: 20,
@@ -1901,7 +1907,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   greenBannerBackBtn: {
     width: 36,
@@ -1916,7 +1922,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.85)',
   },
   greenBannerTitleSection: {
-    marginBottom: 14,
+    marginBottom: 10,
   },
   greenBannerMainTitle: {
     fontSize: 22,
@@ -1972,7 +1978,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   weekDayNumActive: {
-    color: '#111827',
+    color: '#102739',
     fontWeight: '800',
   },
 
@@ -2001,7 +2007,7 @@ const styles = StyleSheet.create({
   deptSelectText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: '#102739',
   },
 
   /* 4 Metric Underline Tabs */
@@ -2024,7 +2030,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   metricTabCountActive: {
-    color: '#204E3B',
+    color: '#102739',
   },
   metricTabLabel: {
     fontSize: 12,
@@ -2032,7 +2038,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   metricTabLabelActive: {
-    color: '#204E3B',
+    color: '#102739',
     fontWeight: '700',
   },
   metricTabActiveUnderline: {
@@ -2041,7 +2047,7 @@ const styles = StyleSheet.create({
     left: 8,
     right: 8,
     height: 3,
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     borderRadius: 2,
   },
 
@@ -2062,7 +2068,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -2076,7 +2082,7 @@ const styles = StyleSheet.create({
   templateEmptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
     marginBottom: 6,
     textAlign: 'center',
   },
@@ -2090,7 +2096,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -2098,6 +2104,6 @@ const styles = StyleSheet.create({
   templateResetBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: '#102739',
   },
 });
