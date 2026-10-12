@@ -25,6 +25,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { CustomAlert } from '../../components/CustomAlert';
 import { useAuth } from '../../providers/AuthProvider';
+import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
 
 export interface GrantTarget {
   type: 'SINGLE' | 'DEPARTMENT';
@@ -76,8 +77,15 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
   const [customPointsInput, setCustomPointsInput] = useState<string>('50000');
   const [durationMonths, setDurationMonths] = useState<number>(12);
   const [intervalMonths, setIntervalMonths] = useState<number>(3);
-  const [startDateStr, setStartDateStr] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [activeDatePreset, setActiveDatePreset] = useState<'today' | 'firstMonth' | 'firstYear'>('today');
+  const [startDateStr, setStartDateStr] = useState<string>(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = (now.getMonth() + 1).toString().padStart(2, '0');
+    const d = now.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+  const [activeDatePreset, setActiveDatePreset] = useState<'today' | 'firstMonth' | 'firstYear' | null>('today');
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [showIntervalModal, setShowIntervalModal] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -127,13 +135,22 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
     setActiveDatePreset(preset);
     const now = new Date();
     if (preset === 'today') {
-      setStartDateStr(now.toISOString().slice(0, 10));
+      const y = now.getFullYear();
+      const m = (now.getMonth() + 1).toString().padStart(2, '0');
+      const d = now.getDate().toString().padStart(2, '0');
+      setStartDateStr(`${y}-${m}-${d}`);
     } else if (preset === 'firstMonth') {
       const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      setStartDateStr(firstOfMonth.toISOString().slice(0, 10));
+      const y = firstOfMonth.getFullYear();
+      const m = (firstOfMonth.getMonth() + 1).toString().padStart(2, '0');
+      const d = firstOfMonth.getDate().toString().padStart(2, '0');
+      setStartDateStr(`${y}-${m}-${d}`);
     } else if (preset === 'firstYear') {
       const firstOfYear = new Date(now.getFullYear(), 0, 1);
-      setStartDateStr(firstOfYear.toISOString().slice(0, 10));
+      const y = firstOfYear.getFullYear();
+      const m = (firstOfYear.getMonth() + 1).toString().padStart(2, '0');
+      const d = firstOfYear.getDate().toString().padStart(2, '0');
+      setStartDateStr(`${y}-${m}-${d}`);
     }
   };
 
@@ -153,7 +170,8 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
     const count = Math.max(1, Math.floor(dur / intv));
     const mPts = Math.floor(totalPts / count);
 
-    const base = new Date(startDateStr);
+    const [sy, sm, sd] = startDateStr.split('-').map(Number);
+    const base = sy && sm && sd ? new Date(sy, sm - 1, sd) : new Date();
     const list: Array<{ index: number; dateStr: string; points: number }> = [];
 
     for (let i = 1; i <= count; i++) {
@@ -483,10 +501,16 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             {/* Ngày bắt đầu */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Ngày bắt đầu</Text>
-              <View style={styles.dateInputBox}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.dateInputBox,
+                  pressed && { opacity: 0.75, borderColor: '#204E3B' },
+                ]}
+                onPress={() => setShowDatePicker(true)}
+              >
                 <Text style={styles.dateInputText}>{formatDateDisplay(startDateStr)}</Text>
                 <Ionicons name="calendar-outline" size={18} color="#64748B" />
-              </View>
+              </Pressable>
 
               {/* Quick Date Presets */}
               <View style={styles.datePresetRow}>
@@ -672,6 +696,41 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
           </View>
         </Pressable>
       </Modal>
+
+      {/* Modal Chọn Ngày Bắt Đầu */}
+      <CustomDatePickerModal
+        visible={showDatePicker}
+        initialDate={(() => {
+          const [y, m, d] = startDateStr.split('-').map(Number);
+          return y && m && d ? new Date(y, m - 1, d) : new Date();
+        })()}
+        onClose={() => setShowDatePicker(false)}
+        onSelect={(date: Date) => {
+          const y = date.getFullYear();
+          const m = (date.getMonth() + 1).toString().padStart(2, '0');
+          const d = date.getDate().toString().padStart(2, '0');
+          const newDateStr = `${y}-${m}-${d}`;
+          setStartDateStr(newDateStr);
+
+          // Check if matches today, firstMonth, firstYear
+          const now = new Date();
+          const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+          const firstMonthStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-01`;
+          const firstYearStr = `${now.getFullYear()}-01-01`;
+
+          if (newDateStr === todayStr) {
+            setActiveDatePreset('today');
+          } else if (newDateStr === firstMonthStr) {
+            setActiveDatePreset('firstMonth');
+          } else if (newDateStr === firstYearStr) {
+            setActiveDatePreset('firstYear');
+          } else {
+            setActiveDatePreset(null);
+          }
+
+          setShowDatePicker(false);
+        }}
+      />
     </Screen>
   );
 }

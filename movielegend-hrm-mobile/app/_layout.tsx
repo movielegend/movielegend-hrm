@@ -156,8 +156,8 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <PaperProvider>
         <QueryProvider>
-          <AlertProvider>
-            <AuthProvider>
+          <AuthProvider>
+            <AlertProvider>
               <ActiveChatProvider>
                 <SocketProvider>
                   <VoiceCallProvider>
@@ -173,8 +173,8 @@ export default function RootLayout() {
                   </VoiceCallProvider>
                 </SocketProvider>
               </ActiveChatProvider>
-            </AuthProvider>
-          </AlertProvider>
+            </AlertProvider>
+          </AuthProvider>
         </QueryProvider>
       </PaperProvider>
     </SafeAreaProvider>

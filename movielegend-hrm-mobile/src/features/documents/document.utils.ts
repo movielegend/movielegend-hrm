@@ -61,6 +61,27 @@ export function getFileIcon(fileName: string, mimeType?: string | null): {
   return { name: 'file-document-outline', color: '#64748B' };
 }
 
+export function getFileBadgeInfo(fileName: string, mimeType?: string | null): {
+  label: string;
+  bgColor: string;
+  textColor: string;
+} {
+  const name = (fileName || '').toLowerCase();
+  if (name.endsWith('.pdf') || mimeType?.includes('pdf')) {
+    return { label: 'PDF', bgColor: '#FEE2E2', textColor: '#DC2626' };
+  }
+  if (name.endsWith('.docx') || name.endsWith('.doc') || mimeType?.includes('word')) {
+    return { label: 'DOC', bgColor: '#EFF6FF', textColor: '#2563EB' };
+  }
+  if (name.endsWith('.xlsx') || name.endsWith('.xls') || mimeType?.includes('sheet') || mimeType?.includes('excel')) {
+    return { label: 'XLS', bgColor: '#ECFDF5', textColor: '#059669' };
+  }
+  if (name.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i) || mimeType?.includes('image')) {
+    return { label: 'IMG', bgColor: '#F5F3FF', textColor: '#7C3AED' };
+  }
+  return { label: 'FILE', bgColor: '#F1F5F9', textColor: '#64748B' };
+}
+
 export function formatFileSize(bytes?: number | null): string {
   if (!bytes || bytes <= 0) return 'Không rõ';
   if (bytes > 1024 * 1024) {
