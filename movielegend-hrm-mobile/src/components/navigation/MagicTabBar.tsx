@@ -50,10 +50,10 @@ export const MagicTabBar = React.memo(function MagicTabBar({
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const translateYAnim = useRef(new Animated.Value(0)).current;
 
-  // Khi cuộn trang lên/xuống: hiệu ứng trượt ẩn xuống đáy (120px) hoặc đẩy lên lại (0px)
+  // Khi cuộn trang lên/xuống: hiệu ứng trượt ẩn xuống đáy (140px) hoặc đẩy lên lại (0px)
   useEffect(() => {
     Animated.spring(translateYAnim, {
-      toValue: isTabBarVisible ? 0 : 120,
+      toValue: isTabBarVisible ? 0 : 140,
       damping: 18,
       mass: 0.6,
       stiffness: 160,
@@ -96,8 +96,9 @@ export const MagicTabBar = React.memo(function MagicTabBar({
     }
   }, [activeVisibleIndex, tabWidth, isCurrentRouteVisible]);
 
-  // Vị trí nổi cách đáy màn hình
-  const bottomMargin = Math.max(Platform.OS === 'android' ? 14 : insets.bottom, 12);
+  // Khoảng cách nổi cách đáy màn hình: tính chuẩn theo Safe Area (Home indicator iOS & Gesture navigation Android)
+  const safeBottom = insets.bottom;
+  const bottomMargin = Math.max(safeBottom > 0 ? safeBottom + 8 : 16, 16);
 
   return (
     <Animated.View
