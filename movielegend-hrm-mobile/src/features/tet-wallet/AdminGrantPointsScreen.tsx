@@ -471,14 +471,14 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
             {/* Summary Box */}
             <View style={styles.stepTwoSummaryBox}>
               <View style={styles.summaryBoxCol}>
-                <MaterialCommunityIcons name="gift-outline" size={20} color="#204E3B" />
+                <MaterialCommunityIcons name="gift-outline" size={20} color="#102739" />
                 <Text style={styles.summaryBoxValue}>
                   {pointsToGrant.toLocaleString('vi-VN')} điểm
                 </Text>
               </View>
               <View style={styles.summaryBoxDivider} />
               <View style={styles.summaryBoxCol}>
-                <Ionicons name="time-outline" size={20} color="#204E3B" />
+                <Ionicons name="time-outline" size={20} color="#102739" />
                 <Text style={styles.summaryBoxValue}>{durationMonths} tháng</Text>
               </View>
             </View>
@@ -504,7 +504,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
               <Pressable
                 style={({ pressed }) => [
                   styles.dateInputBox,
-                  pressed && { opacity: 0.75, borderColor: '#204E3B' },
+                  pressed && { opacity: 0.75, borderColor: '#102739' },
                 ]}
                 onPress={() => setShowDatePicker(true)}
               >
@@ -689,7 +689,7 @@ export function AdminGrantPointsScreen({ target, onBack, onSuccess }: AdminGrant
                   {opt.label}
                 </Text>
                 {intervalMonths === opt.value && (
-                  <Ionicons name="checkmark" size={18} color="#204E3B" />
+                  <Ionicons name="checkmark" size={18} color="#102739" />
                 )}
               </Pressable>
             ))}
@@ -784,7 +784,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepCircleActive: {
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
   },
   stepCircleText: {
     fontSize: 12,
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   stepLineActive: {
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
   },
 
   scrollContent: {
@@ -835,14 +835,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   recipientAvatarText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#204E3B',
+    color: '#102739',
   },
   recipientNameText: {
     fontSize: 15,
@@ -928,8 +928,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   presetGridBtnActive: {
-    backgroundColor: '#204E3B',
-    borderColor: '#204E3B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   presetGridBtnText: {
     fontSize: 14,
@@ -995,8 +995,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   durationPillActive: {
-    backgroundColor: '#204E3B',
-    borderColor: '#204E3B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   durationPillText: {
     fontSize: 13,
@@ -1110,8 +1110,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   datePresetBtnActive: {
-    backgroundColor: '#204E3B',
-    borderColor: '#204E3B',
+    backgroundColor: '#102739',
+    borderColor: '#102739',
   },
   datePresetBtnText: {
     fontSize: 12,
@@ -1151,7 +1151,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#E2EBE5',
+    backgroundColor: '#E7F0F7',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
@@ -1159,7 +1159,7 @@ const styles = StyleSheet.create({
   timelineNodeText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#204E3B',
+    color: '#102739',
   },
   timelineDottedLine: {
     position: 'absolute',
@@ -1182,7 +1182,7 @@ const styles = StyleSheet.create({
   milestonePointsText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#204E3B',
+    color: '#102739',
     marginTop: 1,
   },
   lockedBadge: {
@@ -1222,7 +1222,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     borderRadius: 12,
     height: 48,
     paddingHorizontal: 32,
@@ -1258,7 +1258,7 @@ const styles = StyleSheet.create({
   confirmGrantBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1302,7 +1302,7 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   modalOptionTextActive: {
-    color: '#204E3B',
+    color: '#102739',
     fontWeight: '700',
   },
 });
