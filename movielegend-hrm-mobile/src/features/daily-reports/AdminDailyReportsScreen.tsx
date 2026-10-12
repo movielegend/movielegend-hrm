@@ -756,7 +756,7 @@ export function AdminDailyReportsScreen() {
     <View style={styles.screenWrapper}>
       <StatusBar style="light" />
       {/* ── Solid Navy Hero Banner (Full-Bleed Header) ── */}
-      <View style={[styles.greenBannerContainer, { paddingTop: Math.max(insets.top + 8, 16) }]}>
+      <View style={[styles.greenBannerContainer, { paddingTop: Math.max(insets.top, 10) }]}>
         <View style={styles.greenBannerTopNav}>
           <Pressable onPress={() => router.back()} style={styles.greenBannerBackBtn} hitSlop={10}>
             <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
@@ -1907,7 +1907,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   greenBannerBackBtn: {
     width: 36,
@@ -1922,7 +1922,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.85)',
   },
   greenBannerTitleSection: {
-    marginBottom: 14,
+    marginBottom: 10,
   },
   greenBannerMainTitle: {
     fontSize: 22,
