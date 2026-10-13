@@ -1,5 +1,5 @@
-import { ApprovalListScreen } from '../../../src/features/approvals/ApprovalScreens';
+import { ApprovalMenuScreen } from '../../../src/features/approvals/ApprovalMenuScreen';
 
-export default function AdminApprovalsRoute() {
-  return <ApprovalListScreen title="Duyệt tài khoản" detailRoute={(id) => `/admin/approvals/${id}`} />;
+export default function AdminApprovalsMenuRoute() {
+  return <ApprovalMenuScreen />;
 }

@@ -24,6 +24,7 @@ import { useNewsfeedPosts } from '../../hooks/useNewsfeed';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { FeedbackStatusBadge } from '../feedback/components/FeedbackStatusBadge';
 import { useMyTasks } from '../../hooks/useTasks';
+import { resolveFileUrl } from '../../utils/url';
 
 // Lucide Icons (Exact modern outline stroke matching Admin Dashboard)
 import {
@@ -38,13 +39,18 @@ import {
   MessageSquare,
   Receipt,
   Bot,
+  Sparkles,
   ChevronDown,
   ChevronUp,
   Plus,
+  Crown,
 } from 'lucide-react-native';
 
+import { levelingApi } from '../../api/leveling.api';
+import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
+
 import { usePinnedApps } from '../../hooks/usePinnedApps';
-import { getAppRoute } from '../../constants/app-registry';
+import { getAppRoute, getAppTitle } from '../../constants/app-registry';
 import { AllServicesModal, renderAppIcon } from './components/AllServicesModal';
 import { LiveClockText } from '../../components/common/LiveClockText';
 import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
@@ -129,7 +135,7 @@ export function HRDashboard() {
   };
 
   // Pinned Apps System (1 dòng 4 app ban đầu, dropdown mở rộng app phụ + Tất cả)
-  const { row1Apps, extraPinnedApps } = usePinnedApps();
+  const { row1Apps, extraPinnedApps } = usePinnedApps('HR');
 
   const handleToggleQuickExpanded = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -217,6 +223,21 @@ export function HRDashboard() {
     (withdrawalData as any)?.counts?.PENDING_ADMIN ??
     (withdrawalData as any)?.meta?.pendingAdminCount ??
     0;
+
+  // Level Progress cho HR & Kế toán
+  const { data: levelProgress } = useQuery({
+    queryKey: ['my-level-progress', user?.id],
+    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+    enabled: Boolean(user?.id),
+  });
+
+  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || (user as any)?.currentLevel || 1;
+  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#2563EB';
+  const levelTitle =
+    levelProgress?.currentLevel?.displayName ||
+    levelProgress?.currentLevel?.badgeTitle ||
+    LEVEL_DEFAULT_NAMES[currentLevelNumber] ||
+    `Cấp ${currentLevelNumber}`;
 
   // Refresh
   const onRefresh = useCallback(async () => {
@@ -312,6 +333,9 @@ export function HRDashboard() {
                 ) : (
                   <Text style={styles.avatarInitialsText}>{getInitials(user?.fullName)}</Text>
                 )}
+                <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
+                  <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
+                </View>
               </Pressable>
 
               {/* Greeting & Name */}
@@ -330,15 +354,21 @@ export function HRDashboard() {
                 onPress={() => router.push('/hr/ai-chat' as any)}
                 accessibilityLabel="Trợ lý AI"
               >
-                <Bot size={20} color="#FFFFFF" strokeWidth={2.2} />
+                <Sparkles size={20} color="#FFFFFF" strokeWidth={2.2} />
               </Pressable>
 
               <Pressable
                 style={styles.bellButton}
                 onPress={() => router.push('/hr/notifications' as any)}
               >
-                <Bell size={22} color="#FFFFFF" strokeWidth={1.5} />
-                {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
+                <Bell size={21} color="#FFFFFF" strokeWidth={2.2} />
+                {unreadNotifications > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>
+                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             </View>
           </View>
@@ -363,28 +393,33 @@ export function HRDashboard() {
             {/* Top row inside card: Role Tag + Attendance Tag + Ngày hôm nay */}
             <View style={styles.cardHeaderRow}>
               <View style={styles.cardHeaderLeftGroup}>
-                <View
+                <Pressable
                   style={[
                     styles.adminRoleTag,
-                    isOnlyAccountant ? { backgroundColor: '#ECFDF5' } : { backgroundColor: '#E0F2FE' },
+                    isOnlyAccountant
+                      ? { backgroundColor: '#ECFDF5' }
+                      : { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' },
                   ]}
+                  onPress={() => router.push('/hr/leveling' as any)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Xem cấp bậc"
                 >
                   {isOnlyAccountant ? (
                     <>
-                      <Receipt size={14} color="#059669" strokeWidth={1.8} />
+                      <Crown size={13} color="#059669" strokeWidth={2.2} />
                       <Text style={[styles.adminRoleTagText, { color: '#059669' }]}>
-                        Kế toán & Tài chính
+                        Lv.{currentLevelNumber} • Kế toán & Tài chính
                       </Text>
                     </>
                   ) : (
                     <>
-                      <ShieldCheck size={14} color="#0284C7" strokeWidth={1.8} />
-                      <Text style={[styles.adminRoleTagText, { color: '#0284C7' }]}>
-                        Quản trị Nhân sự
+                      <Crown size={13} color="#475569" strokeWidth={2.2} />
+                      <Text style={[styles.adminRoleTagText, { color: '#334155' }]}>
+                        Lv.{currentLevelNumber} • Quản trị Nhân sự
                       </Text>
                     </>
                   )}
-                </View>
+                </Pressable>
 
                 {/* Chữ ra ca / vào ca - nhẹ nhàng, không viền, chữ màu đen */}
                 <Pressable
@@ -428,17 +463,13 @@ export function HRDashboard() {
 
             {/* Bottom 2-Column Metrics Row */}
             <View style={styles.cardMetricsRow}>
-              {/* Col 1: Location / Branch Picker */}
-              <Pressable
-                style={styles.metricColLocation}
-                onPress={() => setShowBranchModal(true)}
-              >
+              {/* Col 1: Location (Cố định theo cơ sở) */}
+              <View style={styles.metricColLocation}>
                 <MapPin size={13} color="#000000" strokeWidth={1.8} />
                 <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
-                  {activeBranch?.name || 'MOVIELEGEND-HÀ NỘI'}
+                  {user?.department?.branch?.name || (user?.department as any)?.branchName || activeBranch?.name || 'MOVIELEGEND-HÀ NỘI'}
                 </Text>
-                <ChevronDown size={11} color="#000000" strokeWidth={2} style={{ marginLeft: 2 }} />
-              </Pressable>
+              </View>
 
               {/* Col 2: Metric on right (Đơn tài chính hoặc Công việc mở) */}
               <Pressable
@@ -579,7 +610,7 @@ export function HRDashboard() {
                   return (
                     <QuickGrid8Item
                       key={item.key}
-                      title={item.title}
+                      title={getAppTitle(item, 'HR')}
                       bgColor={item.bgColor}
                       badge={badge}
                       icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
@@ -602,7 +633,7 @@ export function HRDashboard() {
                         return (
                           <QuickGrid8Item
                             key={item.key}
-                            title={item.title}
+                            title={getAppTitle(item, 'HR')}
                             bgColor={item.bgColor}
                             icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                             onPress={() => {
@@ -654,7 +685,7 @@ export function HRDashboard() {
                           return (
                             <QuickGrid8Item
                               key={item.key}
-                              title={item.title}
+                              title={getAppTitle(item, 'HR')}
                               bgColor={item.bgColor}
                               icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                               onPress={() => {
@@ -673,7 +704,7 @@ export function HRDashboard() {
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={item.title}
+                                title={getAppTitle(item, 'HR')}
                                 bgColor={item.bgColor}
                                 icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                 onPress={() => {
@@ -708,7 +739,7 @@ export function HRDashboard() {
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={item.title}
+                                title={getAppTitle(item, 'HR')}
                                 bgColor={item.bgColor}
                                 icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                 onPress={() => {
@@ -732,7 +763,7 @@ export function HRDashboard() {
                               return (
                                 <QuickGrid8Item
                                   key={item.key}
-                                  title={item.title}
+                                  title={getAppTitle(item, 'HR')}
                                   bgColor={item.bgColor}
                                   icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                   onPress={() => {
@@ -854,18 +885,18 @@ export function HRDashboard() {
                 style={styles.newsCard}
                 onPress={() => router.push('/hr/newsfeed' as any)}
               >
-                {((latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl) ? (
-                  <Image
-                    source={{
-                      uri: (latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl,
-                    }}
-                    style={styles.newsThumbnail}
-                  />
-                ) : (
-                  <View style={[styles.newsThumbnail, styles.newsThumbnailFallback]}>
-                    <Newspaper size={26} color="#2563EB" strokeWidth={1.4} />
-                  </View>
-                )}
+                <DashboardNewsThumbnail
+                  imageUrl={
+                    (latestPost as any)?.images?.[0] ||
+                    (latestPost as any)?.coverUrl ||
+                    (Array.isArray((latestPost as any)?.attachments)
+                      ? (latestPost as any).attachments.find(
+                          (a: any) => typeof a === 'string' && !a.startsWith('layout:') && /\.(jpg|jpeg|png|webp|gif)/i.test(a)
+                        )
+                      : null)
+                  }
+                  iconSize={26}
+                />
 
                 <View style={styles.newsContent}>
                   <View style={styles.newsTagPill}>
@@ -919,6 +950,35 @@ export function HRDashboard() {
   );
 }
 
+// Sub-component: Dashboard News Thumbnail
+const DashboardNewsThumbnail = React.memo(function DashboardNewsThumbnail({
+  imageUrl,
+  iconSize = 26,
+}: {
+  imageUrl?: string | null;
+  iconSize?: number;
+}) {
+  const [hasError, setHasError] = useState(false);
+  const resolvedUrl = useMemo(() => resolveFileUrl(imageUrl), [imageUrl]);
+
+  if (resolvedUrl && !hasError) {
+    return (
+      <Image
+        source={{ uri: resolvedUrl }}
+        style={styles.newsThumbnail}
+        resizeMode="cover"
+        onError={() => setHasError(true)}
+      />
+    );
+  }
+
+  return (
+    <View style={[styles.newsThumbnail, styles.newsThumbnailFallback]}>
+      <Newspaper size={iconSize} color="#2563EB" strokeWidth={1.4} />
+    </View>
+  );
+});
+
 // Sub-component: 8-Grid Quick Item (Rounded square container matching Image 1)
 const QuickGrid8Item = React.memo(function QuickGrid8Item({
   title,
@@ -940,7 +1000,6 @@ const QuickGrid8Item = React.memo(function QuickGrid8Item({
     >
       <View style={styles.quickIconWrapper}>
         <View style={[styles.quickIconBox8, { backgroundColor: bgColor }]}>
-          <View pointerEvents="none" style={styles.iconGlossHighlight} />
           {icon}
         </View>
         {Boolean(badge) && (
@@ -1025,7 +1084,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1041,6 +1100,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#102739',
+  },
+  avatarLevelBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  avatarLevelBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   userTextCol: {
     flex: 1,
@@ -1068,8 +1144,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1078,22 +1152,28 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
-  bellRedDot: {
+  bellBadge: {
     position: 'absolute',
-    top: 9,
-    right: 10,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
+    top: 5,
+    right: 5,
     backgroundColor: '#EF4444',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bellBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 12,
   },
 
   // 2. Overlapping White Hero Card
@@ -1366,16 +1446,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  iconGlossHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 24,
-    borderTopLeftRadius: 17,
-    borderTopRightRadius: 17,
-    backgroundColor: 'rgba(255, 255, 255, 0.40)',
-  },
   quickIconBoxAdd: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
@@ -1454,6 +1524,7 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 12,
     backgroundColor: '#E2E8F0',
+    overflow: 'hidden',
   },
   newsContent: {
     flex: 1,
@@ -1576,7 +1647,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

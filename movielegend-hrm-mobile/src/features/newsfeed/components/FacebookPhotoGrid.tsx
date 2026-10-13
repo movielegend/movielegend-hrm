@@ -90,7 +90,6 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
       <Pressable
         style={styles.imageTouchable}
         onPress={() => handlePress(0)}
-        activeOpacity={0.9}
       >
         <Image
           source={{ uri: resolvedImages[0] }}
@@ -151,7 +150,6 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
               <Pressable
                 style={styles.imageTouchable}
                 onPress={() => handlePress(idx)}
-                activeOpacity={0.92}
               >
                 <Image
                   source={{ uri }}
@@ -225,14 +223,14 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
       return (
         <View style={styles.dualRowContainer}>
           <View style={styles.dualImageHalf}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)}>
               <Image source={{ uri: resolvedImages[0] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(0)}
           </View>
           <View style={styles.gapSpacer} />
           <View style={styles.dualImageHalf}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)}>
               <Image source={{ uri: resolvedImages[1] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(1)}
@@ -246,14 +244,14 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
         <View style={styles.threeGridContainer}>
           <View style={styles.gridRow}>
             <View style={styles.gridCell}>
-              <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)} activeOpacity={0.9}>
+              <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)}>
                 <Image source={{ uri: resolvedImages[0] }} style={styles.fillImage} resizeMode="cover" />
               </Pressable>
               {renderDeleteBtn(0)}
             </View>
             <View style={styles.gapSpacer} />
             <View style={styles.gridCell}>
-              <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)} activeOpacity={0.9}>
+              <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)}>
                 <Image source={{ uri: resolvedImages[1] }} style={styles.fillImage} resizeMode="cover" />
               </Pressable>
               {renderDeleteBtn(1)}
@@ -262,7 +260,7 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
           <View style={styles.horizontalGap} />
           <View style={styles.gridRow}>
             <View style={styles.gridCell}>
-              <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)} activeOpacity={0.9}>
+              <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)}>
                 <Image source={{ uri: resolvedImages[2] }} style={styles.fillImage} resizeMode="cover" />
               </Pressable>
               {renderDeleteBtn(2)}
@@ -278,14 +276,14 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
       <View style={styles.fourEqualGridContainer}>
         <View style={styles.gridRow}>
           <View style={styles.gridCell}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)}>
               <Image source={{ uri: resolvedImages[0] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(0)}
           </View>
           <View style={styles.gapSpacer} />
           <View style={styles.gridCell}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)}>
               <Image source={{ uri: resolvedImages[1] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(1)}
@@ -294,14 +292,14 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
         <View style={styles.horizontalGap} />
         <View style={styles.gridRow}>
           <View style={styles.gridCell}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)}>
               <Image source={{ uri: resolvedImages[2] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(2)}
           </View>
           <View style={styles.gapSpacer} />
           <View style={styles.gridCell}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(3)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(3)}>
               <Image source={{ uri: resolvedImages[3] }} style={styles.fillImage} resizeMode="cover" />
               {remainingCount > 0 && (
                 <View style={styles.moreOverlay}>
@@ -324,14 +322,14 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
       return (
         <View style={styles.columnContainer}>
           <View style={styles.columnLeft}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)}>
               <Image source={{ uri: resolvedImages[0] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(0)}
           </View>
           <View style={styles.gapSpacer} />
           <View style={styles.columnRight}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)}>
               <Image source={{ uri: resolvedImages[1] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(1)}
@@ -345,7 +343,7 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
         <View style={styles.columnContainer}>
           {/* Left tall portrait */}
           <View style={styles.columnLeft}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)}>
               <Image source={{ uri: resolvedImages[0] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(0)}
@@ -354,14 +352,14 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
           {/* Right 2 stacked */}
           <View style={styles.columnRightStacked}>
             <View style={styles.columnHalfItem}>
-              <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)} activeOpacity={0.9}>
+              <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)}>
                 <Image source={{ uri: resolvedImages[1] }} style={styles.fillImage} resizeMode="cover" />
               </Pressable>
               {renderDeleteBtn(1)}
             </View>
             <View style={styles.horizontalGap} />
             <View style={styles.columnHalfItem}>
-              <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)} activeOpacity={0.9}>
+              <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)}>
                 <Image source={{ uri: resolvedImages[2] }} style={styles.fillImage} resizeMode="cover" />
               </Pressable>
               {renderDeleteBtn(2)}
@@ -376,7 +374,7 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
     return (
       <View style={styles.columnContainer}>
         <View style={styles.columnLeft}>
-          <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)} activeOpacity={0.9}>
+          <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)}>
             <Image source={{ uri: resolvedImages[0] }} style={styles.fillImage} resizeMode="cover" />
           </Pressable>
           {renderDeleteBtn(0)}
@@ -384,21 +382,21 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
         <View style={styles.gapSpacer} />
         <View style={styles.columnRightStacked}>
           <View style={styles.columnThirdItem}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)}>
               <Image source={{ uri: resolvedImages[1] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(1)}
           </View>
           <View style={styles.horizontalGap} />
           <View style={styles.columnThirdItem}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)}>
               <Image source={{ uri: resolvedImages[2] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(2)}
           </View>
           <View style={styles.horizontalGap} />
           <View style={styles.columnThirdItem}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(3)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(3)}>
               <Image source={{ uri: resolvedImages[3] }} style={styles.fillImage} resizeMode="cover" />
               {remainingCount > 0 && (
                 <View style={styles.moreOverlay}>
@@ -421,14 +419,14 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
       return (
         <View style={styles.dualRowContainer}>
           <View style={styles.dualImageHalf}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)}>
               <Image source={{ uri: resolvedImages[0] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(0)}
           </View>
           <View style={styles.gapSpacer} />
           <View style={styles.dualImageHalf}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)}>
               <Image source={{ uri: resolvedImages[1] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(1)}
@@ -442,7 +440,7 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
         <View style={styles.threeGridContainer}>
           {/* Top Banner (100%) */}
           <View style={styles.threeTopBanner}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)}>
               <Image source={{ uri: resolvedImages[0] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(0)}
@@ -453,14 +451,14 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
           {/* Bottom 2 Squares */}
           <View style={styles.bottomRow}>
             <View style={styles.bottomHalf}>
-              <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)} activeOpacity={0.9}>
+              <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)}>
                 <Image source={{ uri: resolvedImages[1] }} style={styles.fillImage} resizeMode="cover" />
               </Pressable>
               {renderDeleteBtn(1)}
             </View>
             <View style={styles.gapSpacer} />
             <View style={styles.bottomHalf}>
-              <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)} activeOpacity={0.9}>
+              <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)}>
                 <Image source={{ uri: resolvedImages[2] }} style={styles.fillImage} resizeMode="cover" />
               </Pressable>
               {renderDeleteBtn(2)}
@@ -475,7 +473,7 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
         <View style={styles.fourGridContainer}>
           {/* Top Banner */}
           <View style={styles.fourTopBanner}>
-            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)} activeOpacity={0.9}>
+            <Pressable style={styles.imageTouchable} onPress={() => handlePress(0)}>
               <Image source={{ uri: resolvedImages[0] }} style={styles.fillImage} resizeMode="cover" />
             </Pressable>
             {renderDeleteBtn(0)}
@@ -486,21 +484,21 @@ export const FacebookPhotoGrid: React.FC<FacebookPhotoGridProps> = ({
           {/* Bottom 3 Photos */}
           <View style={styles.bottomRow}>
             <View style={styles.bottomThird}>
-              <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)} activeOpacity={0.9}>
+              <Pressable style={styles.imageTouchable} onPress={() => handlePress(1)}>
                 <Image source={{ uri: resolvedImages[1] }} style={styles.fillImage} resizeMode="cover" />
               </Pressable>
               {renderDeleteBtn(1)}
             </View>
             <View style={styles.gapSpacer} />
             <View style={styles.bottomThird}>
-              <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)} activeOpacity={0.9}>
+              <Pressable style={styles.imageTouchable} onPress={() => handlePress(2)}>
                 <Image source={{ uri: resolvedImages[2] }} style={styles.fillImage} resizeMode="cover" />
               </Pressable>
               {renderDeleteBtn(2)}
             </View>
             <View style={styles.gapSpacer} />
             <View style={styles.bottomThird}>
-              <Pressable style={styles.imageTouchable} onPress={() => handlePress(3)} activeOpacity={0.9}>
+              <Pressable style={styles.imageTouchable} onPress={() => handlePress(3)}>
                 <Image source={{ uri: resolvedImages[3] }} style={styles.fillImage} resizeMode="cover" />
               </Pressable>
               {renderDeleteBtn(3)}

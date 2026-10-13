@@ -1,6 +1,10 @@
 export interface AppRegistryItem {
   key: string;
   title: string;
+  adminTitle?: string;
+  leaderTitle?: string;
+  employeeTitle?: string;
+  hrTitle?: string;
   category: 'operations' | 'admin_docs' | 'finance' | 'warehouse';
   icon: string; // Lucide icon name
   color: string;
@@ -13,7 +17,7 @@ export interface AppRegistryItem {
   badgeKey?: 'pendingRequests' | 'dueTasks' | 'pendingVault' | 'pendingFinancial';
 }
 
-export const CORE_APP_KEYS = ['attendance', 'requests', 'tasks', 'feedbacks'] as const;
+export const CORE_APP_KEYS = ['attendance', 'requests', 'tasks', 'ai_chat', 'feedbacks'] as const;
 
 export const APP_CATEGORIES = [
   { id: 'operations', label: 'VẬN HÀNH & NHÂN SỰ' },
@@ -40,6 +44,10 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   requests: {
     key: 'requests',
     title: 'Đơn từ',
+    adminTitle: 'Duyệt đơn từ',
+    leaderTitle: 'Duyệt đơn từ',
+    employeeTitle: 'Đơn từ',
+    hrTitle: 'Duyệt đơn từ',
     category: 'admin_docs',
     icon: 'SquareCheck',
     color: '#0D9488',
@@ -53,7 +61,11 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   },
   tasks: {
     key: 'tasks',
-    title: 'Công việc',
+    title: 'Giao việc',
+    adminTitle: 'Giao việc',
+    leaderTitle: 'Giao việc',
+    employeeTitle: 'Công việc',
+    hrTitle: 'Giao việc',
     category: 'admin_docs',
     icon: 'Briefcase',
     color: '#6366F1',
@@ -82,7 +94,11 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   // Vận hành & Nhân sự
   shifts: {
     key: 'shifts',
-    title: 'Phân ca làm',
+    title: 'Ca làm',
+    employeeTitle: 'Ca làm',
+    leaderTitle: 'Phân ca làm',
+    adminTitle: 'Phân ca làm',
+    hrTitle: 'Phân ca làm',
     category: 'operations',
     icon: 'Calendar',
     color: '#EA580C',
@@ -149,15 +165,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     bgColor: '#F1F5F9',
     adminRoute: '/admin/departments',
   },
-  leaders: {
-    key: 'leaders',
-    title: 'Gán Leader',
-    category: 'operations',
-    icon: 'UserCheck',
-    color: '#4F46E5',
-    bgColor: '#EEF2FF',
-    adminRoute: '/admin/leaders',
-  },
   locations: {
     key: 'locations',
     title: 'Điểm chấm công',
@@ -169,7 +176,11 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   },
   ot_live: {
     key: 'ot_live',
-    title: 'Duyệt OT Live',
+    title: 'OT Live',
+    employeeTitle: 'OT Live',
+    leaderTitle: 'Duyệt OT Live',
+    adminTitle: 'Duyệt OT Live',
+    hrTitle: 'Duyệt OT Live',
     category: 'operations',
     icon: 'Tv',
     color: '#E11D48',
@@ -205,17 +216,20 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     employeeRoute: '/employee/documents',
     hrRoute: '/hr/documents',
   },
-  task_groups: {
-    key: 'task_groups',
-    title: 'Nhóm việc',
+  my_tasks: {
+    key: 'my_tasks',
+    title: 'Công việc của tôi',
+    adminTitle: 'Công việc của tôi',
+    leaderTitle: 'Công việc của tôi',
+    hrTitle: 'Công việc của tôi',
     category: 'admin_docs',
-    icon: 'Layers',
-    color: '#4F46E5',
-    bgColor: '#EEF2FF',
-    adminRoute: '/admin/task-groups',
-    leaderRoute: '/leader/task-groups',
-    employeeRoute: '/employee/tasks',
-    hrRoute: '/hr/tasks',
+    icon: 'ClipboardCheck',
+    color: '#0284C7',
+    bgColor: '#E0F2FE',
+    adminRoute: '/admin/tasks',
+    leaderRoute: '/leader/my-tasks',
+    hrRoute: '/hr/my-tasks',
+    badgeKey: 'dueTasks',
   },
   daily_reports: {
     key: 'daily_reports',
@@ -246,6 +260,10 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   financial: {
     key: 'financial',
     title: 'Duyệt tài chính',
+    employeeTitle: 'Đơn tài chính',
+    leaderTitle: 'Duyệt tài chính',
+    adminTitle: 'Duyệt tài chính',
+    hrTitle: 'Duyệt tài chính',
     category: 'finance',
     icon: 'Receipt',
     color: '#16A34A',
@@ -283,7 +301,11 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   },
   levels: {
     key: 'levels',
-    title: 'Cấu hình Level',
+    title: 'Level',
+    adminTitle: 'Cấu hình Level',
+    leaderTitle: 'Level',
+    employeeTitle: 'Level',
+    hrTitle: 'Level',
     category: 'finance',
     icon: 'Crown',
     color: '#D97706',
@@ -295,15 +317,15 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   },
   competition: {
     key: 'competition',
-    title: 'Dự án thi đua',
+    title: 'Dự án',
     category: 'finance',
     icon: 'Trophy',
     color: '#EAB308',
     bgColor: '#FEF9C3',
     adminRoute: '/admin/competition/review',
     leaderRoute: '/leader/level-projects',
-    employeeRoute: '/employee/leveling',
-    hrRoute: '/hr/leveling',
+    employeeRoute: '/employee/level-projects',
+    hrRoute: '/hr/level-projects',
   },
 
   // Kho bãi & Tài sản
@@ -319,18 +341,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     employeeRoute: '/employee/assets',
     hrRoute: '/hr/assets',
   },
-  incidents: {
-    key: 'incidents',
-    title: 'Sự cố tài sản',
-    category: 'warehouse',
-    icon: 'AlertTriangle',
-    color: '#EF4444',
-    bgColor: '#FEE2E2',
-    adminRoute: '/admin/asset-incidents',
-    leaderRoute: '/leader/asset-incidents',
-    employeeRoute: '/employee/assets',
-    hrRoute: '/hr/asset-incidents',
-  },
+
   warehouses: {
     key: 'warehouses',
     title: 'Kho bãi',
@@ -349,7 +360,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     bgColor: '#DBEAFE',
     adminRoute: '/admin/materials',
     leaderRoute: '/leader/material-issues',
-    employeeRoute: '/warehouse-manager',
     hrRoute: '/hr/material-issues',
   },
   stock_receipts: {
@@ -370,7 +380,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     bgColor: '#FFEDD5',
     adminRoute: '/admin/material-issues',
     leaderRoute: '/leader/material-issues',
-    employeeRoute: '/warehouse-manager/material-issues',
     hrRoute: '/hr/material-issues',
   },
   inventory_checks: {
@@ -386,7 +395,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     key: 'ai_chat',
     title: 'Trợ lý AI',
     category: 'operations',
-    icon: 'Bot',
+    icon: 'Sparkles',
     color: '#7C3AED',
     bgColor: '#EDE9FE',
     adminRoute: '/admin/ai-chat',
@@ -396,10 +405,48 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   },
 };
 
-export const ALL_APPS_LIST: AppRegistryItem[] = Object.values(APP_REGISTRY);
+export const ALL_APPS_LIST: AppRegistryItem[] = Object.values(APP_REGISTRY).filter(
+  (item) => !['stock_receipts', 'material_issues', 'inventory_checks'].includes(item.key),
+);
 
-export function isAppAllowedForRole(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR'): boolean {
+export function isUserInLiveDepartment(user?: any): boolean {
+  if (!user) return false;
+  const deptName = (user.department?.name || '').toLowerCase();
+  const deptCode = (user.department?.code || '').toLowerCase();
+  if (deptName.includes('live') || deptCode.includes('live')) return true;
+  if (Array.isArray(user.departmentLinks)) {
+    return user.departmentLinks.some((l: any) => {
+      const name = (l?.department?.name || l?.name || '').toLowerCase();
+      const code = (l?.department?.code || l?.code || '').toLowerCase();
+      return name.includes('live') || code.includes('live');
+    });
+  }
+  return false;
+}
+
+export function isAppAllowedForRole(
+  item: AppRegistryItem,
+  role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR',
+  user?: any,
+): boolean {
+  // Ẩn 3 dịch vụ kho: Nhập kho, Xuất kho, Kiểm kê kho với mọi role
+  if (
+    item.key === 'stock_receipts' ||
+    item.key === 'material_issues' ||
+    item.key === 'inventory_checks'
+  ) {
+    return false;
+  }
+
   if (role === 'ADMIN') return true;
+
+  // Duyệt OT Live / Báo cáo OT Live: chỉ dành cho nhân sự thuộc phòng LIVE (hoặc ADMIN)
+  if (item.key === 'ot_live') {
+    if (!isUserInLiveDepartment(user)) {
+      return false;
+    }
+  }
+
   if (role === 'HR') return Boolean(item.hrRoute);
   if (role === 'LEADER') return Boolean(item.leaderRoute);
   if (role === 'EMPLOYEE') return Boolean(item.employeeRoute);
@@ -412,3 +459,13 @@ export function getAppRoute(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'E
   if (role === 'EMPLOYEE') return item.employeeRoute || null;
   return item.adminRoute || item.leaderRoute || item.hrRoute || item.employeeRoute || '/admin/(tabs)';
 }
+
+export function getAppTitle(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN'): string {
+  if (role === 'ADMIN' && item.adminTitle) return item.adminTitle;
+  if (role === 'LEADER' && item.leaderTitle) return item.leaderTitle;
+  if (role === 'EMPLOYEE' && item.employeeTitle) return item.employeeTitle;
+  if (role === 'HR' && item.hrTitle) return item.hrTitle;
+  return item.title;
+}
+
+

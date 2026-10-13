@@ -502,6 +502,45 @@ async function runAutomatedTests() {
     } catch (err: any) {
       testResults.push({ id: 'TC-12/13', name: 'Xuất Excel giao dịch', status: 'FAIL', detail: err.message });
     }
+
+    // =========================================================================
+    // TC-14: KIỂM THỬ BẢO MẬT: CHỈ DUY NHẤT TRƯỞNG PHÒNG KẾ TOÁN ĐƯỢC XUẤT EXCEL
+    // =========================================================================
+    try {
+      console.log('--- Đang test TC-14: Bảo mật xuất Excel - Kế toán viên thường & role khác bị chặn 403 ---');
+      let staffBlocked = false;
+      let leaderBlocked = false;
+
+      // 1. Thử xuất với Kế toán viên thường
+      try {
+        await requestsService.exportDailyTransactions({ date: 'ALL' } as any, ktStaffActor);
+      } catch (staffErr: any) {
+        if (staffErr.status === 403 || staffErr.message?.includes('Chỉ có duy nhất Trưởng phòng Kế toán')) {
+          staffBlocked = true;
+        }
+      }
+
+      // 2. Thử xuất với Leader phòng ban khác
+      try {
+        await requestsService.exportDailyTransactions({ date: 'ALL' } as any, leaderActor);
+      } catch (leaderErr: any) {
+        if (leaderErr.status === 403 || leaderErr.message?.includes('Chỉ có duy nhất Trưởng phòng Kế toán')) {
+          leaderBlocked = true;
+        }
+      }
+
+      if (staffBlocked && leaderBlocked) {
+        testResults.push({
+          id: 'TC-14',
+          name: 'Phân quyền độc quyền: Kế toán viên thường & Leader phòng khác bị chặn xuất Excel (403 Forbidden)',
+          status: 'PASS',
+        });
+      } else {
+        throw new Error(`Chưa chặn hoàn toàn: staffBlocked=${staffBlocked}, leaderBlocked=${leaderBlocked}`);
+      }
+    } catch (err: any) {
+      testResults.push({ id: 'TC-14', name: 'Bảo mật quyền xuất Excel tài chính', status: 'FAIL', detail: err.message });
+    }
   } catch (globalErr: any) {
     console.error('❌ Lỗi toàn cục khi chạy test:', globalErr);
   } finally {

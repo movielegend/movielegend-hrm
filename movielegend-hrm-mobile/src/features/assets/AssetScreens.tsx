@@ -62,7 +62,7 @@ import { AssetCard, AssetConditionBadge, AssetStatusBadge, MyAssetCard } from '.
 import { MaintenanceActionsSection } from '../asset-maintenance/MaintenanceScreens';
 import { CustomAlert } from '../../components/CustomAlert';
 
-export type AssetArea = 'employee' | 'leader' | 'warehouse' | 'admin';
+export type AssetArea = 'employee' | 'leader' | 'warehouse' | 'admin' | 'hr';
 
 const conditionOptions: AssetConditionStatus[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
 
@@ -133,7 +133,16 @@ export function MyAssetsScreen({ area = 'employee' }: { area?: AssetArea }) {
         paddingHorizontal: 16,
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/leader')} style={{ paddingRight: 10, paddingVertical: 4 }}>
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace(area === 'leader' ? '/leader' : area === 'hr' ? '/hr' : area === 'admin' ? '/admin/(tabs)' : '/employee');
+              }
+            }}
+            style={{ paddingRight: 10, paddingVertical: 4 }}
+          >
             <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
           </Pressable>
           <View style={{ flex: 1 }}>
@@ -419,6 +428,13 @@ export function AssetListScreen({ area }: { area: AssetArea }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const isAdmin = Boolean(
+    (user as any)?.role === 'ADMIN' ||
+    user?.roles?.some((r: any) => {
+      const code = String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+      return code === 'ADMIN' || code === 'SUPER_ADMIN';
+    })
+  );
   const assets = useAssets();
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
@@ -532,8 +548,8 @@ export function AssetListScreen({ area }: { area: AssetArea }) {
           ) : null}
         </ScrollView>
 
-        {/* Bottom Fixed Action Bar */}
-        {(area === 'admin' || hasPermission(user, 'asset.create')) ? (
+        {/* Bottom Fixed Action Bar: Chỉ duy nhất Admin mới được tạo tài sản */}
+        {(isAdmin && area === 'admin') ? (
           <View style={[adminAssetStyles.bottomBarFixed, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <Pressable 
               style={adminAssetStyles.primaryCreateBtn} 
@@ -785,6 +801,23 @@ export function AssetDetailScreen({ area }: { area: AssetArea }) {
 
 export function AssetCreateScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isAdmin = Boolean(
+    (user as any)?.role === 'ADMIN' ||
+    user?.roles?.some((r: any) => {
+      const code = String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+      return code === 'ADMIN' || code === 'SUPER_ADMIN';
+    })
+  );
+
+  useEffect(() => {
+    if (!isAdmin) {
+      CustomAlert.alert('Không có quyền', 'Chỉ Quản trị viên (Admin) mới có quyền tạo mới tài sản.', [
+        { text: 'Đóng', onPress: () => router.back() }
+      ]);
+    }
+  }, [isAdmin, router]);
+
   const create = useCreateAsset();
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('Dell');

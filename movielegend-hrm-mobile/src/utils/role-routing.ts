@@ -124,7 +124,65 @@ export function canAccessRoleRoute(user: AuthUser | null, route: string): boolea
   return route.startsWith(baseRoute);
 }
 
+/**
+ * Kiểm tra xem người dùng có phải là Trưởng phòng Kế toán (Accounting Leader / Chief Accountant) hay không.
+ * Chỉ duy nhất Trưởng phòng Kế toán mới có quyền xuất file Excel tài chính.
+ */
+export function isAccountingLeader(user: AuthUser | null): boolean {
+  if (!user) return false;
+
+  const rawRoles = user.roles || [];
+  const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+  const roleCodes = userRoles.map((r: any) =>
+    String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+  );
+
+  // 1. Role chuyên biệt cho Trưởng phòng kế toán / Kế toán trưởng
+  const hasChiefAccountantRole = roleCodes.some((code) =>
+    [
+      'ACCOUNTANT_LEAD',
+      'CHIEF_ACCOUNTANT',
+      'KT_TRUONG',
+      'LEAD_ACCOUNTANT',
+      'TRUONG_PHONG_KE_TOAN',
+      'TP_KETOAN',
+      'TP_KE_TOAN',
+    ].includes(code)
+  );
+  if (hasChiefAccountantRole) return true;
+
+  // 2. Chức danh (Position) là Kế toán trưởng hoặc Trưởng phòng kế toán / tài chính
+  const positionName = (user.position?.name || '').toLowerCase();
+  const positionCode = (user.position?.code || '').toUpperCase();
+  const isChiefPosition =
+    positionName.includes('kế toán trưởng') ||
+    positionName.includes('trưởng phòng kế toán') ||
+    positionName.includes('trưởng ban tài chính') ||
+    positionName.includes('lead kế toán') ||
+    positionName.includes('trưởng nhóm kế toán') ||
+    ['KTT', 'KT_TRUONG', 'TP_KT', 'ACCOUNTANT_LEAD', 'CHIEF_ACCOUNTANT'].includes(positionCode);
+  if (isChiefPosition) return true;
+
+  // 3. User giữ vai trò LEADER/Trưởng phòng của phòng ban Kế toán/Tài chính
+  const hasLeaderRole = roleCodes.some((code) =>
+    ['LEADER', 'DEPARTMENT_HEAD', 'MANAGER', 'TRUONG_PHONG'].includes(code)
+  );
+  const departmentName = (user.department?.name || '').toLowerCase();
+  const departmentCode = (user.department?.code || '').toUpperCase();
+  const isAccountingDept =
+    departmentName.includes('kế toán') ||
+    departmentName.includes('tài chính') ||
+    ['KT', 'TC', 'ACC', 'ACCOUNTING'].includes(departmentCode);
+
+  if (hasLeaderRole && isAccountingDept) {
+    return true;
+  }
+
+  return false;
+}
+
 if (typeof globalThis !== 'undefined') {
   (globalThis as any).getRoleBaseRoute = getRoleBaseRoute;
   (globalThis as any).getHomeRouteForUser = getHomeRouteForUser;
+  (globalThis as any).isAccountingLeader = isAccountingLeader;
 }

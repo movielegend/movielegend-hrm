@@ -26,6 +26,7 @@ import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { FeedbackStatusBadge } from '../feedback/components/FeedbackStatusBadge';
 import { useMyTasks } from '../../hooks/useTasks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { resolveFileUrl } from '../../utils/url';
 
 // Lucide Icons (Exact modern outline stroke matching the mockup template)
 import {
@@ -60,7 +61,7 @@ import {
 } from 'lucide-react-native';
 
 import { usePinnedApps } from '../../hooks/usePinnedApps';
-import { APP_REGISTRY, getAppRoute, AppRegistryItem } from '../../constants/app-registry';
+import { APP_REGISTRY, getAppRoute, getAppTitle, AppRegistryItem } from '../../constants/app-registry';
 import { AllServicesModal, renderAppIcon } from './components/AllServicesModal';
 import { LiveClockText } from '../../components/common/LiveClockText';
 import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
@@ -126,7 +127,7 @@ export function AdminDashboard() {
   };
 
   // Pinned Apps System (1 dòng 4 app ban đầu, dropdown mở rộng app phụ + Tất cả)
-  const { allPinnedApps, row1Apps, extraPinnedApps } = usePinnedApps();
+  const { allPinnedApps, row1Apps, extraPinnedApps } = usePinnedApps('ADMIN');
 
   const handleToggleQuickExpanded = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -305,15 +306,21 @@ export function AdminDashboard() {
                 onPress={() => router.push('/admin/ai-chat' as any)}
                 accessibilityLabel="Trợ lý AI"
               >
-                <Bot size={20} color="#FFFFFF" strokeWidth={2.2} />
+                <Sparkles size={20} color="#FFFFFF" strokeWidth={2.2} />
               </Pressable>
 
               <Pressable
                 style={styles.bellButton}
                 onPress={() => router.push('/admin/notifications' as any)}
               >
-                <Bell size={22} color="#FFFFFF" strokeWidth={1.5} />
-                {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
+                <Bell size={21} color="#FFFFFF" strokeWidth={2.2} />
+                {unreadNotifications > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>
+                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             </View>
           </View>
@@ -349,17 +356,13 @@ export function AdminDashboard() {
 
             {/* Bottom 2-Column Metrics Row */}
             <View style={styles.cardMetricsRow}>
-              {/* Col 1: Location / Branch Picker */}
-              <Pressable
-                style={styles.metricColLocation}
-                onPress={() => setShowBranchModal(true)}
-              >
+              {/* Col 1: Location (Cố định theo cơ sở) */}
+              <View style={styles.metricColLocation}>
                 <MapPin size={13} color="#000000" strokeWidth={1.8} />
                 <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
-                  {activeBranch?.name || 'MOVIELEGEND-HÀ NỘI'}
+                  {user?.department?.branch?.name || (user?.department as any)?.branchName || activeBranch?.name || 'MOVIELEGEND-HÀ NỘI'}
                 </Text>
-                <ChevronDown size={11} color="#000000" strokeWidth={2} style={{ marginLeft: 2 }} />
-              </Pressable>
+              </View>
 
               {/* Col 2: Công việc đang mở */}
               <Pressable
@@ -462,7 +465,7 @@ export function AdminDashboard() {
                   return (
                     <QuickGrid8Item
                       key={item.key}
-                      title={item.title}
+                      title={getAppTitle(item, 'ADMIN')}
                       bgColor={item.bgColor}
                       badge={badge}
                       icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
@@ -485,7 +488,7 @@ export function AdminDashboard() {
                         return (
                           <QuickGrid8Item
                             key={item.key}
-                            title={item.title}
+                            title={getAppTitle(item, 'ADMIN')}
                             bgColor={item.bgColor}
                             icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                             onPress={() => {
@@ -537,7 +540,7 @@ export function AdminDashboard() {
                           return (
                             <QuickGrid8Item
                               key={item.key}
-                              title={item.title}
+                              title={getAppTitle(item, 'ADMIN')}
                               bgColor={item.bgColor}
                               icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                               onPress={() => {
@@ -556,7 +559,7 @@ export function AdminDashboard() {
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={item.title}
+                                title={getAppTitle(item, 'ADMIN')}
                                 bgColor={item.bgColor}
                                 icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                 onPress={() => {
@@ -591,7 +594,7 @@ export function AdminDashboard() {
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={item.title}
+                                title={getAppTitle(item, 'ADMIN')}
                                 bgColor={item.bgColor}
                                 icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                 onPress={() => {
@@ -615,7 +618,7 @@ export function AdminDashboard() {
                               return (
                                 <QuickGrid8Item
                                   key={item.key}
-                                  title={item.title}
+                                  title={getAppTitle(item, 'ADMIN')}
                                   bgColor={item.bgColor}
                                   icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                   onPress={() => {
@@ -737,18 +740,18 @@ export function AdminDashboard() {
                 style={styles.newsCard}
                 onPress={() => router.push('/admin/news' as any)}
               >
-                {((latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl) ? (
-                  <Image
-                    source={{
-                      uri: (latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl,
-                    }}
-                    style={styles.newsThumbnail}
-                  />
-                ) : (
-                  <View style={[styles.newsThumbnail, styles.newsThumbnailFallback]}>
-                    <Newspaper size={26} color="#2563EB" strokeWidth={1.4} />
-                  </View>
-                )}
+                <DashboardNewsThumbnail
+                  imageUrl={
+                    (latestPost as any)?.images?.[0] ||
+                    (latestPost as any)?.coverUrl ||
+                    (Array.isArray((latestPost as any)?.attachments)
+                      ? (latestPost as any).attachments.find(
+                          (a: any) => typeof a === 'string' && !a.startsWith('layout:') && /\.(jpg|jpeg|png|webp|gif)/i.test(a)
+                        )
+                      : null)
+                  }
+                  iconSize={26}
+                />
 
                 <View style={styles.newsContent}>
                   <View style={styles.newsTagPill}>
@@ -801,6 +804,35 @@ export function AdminDashboard() {
   );
 }
 
+// Sub-component: Dashboard News Thumbnail
+const DashboardNewsThumbnail = React.memo(function DashboardNewsThumbnail({
+  imageUrl,
+  iconSize = 26,
+}: {
+  imageUrl?: string | null;
+  iconSize?: number;
+}) {
+  const [hasError, setHasError] = useState(false);
+  const resolvedUrl = useMemo(() => resolveFileUrl(imageUrl), [imageUrl]);
+
+  if (resolvedUrl && !hasError) {
+    return (
+      <Image
+        source={{ uri: resolvedUrl }}
+        style={styles.newsThumbnail}
+        resizeMode="cover"
+        onError={() => setHasError(true)}
+      />
+    );
+  }
+
+  return (
+    <View style={[styles.newsThumbnail, styles.newsThumbnailFallback]}>
+      <Newspaper size={iconSize} color="#2563EB" strokeWidth={1.4} />
+    </View>
+  );
+});
+
 // Sub-component: 8-Grid Quick Item (Rounded square container matching Image 1)
 const QuickGrid8Item = React.memo(function QuickGrid8Item({
   title,
@@ -822,7 +854,6 @@ const QuickGrid8Item = React.memo(function QuickGrid8Item({
     >
       <View style={styles.quickIconWrapper}>
         <View style={[styles.quickIconBox8, { backgroundColor: bgColor }]}>
-          <View pointerEvents="none" style={styles.iconGlossHighlight} />
           {icon}
         </View>
         {Boolean(badge) && (
@@ -950,8 +981,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -960,22 +989,28 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
-  bellRedDot: {
+  bellBadge: {
     position: 'absolute',
-    top: 9,
-    right: 10,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
+    top: 5,
+    right: 5,
     backgroundColor: '#EF4444',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bellBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 12,
   },
 
   // 2. Overlapping White Hero Card
@@ -1269,16 +1304,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  iconGlossHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 24,
-    borderTopLeftRadius: 17,
-    borderTopRightRadius: 17,
-    backgroundColor: 'rgba(255, 255, 255, 0.40)',
-  },
   quickIconBoxAdd: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
@@ -1357,6 +1382,7 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 12,
     backgroundColor: '#E2E8F0',
+    overflow: 'hidden',
   },
   newsContent: {
     flex: 1,
