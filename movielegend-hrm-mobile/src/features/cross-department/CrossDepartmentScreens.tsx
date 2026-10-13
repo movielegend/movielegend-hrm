@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import {RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Modal, Image, ActivityIndicator} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Modal, Image, ActivityIndicator, StatusBar, Platform } from 'react-native';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadFile } from '../../api/uploads.api';
@@ -44,6 +45,7 @@ type CrossArea = 'employee' | 'leader' | 'admin' | 'hr';
 // ==========================================
 export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossArea; mode?: 'all' | 'incoming' }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [directionTab, setDirectionTab] = useState<'outgoing' | 'incoming' | 'all'>(mode === 'incoming' ? 'incoming' : 'outgoing');
   const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('ALL');
   const [statusFilterModalVisible, setStatusFilterModalVisible] = useState(false);
@@ -72,9 +74,11 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
   }, [activeTab]);
 
   return (
-    <Screen>
-      {/* 1. Header (Back button + Title on same row) */}
-      <View style={crossListStyles.header}>
+    <View style={crossListStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+
+      {/* 1. Header (Dark Navy #102739) */}
+      <View style={[crossListStyles.header, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={crossListStyles.headerTop}>
           <View style={crossListStyles.headerRow}>
             <Pressable 
@@ -82,13 +86,13 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
               style={crossListStyles.backBtn} 
               hitSlop={8}
             >
-              <MaterialCommunityIcons name="chevron-left" size={26} color="#0F172A" />
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
             </Pressable>
             <Text style={crossListStyles.headerTitle}>Luân chuyển & phối hợp</Text>
           </View>
           {area !== 'admin' && (
             <Pressable style={crossListStyles.headerAddBtn} onPress={() => router.push(`/${area}/cross-department/create`)}>
-              <MaterialCommunityIcons name="plus" size={16} color="#fff" />
+              <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
               <Text style={crossListStyles.headerAddText}>Tạo mới</Text>
             </Pressable>
           )}
@@ -96,99 +100,102 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
         <Text style={crossListStyles.headerSubtitle}>Quản lý yêu cầu liên phòng ban</Text>
       </View>
 
-      {/* 2. Segmented Tabs (Đã gửi | Yêu cầu đến | Tất cả) */}
-      <View style={crossListStyles.segmentedContainer}>
-        <Pressable
-          style={[crossListStyles.segmentBtn, directionTab === 'outgoing' && crossListStyles.segmentBtnActive]}
-          onPress={() => setDirectionTab('outgoing')}
-        >
-          <Text style={[crossListStyles.segmentText, directionTab === 'outgoing' && crossListStyles.segmentTextActive]}>
-            Đã gửi
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[crossListStyles.segmentBtn, directionTab === 'incoming' && crossListStyles.segmentBtnActive]}
-          onPress={() => setDirectionTab('incoming')}
-        >
-          <Text style={[crossListStyles.segmentText, directionTab === 'incoming' && crossListStyles.segmentTextActive]}>
-            Yêu cầu đến
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={[crossListStyles.segmentBtn, directionTab === 'all' && crossListStyles.segmentBtnActive]}
-          onPress={() => setDirectionTab('all')}
-        >
-          <Text style={[crossListStyles.segmentText, directionTab === 'all' && crossListStyles.segmentTextActive]}>
-            Tất cả
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* 3. Status Filter Dropdown Pill */}
-      <View style={crossListStyles.filterPillRow}>
-        <Pressable 
-          style={crossListStyles.statusDropdownPill}
-          onPress={() => setStatusFilterModalVisible(true)}
-        >
-          <MaterialCommunityIcons name="filter-variant" size={16} color="#475569" />
-          <Text style={crossListStyles.statusDropdownText}>
-            Trạng thái: {activeStatusLabel}
-          </Text>
-          <MaterialCommunityIcons name="chevron-down" size={16} color="#475569" />
-        </Pressable>
-      </View>
-
-      {/* 4. Content List or Empty State */}
-      {list.isLoading ? (
-        <View style={crossListStyles.centerBox}>
-          <ActivityIndicator size="large" color="#102739" />
-        </View>
-      ) : list.isError ? (
-        <View style={crossListStyles.centerBox}>
-          <Text style={{ color: '#EF4444', marginBottom: 12 }}>Có lỗi xảy ra khi tải dữ liệu</Text>
-          <Pressable style={crossListStyles.resetFilterBtn} onPress={() => void list.refetch()}>
-            <Text style={crossListStyles.resetFilterText}>Thử lại</Text>
-          </Pressable>
-        </View>
-      ) : filteredItems.length === 0 ? (
-        <ScrollView
-          contentContainerStyle={crossListStyles.emptyContainer}
-          refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => void list.refetch()} />}
-        >
-          <View style={crossListStyles.emptyIconBg}>
-            <MaterialCommunityIcons name="inbox-arrow-down-outline" size={38} color="#102739" />
-          </View>
-          <Text style={crossListStyles.emptyTitle}>Không có yêu cầu phù hợp</Text>
-          <Text style={crossListStyles.emptySubtitle}>
-            Không tìm thấy yêu cầu nào theo bộ lọc hiện tại. Thử chọn trạng thái hoặc tab khác.
-          </Text>
-          <Pressable 
-            style={crossListStyles.resetFilterBtn}
-            onPress={() => {
-              setActiveTab('ALL');
-              setDirectionTab('all');
-            }}
+      {/* 2. Curved White Body Sheet */}
+      <View style={crossListStyles.curvedSheet}>
+        {/* Segmented Tabs (Đã gửi | Yêu cầu đến | Tất cả) */}
+        <View style={crossListStyles.segmentedContainer}>
+          <Pressable
+            style={[crossListStyles.segmentBtn, directionTab === 'outgoing' && crossListStyles.segmentBtnActive]}
+            onPress={() => setDirectionTab('outgoing')}
           >
-            <Text style={crossListStyles.resetFilterText}>Đặt lại bộ lọc</Text>
+            <Text style={[crossListStyles.segmentText, directionTab === 'outgoing' && crossListStyles.segmentTextActive]}>
+              Đã gửi
+            </Text>
           </Pressable>
-        </ScrollView>
-      ) : (
-        <ScrollView
-          contentContainerStyle={crossListStyles.listContent}
-          refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => void list.refetch()} />}
-          showsVerticalScrollIndicator={false}
-        >
-          {filteredItems.map((request) => (
-            <CrossDepartmentCard 
-              key={request.id} 
-              request={request} 
-              onPress={() => router.push(`/${area}/cross-department/${request.id}`)} 
-            />
-          ))}
-        </ScrollView>
-      )}
+
+          <Pressable
+            style={[crossListStyles.segmentBtn, directionTab === 'incoming' && crossListStyles.segmentBtnActive]}
+            onPress={() => setDirectionTab('incoming')}
+          >
+            <Text style={[crossListStyles.segmentText, directionTab === 'incoming' && crossListStyles.segmentTextActive]}>
+              Yêu cầu đến
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[crossListStyles.segmentBtn, directionTab === 'all' && crossListStyles.segmentBtnActive]}
+            onPress={() => setDirectionTab('all')}
+          >
+            <Text style={[crossListStyles.segmentText, directionTab === 'all' && crossListStyles.segmentTextActive]}>
+              Tất cả
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Status Filter Dropdown Pill */}
+        <View style={crossListStyles.filterPillRow}>
+          <Pressable 
+            style={crossListStyles.statusDropdownPill}
+            onPress={() => setStatusFilterModalVisible(true)}
+          >
+            <MaterialCommunityIcons name="filter-variant" size={16} color="#475569" />
+            <Text style={crossListStyles.statusDropdownText}>
+              Trạng thái: {activeStatusLabel}
+            </Text>
+            <MaterialCommunityIcons name="chevron-down" size={16} color="#475569" />
+          </Pressable>
+        </View>
+
+        {/* Content List or Empty State */}
+        {list.isLoading ? (
+          <View style={crossListStyles.centerBox}>
+            <ActivityIndicator size="large" color="#102739" />
+          </View>
+        ) : list.isError ? (
+          <View style={crossListStyles.centerBox}>
+            <Text style={{ color: '#EF4444', marginBottom: 12 }}>Có lỗi xảy ra khi tải dữ liệu</Text>
+            <Pressable style={crossListStyles.resetFilterBtn} onPress={() => void list.refetch()}>
+              <Text style={crossListStyles.resetFilterText}>Thử lại</Text>
+            </Pressable>
+          </View>
+        ) : filteredItems.length === 0 ? (
+          <ScrollView
+            contentContainerStyle={crossListStyles.emptyContainer}
+            refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => void list.refetch()} />}
+          >
+            <View style={crossListStyles.emptyIconBg}>
+              <MaterialCommunityIcons name="inbox-arrow-down-outline" size={38} color="#0284C7" />
+            </View>
+            <Text style={crossListStyles.emptyTitle}>Không có yêu cầu phù hợp</Text>
+            <Text style={crossListStyles.emptySubtitle}>
+              Không tìm thấy yêu cầu nào theo bộ lọc hiện tại. Thử chọn trạng thái hoặc tab khác.
+            </Text>
+            <Pressable 
+              style={crossListStyles.resetFilterBtn}
+              onPress={() => {
+                setActiveTab('ALL');
+                setDirectionTab('all');
+              }}
+            >
+              <Text style={crossListStyles.resetFilterText}>Đặt lại bộ lọc</Text>
+            </Pressable>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            contentContainerStyle={crossListStyles.listContent}
+            refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => void list.refetch()} />}
+            showsVerticalScrollIndicator={false}
+          >
+            {filteredItems.map((request) => (
+              <CrossDepartmentCard 
+                key={request.id} 
+                request={request} 
+                onPress={() => router.push(`/${area}/cross-department/${request.id}`)} 
+              />
+            ))}
+          </ScrollView>
+        )}
+      </View>
 
       {/* Status Filter Modal */}
       <Modal visible={statusFilterModalVisible} transparent animationType="fade">
@@ -231,7 +238,7 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
           </View>
         </Pressable>
       </Modal>
-    </Screen>
+    </View>
   );
 }
 
@@ -366,114 +373,152 @@ export function CreateCrossDepartmentScreen() {
   }
 
   const canSelectSource = isPowerUser || !user?.department;
+  const insets = useSafeAreaInsets();
+  const isFormValid = Boolean(sourceDepartment && targetDepartment && title.trim().length >= 3 && content.trim().length >= 3);
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader title="Tạo Yêu Cầu" subtitle="Luân chuyển hoặc phối hợp liên phòng ban" />
-        
-        <SectionCard>
-          {canSelectSource ? (
-            <>
-              <Text style={styles.fieldLabel}>Phòng ban Nguồn *</Text>
-              <Pressable style={styles.selector} onPress={() => setSourceModalVisible(true)}>
-                <Text style={sourceDepartment ? styles.selectorText : styles.selectorPlaceholder}>
+    <View style={createStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+
+      {/* 1. Header (Dark Navy #102739) */}
+      <View style={[createStyles.header, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={createStyles.headerMainRow}>
+          <Pressable 
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/admin/(tabs)' as any))} 
+            style={createStyles.backBtn} 
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+          </Pressable>
+          <Text style={createStyles.headerTitle}>Tạo yêu cầu</Text>
+        </View>
+        <Text style={createStyles.headerSubtitle}>Luân chuyển hoặc phối hợp liên phòng ban</Text>
+      </View>
+
+      {/* 2. Curved White Sheet Form */}
+      <View style={createStyles.curvedSheet}>
+        <ScrollView contentContainerStyle={createStyles.content} showsVerticalScrollIndicator={false}>
+          {/* Phòng ban nguồn */}
+          <View style={createStyles.fieldWrap}>
+            <Text style={createStyles.fieldLabel}>Phòng ban nguồn *</Text>
+            {canSelectSource ? (
+              <Pressable style={createStyles.selector} onPress={() => setSourceModalVisible(true)}>
+                <Text style={sourceDepartment ? createStyles.selectorText : createStyles.selectorPlaceholder}>
                   {sourceDepartment ? sourceDepartment.label : 'Chọn phòng ban nguồn...'}
                 </Text>
-                <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
+                <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
               </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={styles.fieldLabel}>Phòng ban Nguồn *</Text>
-              <View style={[styles.selector, { backgroundColor: colors.background }]}>
-                <Text style={styles.selectorText}>{sourceDepartment?.label || 'Chưa xác định'}</Text>
-                <MaterialCommunityIcons name="lock" size={20} color={colors.muted} />
+            ) : (
+              <View style={createStyles.inputDisabled}>
+                <Text style={createStyles.inputDisabledText}>{sourceDepartment?.label || 'Chưa xác định'}</Text>
+                <MaterialCommunityIcons name="lock" size={18} color="#64748B" />
               </View>
-            </>
-          )}
+            )}
+          </View>
 
-          <Text style={styles.fieldLabel}>Phòng ban Đích *</Text>
-          <Pressable style={styles.selector} onPress={() => setTargetModalVisible(true)}>
-            <Text style={targetDepartment ? styles.selectorText : styles.selectorPlaceholder}>
-              {targetDepartment ? targetDepartment.label : 'Chọn phòng ban đích...'}
-            </Text>
-            <MaterialCommunityIcons name="chevron-down" size={24} color={colors.muted} />
-          </Pressable>
-
-          <FormField label="Tiêu đề yêu cầu *" value={title} onChangeText={setTitle} placeholder="VD: Xin hỗ trợ nhân sự kho" />
-          <FormField label="Nội dung / Lý do *" value={content} onChangeText={setContent} multiline placeholder="Mô tả chi tiết yêu cầu..." />
-          <FormField label="Mã Task liên quan (Tùy chọn)" value={taskId} onChangeText={setTaskId} autoCapitalize="none" placeholder="Nhập ID công việc nếu có" />
-
-          {/* Attachment Selection */}
-          <Text style={styles.fieldLabel}>Tài liệu / Ảnh đính kèm (Tùy chọn)</Text>
-          <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md }}>
-            <Pressable 
-              style={{ 
-                flex: 1,
-                flexDirection: 'row', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                gap: 6, 
-                padding: 10, 
-                borderWidth: 1, 
-                borderColor: colors.primary, 
-                borderRadius: 10, 
-                backgroundColor: colors.primarySoft 
-              }}
-              onPress={() => void pickImage()}
-            >
-              <MaterialCommunityIcons name="image-outline" size={18} color={colors.primary} />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Chọn ảnh</Text>
-            </Pressable>
-
-            <Pressable 
-              style={{ 
-                flex: 1,
-                flexDirection: 'row', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                gap: 6, 
-                padding: 10, 
-                borderWidth: 1, 
-                borderColor: colors.primary, 
-                borderRadius: 10, 
-                backgroundColor: colors.primarySoft 
-              }}
-              onPress={() => void pickDocument()}
-            >
-              <MaterialCommunityIcons name="file-document-outline" size={18} color={colors.primary} />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Chọn file / PDF</Text>
+          {/* Phòng ban đích */}
+          <View style={createStyles.fieldWrap}>
+            <Text style={createStyles.fieldLabel}>Phòng ban đích *</Text>
+            <Pressable style={createStyles.selector} onPress={() => setTargetModalVisible(true)}>
+              <Text style={targetDepartment ? createStyles.selectorText : createStyles.selectorPlaceholder}>
+                {targetDepartment ? targetDepartment.label : 'Chọn phòng ban đích...'}
+              </Text>
+              <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
             </Pressable>
           </View>
 
-          {attachmentUri && (
-            <View style={{ marginBottom: spacing.md, padding: spacing.xs, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <MaterialCommunityIcons name="file-check-outline" size={20} color={colors.primary} />
-              <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: colors.text }} numberOfLines={1}>
-                {attachmentName || 'Tệp đính kèm'}
-              </Text>
-              <Pressable 
-                onPress={() => {
-                  setAttachmentUri(null);
-                  setAttachmentName(null);
-                  setAttachmentMime(null);
-                }}
-              >
-                <MaterialCommunityIcons name="close-circle-outline" size={20} color={colors.error} />
+          {/* Tiêu đề yêu cầu */}
+          <View style={createStyles.fieldWrap}>
+            <Text style={createStyles.fieldLabel}>Tiêu đề yêu cầu *</Text>
+            <TextInput
+              style={createStyles.input}
+              placeholder="VD: Xin hỗ trợ nhân sự kho"
+              placeholderTextColor="#94A3B8"
+              value={title}
+              onChangeText={setTitle}
+            />
+          </View>
+
+          {/* Nội dung / Lý do */}
+          <View style={createStyles.fieldWrap}>
+            <Text style={createStyles.fieldLabel}>Nội dung / Lý do *</Text>
+            <TextInput
+              style={[createStyles.input, createStyles.textArea]}
+              placeholder="Mô tả chi tiết yêu cầu..."
+              placeholderTextColor="#94A3B8"
+              value={content}
+              onChangeText={setContent}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Mã Task liên quan (Tùy chọn) */}
+          <View style={createStyles.fieldWrap}>
+            <Text style={createStyles.fieldLabel}>Mã Task liên quan (Tùy chọn)</Text>
+            <TextInput
+              style={createStyles.input}
+              placeholder="Nhập ID công việc nếu có"
+              placeholderTextColor="#94A3B8"
+              value={taskId}
+              onChangeText={setTaskId}
+              autoCapitalize="none"
+            />
+          </View>
+
+          {/* Tài liệu / Ảnh đính kèm (Tùy chọn) */}
+          <View style={createStyles.fieldWrap}>
+            <Text style={createStyles.fieldLabel}>Tài liệu / Ảnh đính kèm (Tùy chọn)</Text>
+            <View style={createStyles.attachmentBtnRow}>
+              <Pressable style={createStyles.attachBtn} onPress={() => void pickImage()}>
+                <MaterialCommunityIcons name="image-outline" size={18} color="#334155" />
+                <Text style={createStyles.attachBtnText}>Chọn ảnh</Text>
+              </Pressable>
+              <Pressable style={createStyles.attachBtn} onPress={() => void pickDocument()}>
+                <MaterialCommunityIcons name="file-document-outline" size={18} color="#334155" />
+                <Text style={createStyles.attachBtnText}>Chọn file / PDF</Text>
               </Pressable>
             </View>
-          )}
 
-          <PrimaryButton
-            loading={mutation.isPending || isUploading}
-            disabled={!sourceDepartment || !targetDepartment || title.trim().length < 3 || content.trim().length < 3}
+            {attachmentUri && (
+              <View style={createStyles.attachmentPreview}>
+                <MaterialCommunityIcons name="file-check-outline" size={20} color="#102739" />
+                <Text style={createStyles.attachmentName} numberOfLines={1}>
+                  {attachmentName || 'Tệp đính kèm'}
+                </Text>
+                <Pressable 
+                  onPress={() => {
+                    setAttachmentUri(null);
+                    setAttachmentName(null);
+                    setAttachmentMime(null);
+                  }}
+                  hitSlop={8}
+                >
+                  <MaterialCommunityIcons name="close-circle-outline" size={20} color="#EF4444" />
+                </Pressable>
+              </View>
+            )}
+          </View>
+
+          {/* Nút Gửi yêu cầu */}
+          <Pressable
+            style={[
+              createStyles.submitBtn,
+              isFormValid && createStyles.submitBtnActive,
+              (mutation.isPending || isUploading) && { opacity: 0.8 }
+            ]}
+            disabled={!isFormValid || mutation.isPending || isUploading}
             onPress={() => void submit()}
           >
-            Gửi yêu cầu
-          </PrimaryButton>
-        </SectionCard>
-      </ScrollView>
+            {mutation.isPending || isUploading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={createStyles.submitBtnText}>Gửi yêu cầu</Text>
+            )}
+          </Pressable>
+        </ScrollView>
+      </View>
 
       {/* Modals */}
       <SelectModal
@@ -492,7 +537,7 @@ export function CreateCrossDepartmentScreen() {
         onSelect={setSourceDepartment}
         onClose={() => setSourceModalVisible(false)}
       />
-    </Screen>
+    </View>
   );
 }
 
@@ -1242,13 +1287,14 @@ const styles = StyleSheet.create({
 });
 
 const crossListStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#102739',
+  },
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    paddingBottom: 16,
   },
   headerTop: {
     flexDirection: 'row',
@@ -1260,39 +1306,51 @@ const crossListStyles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtn: {
-    marginRight: 6,
+    marginRight: 8,
     padding: 2,
+    marginLeft: -4,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: 12.5,
+    color: 'rgba(255, 255, 255, 0.72)',
     marginTop: 2,
-    marginLeft: 34,
+    marginLeft: 32,
+    fontWeight: '500',
   },
   headerAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#102739',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 8,
     gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   headerAddText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  curvedSheet: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
   },
   segmentedContainer: {
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 16,
     padding: 4,
     borderRadius: 10,
     gap: 4,
@@ -1329,9 +1387,9 @@ const crossListStyles = StyleSheet.create({
   statusDropdownPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 20,
     gap: 6,
     borderWidth: 1,
@@ -1353,19 +1411,20 @@ const crossListStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 28,
-    paddingTop: 60,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   emptyIconBg: {
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E0F2FE',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 16.5,
     fontWeight: '700',
     color: '#1E293B',
     marginBottom: 6,
@@ -1382,7 +1441,7 @@ const crossListStyles = StyleSheet.create({
     borderColor: '#102739',
     borderRadius: 10,
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
   },
   resetFilterText: {
     fontSize: 14,
@@ -1436,5 +1495,163 @@ const crossListStyles = StyleSheet.create({
   modalOptionTextActive: {
     fontWeight: '700',
     color: '#102739',
+  },
+});
+
+const createStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#102739',
+  },
+  header: {
+    backgroundColor: '#102739',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  headerMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backBtn: {
+    marginRight: 8,
+    padding: 2,
+    marginLeft: -4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12.5,
+    color: 'rgba(255, 255, 255, 0.72)',
+    marginTop: 2,
+    marginLeft: 32,
+    fontWeight: '500',
+  },
+  curvedSheet: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 40,
+    gap: 16,
+  },
+  fieldWrap: {
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  textArea: {
+    minHeight: 96,
+    textAlignVertical: 'top',
+  },
+  inputDisabled: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inputDisabledText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  selector: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectorText: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  selectorPlaceholder: {
+    fontSize: 14,
+    color: '#94A3B8',
+  },
+  attachmentBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  attachBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  attachBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  attachmentPreview: {
+    marginTop: 8,
+    padding: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  attachmentName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  submitBtn: {
+    backgroundColor: '#64748B',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  submitBtnActive: {
+    backgroundColor: '#102739',
+  },
+  submitBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

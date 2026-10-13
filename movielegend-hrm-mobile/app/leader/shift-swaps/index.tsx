@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import {StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl} from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 import { getLeaderPendingSwaps, updateShiftSwapStatus } from '../../../src/api/shift-swaps.api';
@@ -11,6 +11,7 @@ import { CustomAlert } from '../../../src/components/CustomAlert';
 
 export default function LeaderShiftSwapsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'PENDING_LEADER_APPROVAL' | 'APPROVED' | 'REJECTED'>('PENDING_LEADER_APPROVAL');
 
@@ -47,204 +48,304 @@ export default function LeaderShiftSwapsScreen() {
   });
 
   return (
-    <Screen>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Pressable onPress={() => router.back()} style={styles.iconBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+
+      {/* ── Top Header (#102739) ── */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={styles.headerMainRow}>
+          <Pressable 
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/leader/(tabs)' as any))} 
+            style={styles.backBtn}
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
           </Pressable>
-          <View>
-            <Text style={styles.title}>Duyệt Đổi Ca</Text>
-            <View style={styles.dateSelector}>
-              <Text style={styles.dateText}>Quản lý yêu cầu đổi ca làm việc</Text>
-            </View>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>Duyệt đổi ca</Text>
+            <Text style={styles.headerSubtitle}>Quản lý yêu cầu đổi ca làm việc</Text>
           </View>
         </View>
       </View>
 
-      {/* List */}
-      {isLoading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : swaps.length === 0 ? (
-        <ScrollView 
-          contentContainerStyle={styles.emptyContainer}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-        >
-          <View style={styles.emptyIconBg}>
-            <MaterialCommunityIcons name="swap-horizontal-circle-outline" size={64} color="#9CA3AF" />
+      {/* ── Main Curved Sheet ── */}
+      <View style={styles.curvedSheet}>
+        {isLoading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#102739" />
           </View>
-          <Text style={styles.emptyText}>Không có yêu cầu đổi ca nào chờ duyệt</Text>
-        </ScrollView>
-      ) : (
-        <ScrollView 
-          contentContainerStyle={styles.listContainer}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-        >
-          {swaps.map((item: any) => {
-            const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '';
-            const requesterName = item.requester?.profile?.fullName || item.requester?.email || 'Người xin đổi';
-            const targetName = item.target?.profile?.fullName || item.target?.email || 'Người được đổi';
-            
-            const fromDateStr = item.fromDate ? new Date(item.fromDate).toLocaleDateString('vi-VN') : '';
-            const toDateStr = item.toDate ? new Date(item.toDate).toLocaleDateString('vi-VN') : '';
-
-            return (
-              <Pressable 
-                key={item.id} 
-                style={styles.card}
-                onPress={() => router.push(`/leader/shift-swaps/${item.id}`)}
-                android_ripple={{ color: 'rgba(0,0,0,0.05)' }}
-              >
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardIconBox}>
-                    <MaterialCommunityIcons name="swap-horizontal" size={24} color="#111827" />
-                  </View>
-                  <View style={styles.cardHeaderRight}>
-                    <Text style={styles.cardUserName}>{requesterName} &lt;-&gt; {targetName}</Text>
-                    <Text style={styles.cardSubtitle}>Yêu cầu đổi ca • {dateStr}</Text>
+        ) : swaps.length === 0 ? (
+          <ScrollView 
+            contentContainerStyle={styles.emptyScroll}
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.emptyCard}>
+              <View style={styles.emptyIconBg}>
+                <View style={styles.calendarIconWrapper}>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={54} color="#7DD3FC" />
+                  <View style={styles.swapBadge}>
+                    <MaterialCommunityIcons name="swap-horizontal" size={15} color="#0284C7" />
                   </View>
                 </View>
-                
-                <View style={styles.shiftDetails}>
-                  <Text style={styles.shiftText}><Text style={styles.bold}>Ca của {requesterName}:</Text> {item.fromShift?.name} ({fromDateStr})</Text>
-                  <Text style={styles.shiftText}><Text style={styles.bold}>Ca của {targetName}:</Text> {item.toShift?.name} ({toDateStr})</Text>
-                </View>
+              </View>
+              <Text style={styles.emptyTitle}>Không có yêu cầu đổi ca{'\n'}nào chờ duyệt</Text>
+              <Text style={styles.emptySubtitle}>Các yêu cầu đổi ca cần xét duyệt sẽ hiển thị tại đây.</Text>
+            </View>
+          </ScrollView>
+        ) : (
+          <ScrollView 
+            contentContainerStyle={styles.listContainer}
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+            showsVerticalScrollIndicator={false}
+          >
+            {swaps.map((item: any) => {
+              const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '';
+              const requesterName = item.requester?.profile?.fullName || item.requester?.email || 'Người xin đổi';
+              const targetName = item.target?.profile?.fullName || item.target?.email || 'Người được đổi';
+              
+              const fromDateStr = item.fromDate ? new Date(item.fromDate).toLocaleDateString('vi-VN') : '';
+              const toDateStr = item.toDate ? new Date(item.toDate).toLocaleDateString('vi-VN') : '';
 
-                {item.reason && (
-                  <Text style={styles.cardContent} numberOfLines={2}>Lý do: {item.reason}</Text>
-                )}
-
-                {item.status === 'PENDING_LEADER_APPROVAL' && (
-                  <View style={styles.actionButtons}>
-                    <Pressable 
-                      style={[styles.btnAction, styles.btnReject]} 
-                      onPress={() => rejectMutation.mutate(item.id)}
-                      disabled={rejectMutation.isPending || approveMutation.isPending}
-                    >
-                      <MaterialCommunityIcons name="close" size={20} color="#F43F5E" />
-                      <Text style={styles.btnRejectText}>Từ chối</Text>
-                    </Pressable>
-                    <Pressable 
-                      style={[styles.btnAction, styles.btnApprove]} 
-                      onPress={() => approveMutation.mutate(item.id)}
-                      disabled={rejectMutation.isPending || approveMutation.isPending}
-                    >
-                      <MaterialCommunityIcons name="check" size={20} color="#fff" />
-                      <Text style={styles.btnApproveText}>Duyệt đơn</Text>
-                    </Pressable>
+              return (
+                <Pressable 
+                  key={item.id} 
+                  style={styles.card}
+                  onPress={() => router.push(`/leader/shift-swaps/${item.id}`)}
+                  android_ripple={{ color: 'rgba(0,0,0,0.05)' }}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardIconBox}>
+                      <MaterialCommunityIcons name="swap-horizontal" size={22} color="#102739" />
+                    </View>
+                    <View style={styles.cardHeaderRight}>
+                      <Text style={styles.cardUserName}>{requesterName} ➔ {targetName}</Text>
+                      <Text style={styles.cardSubtitle}>Yêu cầu đổi ca • {dateStr}</Text>
+                    </View>
                   </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      )}
-    </Screen>
+                  
+                  <View style={styles.shiftDetails}>
+                    <Text style={styles.shiftText}><Text style={styles.bold}>Ca của {requesterName}:</Text> {item.fromShift?.name} ({fromDateStr})</Text>
+                    <Text style={styles.shiftText}><Text style={styles.bold}>Ca của {targetName}:</Text> {item.toShift?.name} ({toDateStr})</Text>
+                  </View>
+
+                  {item.reason && (
+                    <Text style={styles.cardContent} numberOfLines={2}>Lý do: {item.reason}</Text>
+                  )}
+
+                  {item.status === 'PENDING_LEADER_APPROVAL' && (
+                    <View style={styles.actionButtons}>
+                      <Pressable 
+                        style={[styles.btnAction, styles.btnReject]} 
+                        onPress={() => rejectMutation.mutate(item.id)}
+                        disabled={rejectMutation.isPending || approveMutation.isPending}
+                      >
+                        <MaterialCommunityIcons name="close" size={18} color="#EF4444" />
+                        <Text style={styles.btnRejectText}>Từ chối</Text>
+                      </Pressable>
+                      <Pressable 
+                        style={[styles.btnAction, styles.btnApprove]} 
+                        onPress={() => approveMutation.mutate(item.id)}
+                        disabled={rejectMutation.isPending || approveMutation.isPending}
+                      >
+                        <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />
+                        <Text style={styles.btnApproveText}>Duyệt đơn</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#102739',
+  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: '#102739',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
-  headerLeft: {
+  headerMainRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  iconBtn: {
-    padding: spacing.xs,
-    marginRight: spacing.sm,
-    marginLeft: -spacing.xs,
+  backBtn: {
+    padding: 2,
+    marginRight: 8,
+    marginLeft: -4,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
+  headerTitleWrap: {
+    flex: 1,
   },
-  dateSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 12.5,
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontWeight: '500',
     marginTop: 2,
   },
-  dateText: {
-    fontSize: 14,
-    color: colors.muted,
+  curvedSheet: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
   },
-  listContainer: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl * 2,
-    gap: spacing.md,
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.lg,
+  emptyScroll: {
+    flexGrow: 1,
+    paddingTop: 8,
+  },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 44,
+    paddingHorizontal: 24,
+    marginHorizontal: 16,
+    marginTop: 24,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#E2E8F0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
+    elevation: 1,
+  },
+  emptyIconBg: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  calendarIconWrapper: {
+    width: 60,
+    height: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swapBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 3,
+    borderWidth: 2,
+    borderColor: '#7DD3FC',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 10,
+  },
+  emptySubtitle: {
+    fontSize: 13.5,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  listContainer: {
+    padding: 16,
+    paddingBottom: 40,
+    gap: 12,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
     elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: 12,
   },
   cardIconBox: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: 12,
   },
   cardHeaderRight: {
     flex: 1,
   },
   cardUserName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   cardSubtitle: {
-    fontSize: 13,
-    color: colors.muted,
+    fontSize: 12.5,
+    color: '#64748B',
     marginTop: 2,
   },
   shiftDetails: {
-    backgroundColor: '#F9FAFB',
-    padding: spacing.md,
-    borderRadius: 8,
-    marginBottom: spacing.md,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   shiftText: {
-    fontSize: 14,
-    color: colors.text,
+    fontSize: 13,
+    color: '#334155',
     marginBottom: 4,
   },
   bold: {
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#0F172A',
   },
   cardContent: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-    marginBottom: spacing.md,
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+    marginBottom: 12,
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+    gap: 10,
+    marginTop: 4,
   },
   btnAction: {
     flex: 1,
@@ -252,48 +353,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     gap: 6,
   },
   btnReject: {
-    backgroundColor: '#FFF1F2',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
   },
   btnRejectText: {
-    color: '#F43F5E',
-    fontWeight: '600',
-    fontSize: 14,
+    color: '#EF4444',
+    fontWeight: '700',
+    fontSize: 13.5,
   },
   btnApprove: {
-    backgroundColor: '#111827',
+    backgroundColor: '#102739',
   },
   btnApproveText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-  },
-  emptyIconBg: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.muted,
-    fontWeight: '500',
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13.5,
   },
 });
