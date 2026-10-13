@@ -307,7 +307,7 @@ export function AssignShiftScreen() {
       );
       if (assignedInDates.length > 0) {
         const shiftNames = Array.from(new Set(assignedInDates.map((a: any) => a.shift?.name).filter(Boolean)));
-        parts.push(`⚡ Đang xếp: ${shiftNames.join(', ')}`);
+        parts.push(`Đang xếp: ${shiftNames.join(', ')}`);
       }
 
       return {
@@ -662,9 +662,6 @@ export function AssignShiftScreen() {
             <Text style={[styles.tabBarText, activeTab === 'patch' && styles.tabBarTextActive]}>
               Vá ca đột xuất
             </Text>
-            <View style={[styles.tabBadge, activeTab === 'patch' && styles.tabBadgePatchActive]}>
-              <Text style={[styles.tabBadgeText, activeTab === 'patch' && styles.tabBadgeTextPatchActive]}>Mới</Text>
-            </View>
           </Pressable>
         </View>
 
@@ -1664,23 +1661,6 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   tabBarTextActive: {
-    color: '#FFFFFF',
-  },
-  tabBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  tabBadgePatchActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  tabBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#B45309',
-  },
-  tabBadgeTextPatchActive: {
     color: '#FFFFFF',
   },
 
