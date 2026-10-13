@@ -32,7 +32,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#0284C7',
     bgColor: '#E0F2FE',
     adminRoute: '/admin/attendance',
-    leaderRoute: '/leader/schedule',
+    leaderRoute: '/leader/attendance',
     employeeRoute: '/employee/attendance',
     hrRoute: '/hr/attendance-management',
     isCore: true,
@@ -44,10 +44,10 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     icon: 'SquareCheck',
     color: '#0D9488',
     bgColor: '#CCFBF1',
-    adminRoute: '/leader/approvals',
+    adminRoute: '/admin/approvals',
     leaderRoute: '/leader/approvals',
     employeeRoute: '/employee/requests',
-    hrRoute: '/hr/employee-requests',
+    hrRoute: '/hr/requests',
     badgeKey: 'pendingRequests',
     isCore: true,
   },
@@ -61,7 +61,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/tasks',
     leaderRoute: '/leader/tasks',
     employeeRoute: '/employee/tasks',
-    hrRoute: '/hr/my-tasks',
+    hrRoute: '/hr/tasks',
     badgeKey: 'dueTasks',
     isCore: true,
   },
@@ -73,7 +73,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#059669',
     bgColor: '#ECFDF5',
     adminRoute: '/admin/feedbacks',
-    leaderRoute: '/admin/feedbacks',
+    leaderRoute: '/leader/feedbacks',
     employeeRoute: '/employee/feedbacks',
     hrRoute: '/hr/feedbacks',
     isCore: true,
@@ -87,10 +87,10 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     icon: 'Calendar',
     color: '#EA580C',
     bgColor: '#FFEDD5',
-    adminRoute: '/leader/shift-management',
+    adminRoute: '/admin/shifts',
     leaderRoute: '/leader/shift-management',
     employeeRoute: '/employee/schedule',
-    hrRoute: '/hr/shifts',
+    hrRoute: '/hr/shift-management',
   },
   shift_swaps: {
     key: 'shift_swaps',
@@ -124,8 +124,8 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#7C3AED',
     bgColor: '#F3E8FF',
     adminRoute: '/admin/employees',
-    leaderRoute: '/admin/employees',
-    employeeRoute: '/employee/contacts',
+    leaderRoute: '/leader/employees',
+    employeeRoute: '/employee/profile',
     hrRoute: '/hr/employees',
   },
   departments: {
@@ -136,8 +136,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#475569',
     bgColor: '#F1F5F9',
     adminRoute: '/admin/departments',
-    leaderRoute: '/admin/departments',
-    employeeRoute: '/employee/departments',
   },
   leaders: {
     key: 'leaders',
@@ -147,8 +145,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#4F46E5',
     bgColor: '#EEF2FF',
     adminRoute: '/admin/leaders',
-    leaderRoute: '/admin/leaders',
-    employeeRoute: '/employee/leaders',
   },
   locations: {
     key: 'locations',
@@ -158,8 +154,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#E11D48',
     bgColor: '#FFE4E6',
     adminRoute: '/admin/attendance-locations',
-    leaderRoute: '/admin/attendance-locations',
-    employeeRoute: '/employee/attendance',
   },
   ot_live: {
     key: 'ot_live',
@@ -170,19 +164,20 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     bgColor: '#FFE4E6',
     adminRoute: '/leader/ot-report-approvals',
     leaderRoute: '/leader/ot-report-approvals',
-    employeeRoute: '/employee/ot-reports',
+    employeeRoute: '/employee/ot-report',
+    hrRoute: '/leader/ot-report-approvals',
   },
 
   // Hành chính & Tài liệu
   contracts: {
     key: 'contracts',
-    title: 'Hợp đồng',
+    title: 'Hợp đồng lao động',
     category: 'admin_docs',
     icon: 'FileText',
     color: '#2563EB',
     bgColor: '#EFF6FF',
     adminRoute: '/admin/contracts',
-    leaderRoute: '/admin/contracts',
+    leaderRoute: '/leader/contracts',
     employeeRoute: '/employee/contracts',
     hrRoute: '/hr/contracts',
   },
@@ -194,7 +189,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#D97706',
     bgColor: '#FEF3C7',
     adminRoute: '/admin/documents',
-    leaderRoute: '/admin/documents',
+    leaderRoute: '/leader/documents',
     employeeRoute: '/employee/documents',
     hrRoute: '/hr/documents',
   },
@@ -208,6 +203,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     adminRoute: '/admin/task-groups',
     leaderRoute: '/leader/task-groups',
     employeeRoute: '/employee/tasks',
+    hrRoute: '/hr/tasks',
   },
   daily_reports: {
     key: 'daily_reports',
@@ -217,8 +213,9 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#16A34A',
     bgColor: '#DCFCE7',
     adminRoute: '/admin/daily-reports',
-    leaderRoute: '/leader/daily-reports',
-    employeeRoute: '/employee/daily-reports',
+    leaderRoute: '/leader/daily-report',
+    employeeRoute: '/employee/daily-report',
+    hrRoute: '/hr/daily-report',
   },
   news: {
     key: 'news',
@@ -241,9 +238,9 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     icon: 'Receipt',
     color: '#16A34A',
     bgColor: '#DCFCE7',
-    adminRoute: '/leader/expenses',
-    leaderRoute: '/leader/expenses',
-    employeeRoute: '/employee/expenses',
+    adminRoute: '/admin/approvals',
+    leaderRoute: '/leader/financial-requests',
+    employeeRoute: '/employee/requests',
     hrRoute: '/hr/financial-requests',
     badgeKey: 'pendingFinancial',
   },
@@ -268,7 +265,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     bgColor: '#FEF3C7',
     adminRoute: '/admin/vault',
     leaderRoute: '/leader/vault',
-    employeeRoute: '/employee/leveling',
+    employeeRoute: '/employee/vault',
     hrRoute: '/hr/vault',
     badgeKey: 'pendingVault',
   },
@@ -286,14 +283,15 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   },
   competition: {
     key: 'competition',
-    title: 'Duyệt thi đua',
+    title: 'Dự án thi đua',
     category: 'finance',
     icon: 'Trophy',
     color: '#EAB308',
     bgColor: '#FEF9C3',
     adminRoute: '/admin/competition/review',
-    leaderRoute: '/admin/competition/review',
+    leaderRoute: '/leader/level-projects',
     employeeRoute: '/employee/leveling',
+    hrRoute: '/hr/leveling',
   },
 
   // Kho bãi & Tài sản
@@ -305,7 +303,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#475569',
     bgColor: '#F1F5F9',
     adminRoute: '/admin/assets',
-    leaderRoute: '/admin/assets',
+    leaderRoute: '/leader/assets',
     employeeRoute: '/employee/assets',
     hrRoute: '/hr/assets',
   },
@@ -317,8 +315,9 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#EF4444',
     bgColor: '#FEE2E2',
     adminRoute: '/admin/asset-incidents',
-    leaderRoute: '/admin/asset-incidents',
+    leaderRoute: '/leader/asset-incidents',
     employeeRoute: '/employee/assets',
+    hrRoute: '/hr/asset-incidents',
   },
   warehouses: {
     key: 'warehouses',
@@ -328,8 +327,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#B45309',
     bgColor: '#FEF3C7',
     adminRoute: '/admin/warehouses',
-    leaderRoute: '/warehouse-manager',
-    employeeRoute: '/warehouse-manager',
   },
   materials: {
     key: 'materials',
@@ -339,8 +336,9 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#1E40AF',
     bgColor: '#DBEAFE',
     adminRoute: '/admin/materials',
-    leaderRoute: '/admin/materials',
+    leaderRoute: '/leader/material-issues',
     employeeRoute: '/warehouse-manager',
+    hrRoute: '/hr/material-issues',
   },
   stock_receipts: {
     key: 'stock_receipts',
@@ -350,8 +348,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#0F766E',
     bgColor: '#CCFBF1',
     adminRoute: '/admin/stock-receipts',
-    leaderRoute: '/warehouse-manager/stock-receipts',
-    employeeRoute: '/warehouse-manager/stock-receipts',
   },
   material_issues: {
     key: 'material_issues',
@@ -361,8 +357,9 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#C2410C',
     bgColor: '#FFEDD5',
     adminRoute: '/admin/material-issues',
-    leaderRoute: '/warehouse-manager/material-issues',
+    leaderRoute: '/leader/material-issues',
     employeeRoute: '/warehouse-manager/material-issues',
+    hrRoute: '/hr/material-issues',
   },
   inventory_checks: {
     key: 'inventory_checks',
@@ -372,27 +369,34 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#6B21A8',
     bgColor: '#F3E8FF',
     adminRoute: '/admin/inventory-checks',
-    leaderRoute: '/warehouse-manager/inventory-checks',
-    employeeRoute: '/warehouse-manager/inventory-checks',
   },
   ai_chat: {
     key: 'ai_chat',
     title: 'Trợ lý AI',
-    category: 'warehouse',
-    icon: 'Zap',
-    color: '#D97706',
-    bgColor: '#FEF3C7',
-    adminRoute: '/admin/ai-assistant',
-    leaderRoute: '/admin/ai-assistant',
+    category: 'operations',
+    icon: 'Bot',
+    color: '#7C3AED',
+    bgColor: '#EDE9FE',
+    adminRoute: '/admin/ai-chat',
+    leaderRoute: '/leader/ai-chat',
     employeeRoute: '/employee/ai-chat',
+    hrRoute: '/hr/ai-chat',
   },
 };
 
 export const ALL_APPS_LIST: AppRegistryItem[] = Object.values(APP_REGISTRY);
 
-export function getAppRoute(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN'): string {
-  if (role === 'HR') return item.hrRoute || item.adminRoute || item.leaderRoute || item.employeeRoute || '/hr/(tabs)';
-  if (role === 'ADMIN') return item.adminRoute || item.leaderRoute || item.employeeRoute || '/admin/(tabs)';
-  if (role === 'LEADER') return item.leaderRoute || item.employeeRoute || item.adminRoute || '/leader/(tabs)';
-  return item.employeeRoute || item.leaderRoute || item.adminRoute || '/employee/(tabs)';
+export function isAppAllowedForRole(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR'): boolean {
+  if (role === 'ADMIN') return true;
+  if (role === 'HR') return Boolean(item.hrRoute);
+  if (role === 'LEADER') return Boolean(item.leaderRoute);
+  if (role === 'EMPLOYEE') return Boolean(item.employeeRoute);
+  return false;
+}
+
+export function getAppRoute(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN'): string | null {
+  if (role === 'HR') return item.hrRoute || (item.employeeRoute ? item.employeeRoute : null);
+  if (role === 'LEADER') return item.leaderRoute || (item.employeeRoute ? item.employeeRoute : null);
+  if (role === 'EMPLOYEE') return item.employeeRoute || null;
+  return item.adminRoute || item.leaderRoute || item.hrRoute || item.employeeRoute || '/admin/(tabs)';
 }

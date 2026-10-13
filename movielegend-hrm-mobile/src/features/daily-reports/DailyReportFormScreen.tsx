@@ -13,6 +13,7 @@ import {
   Image,
   Modal,
   Pressable,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -477,7 +478,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
   if (todayReportQuery.isLoading && isInitializing) {
     return (
       <View style={[styles.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#315DE5" />
+        <ActivityIndicator size="large" color="#102739" />
         <Text style={{ marginTop: 12, color: colors.muted, fontSize: 14 }}>Đang tải dữ liệu báo cáo hôm nay...</Text>
       </View>
     );
@@ -485,29 +486,49 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
 
   return (
     <Screen
-      backgroundColor={headerSlot ? '#102739' : '#F5F6FA'}
-      edges={headerSlot ? ['left', 'right'] : undefined}
-      statusBarStyle={headerSlot ? 'light' : 'dark'}
-      statusBarTranslucent={!!headerSlot}
+      backgroundColor="#102739"
+      edges={['left', 'right']}
+      statusBarStyle="light"
+      statusBarTranslucent
     >
       <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 20) }}>
         {/* Leader / Custom Header Slot */}
         {typeof headerSlot === 'function' ? headerSlot({ currentStep }) : headerSlot}
 
-        {/* Standalone Title Header (only if not hideHeaderTitle) */}
-        {!hideHeaderTitle && (
-          <View style={styles.headerBox}>
-            <View style={styles.headerTopRow}>
-              <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={styles.headerTitle}>
-                  {currentStep === 2 ? 'Xem lại báo cáo' : 'Báo cáo cuối ngày'}
-                </Text>
-                <Text style={styles.headerDate}>
-                  {currentStep === 2 ? 'Kiểm tra toàn bộ nội dung trước khi nộp.' : displayDate}
-                </Text>
-              </View>
-              <View style={styles.badgePill}>
-                <Text style={styles.badgePillText}>
+        {/* Default Modern Deep Navy Banner when no custom headerSlot is provided */}
+        {!headerSlot && !hideHeaderTitle && (
+          <View style={{
+            backgroundColor: '#102739',
+            paddingTop: Math.max(insets.top, 16),
+            paddingBottom: 18,
+            paddingHorizontal: 16,
+            marginHorizontal: -16,
+            marginTop: -8,
+            marginBottom: 14,
+          }}>
+            <StatusBar barStyle="light-content" backgroundColor="#102739" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Pressable onPress={() => router.back()} style={{ padding: 4, marginLeft: -4 }} hitSlop={10}>
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </Pressable>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '700',
+                letterSpacing: 1.5,
+                color: 'rgba(255,255,255,0.7)',
+                textTransform: 'uppercase',
+              }}>
+                MOVIE LEGEND
+              </Text>
+              <View style={{
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.25)',
+              }}>
+                <Text style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}>
                   {reportData?.status === 'REVIEWED'
                     ? 'Đã duyệt'
                     : reportData?.status === 'SUBMITTED'
@@ -516,6 +537,13 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                 </Text>
               </View>
             </View>
+
+            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 10 }}>
+              {currentStep === 2 ? 'Xem lại báo cáo' : 'Báo cáo cuối ngày'}
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              {currentStep === 2 ? 'Kiểm tra toàn bộ nội dung trước khi nộp.' : displayDate}
+            </Text>
           </View>
         )}
 

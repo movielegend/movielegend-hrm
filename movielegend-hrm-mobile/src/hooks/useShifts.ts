@@ -20,10 +20,10 @@ import type {
   UpdateShiftPayload,
 } from '../types/shift.types';
 
-export function useShifts() {
+export function useShifts(departmentId?: string) {
   return useQuery({
-    queryKey: queryKeys.shifts(),
-    queryFn: getShifts,
+    queryKey: departmentId ? ['shifts', departmentId] : queryKeys.shifts(),
+    queryFn: () => getShifts(departmentId),
   });
 }
 

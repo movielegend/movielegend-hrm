@@ -500,10 +500,21 @@ export class PayrollService {
           month,
           year,
           type: 'PAYSLIP_OFFICIAL_IMAGE',
+          targetUrl: `/my-payslips?tab=payslip&month=${month}&year=${year}`,
         },
       });
       if (payload) {
         this.notifications.emitCreated(payload);
+      }
+
+      // Phát realtime socket event trực tiếp tới từng nhân viên
+      for (const uid of targetUserIds) {
+        this.realtime.emitToUser(uid, 'payslip:employee_assigned', {
+          userId: uid,
+          month,
+          year,
+          imageUrl,
+        });
       }
     } catch (e) {
       // Do not fail upload if notification fails

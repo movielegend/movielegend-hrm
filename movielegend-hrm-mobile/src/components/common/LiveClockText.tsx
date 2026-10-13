@@ -30,5 +30,5 @@ export const LiveClockText = React.memo(function LiveClockText({ style }: LiveCl
     return () => clearInterval(timer);
   }, []);
 
-  return <Text style={style}>{time}</Text>;
+  return <Text style={style} pointerEvents="none">{time}</Text>;
 });

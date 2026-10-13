@@ -54,19 +54,28 @@ export function HRProfileScreen() {
     });
   };
 
+  const isAccountant = Boolean(
+    user?.roles?.some((r: any) => {
+      const code = String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+      return code.includes('ACCOUNTANT') || code === 'KT' || code === 'KETOAN';
+    }) ||
+    user?.position?.name?.toLowerCase().includes('kế toán') ||
+    user?.department?.name?.toLowerCase().includes('kế toán')
+  );
+
   const getInitials = (name?: string) => {
-    if (!name) return 'HR';
+    if (!name) return isAccountant ? 'KT' : 'HR';
     const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return 'HR';
-    if (parts.length === 1) return parts[0] ? parts[0].substring(0, 2).toUpperCase() : 'HR';
+    if (parts.length === 0) return isAccountant ? 'KT' : 'HR';
+    if (parts.length === 1) return parts[0] ? parts[0].substring(0, 2).toUpperCase() : (isAccountant ? 'KT' : 'HR');
     const first = parts[0]?.charAt(0) || '';
     const last = parts[parts.length - 1]?.charAt(0) || '';
-    return (first + last).toUpperCase() || 'HR';
+    return (first + last).toUpperCase() || (isAccountant ? 'KT' : 'HR');
   };
 
   const seniorityText = formatSeniority(user?.joinDate || (user as any)?.createdAt) || 'Chưa cập nhật';
   const userCodeText = user?.userCode || 'NV000008';
-  const roleLabel = user?.position?.name || 'Chuyên viên Nhân sự';
+  const roleLabel = user?.position?.name || (isAccountant ? 'Kế toán & Tài chính' : 'Chuyên viên Nhân sự');
   const rawDeptName = user?.department?.name || 'Phòng ban';
   const rawBranchName =
     (user?.department as any)?.branch?.name ||
@@ -120,7 +129,7 @@ export function HRProfileScreen() {
 
               <View style={styles.profileMetaCol}>
                 <Text style={styles.userName} numberOfLines={1}>
-                  {user?.fullName || 'Chuyên viên HR'}
+                  {user?.fullName || (isAccountant ? 'Chuyên viên Kế toán' : 'Chuyên viên HR')}
                 </Text>
                 <Text style={styles.userRole}>{roleLabel}</Text>
                 <Text style={styles.userDepartment} numberOfLines={1}>
@@ -246,6 +255,12 @@ export function HRProfileScreen() {
                         onPress={() => router.push('/hr/employee-requests' as any)}
                       />
                       <FeatureItem
+                        icon="receipt"
+                        iconType="ionicons"
+                        title="Duyệt tài chính"
+                        onPress={() => router.push('/hr/financial-requests' as any)}
+                      />
+                      <FeatureItem
                         icon="account-check-outline"
                         iconType="mci"
                         title="Duyệt tài khoản"
@@ -277,6 +292,18 @@ export function HRProfileScreen() {
                         iconType="mci"
                         title="Nhân sự phòng"
                         onPress={() => router.push('/hr/employees' as any)}
+                      />
+                      <FeatureItem
+                        icon="file-document-outline"
+                        iconType="mci"
+                        title="Hợp đồng LĐ"
+                        onPress={() => router.push('/hr/contracts' as any)}
+                      />
+                      <FeatureItem
+                        icon="cash-multiple"
+                        iconType="mci"
+                        title="Bảng lương"
+                        onPress={() => router.push('/hr/payslip' as any)}
                       />
                       <FeatureItem
                         icon="calendar-check"
@@ -364,6 +391,12 @@ export function HRProfileScreen() {
                         iconType="mci"
                         title="Tài sản của tôi"
                         onPress={() => router.push('/hr/assets' as any)}
+                      />
+                      <FeatureItem
+                        icon="robot"
+                        iconType="mci"
+                        title="Trợ lý AI"
+                        onPress={() => router.push('/hr/ai-chat' as any)}
                       />
                       <FeatureItem
                         icon="message-draw"

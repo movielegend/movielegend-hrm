@@ -279,6 +279,12 @@ export function LeaderProfileScreen() {
                         onPress={() => router.push('/leader/employees' as any)}
                       />
                       <FeatureItem
+                        icon="file-document-outline"
+                        iconType="mci"
+                        title="Hợp đồng LĐ"
+                        onPress={() => router.push('/leader/contracts' as any)}
+                      />
+                      <FeatureItem
                         icon="calendar-check"
                         iconType="mci"
                         title="Phân ca làm"
@@ -364,6 +370,12 @@ export function LeaderProfileScreen() {
                         iconType="mci"
                         title="Tài sản của tôi"
                         onPress={() => router.push('/leader/assets' as any)}
+                      />
+                      <FeatureItem
+                        icon="robot"
+                        iconType="mci"
+                        title="Trợ lý AI"
+                        onPress={() => router.push('/leader/ai-chat' as any)}
                       />
                       <FeatureItem
                         icon="message-draw"

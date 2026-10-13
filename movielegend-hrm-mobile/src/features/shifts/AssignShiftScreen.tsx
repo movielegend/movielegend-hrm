@@ -163,11 +163,6 @@ export function AssignShiftScreen() {
     let items = employeesQuery.data.items;
 
     if (isAdmin) {
-      // Admin assigns shift to Leader
-      items = items.filter((emp: any) =>
-        emp.roles?.some((r: any) => r.role?.code === 'LEADER')
-      );
-
       if (effectiveRegionId !== 'ALL') {
         items = items.filter((emp: any) => emp.department?.branch?.region?.id === effectiveRegionId);
       }
@@ -175,44 +170,50 @@ export function AssignShiftScreen() {
         items = items.filter((emp: any) => emp.department?.branch?.id === selectedBranchId);
       }
       if (selectedDeptId !== 'ALL') {
-        items = items.filter((emp: any) => emp.department?.id === selectedDeptId);
+        items = items.filter((emp: any) => emp.department?.id === selectedDeptId || emp.departmentId === selectedDeptId);
       }
     } else {
-      // Leader assigns shift to staff in their own department
+      // Leader assigns shift to staff in their own department + Leader themselves
       if (leaderDeptId) {
         items = items.filter((emp: any) => {
           const empDeptId = emp.departmentId || emp.department?.id;
-          return !empDeptId || empDeptId === leaderDeptId;
+          return empDeptId === leaderDeptId || emp.id === user?.id;
         });
       }
     }
 
     return items.map((emp: any) => {
+      const isMe = emp.id === user?.id;
+      const isLeaderRole = emp.roles?.some((r: any) => r.role?.code === 'LEADER' || r.name?.toUpperCase().includes('LEADER'));
+      const roleName = isMe ? 'Bạn (Leader)' : isLeaderRole ? 'Leader' : (emp.position?.name ?? 'Nhân viên');
       const parts = [
-        emp.position?.name ?? (emp.roles?.some((r: any) => r.role?.code === 'LEADER') ? 'Leader' : 'Nhân viên'),
+        roleName,
         emp.department?.name ?? 'Chưa phân phòng',
         emp.department?.branch?.name,
       ].filter(Boolean);
       return {
         id: emp.id,
-        label: emp.fullName ?? emp.userCode,
+        label: isMe ? `${emp.fullName ?? emp.userCode} (Bạn)` : (emp.fullName ?? emp.userCode),
         subtitle: parts.join(' · '),
         raw: emp,
       };
     });
-  }, [employeesQuery.data, isAdmin, effectiveRegionId, selectedBranchId, selectedDeptId]);
+  }, [employeesQuery.data, isAdmin, effectiveRegionId, selectedBranchId, selectedDeptId, leaderDeptId, user?.id]);
 
   // Shifts options
   const shiftOptions: SelectOption[] = useMemo(() => {
     if (!allShiftsQuery.data) return [];
-    return allShiftsQuery.data
-      .filter((s: any) => s.isActive)
-      .map((s: any) => ({
-        id: s.id,
-        label: s.name,
-        subtitle: `${s.startTime} - ${s.endTime}`,
-      }));
-  }, [allShiftsQuery.data]);
+    let list = allShiftsQuery.data.filter((s: any) => s.isActive);
+    const currentDeptId = isAdmin ? (selectedDeptId !== 'ALL' ? selectedDeptId : null) : leaderDeptId;
+    if (currentDeptId) {
+      list = list.filter((s: any) => !s.departmentId || s.departmentId === currentDeptId);
+    }
+    return list.map((s: any) => ({
+      id: s.id,
+      label: s.name,
+      subtitle: `${s.startTime} - ${s.endTime}${s.department?.name ? ` · ${s.department.name}` : ' · Chung'}`,
+    }));
+  }, [allShiftsQuery.data, isAdmin, selectedDeptId, leaderDeptId]);
 
   // Week Days array computation around workDate
   const weekInfo = useMemo(() => {
@@ -405,19 +406,41 @@ export function AssignShiftScreen() {
           </View>
         )}
 
-        {/* CARD 02: Leader & ca làm */}
+        {/* CARD 02: Nhân sự & ca làm */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>02</Text>
             </View>
-            <Text style={styles.cardTitle}>{isAdmin ? 'Leader & ca làm' : 'Nhân sự & ca làm'}</Text>
+            <Text style={styles.cardTitle}>Nhân sự & ca làm</Text>
           </View>
 
-          {/* Field: Leader / Quản lý ca */}
-          <Text style={styles.fieldLabel}>
-            {isAdmin ? 'Leader / Quản lý ca' : 'Nhân sự'}
-          </Text>
+          {/* Quick select buttons */}
+          <View style={styles.quickSelectHeader}>
+            <Text style={styles.fieldLabel}>
+              {isAdmin ? 'Nhân sự / Quản lý ca' : 'Nhân sự phòng ban'}
+            </Text>
+            <View style={styles.quickSelectActions}>
+              <Pressable
+                onPress={() => setSelectedEmployees(employeeOptions)}
+                hitSlop={6}
+                style={styles.quickSelectBtn}
+              >
+                <Ionicons name="checkmark-done" size={14} color="#102739" />
+                <Text style={styles.quickSelectBtnText}>Tất cả ({employeeOptions.length})</Text>
+              </Pressable>
+              {selectedEmployees.length > 0 && (
+                <Pressable
+                  onPress={() => setSelectedEmployees([])}
+                  hitSlop={6}
+                  style={styles.quickClearBtn}
+                >
+                  <Text style={styles.quickClearBtnText}>Bỏ chọn</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+
           <Pressable style={styles.selectPill} onPress={() => setEmployeeModalVisible(true)}>
             <View style={styles.selectLeft}>
               <Ionicons name="person-outline" size={18} color="#102739" />
@@ -431,8 +454,8 @@ export function AssignShiftScreen() {
                 {selectedEmployees.length > 0
                   ? selectedEmployees.length === 1
                     ? selectedEmployees[0]?.label
-                    : `Đã chọn ${selectedEmployees.length} ${isAdmin ? 'Leader' : 'nhân viên'}`
-                  : `Chọn ${isAdmin ? 'Leader' : 'nhân viên'}...`}
+                    : `Đã chọn ${selectedEmployees.length} nhân sự`
+                  : 'Chọn nhân sự / quản lý...'}
               </Text>
             </View>
             <Ionicons name="chevron-down" size={16} color="#64748B" />
@@ -883,5 +906,39 @@ const styles = StyleSheet.create({
   },
   submitBtnTextDisabled: {
     color: '#94A3B8',
+  },
+  quickSelectHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  quickSelectActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  quickSelectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: '#E7F0F7',
+  },
+  quickSelectBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#102739',
+  },
+  quickClearBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  quickClearBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#EF4444',
   },
 });

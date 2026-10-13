@@ -107,6 +107,47 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
     return { ok: true };
   }
 
+  @SubscribeMessage('payslip:department_sent')
+  handlePayslipDepartmentSent(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: {
+      departmentId: string;
+      departmentName?: string;
+      month: number;
+      year: number;
+      count: number;
+      selectedImageIds?: string[];
+      note?: string;
+    },
+  ) {
+    if (!payload?.departmentId) return { ok: false, code: 'DEPARTMENT_ID_REQUIRED' };
+    this.server.to(`department:${payload.departmentId}`).emit('payslip:department_sent', payload);
+    this.server.emit('payslip:department_sent', payload);
+    return { ok: true };
+  }
+
+  @SubscribeMessage('payslip:employee_assigned')
+  handlePayslipEmployeeAssigned(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    payload: {
+      userId: string;
+      employeeName?: string;
+      month: number;
+      year: number;
+      imageUrl?: string;
+      departmentId?: string;
+      departmentName?: string;
+    },
+  ) {
+    if (payload?.userId) {
+      this.server.to(`user:${payload.userId}`).emit('payslip:employee_assigned', payload);
+    }
+    this.server.emit('payslip:employee_assigned', payload);
+    return { ok: true };
+  }
+
   private extractToken(client: Socket): string {
     const authToken = client.handshake.auth?.token;
     if (typeof authToken === 'string' && authToken) return authToken.replace(/^Bearer\s+/i, '');
