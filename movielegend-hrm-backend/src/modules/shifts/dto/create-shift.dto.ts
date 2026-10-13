@@ -24,6 +24,16 @@ export class CreateShiftDto {
   @Min(0)
   breakMinutes?: number;
 
+  @ApiPropertyOptional({ example: '12:00' })
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  breakStartTime?: string;
+
+  @ApiPropertyOptional({ example: '13:30' })
+  @IsOptional()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+  breakEndTime?: string;
+
   @ApiPropertyOptional({ default: 15 })
   @IsOptional()
   @IsInt()
