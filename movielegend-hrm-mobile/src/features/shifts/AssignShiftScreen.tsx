@@ -8,8 +8,9 @@ import {
   RefreshControl,
   ActivityIndicator,
   StatusBar,
+  TextInput,
 } from 'react-native';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter, useSegments, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -117,24 +118,32 @@ export function AssignShiftScreen() {
   const [employeeModalVisible, setEmployeeModalVisible] = useState(false);
   const [shiftModalVisible, setShiftModalVisible] = useState(false);
 
+  // Tab & Mode States (Phân ca tuần vs Vá ca đột xuất)
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const [activeTab, setActiveTab] = useState<'weekly' | 'patch'>(() => {
+    return params.mode === 'patch' ? 'patch' : 'weekly';
+  });
+
+  useEffect(() => {
+    if (params.mode === 'patch') {
+      setActiveTab('patch');
+    }
+  }, [params.mode]);
+
+  // Patch (Vá ca đột xuất) States
+  const [patchDate, setPatchDate] = useState<Date>(() => new Date());
+  const [showPatchDatePicker, setShowPatchDatePicker] = useState(false);
+  const [selectedPatchShift, setSelectedPatchShift] = useState<SelectOption | null>(null);
+  const [patchShiftModalVisible, setPatchShiftModalVisible] = useState(false);
+  const [selectedPatchUserIds, setSelectedPatchUserIds] = useState<string[]>([]);
+  const [patchReason, setPatchReason] = useState<string>('Bổ sung nhân sự ca thiếu đột xuất');
+
   // Card 03 States (Schedule)
   const [workDate, setWorkDate] = useState<Date>(() => new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   // Default Monday to Saturday: indices 0 to 5
   const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([0, 1, 2, 3, 4, 5]);
-
   const [refreshing, setRefreshing] = useState(false);
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([
-      allShiftsQuery.refetch(),
-      employeesQuery.refetch(),
-      refetchRegions(),
-      refetchBranches(),
-      refetchDepartments(),
-    ]);
-    setRefreshing(false);
-  }, [allShiftsQuery, employeesQuery, refetchRegions, refetchBranches, refetchDepartments]);
 
   // Options for Region
   const regionOptions: SelectOption[] = useMemo(() => {
@@ -217,19 +226,44 @@ export function AssignShiftScreen() {
       .filter(Boolean) as string[];
   }, [selectedWeekdays, weekInfo]);
 
-  // Query existing department shift assignments for the selected week
+  const queryStartDate = useMemo(() => {
+    const mondayIso = weekInfo.days[0]?.dateIso || toIsoDate(workDate);
+    const patchIso = toIsoDate(patchDate);
+    return mondayIso < patchIso ? mondayIso : patchIso;
+  }, [weekInfo, workDate, patchDate]);
+
+  const queryEndDate = useMemo(() => {
+    const sundayIso = weekInfo.days[6]?.dateIso || toIsoDate(workDate);
+    const patchIso = toIsoDate(patchDate);
+    return sundayIso > patchIso ? sundayIso : patchIso;
+  }, [weekInfo, workDate, patchDate]);
+
+  // Query existing department shift assignments
   const currentTargetDeptId = isAdmin ? (selectedDeptId !== 'ALL' ? selectedDeptId : undefined) : leaderDeptId;
   const deptAssignmentsQuery = useDepartmentShiftAssignments(
-    currentTargetDeptId && weekInfo.days[0]?.dateIso && weekInfo.days[6]?.dateIso
+    currentTargetDeptId && queryStartDate && queryEndDate
       ? {
           departmentId: currentTargetDeptId,
-          startDate: weekInfo.days[0].dateIso,
-          endDate: weekInfo.days[6].dateIso,
+          startDate: queryStartDate,
+          endDate: queryEndDate,
         }
       : undefined,
     Boolean(currentTargetDeptId)
   );
   const existingAssignments = deptAssignmentsQuery.data || [];
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      allShiftsQuery.refetch(),
+      employeesQuery.refetch(),
+      refetchRegions(),
+      refetchBranches(),
+      refetchDepartments(),
+      deptAssignmentsQuery.refetch(),
+    ]);
+    setRefreshing(false);
+  }, [allShiftsQuery, employeesQuery, refetchRegions, refetchBranches, refetchDepartments, deptAssignmentsQuery]);
 
   // Employee/Leader Options
   const employeeOptions: SelectOption[] = useMemo(() => {
@@ -427,6 +461,153 @@ export function AssignShiftScreen() {
     }
   };
 
+  // Patch (Vá ca đột xuất) Helpers & Computations
+  const formatPatchDateText = (d: Date) => {
+    const today = new Date();
+    const isToday =
+      d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear();
+
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const weekdayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+    const weekdayStr = weekdayNames[d.getDay()];
+
+    if (isToday) {
+      return `Hôm nay, ${weekdayStr} (${day}/${month}/${year})`;
+    }
+    return `${weekdayStr}, ${day}/${month}/${year}`;
+  };
+
+  const patchCandidates = useMemo(() => {
+    if (!employeeOptions || employeeOptions.length === 0) return [];
+    const patchDateIso = toIsoDate(patchDate);
+
+    const assignmentsOnDate = existingAssignments.filter(
+      (a: any) => toIsoDate(a.workDate) === patchDateIso
+    );
+
+    return employeeOptions.map(opt => {
+      const empId = opt.id!;
+      const assignment = assignmentsOnDate.find((a: any) => a.userId === empId);
+      const isAlreadyInTarget = Boolean(
+        selectedPatchShift && assignment && assignment.shiftId === selectedPatchShift.id
+      );
+      const hasCheckedIn = Boolean(
+        assignment?.attendanceRecords && assignment.attendanceRecords.length > 0
+      );
+      const currentShiftName = assignment?.shift?.name || null;
+      const currentShiftTime = assignment?.shift
+        ? `${assignment.shift.startTime} - ${assignment.shift.endTime}`
+        : null;
+
+      const canSelect = !isAlreadyInTarget && !hasCheckedIn;
+
+      return {
+        id: empId,
+        label: opt.label,
+        subtitle: opt.subtitle,
+        assignment,
+        currentShiftName,
+        currentShiftTime,
+        isAlreadyInTarget,
+        hasCheckedIn,
+        canSelect,
+      };
+    });
+  }, [employeeOptions, existingAssignments, patchDate, selectedPatchShift]);
+
+  const currentTargetShiftStaff = useMemo(() => {
+    if (!selectedPatchShift) return [];
+    return patchCandidates.filter(c => c.isAlreadyInTarget);
+  }, [patchCandidates, selectedPatchShift]);
+
+  const eligibleCandidates = useMemo(() => {
+    return patchCandidates.filter(c => !c.isAlreadyInTarget);
+  }, [patchCandidates]);
+
+  const toggleSelectPatchUser = (userId: string, canSelect: boolean) => {
+    if (!canSelect) {
+      CustomAlert.alert(
+        'Không thể chọn',
+        'Nhân sự này đã check-in ca làm việc trong ngày hôm nay nên không thể điều chuyển ca.'
+      );
+      return;
+    }
+    setSelectedPatchUserIds(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const selectAllEligiblePatchUsers = () => {
+    const eligible = eligibleCandidates.filter(c => c.canSelect).map(c => c.id);
+    if (selectedPatchUserIds.length === eligible.length && eligible.length > 0) {
+      setSelectedPatchUserIds([]);
+    } else {
+      setSelectedPatchUserIds(eligible);
+    }
+  };
+
+  const handlePatchSubmit = async () => {
+    if (!selectedPatchShift) {
+      CustomAlert.alert('Chưa chọn ca', 'Vui lòng chọn ca làm việc đang thiếu người cần vá.');
+      return;
+    }
+    if (selectedPatchUserIds.length === 0) {
+      CustomAlert.alert('Chưa chọn nhân sự', 'Vui lòng chọn ít nhất một nhân sự để điều chuyển vá ca.');
+      return;
+    }
+
+    const currentDeptId = isAdmin ? (selectedDeptId !== 'ALL' ? selectedDeptId : undefined) : leaderDeptId;
+    if (!currentDeptId) {
+      CustomAlert.alert('Lỗi', 'Chưa xác định được phòng ban áp dụng.');
+      return;
+    }
+
+    const patchDateIso = toIsoDate(patchDate);
+
+    CustomAlert.alert(
+      'Xác nhận điều chuyển (Vá ca)',
+      `Bạn có chắc chắn muốn điều chuyển ${selectedPatchUserIds.length} nhân sự sang "${selectedPatchShift.label}" vào ngày ${formatPatchDateText(patchDate)}?\n\nLý do: ${patchReason.trim() || 'Điều chuyển / Vá ca đột xuất'}`,
+      [
+        { text: 'Hủy bỏ', style: 'cancel' },
+        {
+          text: 'Xác nhận vá ca',
+          onPress: async () => {
+            try {
+              await assignBatchMutation.mutateAsync({
+                userIds: selectedPatchUserIds,
+                departmentId: currentDeptId,
+                shiftId: selectedPatchShift.id!,
+                dates: [patchDateIso],
+                allowOverwrite: true,
+                reason: patchReason.trim() || 'Điều chuyển / Vá ca đột xuất',
+              });
+
+              CustomAlert.alert(
+                'Thành công',
+                `Đã điều chuyển ${selectedPatchUserIds.length} nhân sự sang "${selectedPatchShift.label}" thành công!`,
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      setSelectedPatchUserIds([]);
+                      void deptAssignmentsQuery.refetch();
+                    },
+                  },
+                ]
+              );
+            } catch (error) {
+              const normalized = normalizeApiError(error);
+              CustomAlert.alert('Lỗi điều chuyển ca', normalized.message);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const isFormValid = selectedEmployees.length > 0 && !!selectedShift && selectedWeekdays.length > 0;
 
@@ -446,9 +627,15 @@ export function AssignShiftScreen() {
             <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
           </Pressable>
           <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Phân ca làm việc</Text>
+            <Text style={styles.headerTitle}>
+              {activeTab === 'weekly' ? 'Phân ca làm việc' : 'Vá ca đột xuất'}
+            </Text>
             <Text style={styles.headerSubtitle}>
-              {isAdmin ? 'Sắp xếp ca làm cho Leader.' : 'Sắp xếp ca làm cho nhân viên.'}
+              {activeTab === 'weekly'
+                ? isAdmin
+                  ? 'Sắp xếp lịch làm việc cho Leader.'
+                  : 'Sắp xếp lịch làm việc cho nhân viên.'
+                : 'Điều chuyển nhân sự ca sau lên vá vào ca thiếu người.'}
             </Text>
           </View>
         </View>
@@ -456,6 +643,40 @@ export function AssignShiftScreen() {
 
       {/* ── Main Curved Sheet ── */}
       <View style={styles.curvedSheet}>
+        {/* ── Segmented Tab Switcher ── */}
+        <View style={styles.tabBarContainer}>
+          <Pressable
+            onPress={() => setActiveTab('weekly')}
+            style={[styles.tabBarItem, activeTab === 'weekly' && styles.tabBarItemActive]}
+          >
+            <Ionicons
+              name="calendar"
+              size={16}
+              color={activeTab === 'weekly' ? '#FFFFFF' : '#64748B'}
+            />
+            <Text style={[styles.tabBarText, activeTab === 'weekly' && styles.tabBarTextActive]}>
+              Phân ca tuần
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setActiveTab('patch')}
+            style={[styles.tabBarItem, activeTab === 'patch' && styles.tabBarItemPatchActive]}
+          >
+            <Ionicons
+              name="flash"
+              size={16}
+              color={activeTab === 'patch' ? '#FFFFFF' : '#D97706'}
+            />
+            <Text style={[styles.tabBarText, activeTab === 'patch' && styles.tabBarTextActive]}>
+              Vá ca đột xuất
+            </Text>
+            <View style={[styles.tabBadge, activeTab === 'patch' && styles.tabBadgePatchActive]}>
+              <Text style={[styles.tabBadgeText, activeTab === 'patch' && styles.tabBadgeTextPatchActive]}>Mới</Text>
+            </View>
+          </Pressable>
+        </View>
+
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
@@ -464,248 +685,552 @@ export function AssignShiftScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         >
-          {/* CARD 01: Phạm vi áp dụng / Phòng ban phụ trách */}
-          {isAdmin ? (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.stepBadge}>
-                  <Text style={styles.stepBadgeText}>01</Text>
-                </View>
-                <Text style={styles.cardTitle}>Phạm vi áp dụng</Text>
-              </View>
+          {activeTab === 'weekly' ? (
+            <>
+              {/* CARD 01: Phạm vi áp dụng / Phòng ban phụ trách */}
+              {isAdmin ? (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.stepBadge}>
+                      <Text style={styles.stepBadgeText}>01</Text>
+                    </View>
+                    <Text style={styles.cardTitle}>Phạm vi áp dụng</Text>
+                  </View>
 
-              {/* Khu vực */}
-              <Text style={styles.fieldLabel}>Khu vực</Text>
-              <Pressable
-                style={styles.selectPill}
-                onPress={() => setRegionModalVisible(true)}
-                disabled={!isGlobalAdmin}
-              >
-                <View style={styles.selectLeft}>
-                  <Ionicons name="location-outline" size={18} color="#64748B" />
-                  <Text style={styles.selectText} numberOfLines={1}>
-                    {regionOptions.find(r => r.id === effectiveRegionId)?.label || 'Tất cả các miền'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-down" size={18} color="#64748B" />
-              </Pressable>
-
-              {/* Chi nhánh */}
-              <Text style={styles.fieldLabel}>Chi nhánh</Text>
-              <Pressable style={styles.selectPill} onPress={() => setBranchModalVisible(true)}>
-                <View style={styles.selectLeft}>
-                  <Ionicons name="business-outline" size={18} color="#64748B" />
-                  <Text style={styles.selectText} numberOfLines={1}>
-                    {branchOptions.find(b => b.id === selectedBranchId)?.label || 'Tất cả chi nhánh'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-down" size={18} color="#64748B" />
-              </Pressable>
-
-              {/* Phòng ban */}
-              <Text style={styles.fieldLabel}>Phòng ban</Text>
-              <Pressable style={styles.selectPill} onPress={() => setDeptModalVisible(true)}>
-                <View style={styles.selectLeft}>
-                  <Ionicons name="git-network-outline" size={18} color="#64748B" />
-                  <Text style={styles.selectText} numberOfLines={1}>
-                    {deptOptions.find(d => d.id === selectedDeptId)?.label || 'Tất cả phòng ban'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-down" size={18} color="#64748B" />
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.stepBadge}>
-                  <Text style={styles.stepBadgeText}>01</Text>
-                </View>
-                <Text style={styles.cardTitle}>Phòng ban phụ trách</Text>
-              </View>
-
-              <View style={styles.deptCardBox}>
-                <View style={styles.deptIconBox}>
-                  <Ionicons name="business-outline" size={22} color="#102739" />
-                </View>
-                <View style={styles.deptInfoCol}>
-                  <Text style={styles.deptNameText}>{displayDeptTitle}</Text>
-                  <Text style={styles.deptBranchText}>{displayBranchSubtitle}</Text>
-                </View>
-                <View style={styles.deptScopeBadge}>
-                  <Text style={styles.deptScopeBadgeText}>Phòng của bạn</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* CARD 02: Nhân sự & ca làm */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>02</Text>
-              </View>
-              <Text style={styles.cardTitle}>Nhân sự & ca làm</Text>
-            </View>
-
-            {/* Label row with Quick select pill */}
-            <View style={styles.fieldHeaderRow}>
-              <Text style={styles.fieldLabel}>
-                {isAdmin ? 'Nhân sự / Quản lý ca' : 'Nhân sự phòng ban'}
-              </Text>
-              <Pressable
-                onPress={toggleSelectAllEmployees}
-                hitSlop={6}
-                style={styles.quickSelectPill}
-              >
-                <Ionicons name="checkmark-done" size={14} color="#102739" />
-                <Text style={styles.quickSelectPillText}>Tất cả ({employeeOptions.length})</Text>
-              </Pressable>
-            </View>
-
-            <Pressable style={styles.selectPill} onPress={() => setEmployeeModalVisible(true)}>
-              <View style={styles.selectLeft}>
-                <Ionicons name="person-outline" size={18} color="#64748B" />
-                <Text
-                  style={[
-                    styles.selectText,
-                    selectedEmployees.length === 0 && styles.placeholderText,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {selectedEmployees.length > 0
-                    ? selectedEmployees.length === 1
-                      ? selectedEmployees[0]?.label
-                      : `Đã chọn ${selectedEmployees.length} nhân sự`
-                    : 'Chọn nhân sự / quản lý...'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-down" size={18} color="#64748B" />
-            </Pressable>
-
-            {/* Ca làm việc */}
-            <Text style={styles.fieldLabel}>Ca làm việc</Text>
-            <Pressable style={styles.selectPill} onPress={() => setShiftModalVisible(true)}>
-              <View style={styles.selectLeft}>
-                <Ionicons name="time-outline" size={18} color="#64748B" />
-                <Text
-                  style={[styles.selectText, !selectedShift && styles.placeholderText]}
-                  numberOfLines={1}
-                >
-                  {selectedShift ? `${selectedShift.label} (${selectedShift.subtitle})` : 'Chọn ca làm...'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-down" size={18} color="#64748B" />
-            </Pressable>
-
-            {/* Reassign / Vá ca Warning Notice */}
-            {conflictedEmployees.length > 0 && (
-              <View style={styles.reassignNoticeBox}>
-                <View style={styles.reassignNoticeIconCircle}>
-                  <Ionicons name="swap-horizontal" size={16} color="#D97706" />
-                </View>
-                <View style={styles.reassignNoticeContent}>
-                  <Text style={styles.reassignNoticeTitle}>
-                    Có {conflictedEmployees.length} nhân sự đã có lịch trong ngày đã chọn
-                  </Text>
-                  <Text style={styles.reassignNoticeSubtitle}>
-                    Hệ thống sẽ tự động điều chuyển / vá sang ca này khi bạn xác nhận (áp dụng với nhân sự chưa check-in).
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
-
-          {/* CARD 03: Lịch áp dụng */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>03</Text>
-              </View>
-              <Text style={styles.cardTitle}>Lịch áp dụng</Text>
-            </View>
-
-            {/* Tuần làm việc */}
-            <Text style={styles.fieldLabel}>Tuần làm việc</Text>
-            <Pressable style={styles.selectPill} onPress={() => setShowDatePicker(true)}>
-              <View style={styles.selectLeft}>
-                <Ionicons name="calendar-outline" size={18} color="#102739" />
-                <Text style={styles.dateRangeText}>{weekInfo.rangeStr}</Text>
-              </View>
-              <Ionicons name="pencil-sharp" size={18} color="#64748B" />
-            </Pressable>
-
-            {/* Ngày áp dụng Header */}
-            <View style={styles.weekdayHeaderRow}>
-              <Text style={styles.fieldLabel}>Ngày áp dụng</Text>
-              <Text style={styles.weekdayHintText}>{weekdayShortcutText}</Text>
-            </View>
-
-            {/* Weekday Badges Grid */}
-            <View style={styles.weekdayGrid}>
-              {weekInfo.days.map(day => {
-                const isSelected = selectedWeekdays.includes(day.index);
-                return (
+                  {/* Khu vực */}
+                  <Text style={styles.fieldLabel}>Khu vực</Text>
                   <Pressable
-                    key={day.index}
-                    onPress={() => toggleWeekday(day.index)}
-                    style={[styles.dayCard, isSelected ? styles.dayCardActive : styles.dayCardInactive]}
+                    style={styles.selectPill}
+                    onPress={() => setRegionModalVisible(true)}
+                    disabled={!isGlobalAdmin}
                   >
-                    <Text style={[styles.dayCardLabel, isSelected ? styles.dayCardLabelActive : styles.dayCardLabelInactive]}>
-                      {day.label}
-                    </Text>
-                    <Text style={[styles.dayCardNum, isSelected ? styles.dayCardNumActive : styles.dayCardNumInactive]}>
-                      {day.dayNum}
-                    </Text>
+                    <View style={styles.selectLeft}>
+                      <Ionicons name="location-outline" size={18} color="#64748B" />
+                      <Text style={styles.selectText} numberOfLines={1}>
+                        {regionOptions.find(r => r.id === effectiveRegionId)?.label || 'Tất cả các miền'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={18} color="#64748B" />
                   </Pressable>
-                );
-              })}
-            </View>
 
-            {/* Status tick below */}
-            <View style={styles.weekSelectedStatusRow}>
-              <Ionicons name="checkmark-circle" size={16} color="#102739" />
-              <Text style={styles.weekSelectedStatusText}>
-                Đã chọn {selectedWeekdays.length} ngày trong tuần
-              </Text>
-            </View>
-          </View>
+                  {/* Chi nhánh */}
+                  <Text style={styles.fieldLabel}>Chi nhánh</Text>
+                  <Pressable style={styles.selectPill} onPress={() => setBranchModalVisible(true)}>
+                    <View style={styles.selectLeft}>
+                      <Ionicons name="business-outline" size={18} color="#64748B" />
+                      <Text style={styles.selectText} numberOfLines={1}>
+                        {branchOptions.find(b => b.id === selectedBranchId)?.label || 'Tất cả chi nhánh'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={18} color="#64748B" />
+                  </Pressable>
 
-          {/* Bottom Action Area */}
-          <View style={styles.bottomArea}>
-            <Text style={styles.hintText}>
-              {isFormValid
-                ? `Sẵn sàng phân ca cho ${selectedEmployees.length} nhân sự`
-                : isAdmin
-                ? 'Chọn Leader và ca làm để tiếp tục.'
-                : 'Chọn nhân viên và ca làm để tiếp tục.'}
-            </Text>
-            <Pressable
-              onPress={() => void handleSubmit()}
-              disabled={!isFormValid || assignBatchMutation.isPending}
-              style={[
-                styles.submitBtn,
-                isFormValid ? styles.submitBtnActive : styles.submitBtnDisabled,
-              ]}
-              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-            >
-              {assignBatchMutation.isPending ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
+                  {/* Phòng ban */}
+                  <Text style={styles.fieldLabel}>Phòng ban</Text>
+                  <Pressable style={styles.selectPill} onPress={() => setDeptModalVisible(true)}>
+                    <View style={styles.selectLeft}>
+                      <Ionicons name="git-network-outline" size={18} color="#64748B" />
+                      <Text style={styles.selectText} numberOfLines={1}>
+                        {deptOptions.find(d => d.id === selectedDeptId)?.label || 'Tất cả phòng ban'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={18} color="#64748B" />
+                  </Pressable>
+                </View>
               ) : (
-                <Text
-                  style={[
-                    styles.submitBtnText,
-                    isFormValid ? styles.submitBtnTextActive : styles.submitBtnTextDisabled,
-                  ]}
-                >
-                  Lưu phân ca
-                </Text>
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.stepBadge}>
+                      <Text style={styles.stepBadgeText}>01</Text>
+                    </View>
+                    <Text style={styles.cardTitle}>Phòng ban phụ trách</Text>
+                  </View>
+
+                  <View style={styles.deptCardBox}>
+                    <View style={styles.deptIconBox}>
+                      <Ionicons name="business-outline" size={22} color="#102739" />
+                    </View>
+                    <View style={styles.deptInfoCol}>
+                      <Text style={styles.deptNameText}>{displayDeptTitle}</Text>
+                      <Text style={styles.deptBranchText}>{displayBranchSubtitle}</Text>
+                    </View>
+                    <View style={styles.deptScopeBadge}>
+                      <Text style={styles.deptScopeBadgeText}>Phòng của bạn</Text>
+                    </View>
+                  </View>
+                </View>
               )}
-            </Pressable>
-          </View>
+
+              {/* CARD 02: Nhân sự & ca làm */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepBadgeText}>02</Text>
+                  </View>
+                  <Text style={styles.cardTitle}>Nhân sự & ca làm</Text>
+                </View>
+
+                {/* Label row with Quick select pill */}
+                <View style={styles.fieldHeaderRow}>
+                  <Text style={styles.fieldLabel}>
+                    {isAdmin ? 'Nhân sự / Quản lý ca' : 'Nhân sự phòng ban'}
+                  </Text>
+                  <Pressable
+                    onPress={toggleSelectAllEmployees}
+                    hitSlop={6}
+                    style={styles.quickSelectPill}
+                  >
+                    <Ionicons name="checkmark-done" size={14} color="#102739" />
+                    <Text style={styles.quickSelectPillText}>Tất cả ({employeeOptions.length})</Text>
+                  </Pressable>
+                </View>
+
+                <Pressable style={styles.selectPill} onPress={() => setEmployeeModalVisible(true)}>
+                  <View style={styles.selectLeft}>
+                    <Ionicons name="person-outline" size={18} color="#64748B" />
+                    <Text
+                      style={[
+                        styles.selectText,
+                        selectedEmployees.length === 0 && styles.placeholderText,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {selectedEmployees.length > 0
+                        ? selectedEmployees.length === 1
+                          ? selectedEmployees[0]?.label
+                          : `Đã chọn ${selectedEmployees.length} nhân sự`
+                        : 'Chọn nhân sự / quản lý...'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={18} color="#64748B" />
+                </Pressable>
+
+                {/* Ca làm việc */}
+                <Text style={styles.fieldLabel}>Ca làm việc</Text>
+                <Pressable style={styles.selectPill} onPress={() => setShiftModalVisible(true)}>
+                  <View style={styles.selectLeft}>
+                    <Ionicons name="time-outline" size={18} color="#64748B" />
+                    <Text
+                      style={[styles.selectText, !selectedShift && styles.placeholderText]}
+                      numberOfLines={1}
+                    >
+                      {selectedShift ? `${selectedShift.label} (${selectedShift.subtitle})` : 'Chọn ca làm...'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={18} color="#64748B" />
+                </Pressable>
+
+                {/* Reassign / Vá ca Warning Notice */}
+                {conflictedEmployees.length > 0 && (
+                  <View style={styles.reassignNoticeBox}>
+                    <View style={styles.reassignNoticeIconCircle}>
+                      <Ionicons name="swap-horizontal" size={16} color="#D97706" />
+                    </View>
+                    <View style={styles.reassignNoticeContent}>
+                      <Text style={styles.reassignNoticeTitle}>
+                        Có {conflictedEmployees.length} nhân sự đã có lịch trong ngày đã chọn
+                      </Text>
+                      <Text style={styles.reassignNoticeSubtitle}>
+                        Hệ thống sẽ tự động điều chuyển / vá sang ca này khi bạn xác nhận (áp dụng với nhân sự chưa check-in).
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              {/* CARD 03: Lịch áp dụng */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepBadgeText}>03</Text>
+                  </View>
+                  <Text style={styles.cardTitle}>Lịch áp dụng</Text>
+                </View>
+
+                {/* Tuần làm việc */}
+                <Text style={styles.fieldLabel}>Tuần làm việc</Text>
+                <Pressable style={styles.selectPill} onPress={() => setShowDatePicker(true)}>
+                  <View style={styles.selectLeft}>
+                    <Ionicons name="calendar-outline" size={18} color="#102739" />
+                    <Text style={styles.dateRangeText}>{weekInfo.rangeStr}</Text>
+                  </View>
+                  <Ionicons name="pencil-sharp" size={18} color="#64748B" />
+                </Pressable>
+
+                {/* Ngày áp dụng Header */}
+                <View style={styles.weekdayHeaderRow}>
+                  <Text style={styles.fieldLabel}>Ngày áp dụng</Text>
+                  <Text style={styles.weekdayHintText}>{weekdayShortcutText}</Text>
+                </View>
+
+                {/* Weekday Badges Grid */}
+                <View style={styles.weekdayGrid}>
+                  {weekInfo.days.map(day => {
+                    const isSelected = selectedWeekdays.includes(day.index);
+                    return (
+                      <Pressable
+                        key={day.index}
+                        onPress={() => toggleWeekday(day.index)}
+                        style={[styles.dayCard, isSelected ? styles.dayCardActive : styles.dayCardInactive]}
+                      >
+                        <Text style={[styles.dayCardLabel, isSelected ? styles.dayCardLabelActive : styles.dayCardLabelInactive]}>
+                          {day.label}
+                        </Text>
+                        <Text style={[styles.dayCardNum, isSelected ? styles.dayCardNumActive : styles.dayCardNumInactive]}>
+                          {day.dayNum}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Status tick below */}
+                <View style={styles.weekSelectedStatusRow}>
+                  <Ionicons name="checkmark-circle" size={16} color="#102739" />
+                  <Text style={styles.weekSelectedStatusText}>
+                    Đã chọn {selectedWeekdays.length} ngày trong tuần
+                  </Text>
+                </View>
+              </View>
+
+              {/* Bottom Action Area */}
+              <View style={styles.bottomArea}>
+                <Text style={styles.hintText}>
+                  {isFormValid
+                    ? `Sẵn sàng phân ca cho ${selectedEmployees.length} nhân sự`
+                    : isAdmin
+                    ? 'Chọn Leader và ca làm để tiếp tục.'
+                    : 'Chọn nhân viên và ca làm để tiếp tục.'}
+                </Text>
+                <Pressable
+                  onPress={() => void handleSubmit()}
+                  disabled={!isFormValid || assignBatchMutation.isPending}
+                  style={[
+                    styles.submitBtn,
+                    isFormValid ? styles.submitBtnActive : styles.submitBtnDisabled,
+                  ]}
+                  android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+                >
+                  {assignBatchMutation.isPending ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.submitBtnText,
+                        isFormValid ? styles.submitBtnTextActive : styles.submitBtnTextDisabled,
+                      ]}
+                    >
+                      Lưu phân ca
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <>
+              {/* ── PATCH WORKFLOW ── */}
+              {/* Banner Hướng dẫn Vá ca an toàn */}
+              <View style={styles.patchBanner}>
+                <View style={styles.patchBannerIconCircle}>
+                  <Ionicons name="information-circle" size={20} color="#D97706" />
+                </View>
+                <View style={styles.patchBannerContent}>
+                  <Text style={styles.patchBannerTitle}>Quy tắc vá ca an toàn</Text>
+                  <Text style={styles.patchBannerText}>
+                    Khi một ca thiếu người, Leader có thể chọn nhân sự từ ca khác trong ngày để vá vào. Hệ thống chỉ cho phép điều chuyển nhân sự chưa check-in ca hôm nay.
+                  </Text>
+                </View>
+              </View>
+
+              {/* CARD 01: Phạm vi / Phòng ban */}
+              {isAdmin ? (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.stepBadge}>
+                      <Text style={styles.stepBadgeText}>01</Text>
+                    </View>
+                    <Text style={styles.cardTitle}>Phạm vi áp dụng</Text>
+                  </View>
+
+                  {/* Khu vực */}
+                  <Text style={styles.fieldLabel}>Khu vực</Text>
+                  <Pressable
+                    style={styles.selectPill}
+                    onPress={() => setRegionModalVisible(true)}
+                    disabled={!isGlobalAdmin}
+                  >
+                    <View style={styles.selectLeft}>
+                      <Ionicons name="location-outline" size={18} color="#64748B" />
+                      <Text style={styles.selectText} numberOfLines={1}>
+                        {regionOptions.find(r => r.id === effectiveRegionId)?.label || 'Tất cả các miền'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={18} color="#64748B" />
+                  </Pressable>
+
+                  {/* Chi nhánh */}
+                  <Text style={styles.fieldLabel}>Chi nhánh</Text>
+                  <Pressable style={styles.selectPill} onPress={() => setBranchModalVisible(true)}>
+                    <View style={styles.selectLeft}>
+                      <Ionicons name="business-outline" size={18} color="#64748B" />
+                      <Text style={styles.selectText} numberOfLines={1}>
+                        {branchOptions.find(b => b.id === selectedBranchId)?.label || 'Tất cả chi nhánh'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={18} color="#64748B" />
+                  </Pressable>
+
+                  {/* Phòng ban */}
+                  <Text style={styles.fieldLabel}>Phòng ban</Text>
+                  <Pressable style={styles.selectPill} onPress={() => setDeptModalVisible(true)}>
+                    <View style={styles.selectLeft}>
+                      <Ionicons name="git-network-outline" size={18} color="#64748B" />
+                      <Text style={styles.selectText} numberOfLines={1}>
+                        {deptOptions.find(d => d.id === selectedDeptId)?.label || 'Tất cả phòng ban'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={18} color="#64748B" />
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.stepBadge}>
+                      <Text style={styles.stepBadgeText}>01</Text>
+                    </View>
+                    <Text style={styles.cardTitle}>Phòng ban phụ trách</Text>
+                  </View>
+
+                  <View style={styles.deptCardBox}>
+                    <View style={styles.deptIconBox}>
+                      <Ionicons name="business-outline" size={22} color="#102739" />
+                    </View>
+                    <View style={styles.deptInfoCol}>
+                      <Text style={styles.deptNameText}>{displayDeptTitle}</Text>
+                      <Text style={styles.deptBranchText}>{displayBranchSubtitle}</Text>
+                    </View>
+                    <View style={styles.deptScopeBadge}>
+                      <Text style={styles.deptScopeBadgeText}>Phòng của bạn</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* CARD 02: Ca cần vá (Ca thiếu người) & Ngày áp dụng */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepBadgeText}>02</Text>
+                  </View>
+                  <Text style={styles.cardTitle}>Ca cần vá (Ca thiếu người)</Text>
+                </View>
+
+                {/* Ngày áp dụng */}
+                <Text style={styles.fieldLabel}>Ngày vá ca</Text>
+                <Pressable style={styles.selectPill} onPress={() => setShowPatchDatePicker(true)}>
+                  <View style={styles.selectLeft}>
+                    <Ionicons name="calendar-outline" size={18} color="#102739" />
+                    <Text style={styles.dateRangeText}>{formatPatchDateText(patchDate)}</Text>
+                  </View>
+                  <Ionicons name="pencil-sharp" size={18} color="#64748B" />
+                </Pressable>
+
+                {/* Chọn ca thiếu */}
+                <Text style={styles.fieldLabel}>Ca đang thiếu người (Ca đích)</Text>
+                <Pressable style={styles.selectPill} onPress={() => setPatchShiftModalVisible(true)}>
+                  <View style={styles.selectLeft}>
+                    <Ionicons name="time-outline" size={18} color="#D97706" />
+                    <Text
+                      style={[styles.selectText, !selectedPatchShift && styles.placeholderText]}
+                      numberOfLines={1}
+                    >
+                      {selectedPatchShift
+                        ? `${selectedPatchShift.label} (${selectedPatchShift.subtitle})`
+                        : 'Chọn ca cần bổ sung người...'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-down" size={18} color="#64748B" />
+                </Pressable>
+
+                {/* Tóm tắt quân số ca đích */}
+                {selectedPatchShift && (
+                  <View style={styles.targetShiftSummaryBox}>
+                    <View style={styles.targetShiftSummaryHeader}>
+                      <Ionicons name="people" size={16} color="#102739" />
+                      <Text style={styles.targetShiftSummaryTitle}>
+                        Quân số hiện tại: {currentTargetShiftStaff.length} nhân sự
+                      </Text>
+                    </View>
+                    {currentTargetShiftStaff.length > 0 ? (
+                      <Text style={styles.targetShiftSummaryNames} numberOfLines={2}>
+                        Đang có: {currentTargetShiftStaff.map(s => s.label).join(', ')}
+                      </Text>
+                    ) : (
+                      <Text style={styles.targetShiftSummaryEmpty}>
+                        ⚠️ Ca này hiện chưa có nhân sự nào. Vui lòng chọn nhân sự bên dưới để vá ca!
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* CARD 03: Chọn nhân sự bốc từ ca khác sang */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepBadgeText}>03</Text>
+                  </View>
+                  <Text style={styles.cardTitle}>Nhân sự điều chuyển (Bốc sang vá)</Text>
+                </View>
+
+                {/* Header Row */}
+                <View style={styles.fieldHeaderRow}>
+                  <Text style={styles.fieldLabel}>
+                    Ứng viên có thể điều chuyển ({eligibleCandidates.length})
+                  </Text>
+                  <Pressable onPress={selectAllEligiblePatchUsers} style={styles.quickSelectPill}>
+                    <Ionicons name="checkmark-done" size={14} color="#102739" />
+                    <Text style={styles.quickSelectPillText}>Chọn tất cả hợp lệ</Text>
+                  </Pressable>
+                </View>
+
+                {eligibleCandidates.length === 0 ? (
+                  <View style={styles.emptyCandidatesBox}>
+                    <Ionicons name="person-remove-outline" size={32} color="#94A3B8" />
+                    <Text style={styles.emptyCandidatesText}>
+                      Không tìm thấy nhân sự khả dụng để điều chuyển trong ngày này.
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.candidateList}>
+                    {eligibleCandidates.map(candidate => {
+                      const isSelected = selectedPatchUserIds.includes(candidate.id);
+                      return (
+                        <Pressable
+                          key={candidate.id}
+                          onPress={() => toggleSelectPatchUser(candidate.id, candidate.canSelect)}
+                          style={[
+                            styles.candidateItem,
+                            isSelected && styles.candidateItemSelected,
+                            !candidate.canSelect && styles.candidateItemDisabled,
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.candidateCheckbox,
+                              isSelected && styles.candidateCheckboxSelected,
+                              !candidate.canSelect && styles.candidateCheckboxDisabled,
+                            ]}
+                          >
+                            {isSelected && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                          </View>
+
+                          <View style={styles.candidateInfo}>
+                            <View style={styles.candidateNameRow}>
+                              <Text
+                                style={[
+                                  styles.candidateName,
+                                  !candidate.canSelect && styles.candidateTextDisabled,
+                                ]}
+                              >
+                                {candidate.label}
+                              </Text>
+                            </View>
+                            <Text style={styles.candidateSubtitle}>{candidate.subtitle}</Text>
+
+                            {/* Shift & Attendance Status Badges */}
+                            <View style={styles.candidateBadgeRow}>
+                              {candidate.currentShiftName ? (
+                                <View style={styles.currentShiftBadge}>
+                                  <Ionicons name="time" size={12} color="#4338CA" />
+                                  <Text style={styles.currentShiftBadgeText}>
+                                    Đang ở: {candidate.currentShiftName} ({candidate.currentShiftTime})
+                                  </Text>
+                                </View>
+                              ) : (
+                                <View style={styles.noShiftBadge}>
+                                  <Text style={styles.noShiftBadgeText}>Chưa xếp ca</Text>
+                                </View>
+                              )}
+
+                              {candidate.hasCheckedIn ? (
+                                <View style={styles.checkedInBadge}>
+                                  <Ionicons name="lock-closed" size={12} color="#DC2626" />
+                                  <Text style={styles.checkedInBadgeText}>Đã check-in (Khóa)</Text>
+                                </View>
+                              ) : (
+                                <View style={styles.eligibleBadge}>
+                                  <Ionicons name="checkmark-circle" size={12} color="#059669" />
+                                  <Text style={styles.eligibleBadgeText}>Hợp lệ vá ca</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+
+              {/* CARD 04: Lý do điều chuyển */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepBadgeText}>04</Text>
+                  </View>
+                  <Text style={styles.cardTitle}>Lý do điều chuyển</Text>
+                </View>
+
+                <TextInput
+                  style={styles.reasonInput}
+                  value={patchReason}
+                  onChangeText={setPatchReason}
+                  placeholder="Nhập lý do điều chuyển / vá ca..."
+                  placeholderTextColor="#94A3B8"
+                />
+              </View>
+
+              {/* Bottom Patch Action Area */}
+              <View style={styles.bottomArea}>
+                <Text style={styles.hintText}>
+                  {selectedPatchUserIds.length > 0 && selectedPatchShift
+                    ? `Sẵn sàng điều chuyển ${selectedPatchUserIds.length} nhân sự sang "${selectedPatchShift.label}"`
+                    : 'Chọn ca thiếu và tích chọn nhân sự để tiến hành vá ca.'}
+                </Text>
+                <Pressable
+                  onPress={() => void handlePatchSubmit()}
+                  disabled={
+                    selectedPatchUserIds.length === 0 ||
+                    !selectedPatchShift ||
+                    assignBatchMutation.isPending
+                  }
+                  style={[
+                    styles.submitPatchBtn,
+                    selectedPatchUserIds.length > 0 && selectedPatchShift
+                      ? styles.submitPatchBtnActive
+                      : styles.submitBtnDisabled,
+                  ]}
+                  android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
+                >
+                  {assignBatchMutation.isPending ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <View style={styles.submitPatchBtnInner}>
+                      <Ionicons name="flash" size={18} color="#FFFFFF" />
+                      <Text style={styles.submitBtnText}>
+                        Xác nhận vá ca ({selectedPatchUserIds.length})
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+            </>
+          )}
         </ScrollView>
       </View>
 
-      {/* Date Picker Modal */}
+      {/* Date Picker Modal for Weekly */}
       {showDatePicker && (
         <CustomDatePickerModal
           visible={true}
@@ -714,6 +1239,19 @@ export function AssignShiftScreen() {
           onSelect={date => {
             setShowDatePicker(false);
             setWorkDate(date);
+          }}
+        />
+      )}
+
+      {/* Date Picker Modal for Patch */}
+      {showPatchDatePicker && (
+        <CustomDatePickerModal
+          visible={true}
+          initialDate={patchDate}
+          onClose={() => setShowPatchDatePicker(false)}
+          onSelect={date => {
+            setShowPatchDatePicker(false);
+            setPatchDate(date);
           }}
         />
       )}
@@ -783,6 +1321,16 @@ export function AssignShiftScreen() {
         selectedValue={selectedShift?.id}
         onSelect={setSelectedShift}
         onClose={() => setShiftModalVisible(false)}
+      />
+
+      <SelectModal
+        visible={patchShiftModalVisible}
+        title="Chọn ca đang thiếu người (Ca đích)"
+        options={shiftOptions}
+        isLoading={allShiftsQuery.isLoading}
+        selectedValue={selectedPatchShift?.id}
+        onSelect={setSelectedPatchShift}
+        onClose={() => setPatchShiftModalVisible(false)}
       />
     </View>
   );
@@ -1127,5 +1675,306 @@ const styles = StyleSheet.create({
   },
   submitBtnTextDisabled: {
     color: '#8A9BA8',
+  },
+
+  /* ── Tab Switcher ── */
+  tabBarContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 4,
+    borderRadius: 14,
+    padding: 4,
+    gap: 6,
+  },
+  tabBarItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  tabBarItemActive: {
+    backgroundColor: '#102739',
+    shadowColor: '#102739',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabBarItemPatchActive: {
+    backgroundColor: '#D97706',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabBarText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  tabBarTextActive: {
+    color: '#FFFFFF',
+  },
+  tabBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  tabBadgePatchActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  tabBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  tabBadgeTextPatchActive: {
+    color: '#FFFFFF',
+  },
+
+  /* ── Patch Banner ── */
+  patchBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 14,
+    gap: 12,
+  },
+  patchBannerIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  patchBannerContent: {
+    flex: 1,
+  },
+  patchBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  patchBannerText: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: '#B45309',
+    lineHeight: 18,
+  },
+
+  /* ── Target Shift Summary ── */
+  targetShiftSummaryBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginTop: 10,
+  },
+  targetShiftSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  targetShiftSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#102739',
+  },
+  targetShiftSummaryNames: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  targetShiftSummaryEmpty: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#D97706',
+    lineHeight: 16,
+  },
+
+  /* ── Candidate List ── */
+  emptyCandidatesBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+    gap: 8,
+  },
+  emptyCandidatesText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  candidateList: {
+    gap: 10,
+    marginTop: 6,
+  },
+  candidateItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    gap: 12,
+  },
+  candidateItemSelected: {
+    borderColor: '#D97706',
+    backgroundColor: '#FFFBEB',
+  },
+  candidateItemDisabled: {
+    opacity: 0.55,
+    backgroundColor: '#F1F5F9',
+  },
+  candidateCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#94A3B8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+    backgroundColor: '#FFFFFF',
+  },
+  candidateCheckboxSelected: {
+    backgroundColor: '#D97706',
+    borderColor: '#D97706',
+  },
+  candidateCheckboxDisabled: {
+    borderColor: '#CBD5E1',
+    backgroundColor: '#E2E8F0',
+  },
+  candidateInfo: {
+    flex: 1,
+  },
+  candidateNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  candidateName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#102739',
+  },
+  candidateTextDisabled: {
+    color: '#64748B',
+  },
+  candidateSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  candidateBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  currentShiftBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  currentShiftBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  noShiftBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  noShiftBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  checkedInBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  checkedInBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  eligibleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  eligibleBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+
+  /* ── Patch Reason Input ── */
+  reasonInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#102739',
+  },
+
+  /* ── Submit Patch Button ── */
+  submitPatchBtn: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitPatchBtnActive: {
+    backgroundColor: '#D97706',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  submitPatchBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });

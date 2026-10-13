@@ -92,6 +92,18 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     employeeRoute: '/employee/schedule',
     hrRoute: '/hr/shift-management',
   },
+  shift_reassign: {
+    key: 'shift_reassign',
+    title: 'Vá ca đột xuất',
+    category: 'operations',
+    icon: 'Zap',
+    color: '#D97706',
+    bgColor: '#FEF3C7',
+    adminRoute: '/leader/shift-management?mode=patch',
+    leaderRoute: '/leader/shift-management?mode=patch',
+    employeeRoute: '/employee/schedule',
+    hrRoute: '/leader/shift-management?mode=patch',
+  },
   shift_swaps: {
     key: 'shift_swaps',
     title: 'Đổi ca',

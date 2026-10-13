@@ -36,6 +36,12 @@ export interface ShiftAssignment {
   shift?: Shift;
   department?: Department;
   user?: EmployeeUser;
+  attendanceRecords?: {
+    id: string;
+    checkInAt: string;
+    checkOutAt?: string | null;
+    status?: string;
+  }[];
 }
 
 export interface CreateShiftPayload {
