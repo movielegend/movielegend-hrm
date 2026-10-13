@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { roleBase } from '../../utils/notification-routing';
+import { isUserInLiveDepartment } from '../../constants/app-registry';
 
 export function ApprovalMenuScreen() {
   const router = useRouter();
@@ -14,11 +15,13 @@ export function ApprovalMenuScreen() {
   const rawRoles = user?.roles || [];
   const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
   const roleCodes = userRoles.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
-  const userDeptName = (user?.departmentLinks?.[0]?.department?.name || user?.department?.name || '').toLowerCase();
+  const userDeptName = ((user as any)?.departmentLinks?.[0]?.department?.name || user?.department?.name || '').toLowerCase();
   const isAdmin =
     roleCodes.includes('ADMIN') ||
     roleCodes.includes('SUPER_ADMIN') ||
-    user?.role?.code === 'ADMIN';
+    (user as any)?.role?.code === 'ADMIN';
+
+  const isLiveDepartment = isUserInLiveDepartment(user);
 
   const isAccountantOrAdmin =
     isAdmin ||
@@ -26,7 +29,7 @@ export function ApprovalMenuScreen() {
     userDeptName.includes('tài chính') ||
     roleCodes.some((c: string) => c.includes('ACCOUNTANT') || c === 'KT' || c === 'KETOAN') ||
     roleCodes.includes('CHIEF_ACCOUNTANT') ||
-    user?.role?.code === 'ACCOUNTANT';
+    (user as any)?.role?.code === 'ACCOUNTANT';
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -34,7 +37,7 @@ export function ApprovalMenuScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <Pressable
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/admin/(tabs)' as any))}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/(tabs)` as any))}
             style={styles.backBtn}
             hitSlop={8}
           >
@@ -158,6 +161,30 @@ export function ApprovalMenuScreen() {
                 <Text style={styles.menuCardTitle}>Duyệt tài chính & Xuất Excel</Text>
                 <Text style={styles.menuCardSubtitle}>
                   Thanh toán, mua sắm, tạm ứng & xuất bảng kê 13 cột
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            </Pressable>
+          )}
+
+          {/* Item 5: Duyệt OT Live (chỉ Leader phòng Live hoặc Admin mới thấy) */}
+          {(isLiveDepartment || isAdmin) && (
+            <Pressable
+              style={styles.menuCard}
+              onPress={() => router.push('/leader/ot-report-approvals' as any)}
+              android_ripple={{ color: '#F1F5F9' }}
+            >
+              <View style={[styles.iconCircle, { backgroundColor: '#FFE4E6' }]}>
+                <MaterialCommunityIcons
+                  name="television-play"
+                  size={22}
+                  color="#E11D48"
+                />
+              </View>
+              <View style={styles.menuCardInfo}>
+                <Text style={styles.menuCardTitle}>Duyệt OT Live</Text>
+                <Text style={styles.menuCardSubtitle}>
+                  Phê duyệt báo cáo tăng ca phiên Livestream
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#94A3B8" />

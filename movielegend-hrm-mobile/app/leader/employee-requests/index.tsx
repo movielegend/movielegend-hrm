@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../src/providers/AuthProvider';
 import { CustomAlert } from '../../../src/components/CustomAlert';
-import { getRoleBaseRoute } from '../../../src/utils/role-routing';
+import { getRoleBaseRoute, isAccountingLeader } from '../../../src/utils/role-routing';
 import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
@@ -36,19 +36,7 @@ export default function LeaderRequestsScreen() {
   const [search, setSearch] = useState('');
   const [isExporting, setIsExporting] = useState(false);
 
-  const rawRoles = user?.roles || [];
-  const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
-  const roleCodes = userRoles.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
-  const userDeptName = (user?.departmentLinks?.[0]?.department?.name || user?.department?.name || '').toLowerCase();
-  const isAccountantOrAdmin =
-    userDeptName.includes('kế toán') ||
-    userDeptName.includes('tài chính') ||
-    roleCodes.includes('ACCOUNTANT') ||
-    roleCodes.includes('ACCOUNTANT_LEAD') ||
-    roleCodes.includes('CHIEF_ACCOUNTANT') ||
-    roleCodes.includes('ADMIN') ||
-    roleCodes.includes('SUPER_ADMIN') ||
-    user?.role?.code === 'ACCOUNTANT';
+  const canExportExcel = isAccountingLeader(user);
 
   const { data: allRequests = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['leader-employee-requests'],
@@ -145,7 +133,7 @@ export default function LeaderRequestsScreen() {
             <Text style={styles.title}>Duyệt yêu cầu</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {isAccountantOrAdmin && (
+            {canExportExcel && (
               <Pressable 
                 style={[styles.headerExportBtn, isExporting && { opacity: 0.6 }]} 
                 onPress={async () => {

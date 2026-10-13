@@ -60,9 +60,11 @@ import {
   CORE_APP_KEYS,
   AppRegistryItem,
   getAppRoute,
+  getAppTitle,
   isAppAllowedForRole,
 } from '../../../constants/app-registry';
 import { usePinnedApps } from '../../../hooks/usePinnedApps';
+import { useAuth } from '../../../providers/AuthProvider';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -119,12 +121,14 @@ export function renderAppIcon(iconName: string, color: string, size = 24, stroke
 // Memoized Service Tile for 60fps fast performance
 const ServiceTile = React.memo(function ServiceTile({
   item,
+  role = 'ADMIN',
   isPinned,
   isEditMode,
   badgeStr,
   onPress,
 }: {
   item: AppRegistryItem;
+  role?: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR';
   isPinned: boolean;
   isEditMode: boolean;
   badgeStr?: string;
@@ -173,7 +177,7 @@ const ServiceTile = React.memo(function ServiceTile({
       </View>
 
       <Text style={styles.modalTileText} numberOfLines={1}>
-        {item.title}
+        {getAppTitle(item, role)}
       </Text>
     </Pressable>
   );
@@ -182,9 +186,11 @@ const ServiceTile = React.memo(function ServiceTile({
 // Memoized Pinned Chip in Edit Header
 const PinnedChip = React.memo(function PinnedChip({
   appKey,
+  role = 'ADMIN',
   onRemove,
 }: {
   appKey: string;
+  role?: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR';
   onRemove: (key: string) => void;
 }) {
   const app = APP_REGISTRY[appKey];
@@ -196,7 +202,7 @@ const PinnedChip = React.memo(function PinnedChip({
         {renderAppIcon(app.icon, app.color, 14)}
       </View>
       <Text style={styles.pinnedChipText} numberOfLines={1}>
-        {app.title}
+        {getAppTitle(app, role)}
       </Text>
       <Pressable
         hitSlop={8}
@@ -217,13 +223,14 @@ export function AllServicesModal({
   initialEditMode = false,
 }: AllServicesModalProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const {
     pinnedKeys,
     updatePinnedApps,
     resetPinnedApps,
     isUpdating,
     isResetting,
-  } = usePinnedApps();
+  } = usePinnedApps(role);
 
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [selectedKeys, setSelectedKeys] = useState<string[]>(pinnedKeys);
@@ -241,9 +248,9 @@ export function AllServicesModal({
   const categorizedApps = useMemo(() => {
     return APP_CATEGORIES.map(cat => ({
       ...cat,
-      apps: ALL_APPS_LIST.filter(a => a.category === cat.id && isAppAllowedForRole(a, role)),
+      apps: ALL_APPS_LIST.filter(a => a.category === cat.id && isAppAllowedForRole(a, role, user)),
     })).filter(cat => cat.apps.length > 0);
-  }, [role]);
+  }, [role, user]);
 
   const handleTogglePin = useCallback((appKey: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -419,6 +426,7 @@ export function AllServicesModal({
                     <PinnedChip
                       key={key}
                       appKey={key}
+                      role={role}
                       onRemove={handleTogglePin}
                     />
                   ))}
@@ -445,6 +453,7 @@ export function AllServicesModal({
                       <ServiceTile
                         key={item.key}
                         item={item}
+                        role={role}
                         isPinned={isPinned}
                         isEditMode={isEditMode}
                         badgeStr={badgeStr}

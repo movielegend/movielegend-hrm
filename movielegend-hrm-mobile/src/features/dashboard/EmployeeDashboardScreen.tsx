@@ -31,6 +31,7 @@ import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useN
 import { levelingApi } from '../../api/leveling.api';
 import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/LevelNameBadge';
 import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
+import { resolveFileUrl } from '../../utils/url';
 
 // Lucide Icons
 import {
@@ -52,6 +53,7 @@ import {
   Laptop,
   MessageSquare,
   Bot,
+  Sparkles,
   X,
   Tv,
   Receipt,
@@ -66,7 +68,7 @@ import {
 } from 'lucide-react-native';
 
 import { usePinnedApps } from '../../hooks/usePinnedApps';
-import { APP_REGISTRY, getAppRoute, AppRegistryItem } from '../../constants/app-registry';
+import { APP_REGISTRY, getAppRoute, getAppTitle, AppRegistryItem } from '../../constants/app-registry';
 import { AllServicesModal, renderAppIcon } from './components/AllServicesModal';
 import { LiveClockText } from '../../components/common/LiveClockText';
 
@@ -91,7 +93,7 @@ export function EmployeeDashboardScreen() {
   }, []);
 
   // Pinned Apps System (1 dòng 4 app ban đầu, dropdown mở rộng app phụ + Tất cả)
-  const { allPinnedApps, row1Apps, extraPinnedApps } = usePinnedApps();
+  const { allPinnedApps, row1Apps, extraPinnedApps } = usePinnedApps('EMPLOYEE');
 
   // Queries
   const { data: currentAttendance } = useCurrentAttendance();
@@ -298,7 +300,7 @@ export function EmployeeDashboardScreen() {
                 onPress={() => router.push('/employee/ai-chat' as any)}
                 accessibilityLabel="Trợ lý AI"
               >
-                <Bot size={20} color="#FFFFFF" strokeWidth={2.2} />
+                <Sparkles size={20} color="#FFFFFF" strokeWidth={2.2} />
               </Pressable>
 
               <Pressable
@@ -306,7 +308,13 @@ export function EmployeeDashboardScreen() {
                 onPress={() => router.push('/employee/notifications' as any)}
               >
                 <Bell size={21} color="#FFFFFF" strokeWidth={2.2} />
-                {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
+                {unreadNotifications > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>
+                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             </View>
           </View>
@@ -492,7 +500,7 @@ export function EmployeeDashboardScreen() {
                   return (
                     <QuickGrid8Item
                       key={item.key}
-                      title={item.title}
+                      title={getAppTitle(item, 'EMPLOYEE')}
                       bgColor={item.bgColor}
                       badge={badge}
                       icon={renderAppIcon(item.icon, item.color, 26)}
@@ -520,7 +528,7 @@ export function EmployeeDashboardScreen() {
                         return (
                           <QuickGrid8Item
                             key={item.key}
-                            title={item.title}
+                            title={getAppTitle(item, 'EMPLOYEE')}
                             bgColor={item.bgColor}
                             badge={badge}
                             icon={renderAppIcon(item.icon, item.color, 26)}
@@ -578,7 +586,7 @@ export function EmployeeDashboardScreen() {
                           return (
                             <QuickGrid8Item
                               key={item.key}
-                              title={item.title}
+                              title={getAppTitle(item, 'EMPLOYEE')}
                               bgColor={item.bgColor}
                               badge={badge}
                               icon={renderAppIcon(item.icon, item.color, 26)}
@@ -602,7 +610,7 @@ export function EmployeeDashboardScreen() {
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={item.title}
+                                title={getAppTitle(item, 'EMPLOYEE')}
                                 bgColor={item.bgColor}
                                 badge={badge}
                                 icon={renderAppIcon(item.icon, item.color, 26)}
@@ -642,7 +650,7 @@ export function EmployeeDashboardScreen() {
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={item.title}
+                                title={getAppTitle(item, 'EMPLOYEE')}
                                 bgColor={item.bgColor}
                                 badge={badge}
                                 icon={renderAppIcon(item.icon, item.color, 26)}
@@ -671,7 +679,7 @@ export function EmployeeDashboardScreen() {
                               return (
                                 <QuickGrid8Item
                                   key={item.key}
-                                  title={item.title}
+                                  title={getAppTitle(item, 'EMPLOYEE')}
                                   bgColor={item.bgColor}
                                   badge={badge}
                                   icon={renderAppIcon(item.icon, item.color, 26)}
@@ -858,18 +866,18 @@ export function EmployeeDashboardScreen() {
                 style={styles.newsCard}
                 onPress={() => router.push('/employee/newsfeed' as any)}
               >
-                {((latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl) ? (
-                  <Image
-                    source={{
-                      uri: (latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl,
-                    }}
-                    style={styles.newsThumbnail}
-                  />
-                ) : (
-                  <View style={[styles.newsThumbnail, styles.newsThumbnailFallback]}>
-                    <Newspaper size={28} color="#2563EB" strokeWidth={1.8} />
-                  </View>
-                )}
+                <DashboardNewsThumbnail
+                  imageUrl={
+                    (latestPost as any)?.images?.[0] ||
+                    (latestPost as any)?.coverUrl ||
+                    (Array.isArray((latestPost as any)?.attachments)
+                      ? (latestPost as any).attachments.find(
+                          (a: any) => typeof a === 'string' && !a.startsWith('layout:') && /\.(jpg|jpeg|png|webp|gif)/i.test(a)
+                        )
+                      : null)
+                  }
+                  iconSize={28}
+                />
 
                 <View style={styles.newsContent}>
                   <View style={styles.newsTagPill}>
@@ -910,6 +918,35 @@ export function EmployeeDashboardScreen() {
   );
 }
 
+// Sub-component: Dashboard News Thumbnail
+const DashboardNewsThumbnail = React.memo(function DashboardNewsThumbnail({
+  imageUrl,
+  iconSize = 28,
+}: {
+  imageUrl?: string | null;
+  iconSize?: number;
+}) {
+  const [hasError, setHasError] = useState(false);
+  const resolvedUrl = useMemo(() => resolveFileUrl(imageUrl), [imageUrl]);
+
+  if (resolvedUrl && !hasError) {
+    return (
+      <Image
+        source={{ uri: resolvedUrl }}
+        style={styles.newsThumbnail}
+        resizeMode="cover"
+        onError={() => setHasError(true)}
+      />
+    );
+  }
+
+  return (
+    <View style={[styles.newsThumbnail, styles.newsThumbnailFallback]}>
+      <Newspaper size={iconSize} color="#2563EB" strokeWidth={1.8} />
+    </View>
+  );
+});
+
 // Sub-component: 8-Grid Quick Item
 const QuickGrid8Item = React.memo(function QuickGrid8Item({
   title,
@@ -931,8 +968,6 @@ const QuickGrid8Item = React.memo(function QuickGrid8Item({
     >
       <View style={styles.quickIconWrapper}>
         <View style={[styles.quickIconBox8, { backgroundColor: bgColor }]}>
-          {/* Lớp bóng gương kính mờ (Frosted/Morphic specular reflex) */}
-          <View pointerEvents="none" style={styles.iconGlossHighlight} />
           {icon}
         </View>
         {Boolean(badge) && (
@@ -1078,8 +1113,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1088,22 +1121,28 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
-  bellRedDot: {
+  bellBadge: {
     position: 'absolute',
-    top: 9,
-    right: 10,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
+    top: 5,
+    right: 5,
     backgroundColor: '#EF4444',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bellBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 12,
   },
 
   // 2. Overlapping White Hero Card
@@ -1399,16 +1438,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  iconGlossHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 24,
-    borderTopLeftRadius: 17,
-    borderTopRightRadius: 17,
-    backgroundColor: 'rgba(255, 255, 255, 0.40)',
-  },
   quickIconBoxAdd: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
@@ -1558,6 +1587,8 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    overflow: 'hidden',
   },
   newsContent: {
     flex: 1,

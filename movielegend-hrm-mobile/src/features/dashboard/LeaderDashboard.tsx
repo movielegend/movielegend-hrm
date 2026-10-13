@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { getDashboardByRole } from '../../api/dashboard.api';
-import { getVaultWithdrawalRequests } from '../../api/employees.api';
+import { getVaultWithdrawalRequests, getMyVault } from '../../api/employees.api';
 import { getEmployeeRequests } from '../../api/employee-requests.api';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
@@ -25,6 +25,9 @@ import { useMyTasks } from '../../hooks/useTasks';
 import { useNewsfeedPosts } from '../../hooks/useNewsfeed';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
 import { FeedbackStatusBadge } from '../feedback/components/FeedbackStatusBadge';
+import { levelingApi } from '../../api/leveling.api';
+import { LEVEL_DEFAULT_NAMES, LEVEL_COLORS } from '../../components/common/LevelNameBadge';
+import { resolveFileUrl } from '../../utils/url';
 
 // Lucide Icons
 import {
@@ -60,7 +63,7 @@ import {
 } from 'lucide-react-native';
 
 import { usePinnedApps } from '../../hooks/usePinnedApps';
-import { APP_REGISTRY, getAppRoute, AppRegistryItem } from '../../constants/app-registry';
+import { APP_REGISTRY, getAppRoute, getAppTitle, AppRegistryItem } from '../../constants/app-registry';
 import { AllServicesModal, renderAppIcon } from './components/AllServicesModal';
 import { LiveClockText } from '../../components/common/LiveClockText';
 import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
@@ -81,7 +84,7 @@ export function LeaderDashboard() {
   const [isQuickExpanded, setIsQuickExpanded] = useState(false);
 
   // Pinned Apps System (1 dòng 4 app ban đầu, dropdown mở rộng app phụ + Tất cả)
-  const { allPinnedApps, row1Apps, extraPinnedApps } = usePinnedApps();
+  const { allPinnedApps, row1Apps, extraPinnedApps } = usePinnedApps('LEADER');
 
   const handleToggleQuickExpanded = useCallback(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -146,6 +149,33 @@ export function LeaderDashboard() {
     const list = Array.isArray(newsPosts) ? newsPosts : (newsPosts as any)?.items || [];
     return list.length > 0 ? list[0] : null;
   }, [newsPosts]);
+
+  // Level Progress
+  const { data: levelProgress } = useQuery({
+    queryKey: ['my-level-progress', user?.id],
+    queryFn: () => levelingApi.getMyLevelProgress().catch(() => null),
+    enabled: Boolean(user?.id),
+  });
+
+  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || 1;
+  const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#2563EB';
+  const levelTitle =
+    levelProgress?.currentLevel?.displayName ||
+    levelProgress?.currentLevel?.badgeTitle ||
+    LEVEL_DEFAULT_NAMES[currentLevelNumber] ||
+    `Cấp ${currentLevelNumber}`;
+
+  // Vault Data
+  const { data: myVault } = useQuery({
+    queryKey: ['my-vault', user?.id],
+    queryFn: () => getMyVault().catch(() => null),
+    enabled: Boolean(user?.id),
+    staleTime: 60_000,
+  });
+
+  const isVaultEnabled = Boolean(myVault?.isVaultEnabled || (user as any)?.isRewardVaultEnabled);
+  const unlockedVaultPoints = myVault?.stats?.unlockedPoints || 0;
+  const totalGrantedPoints = myVault?.stats?.totalGrantedPoints || 0;
 
   // Refresh
   const onRefresh = useCallback(async () => {
@@ -238,13 +268,16 @@ export function LeaderDashboard() {
               {/* Avatar circle */}
               <Pressable
                 style={styles.avatarContainer}
-                onPress={() => router.push('/leader/my-profile' as any)}
+                onPress={() => router.push('/leader/leveling' as any)}
               >
                 {user?.avatarUrl ? (
                   <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
                 ) : (
                   <Text style={styles.avatarInitialsText}>{getInitials(user?.fullName)}</Text>
                 )}
+                <View style={[styles.avatarLevelBadge, { backgroundColor: levelColor }]}>
+                  <Text style={styles.avatarLevelBadgeText}>{currentLevelNumber}</Text>
+                </View>
               </Pressable>
 
               {/* Greeting & Name */}
@@ -263,7 +296,7 @@ export function LeaderDashboard() {
                 onPress={() => router.push('/leader/ai-chat' as any)}
                 accessibilityLabel="Trợ lý AI"
               >
-                <Sparkles size={18} color="#FFFFFF" strokeWidth={2.2} />
+                <Sparkles size={20} color="#FFFFFF" strokeWidth={2.2} />
               </Pressable>
 
               <Pressable
@@ -271,7 +304,13 @@ export function LeaderDashboard() {
                 onPress={() => router.push('/leader/notifications' as any)}
               >
                 <Bell size={21} color="#FFFFFF" strokeWidth={2.2} />
-                {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
+                {unreadNotifications > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>
+                      {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                    </Text>
+                  </View>
+                )}
               </Pressable>
             </View>
           </View>
@@ -292,10 +331,13 @@ export function LeaderDashboard() {
             {/* Top row inside card: Quản lý bộ phận Tag + Attendance Tag + Ngày hôm nay */}
             <View style={styles.cardHeaderRow}>
               <View style={styles.cardHeaderLeftGroup}>
-                <View style={styles.adminRoleTag}>
-                  <Users size={14} color="#1D4ED8" strokeWidth={2.5} />
-                  <Text style={styles.adminRoleTagText}>{leaderRoleTitle}</Text>
-                </View>
+                <Pressable
+                  style={styles.adminRoleTag}
+                  onPress={() => router.push('/leader/leveling' as any)}
+                >
+                  <Crown size={14} color="#1D4ED8" strokeWidth={2.5} />
+                  <Text style={styles.adminRoleTagText}>Lv.{currentLevelNumber} • {cleanDeptName ? `Trưởng phòng ${cleanDeptName}` : levelTitle}</Text>
+                </Pressable>
 
                 {/* Chữ ra ca / vào ca - nhẹ nhàng cạnh Trưởng phòng DEV, không viền, chữ màu đen */}
                 <Pressable
@@ -351,63 +393,82 @@ export function LeaderDashboard() {
 
         {/* Content Body */}
         <View style={styles.contentBody}>
-          {/* ================= 3. CẦN BẠN XỬ LÝ ================= */}
+          {/* ================= 3. HÀNH TRÌNH & QUỸ THƯỞNG ================= */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionMainTitle}>Cần bạn xử lý</Text>
+              <Text style={styles.sectionMainTitle}>Hành trình &amp; Quỹ thưởng</Text>
             </View>
 
-            {/* Item 1: Đơn chờ duyệt */}
-            <Pressable
-              style={styles.actionCard}
-              onPress={() => router.push('/leader/approvals' as any)}
-            >
-              <View style={styles.actionCardLeft}>
-                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
-                  <View pointerEvents="none" style={styles.actionIconGloss} />
-                  <FileText size={22} color="#102739" strokeWidth={2.2} />
+            <View style={styles.hubCard}>
+              <Pressable
+                style={styles.hubSegment}
+                onPress={() => router.push('/leader/leveling' as any)}
+              >
+                <View style={styles.hubRow}>
+                  <View style={[styles.hubIconCircle, { backgroundColor: `${levelColor}15` }]}>
+                    <Crown size={20} color={levelColor} />
+                  </View>
+                  <View style={styles.hubInfoBlock}>
+                    <View style={styles.hubTitleRow}>
+                      <Text style={styles.hubTitle} numberOfLines={1}>
+                        Level {currentLevelNumber}: {levelTitle}
+                      </Text>
+                      <View style={[styles.hubTag, { backgroundColor: `${levelColor}15` }]}>
+                        <Text style={[styles.hubTagText, { color: levelColor }]}>Lv.{currentLevelNumber}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.hubSubtitle}>
+                      {levelProgress?.nextLevel
+                        ? `Tiến độ lên Lv.${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
+                        : 'Cấp bậc danh dự tối cao'}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color="#94A3B8" />
                 </View>
-                <View style={styles.actionCardTexts}>
-                  <Text style={styles.actionCardTitle}>Đơn chờ duyệt</Text>
-                  <Text style={styles.actionCardDesc}>Nghỉ phép, tăng ca</Text>
-                </View>
-              </View>
 
-              <View style={styles.actionCardRight}>
-                <View style={styles.coralBadge}>
-                  <Text style={styles.coralBadgeText}>
-                    {String(pendingCount).padStart(2, '0')}
-                  </Text>
+                {/* Progress Bar */}
+                <View style={styles.hubProgressTrack}>
+                  <View
+                    style={[
+                      styles.hubProgressFill,
+                      {
+                        width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
+                        backgroundColor: levelColor,
+                      },
+                    ]}
+                  />
                 </View>
-                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
-              </View>
-            </Pressable>
+              </Pressable>
 
-            {/* Item 2: Công việc đến hạn */}
-            <Pressable
-              style={[styles.actionCard, { marginTop: 10 }]}
-              onPress={() => router.push('/leader/tasks' as any)}
-            >
-              <View style={styles.actionCardLeft}>
-                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
-                  <View pointerEvents="none" style={styles.actionIconGloss} />
-                  <Clock size={22} color="#102739" strokeWidth={2.2} />
-                </View>
-                <View style={styles.actionCardTexts}>
-                  <Text style={styles.actionCardTitle}>Công việc đến hạn</Text>
-                  <Text style={styles.actionCardDesc}>Cần hoàn thành hôm nay</Text>
-                </View>
-              </View>
-
-              <View style={styles.actionCardRight}>
-                <View style={styles.coralBadge}>
-                  <Text style={styles.coralBadgeText}>
-                    {String(dueTaskCount).padStart(2, '0')}
-                  </Text>
-                </View>
-                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
-              </View>
-            </Pressable>
+              {isVaultEnabled && (
+                <>
+                  <View style={styles.hubDivider} />
+                  <Pressable
+                    style={styles.hubSegment}
+                    onPress={() => router.push('/leader/vault' as any)}
+                  >
+                    <View style={styles.hubRow}>
+                      <View style={[styles.hubIconCircle, { backgroundColor: '#E7F0F7' }]}>
+                        <Coins size={20} color="#102739" />
+                      </View>
+                      <View style={styles.hubInfoBlock}>
+                        <View style={styles.hubTitleRow}>
+                          <Text style={styles.hubTitle} numberOfLines={1}>Ví Thưởng Tích Lũy</Text>
+                          <View style={styles.vaultBadge}>
+                            <Text style={styles.vaultBadgeText}>Đặc quyền</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.hubSubtitle}>
+                          Khả dụng: <Text style={styles.hubSubtitleGreen}>{unlockedVaultPoints.toLocaleString('vi-VN')} đ</Text>
+                          {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                        </Text>
+                      </View>
+                      <ChevronRight size={18} color="#94A3B8" />
+                    </View>
+                  </Pressable>
+                </>
+              )}
+            </View>
           </View>
 
           {/* ================= 4. TRUY CẬP NHANH (BOX TRẮNG CÓ NÚT ĐẨY XUỐNG) ================= */}
@@ -440,7 +501,7 @@ export function LeaderDashboard() {
                   return (
                     <QuickGrid8Item
                       key={item.key}
-                      title={item.title}
+                      title={getAppTitle(item, 'LEADER')}
                       bgColor={item.bgColor}
                       badge={badge}
                       icon={renderAppIcon(item.icon, item.color, 26)}
@@ -463,7 +524,7 @@ export function LeaderDashboard() {
                         return (
                           <QuickGrid8Item
                             key={item.key}
-                            title={item.title}
+                            title={getAppTitle(item, 'LEADER')}
                             bgColor={item.bgColor}
                             icon={renderAppIcon(item.icon, item.color, 26)}
                             onPress={() => {
@@ -515,7 +576,7 @@ export function LeaderDashboard() {
                           return (
                             <QuickGrid8Item
                               key={item.key}
-                              title={item.title}
+                              title={getAppTitle(item, 'LEADER')}
                               bgColor={item.bgColor}
                               icon={renderAppIcon(item.icon, item.color, 26)}
                               onPress={() => {
@@ -534,7 +595,7 @@ export function LeaderDashboard() {
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={item.title}
+                                title={getAppTitle(item, 'LEADER')}
                                 bgColor={item.bgColor}
                                 icon={renderAppIcon(item.icon, item.color, 26)}
                                 onPress={() => {
@@ -569,7 +630,7 @@ export function LeaderDashboard() {
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={item.title}
+                                title={getAppTitle(item, 'LEADER')}
                                 bgColor={item.bgColor}
                                 icon={renderAppIcon(item.icon, item.color, 26)}
                                 onPress={() => {
@@ -593,7 +654,7 @@ export function LeaderDashboard() {
                               return (
                                 <QuickGrid8Item
                                   key={item.key}
-                                  title={item.title}
+                                  title={getAppTitle(item, 'LEADER')}
                                   bgColor={item.bgColor}
                                   icon={renderAppIcon(item.icon, item.color, 26)}
                                   onPress={() => {
@@ -645,7 +706,66 @@ export function LeaderDashboard() {
             </View>
           </View>
 
-          {/* ================= 5. HÒM THƯ GÓP Ý ================= */}
+          {/* ================= 5. CẦN BẠN XỬ LÝ ================= */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionMainTitle}>Cần bạn xử lý</Text>
+            </View>
+
+            {/* Item 1: Đơn chờ duyệt */}
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => router.push('/leader/approvals' as any)}
+            >
+              <View style={styles.actionCardLeft}>
+                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
+                  <View pointerEvents="none" style={styles.actionIconGloss} />
+                  <FileText size={22} color="#102739" strokeWidth={2.2} />
+                </View>
+                <View style={styles.actionCardTexts}>
+                  <Text style={styles.actionCardTitle}>Đơn chờ duyệt</Text>
+                  <Text style={styles.actionCardDesc}>Nghỉ phép, tăng ca</Text>
+                </View>
+              </View>
+
+              <View style={styles.actionCardRight}>
+                <View style={styles.coralBadge}>
+                  <Text style={styles.coralBadgeText}>
+                    {String(pendingCount).padStart(2, '0')}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
+              </View>
+            </Pressable>
+
+            {/* Item 2: Công việc đến hạn */}
+            <Pressable
+              style={[styles.actionCard, { marginTop: 10 }]}
+              onPress={() => router.push('/leader/my-tasks' as any)}
+            >
+              <View style={styles.actionCardLeft}>
+                <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
+                  <View pointerEvents="none" style={styles.actionIconGloss} />
+                  <Clock size={22} color="#102739" strokeWidth={2.2} />
+                </View>
+                <View style={styles.actionCardTexts}>
+                  <Text style={styles.actionCardTitle}>Công việc đến hạn</Text>
+                  <Text style={styles.actionCardDesc}>Cần hoàn thành hôm nay</Text>
+                </View>
+              </View>
+
+              <View style={styles.actionCardRight}>
+                <View style={styles.coralBadge}>
+                  <Text style={styles.coralBadgeText}>
+                    {String(dueTaskCount).padStart(2, '0')}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
+              </View>
+            </Pressable>
+          </View>
+
+          {/* ================= 6. HÒM THƯ GÓP Ý ================= */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionMainTitle}>Hòm thư góp ý</Text>
@@ -707,7 +827,7 @@ export function LeaderDashboard() {
             )}
           </View>
 
-          {/* ================= 6. BẢNG TIN NỘI BỘ (Chỉ hiển thị khi có bài viết thật) ================= */}
+          {/* ================= 7. BẢNG TIN NỘI BỘ (Chỉ hiển thị khi có bài viết thật) ================= */}
           {latestPost && (
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeaderRow}>
@@ -721,18 +841,18 @@ export function LeaderDashboard() {
                 style={styles.newsCard}
                 onPress={() => router.push('/leader/newsfeed' as any)}
               >
-                {((latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl) ? (
-                  <Image
-                    source={{
-                      uri: (latestPost as any)?.images?.[0] || (latestPost as any)?.coverUrl,
-                    }}
-                    style={styles.newsThumbnail}
-                  />
-                ) : (
-                  <View style={[styles.newsThumbnail, styles.newsThumbnailFallback]}>
-                    <Newspaper size={28} color="#2563EB" strokeWidth={1.8} />
-                  </View>
-                )}
+                <DashboardNewsThumbnail
+                  imageUrl={
+                    (latestPost as any)?.images?.[0] ||
+                    (latestPost as any)?.coverUrl ||
+                    (Array.isArray((latestPost as any)?.attachments)
+                      ? (latestPost as any).attachments.find(
+                          (a: any) => typeof a === 'string' && !a.startsWith('layout:') && /\.(jpg|jpeg|png|webp|gif)/i.test(a)
+                        )
+                      : null)
+                  }
+                  iconSize={28}
+                />
 
                 <View style={styles.newsContent}>
                   <View style={styles.newsTagPill}>
@@ -774,6 +894,35 @@ export function LeaderDashboard() {
   );
 }
 
+// Sub-component: Dashboard News Thumbnail
+const DashboardNewsThumbnail = React.memo(function DashboardNewsThumbnail({
+  imageUrl,
+  iconSize = 28,
+}: {
+  imageUrl?: string | null;
+  iconSize?: number;
+}) {
+  const [hasError, setHasError] = useState(false);
+  const resolvedUrl = useMemo(() => resolveFileUrl(imageUrl), [imageUrl]);
+
+  if (resolvedUrl && !hasError) {
+    return (
+      <Image
+        source={{ uri: resolvedUrl }}
+        style={styles.newsThumbnail}
+        resizeMode="cover"
+        onError={() => setHasError(true)}
+      />
+    );
+  }
+
+  return (
+    <View style={[styles.newsThumbnail, styles.newsThumbnailFallback]}>
+      <Newspaper size={iconSize} color="#2563EB" strokeWidth={1.8} />
+    </View>
+  );
+});
+
 // Sub-component: 8-Grid Quick Item
 const QuickGrid8Item = React.memo(function QuickGrid8Item({
   title,
@@ -795,8 +944,6 @@ const QuickGrid8Item = React.memo(function QuickGrid8Item({
     >
       <View style={styles.quickIconWrapper}>
         <View style={[styles.quickIconBox8, { backgroundColor: bgColor }]}>
-          {/* Lớp bóng gương kính mờ (Frosted/Morphic specular reflex) */}
-          <View pointerEvents="none" style={styles.iconGlossHighlight} />
           {icon}
         </View>
         {Boolean(badge) && (
@@ -887,6 +1034,25 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 2,
     borderColor: 'rgba(255, 255, 255, 0.45)',
+    position: 'relative',
+  },
+  avatarLevelBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    borderRadius: 7,
+    minWidth: 15,
+    height: 15,
+    paddingHorizontal: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  avatarLevelBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   avatarImage: {
     width: 46,
@@ -924,8 +1090,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -934,22 +1098,28 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
-  bellRedDot: {
+  bellBadge: {
     position: 'absolute',
-    top: 9,
-    right: 10,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
+    top: 5,
+    right: 5,
     backgroundColor: '#EF4444',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bellBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 12,
   },
 
   // 2. Overlapping White Hero Card
@@ -1119,6 +1289,92 @@ const styles = StyleSheet.create({
     color: '#102739',
   },
 
+  // Hub Cấp Bậc & Quỹ Thưởng
+  hubCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  hubSegment: {
+    padding: 14,
+  },
+  hubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  hubIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  hubInfoBlock: {
+    flex: 1,
+  },
+  hubTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  hubTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  hubTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  hubTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  hubSubtitle: {
+    fontSize: 12,
+    color: '#334155',
+    marginTop: 2,
+  },
+  hubSubtitleGreen: {
+    color: '#059669',
+    fontWeight: '700',
+  },
+  hubProgressTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F1F5F9',
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  hubProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  hubDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+  },
+  vaultBadge: {
+    backgroundColor: '#E7F0F7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  vaultBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#102739',
+  },
+
   // 3. Action Cards ("Cần bạn xử lý")
   actionCard: {
     backgroundColor: '#FFFFFF',
@@ -1250,16 +1506,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  iconGlossHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 24,
-    borderTopLeftRadius: 17,
-    borderTopRightRadius: 17,
-    backgroundColor: 'rgba(255, 255, 255, 0.40)',
-  },
   quickIconBoxAdd: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
@@ -1335,6 +1581,7 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 12,
     backgroundColor: '#E2E8F0',
+    overflow: 'hidden',
   },
   newsContent: {
     flex: 1,
