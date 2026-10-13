@@ -186,6 +186,11 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
       router.push('/leader/daily-report' as any);
       return;
     }
+    const isHr = user?.roles?.includes('HR') || user?.roles?.some((r: any) => r.name?.toUpperCase().includes('HR') || r.role?.code === 'hr');
+    if (area === 'hr' || isHr) {
+      router.push('/hr/daily-report' as any);
+      return;
+    }
     router.push('/employee/daily-report' as any);
   };
 

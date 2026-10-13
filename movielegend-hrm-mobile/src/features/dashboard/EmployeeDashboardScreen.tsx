@@ -291,14 +291,24 @@ export function EmployeeDashboardScreen() {
               </View>
             </View>
 
-            {/* Frosted Glass Notification Bell Button */}
-            <Pressable
-              style={styles.bellButton}
-              onPress={() => router.push('/employee/notifications' as any)}
-            >
-              <Bell size={21} color="#FFFFFF" strokeWidth={2.2} />
-              {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
-            </Pressable>
+            {/* Header Right Actions: AI Assistant & Notification Bell */}
+            <View style={styles.headerRightActions}>
+              <Pressable
+                style={styles.aiHeaderButton}
+                onPress={() => router.push('/employee/ai-chat' as any)}
+                accessibilityLabel="Trợ lý AI"
+              >
+                <Bot size={20} color="#FFFFFF" strokeWidth={2.2} />
+              </Pressable>
+
+              <Pressable
+                style={styles.bellButton}
+                onPress={() => router.push('/employee/notifications' as any)}
+              >
+                <Bell size={21} color="#FFFFFF" strokeWidth={2.2} />
+                {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -314,40 +324,62 @@ export function EmployeeDashboardScreen() {
               />
             </View>
 
-            {/* Top row inside card: Level Tag + Ngày hôm nay thay lời chào */}
+            {/* Top row inside card: Level Tag + Attendance Tag + Ngày hôm nay */}
             <View style={styles.cardHeaderRow}>
-              <View style={styles.adminRoleTag}>
-                <Crown size={14} color="#1D4ED8" strokeWidth={2.5} />
-                <Text style={styles.adminRoleTagText}>Lv.{currentLevelNumber} • {levelTitle}</Text>
+              <View style={styles.cardHeaderLeftGroup}>
+                <View style={styles.adminRoleTag}>
+                  <Crown size={14} color="#1D4ED8" strokeWidth={2.5} />
+                  <Text style={styles.adminRoleTagText}>Lv.{currentLevelNumber} • {levelTitle}</Text>
+                </View>
+
+                {/* Chữ ra ca / vào ca - nhẹ nhàng cạnh lv1 thực tập, không viền, chữ màu đen */}
+                <Pressable
+                  onPress={handleAttendancePress}
+                  style={({ pressed }) => [
+                    styles.attendanceHeaderTag,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Chấm công"
+                >
+                  <Clock
+                    size={11}
+                    color="#000000"
+                    strokeWidth={2.2}
+                  />
+                  <Text style={styles.attendanceHeaderTagText}>
+                    {currentAttendance?.state === 'CHECKED_IN'
+                      ? 'Ra ca'
+                      : currentAttendance?.state === 'CHECKED_OUT'
+                      ? 'Đã xong ca'
+                      : 'Vào ca'}
+                  </Text>
+                </Pressable>
               </View>
+
               <Text style={styles.cardHeaderDateText}>
                 {formattedTodayDate}
               </Text>
             </View>
 
-            {/* Big Bold Live Time: 09:42:15 */}
-            <View style={styles.dateNumberRow}>
+            {/* Big Bold Live Time: 07:44:45 */}
+            <Pressable
+              onPress={handleAttendancePress}
+              style={({ pressed }) => [styles.dateNumberRow, pressed && { opacity: 0.75 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Chấm công"
+            >
               <LiveClockText style={styles.bigDateNumberText} />
-            </View>
+            </Pressable>
 
-            {/* Bottom 2-Column Metrics Row */}
+            {/* Bottom Location Row (Đã bỏ công việc mở) */}
             <View style={styles.cardMetricsRow}>
-              {/* Col 1: Location */}
               <View style={styles.metricColLocation}>
                 <MapPin size={13} color="#000000" strokeWidth={2.2} />
                 <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
                   {user?.department?.branch?.name || (user?.department as any)?.branchName || 'MOVIELEGEND-HÀ NỘI'}
                 </Text>
               </View>
-
-              {/* Col 2: Công việc đang mở */}
-              <Pressable
-                style={styles.metricColStatRight}
-                onPress={() => router.push('/employee/tasks' as any)}
-              >
-                <Text style={styles.metricLabelCaps} numberOfLines={1}>CÔNG VIỆC MỞ</Text>
-                <Text style={styles.metricNumberValue}>{uncompletedTasksCount}</Text>
-              </Pressable>
             </View>
           </View>
         </View>
@@ -897,10 +929,12 @@ const QuickGrid8Item = React.memo(function QuickGrid8Item({
       style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
       onPress={onPress}
     >
-      <View style={[styles.quickIconBox8, { backgroundColor: bgColor }]}>
-        {/* Lớp bóng gương kính mờ (Frosted/Morphic specular reflex) */}
-        <View pointerEvents="none" style={styles.iconGlossHighlight} />
-        {icon}
+      <View style={styles.quickIconWrapper}>
+        <View style={[styles.quickIconBox8, { backgroundColor: bgColor }]}>
+          {/* Lớp bóng gương kính mờ (Frosted/Morphic specular reflex) */}
+          <View pointerEvents="none" style={styles.iconGlossHighlight} />
+          {icon}
+        </View>
         {Boolean(badge) && (
           <View style={styles.quickItemBadge}>
             <Text style={styles.quickItemBadgeText}>{badge}</Text>
@@ -1034,6 +1068,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     marginTop: 1,
   },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  aiHeaderButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.32)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   bellButton: {
     width: 44,
     height: 44,
@@ -1096,6 +1145,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 6,
   },
+  cardHeaderLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   adminRoleTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1109,6 +1163,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#102739',
+  },
+  attendanceHeaderTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  attendanceHeaderTagText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#000000',
   },
   cardHeaderDateText: {
     fontSize: 13,
@@ -1308,14 +1376,20 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     transform: [{ scale: 0.94 }],
   },
+  quickIconWrapper: {
+    width: 58,
+    height: 58,
+    marginBottom: 6,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   quickIconBox8: {
     width: 58,
     height: 58,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
-    position: 'relative',
     overflow: 'hidden',
     borderWidth: 1.2,
     borderColor: 'rgba(255, 255, 255, 0.92)',
@@ -1354,8 +1428,8 @@ const styles = StyleSheet.create({
   },
   quickItemBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: -5,
+    right: -5,
     backgroundColor: '#EF4444',
     minWidth: 18,
     height: 18,
@@ -1365,11 +1439,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
+    zIndex: 20,
+    elevation: 4,
   },
   quickItemBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9.5,
+    fontWeight: '800',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   expandToggleButton: {
     alignItems: 'center',
@@ -1640,7 +1718,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   modalSheet: {
     backgroundColor: '#FFFFFF',

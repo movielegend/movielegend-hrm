@@ -24,8 +24,7 @@ export function ApprovalMenuScreen() {
     isAdmin ||
     userDeptName.includes('kế toán') ||
     userDeptName.includes('tài chính') ||
-    roleCodes.includes('ACCOUNTANT') ||
-    roleCodes.includes('ACCOUNTANT_LEAD') ||
+    roleCodes.some((c: string) => c.includes('ACCOUNTANT') || c === 'KT' || c === 'KETOAN') ||
     roleCodes.includes('CHIEF_ACCOUNTANT') ||
     user?.role?.code === 'ACCOUNTANT';
 

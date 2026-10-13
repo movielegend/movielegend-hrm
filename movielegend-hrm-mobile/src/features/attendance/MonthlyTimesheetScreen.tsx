@@ -31,6 +31,8 @@ import { getDepartments } from '../../api/departments.api';
 import type { Department } from '../../types/department.types';
 import { uploadFile } from '../../api/uploads.api';
 import { CustomAlert } from '../../components/CustomAlert';
+import { ImportTimesheetModal } from './components/ImportTimesheetModal';
+import { colors } from '../../theme/colors';
 
 function formatTimesheetTime(isoString?: string | null): string {
   if (!isoString) return '--:--';
@@ -88,6 +90,7 @@ export function MonthlyTimesheetScreen() {
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [uploadingUserId, setUploadingUserId] = useState<string | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const deptName = (
     user?.department?.name ||
@@ -111,7 +114,7 @@ export function MonthlyTimesheetScreen() {
     isLeader &&
     (deptName.includes('nhân sự') || deptName.includes('hcns') || deptName.includes('hr'));
   const canViewCompany = isAdmin || isHRRole || isLeaderHR;
-  const canUploadTimesheet = isLeaderHR;
+  const canUploadTimesheet = isAdmin || isHRRole || isLeaderHR;
 
   useEffect(() => {
     if (canViewCompany) {
@@ -361,10 +364,10 @@ export function MonthlyTimesheetScreen() {
               disabled={isThisUploading}
             >
               {isThisUploading ? (
-                <ActivityIndicator size="small" color="#102739" />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <>
-                  <MaterialCommunityIcons name="camera-outline" size={15} color="#102739" />
+                  <MaterialCommunityIcons name="camera-outline" size={15} color={colors.primary} />
                   <Text style={styles.uploadImageInlineBtnText}>
                     {item.finalOfficialImageUrl ? 'Đổi ảnh' : 'Tải ảnh'}
                   </Text>
@@ -394,7 +397,20 @@ export function MonthlyTimesheetScreen() {
           >
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.screenTitle}>Bảng công</Text>
+          <Text style={[styles.screenTitle, { flex: 1 }]}>Bảng công</Text>
+
+          {canViewCompany && (
+            <View style={styles.topBarActions}>
+              <Pressable
+                style={styles.importTopBtn}
+                onPress={() => setIsImportModalOpen(true)}
+                hitSlop={6}
+              >
+                <MaterialCommunityIcons name="file-excel" size={16} color="#10B981" />
+                <Text style={styles.importTopBtnText}>Import Excel</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {canViewCompany && (
@@ -436,7 +452,7 @@ export function MonthlyTimesheetScreen() {
 
       {isLoading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#102739" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Đang tải dữ liệu bảng công...</Text>
         </View>
       ) : activeTab === 'MY' ? (
@@ -455,7 +471,7 @@ export function MonthlyTimesheetScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor="#102739"
+              tintColor={colors.primary}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -537,7 +553,7 @@ export function MonthlyTimesheetScreen() {
                 }}
               >
                 <View style={styles.officialIconBox}>
-                  <MaterialCommunityIcons name="file-document-outline" size={22} color="#102739" />
+                  <MaterialCommunityIcons name="file-document-outline" size={22} color={colors.primary} />
                 </View>
                 <View style={styles.officialMetaCol}>
                   <Text style={styles.officialTitle}>Bảng công HR</Text>
@@ -595,7 +611,7 @@ export function MonthlyTimesheetScreen() {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor="#102739"
+              tintColor={colors.primary}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -704,7 +720,7 @@ export function MonthlyTimesheetScreen() {
                   Tất cả phòng ban
                 </Text>
                 {selectedDepartmentId === 'ALL' && (
-                  <Ionicons name="checkmark" size={18} color="#102739" />
+                  <Ionicons name="checkmark" size={18} color={colors.primary} />
                 )}
               </Pressable>
 
@@ -729,7 +745,7 @@ export function MonthlyTimesheetScreen() {
                     {d.name}
                   </Text>
                   {selectedDepartmentId === d.id && (
-                    <Ionicons name="checkmark" size={18} color="#102739" />
+                    <Ionicons name="checkmark" size={18} color={colors.primary} />
                   )}
                 </Pressable>
               ))}
@@ -737,6 +753,20 @@ export function MonthlyTimesheetScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Import Timesheet Modal (HR / Admin) ── */}
+      {canViewCompany && (
+        <ImportTimesheetModal
+          visible={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={() => {
+            setIsImportModalOpen(false);
+            fetchTimesheet();
+          }}
+          month={selectedMonth}
+          year={selectedYear}
+        />
+      )}
 
       {/* ── Fullscreen Image Viewer ── */}
       {viewerImages.length > 0 ? (
@@ -754,12 +784,12 @@ export function MonthlyTimesheetScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
 
   /* ── Header (#102739) ── */
   modernHeader: {
-    backgroundColor: '#102739',
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingBottom: 0,
     position: 'relative',
@@ -796,6 +826,27 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: -0.3,
   },
+  topBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  importTopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  importTopBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 
   /* ── Tabs Bar ── */
   tabsBar: {
@@ -804,7 +855,7 @@ const styles = StyleSheet.create({
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -835,22 +886,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 8,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   monthArrowBtn: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
   },
   monthSelectorTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.primary,
   },
 
   /* ── Loading ── */
@@ -877,22 +935,22 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 16,
-    marginBottom: 10,
+    padding: 18,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
   },
   summaryCardTag: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.6,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.8,
   },
   mainDaysRow: {
     flexDirection: 'row',
@@ -903,7 +961,7 @@ const styles = StyleSheet.create({
   actualDaysNum: {
     fontSize: 44,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.primary,
     lineHeight: 50,
   },
   standardDaysNum: {
@@ -927,7 +985,7 @@ const styles = StyleSheet.create({
   hoursVal: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.primary,
   },
   hoursLabel: {
     fontSize: 12,
@@ -968,28 +1026,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 12,
+    padding: 14,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   officialIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#E7F0F7',
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   officialMetaCol: {
     flex: 1,
   },
   officialTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.primary,
   },
   officialSubtitle: {
     fontSize: 12,
@@ -998,8 +1061,8 @@ const styles = StyleSheet.create({
   },
   officialBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
     marginRight: 6,
   },
   officialBadgeText: {
@@ -1014,7 +1077,7 @@ const styles = StyleSheet.create({
   sectionTitleText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.primary,
   },
 
   /* Daily Card */
@@ -1022,11 +1085,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 12,
+    padding: 14,
     marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
   },
   dailyDateCol: {
     width: 36,
@@ -1037,7 +1105,7 @@ const styles = StyleSheet.create({
   dailyDayNum: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.primary,
   },
   dailyDayOfWeek: {
     fontSize: 11,
@@ -1051,7 +1119,7 @@ const styles = StyleSheet.create({
   dailyShiftName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.primary,
   },
   dailyTimeRow: {
     fontSize: 12,
@@ -1059,7 +1127,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dailyStatusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 8,
   },
@@ -1076,10 +1144,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    height: 44,
+    height: 46,
     paddingHorizontal: 12,
     marginBottom: 8,
   },
@@ -1094,10 +1162,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    height: 44,
+    height: 46,
     paddingHorizontal: 12,
     marginBottom: 10,
   },
@@ -1108,8 +1176,8 @@ const styles = StyleSheet.create({
   },
   deptSelectorText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#0F172A',
+    fontWeight: '700',
+    color: colors.primary,
   },
   locationTagRow: {
     flexDirection: 'row',
@@ -1125,18 +1193,18 @@ const styles = StyleSheet.create({
   companySectionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 6,
+    color: colors.primary,
+    marginBottom: 8,
   },
 
   /* Company Employee Card */
   companyCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 14,
-    marginBottom: 10,
+    padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
@@ -1148,26 +1216,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   companyAvatarBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#E7F0F7',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
   companyAvatarText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#102739',
+    color: colors.primary,
   },
   companyMetaCol: {
     flex: 1,
   },
   companyEmpName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.primary,
   },
   companyEmpCode: {
     fontSize: 12,
@@ -1182,9 +1250,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   companyDaysVal: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.primary,
   },
   companyDaysLabel: {
     fontSize: 11,
@@ -1196,10 +1264,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    paddingVertical: 6,
+    paddingVertical: 8,
     marginVertical: 10,
   },
   companyMetricText: {
@@ -1239,16 +1307,16 @@ const styles = StyleSheet.create({
   uploadImageInlineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: '#E7F0F7',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
   },
   uploadImageInlineBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#102739',
+    color: colors.primary,
   },
 
   /* Empty State */
@@ -1290,7 +1358,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.primary,
   },
   modalItemRow: {
     flexDirection: 'row',
@@ -1301,14 +1369,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F1F5F9',
   },
   modalItemRowActive: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
   },
   modalItemText: {
     fontSize: 14,
     color: '#334155',
   },
   modalItemTextActive: {
-    fontWeight: '700',
-    color: '#102739',
+    fontWeight: '800',
+    color: colors.primary,
   },
 });

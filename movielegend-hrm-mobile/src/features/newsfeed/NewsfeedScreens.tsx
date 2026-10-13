@@ -26,7 +26,6 @@ import { assertSocketUrl } from '../../constants/env';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
-import { GlossyHeaderBackground } from '../../components/common/GlossyHeaderBackground';
 import { PrimaryButton } from '../../components/Buttons';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { FacebookPhotoGrid, type FacebookGridLayoutType } from './components/FacebookPhotoGrid';
@@ -193,11 +192,10 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-        <GlossyHeaderBackground idPrefix="newsfeedHeader" />
         <View style={newsStyles.headerMainRow}>
           <View style={{ flex: 1, marginRight: 12 }}>
             <Text style={newsStyles.headerBrand}>MOVIE LEGEND</Text>
@@ -2232,9 +2230,9 @@ const newsStyles = StyleSheet.create({
     backgroundColor: '#102739',
   },
   headerWrap: {
+    backgroundColor: '#102739',
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#102739',
     overflow: 'hidden',
   },
   headerMainRow: {
