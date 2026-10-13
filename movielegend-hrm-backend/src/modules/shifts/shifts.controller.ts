@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { CreateShiftDto, UpdateShiftDto } from './dto/create-shift.dto';
@@ -19,8 +19,9 @@ export class ShiftsController {
 
   @Permissions('shift.read')
   @Get()
-  findAll() {
-    return this.shiftsService.findAll();
+  @ApiQuery({ name: 'departmentId', required: false, type: String })
+  findAll(@Query('departmentId') departmentId?: string) {
+    return this.shiftsService.findAll(departmentId);
   }
 
   @Permissions('shift.update')

@@ -11,8 +11,10 @@ import type {
   UpdateShiftPayload,
 } from '../types/shift.types';
 
-export async function getShifts(): Promise<Shift[]> {
-  const response = await apiClient.get<ApiResponse<Shift[]>>('/shifts');
+export async function getShifts(departmentId?: string): Promise<Shift[]> {
+  const response = await apiClient.get<ApiResponse<Shift[]>>('/shifts', {
+    params: departmentId ? { departmentId } : undefined,
+  });
   return unwrapData(response);
 }
 

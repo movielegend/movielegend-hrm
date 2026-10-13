@@ -14,6 +14,8 @@ export interface Shift {
   checkOutLateMinutes?: number;
   isNightShift: boolean;
   isActive: boolean;
+  departmentId?: string | null;
+  department?: Department | null;
   createdAt?: string;
   updatedAt?: string;
   deletedAt?: string | null;
@@ -43,6 +45,7 @@ export interface CreateShiftPayload {
   checkInEarlyMinutes?: number;
   checkInLateMinutes?: number;
   isNightShift?: boolean;
+  departmentId?: string | null;
 }
 
 export type UpdateShiftPayload = Partial<CreateShiftPayload> & {

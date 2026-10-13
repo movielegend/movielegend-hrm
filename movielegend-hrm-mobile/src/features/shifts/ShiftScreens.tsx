@@ -23,6 +23,8 @@ import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
 import { Screen } from '../../components/Screen';
 import { SectionCard } from '../../components/SectionCard';
 import { StatusBadge } from '../../components/StatusBadge';
+import { SelectModal, SelectOption } from '../../components/SelectModal';
+import { useDepartments } from '../../hooks/useDepartments';
 import { useAuth } from '../../providers/AuthProvider';
 import {
   useShifts,
@@ -530,10 +532,24 @@ export function AdminShiftsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const shifts = useShifts();
+  const [filterDeptId, setFilterDeptId] = useState<string>('ALL');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const { data: deptData } = useDepartments({ limit: 1000 });
+  const departments = deptData?.items || [];
+
+  const shifts = useShifts(filterDeptId === 'ALL' ? undefined : filterDeptId);
   const deleteShift = useDeleteShift();
   const revokeAssignment = useRevokeShiftAssignment();
   const { showAlert, showConfirm } = useAppAlert();
+
+  const deptFilterOptions: SelectOption[] = useMemo(() => [
+    { id: 'ALL', label: 'Tất cả phòng ban' },
+    ...departments.map((d: any) => ({
+      id: d.id,
+      label: d.name,
+      subtitle: d.branch?.name ? `Chi nhánh: ${d.branch.name}` : undefined,
+    })),
+  ], [departments]);
 
   const handleRevoke = (id: string, name: string) => {
     showConfirm({
@@ -555,7 +571,7 @@ export function AdminShiftsScreen() {
   const handleDelete = (id: string, name: string) => {
     showConfirm({
       title: 'Xóa ca làm việc',
-      message: `Bạn có chắc chắn muốn xóa ca "${name}"?\nDữ liệu đã xếp ca cho nhân viên sẽ không bị ảnh hưởng (Xóa mềm).`,
+      message: `Bạn có chắc chắn muốn xóa ca "${name}"?\nHệ thống sẽ kiểm tra và từ chối nếu đang có nhân sự được xếp lịch trong chu kỳ làm việc.`,
       confirmLabel: 'Xóa',
       onConfirm: async () => {
         try {
@@ -563,7 +579,7 @@ export function AdminShiftsScreen() {
           showAlert('Thành công', 'Đã xóa ca làm việc');
         } catch (error) {
           const normalized = normalizeApiError(error);
-          showAlert('Lỗi', normalized.message);
+          showAlert('Không thể xóa', normalized.message);
         }
       },
     });
@@ -641,6 +657,25 @@ export function AdminShiftsScreen() {
           </Pressable>
         )}
 
+        {/* ── Bộ lọc theo phòng ban ── */}
+        <View style={styles.filterBarContainer}>
+          <Text style={styles.filterBarLabel}>Phòng ban:</Text>
+          <Pressable
+            style={styles.filterBarBtn}
+            onPress={() => setFilterModalVisible(true)}
+          >
+            <View style={styles.filterBarBtnLeft}>
+              <Ionicons name="business-outline" size={15} color="#102739" />
+              <Text style={styles.filterBarBtnText} numberOfLines={1}>
+                {filterDeptId === 'ALL'
+                  ? 'Tất cả phòng ban'
+                  : departments.find((d: any) => d.id === filterDeptId)?.name || 'Phòng ban đã chọn'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-down" size={16} color="#64748B" />
+          </Pressable>
+        </View>
+
         {/* ── Section Header: Danh sách ca ── */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Danh sách ca</Text>
@@ -694,7 +729,15 @@ export function AdminShiftsScreen() {
                   </View>
                   <View style={styles.shiftCardMetaCol}>
                     <Text style={styles.shiftCardName}>{shift.name}</Text>
-                    <Text style={styles.shiftCardCode}>Mã: {shift.code}</Text>
+                    <View style={styles.shiftCodeRow}>
+                      <Text style={styles.shiftCardCode}>Mã: {shift.code}</Text>
+                      <View style={styles.shiftDeptBadge}>
+                        <Ionicons name="business-outline" size={11} color="#102739" />
+                        <Text style={styles.shiftDeptBadgeText} numberOfLines={1}>
+                          {shift.department?.name ? shift.department.name : 'Toàn công ty'}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                   <View
                     style={[
@@ -815,6 +858,18 @@ export function AdminShiftsScreen() {
           </View>
         )}
       </ScrollView>
+
+      <SelectModal
+        visible={filterModalVisible}
+        title="Lọc ca theo phòng ban"
+        options={deptFilterOptions}
+        selectedValue={filterDeptId}
+        onSelect={(opt) => {
+          setFilterDeptId(opt.id || 'ALL');
+          setFilterModalVisible(false);
+        }}
+        onClose={() => setFilterModalVisible(false)}
+      />
     </View>
   );
 }
@@ -829,12 +884,32 @@ export function CreateShiftScreen() {
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('17:00');
 
+  const [selectedDept, setSelectedDept] = useState<{ id: string; name: string } | null>(null);
+  const [deptModalVisible, setDeptModalVisible] = useState(false);
+  const { data: deptData } = useDepartments({ limit: 1000 });
+  const departments = deptData?.items || [];
+
+  const deptOptions: SelectOption[] = useMemo(() => [
+    { id: 'ALL', label: 'Áp dụng toàn công ty', subtitle: 'Tất cả phòng ban đều có thể dùng' },
+    ...departments.map((d: any) => ({
+      id: d.id,
+      label: d.name,
+      subtitle: d.branch?.name ? `Chi nhánh: ${d.branch.name}` : undefined,
+    })),
+  ], [departments]);
+
   const isValid = Boolean(code.trim() && name.trim());
 
   async function submit() {
     if (!isValid) return;
     try {
-      await createShift.mutateAsync({ code: code.trim(), name: name.trim(), startTime, endTime });
+      await createShift.mutateAsync({
+        code: code.trim(),
+        name: name.trim(),
+        startTime,
+        endTime,
+        departmentId: selectedDept?.id || undefined,
+      });
       showAlert('Thành công', 'Đã tạo ca làm việc mới', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
@@ -872,6 +947,35 @@ export function CreateShiftScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Card 0: Phòng ban áp dụng */}
+        <View style={styles.formCard}>
+          <View style={styles.formCardHeader}>
+            <View style={styles.formCardIconBox}>
+              <Ionicons name="business-outline" size={20} color="#102739" />
+            </View>
+            <Text style={styles.formCardTitle}>Phòng ban áp dụng</Text>
+          </View>
+
+          <Text style={styles.modernFieldLabel}>Chọn phạm vi cho ca làm việc</Text>
+          <Pressable
+            style={styles.deptSelectPill}
+            onPress={() => setDeptModalVisible(true)}
+          >
+            <View style={styles.deptSelectPillLeft}>
+              <Ionicons name="business" size={18} color="#102739" />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.deptSelectPillTitle}>
+                  {selectedDept ? selectedDept.name : 'Áp dụng toàn công ty'}
+                </Text>
+                <Text style={styles.deptSelectPillSubtitle}>
+                  {selectedDept ? 'Chỉ áp dụng cho nhân sự phòng ban này' : 'Tất cả các phòng ban đều có thể xếp ca này'}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-down" size={18} color="#64748B" />
+          </Pressable>
+        </View>
+
         {/* Card 1: Thông tin ca */}
         <View style={styles.formCard}>
           <View style={styles.formCardHeader}>
@@ -967,6 +1071,22 @@ export function CreateShiftScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <SelectModal
+        visible={deptModalVisible}
+        title="Chọn phòng ban áp dụng"
+        options={deptOptions}
+        selectedValue={selectedDept?.id || 'ALL'}
+        onSelect={(opt) => {
+          if (opt.id === 'ALL' || !opt.id) {
+            setSelectedDept(null);
+          } else {
+            setSelectedDept({ id: opt.id, name: opt.label });
+          }
+          setDeptModalVisible(false);
+        }}
+        onClose={() => setDeptModalVisible(false)}
+      />
     </View>
   );
 }
@@ -1004,7 +1124,7 @@ export function EditShiftScreen() {
       showAlert('Thành công', 'Đã cập nhật ca làm việc', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
-      showAlert('Lỗi', normalized.message);
+      showAlert('Không thể cập nhật', normalized.message);
     }
   }
 
@@ -1076,6 +1196,15 @@ export function EditShiftScreen() {
             placeholder="VD: Ca sáng"
             placeholderTextColor="#94A3B8"
           />
+
+          {/* Department Info */}
+          <View style={styles.deptInfoBannerRow}>
+            <Ionicons name="business-outline" size={16} color="#102739" />
+            <Text style={styles.deptInfoBannerLabel}>Phòng ban áp dụng:</Text>
+            <Text style={styles.deptInfoBannerValue}>
+              {shift.department?.name ? shift.department.name : 'Áp dụng toàn công ty'}
+            </Text>
+          </View>
         </View>
 
         {/* Card 2: Thời gian làm việc */}
@@ -2084,6 +2213,107 @@ const styles = StyleSheet.create({
   },
   submitBtnTextDisabled: {
     color: '#FFFFFF',
+  },
+
+  /* Department Filter and Badges */
+  filterBarContainer: {
+    marginBottom: 16,
+  },
+  filterBarLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#102739',
+    marginBottom: 6,
+  },
+  filterBarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  filterBarBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 8,
+  },
+  filterBarBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#102739',
+  },
+  shiftCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  shiftDeptBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E7F0F7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  shiftDeptBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#102739',
+    maxWidth: 160,
+  },
+  deptSelectPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  deptSelectPillLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  deptSelectPillTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#102739',
+  },
+  deptSelectPillSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  deptInfoBannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 14,
+    padding: 10,
+    backgroundColor: '#E7F0F7',
+    borderRadius: 10,
+  },
+  deptInfoBannerLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#102739',
+  },
+  deptInfoBannerValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#102739',
   },
 });
 

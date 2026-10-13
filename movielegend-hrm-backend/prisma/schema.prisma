@@ -1033,6 +1033,7 @@ model Department {
   positions             Position[]
   requests              UserApprovalRequest[]
   shiftAssignments      ShiftAssignment[]
+  shifts                Shift[]
   shiftRegistrations    ShiftRegistration[]
   shiftSwaps            ShiftSwap[]
   wifiConfigs           WifiConfig[]
@@ -1340,6 +1341,7 @@ model Shift {
   id                   String              @id @default(uuid()) @db.Uuid
   code                 String              @unique
   name                 String
+  departmentId         String?             @db.Uuid
   startTime            String
   endTime              String
   breakMinutes         Int                 @default(0)
@@ -1352,11 +1354,13 @@ model Shift {
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
   deletedAt            DateTime?
+  department           Department?         @relation(fields: [departmentId], references: [id])
   assignments          ShiftAssignment[]
   registrations        ShiftRegistration[]
   swapsFrom            ShiftSwap[]         @relation("ShiftSwapFrom")
   swapsTo              ShiftSwap[]         @relation("ShiftSwapTo")
 
+  @@index([departmentId])
   @@map("shifts")
 }
 

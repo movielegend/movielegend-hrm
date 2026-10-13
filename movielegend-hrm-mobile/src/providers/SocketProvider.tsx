@@ -398,6 +398,16 @@ export function SocketProvider({ children }: PropsWithChildren) {
         if (payload?.taskId) void queryClient.invalidateQueries({ queryKey: queryKeys.task(payload.taskId) });
       });
 
+      socket.on('shift:created', () => {
+        void queryClient.invalidateQueries({ queryKey: ['shifts'] });
+      });
+      socket.on('shift:updated', () => {
+        void queryClient.invalidateQueries({ queryKey: ['shifts'] });
+      });
+      socket.on('shift:deleted', () => {
+        void queryClient.invalidateQueries({ queryKey: ['shifts'] });
+      });
+
       socket.on('auth:force_logout', (payload: any) => {
         CustomAlert.alert('Đăng xuất', 'Tài khoản của bạn vừa đăng nhập ở thiết bị khác.');
         logout();

@@ -67,7 +67,7 @@ export function ShiftSwapDetailScreen() {
   // We can just check status and role for rendering buttons.
   const isLeader = user?.roles?.includes('LEADER') || user?.roles?.includes('ADMIN');
 
-  let statusText = swap.status;
+  let statusText: string = swap.status;
   let statusColor = colors.warning;
   if (swap.status === 'PENDING_TARGET_APPROVAL') { statusText = 'Chờ nhân viên xác nhận'; }
   else if (swap.status === 'PENDING_LEADER_APPROVAL') { statusText = 'Chờ quản lý duyệt'; }

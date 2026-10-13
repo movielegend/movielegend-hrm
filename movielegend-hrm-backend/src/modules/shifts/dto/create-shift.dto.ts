@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, IsUUID, Matches, Min } from 'class-validator';
 
 export class CreateShiftDto {
   @ApiProperty()
@@ -40,6 +40,11 @@ export class CreateShiftDto {
   @IsOptional()
   @IsBoolean()
   isNightShift?: boolean;
+
+  @ApiPropertyOptional({ example: '3fa85f64-5717-4562-b3fc-2c963f66afa6' })
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
 }
 
 export class UpdateShiftDto extends PartialType(CreateShiftDto) {

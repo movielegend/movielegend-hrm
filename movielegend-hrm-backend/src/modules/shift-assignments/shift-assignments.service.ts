@@ -31,15 +31,6 @@ export class ShiftAssignmentsService {
         throw badRequest('USER_NOT_ACTIVE', 'User không còn active để phân ca');
       }
       
-      const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scope.getVisibleDepartmentIds(actor)) === null;
-      if (isGlobalAdmin) {
-        const isAllowedUser = user.roles.some(
-          (r: any) => r.role?.code === 'LEADER' || r.role?.code === 'HR' || r.role?.code === 'ADMIN' || r.role?.code === 'admin'
-        );
-        if (!isAllowedUser) {
-          throw badRequest('FORBIDDEN', 'Admin chỉ có thể phân ca cho Leader và HR');
-        }
-      }
 
       const isLeaderActor = !actor.roles.includes('ADMIN') && !actor.roles.includes('HR');
       if (isLeaderActor) {
