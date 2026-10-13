@@ -8,6 +8,8 @@ export interface Shift {
   startTime: string;
   endTime: string;
   breakMinutes: number;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
   checkInEarlyMinutes: number;
   checkInLateMinutes: number;
   checkOutEarlyMinutes?: number;
@@ -42,6 +44,8 @@ export interface CreateShiftPayload {
   startTime: string;
   endTime: string;
   breakMinutes?: number;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
   checkInEarlyMinutes?: number;
   checkInLateMinutes?: number;
   isNightShift?: boolean;

@@ -243,7 +243,7 @@ export function LeaderProfileScreen() {
                         icon="clipboard-check-outline"
                         iconType="mci"
                         title="Duyệt đơn từ"
-                        onPress={() => router.push('/leader/employee-requests' as any)}
+                        onPress={() => router.push('/leader/approvals' as any)}
                       />
                       <FeatureItem
                         icon="account-check-outline"

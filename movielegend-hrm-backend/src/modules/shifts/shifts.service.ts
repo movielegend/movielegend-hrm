@@ -35,6 +35,17 @@ export class ShiftsService {
       );
     }
 
+    // Tự động tính breakMinutes nếu có breakStartTime và breakEndTime
+    if (dto.breakStartTime && dto.breakEndTime) {
+      const [bsh, bsm] = dto.breakStartTime.split(':').map(Number);
+      const [beh, bem] = dto.breakEndTime.split(':').map(Number);
+      let bDiff = (beh * 60 + bem) - (bsh * 60 + bsm);
+      if (bDiff < 0) bDiff += 24 * 60;
+      dto.breakMinutes = bDiff;
+    } else if (!dto.breakStartTime || !dto.breakEndTime) {
+      dto.breakMinutes = 0;
+    }
+
     try {
       const shift = await this.prisma.shift.create({
         data: dto,
@@ -116,6 +127,19 @@ export class ShiftsService {
           `Không thể sửa khung giờ hoặc tắt ca làm việc này vì đang có ${activeAssignmentsCount} nhân sự đang được xếp lịch trong chu kỳ phân ca hiện tại. Vui lòng hoàn tất chu kỳ phân ca trước khi sửa!`,
         );
       }
+    }
+
+    // Tự động tính breakMinutes nếu sửa giờ nghỉ
+    const finalBreakStart = dto.breakStartTime !== undefined ? dto.breakStartTime : shift.breakStartTime;
+    const finalBreakEnd = dto.breakEndTime !== undefined ? dto.breakEndTime : shift.breakEndTime;
+    if (finalBreakStart && finalBreakEnd) {
+      const [bsh, bsm] = finalBreakStart.split(':').map(Number);
+      const [beh, bem] = finalBreakEnd.split(':').map(Number);
+      let bDiff = (beh * 60 + bem) - (bsh * 60 + bsm);
+      if (bDiff < 0) bDiff += 24 * 60;
+      dto.breakMinutes = bDiff;
+    } else if (dto.breakStartTime === null || dto.breakEndTime === null) {
+      dto.breakMinutes = 0;
     }
 
     const updatedShift = await this.prisma.shift.update({
