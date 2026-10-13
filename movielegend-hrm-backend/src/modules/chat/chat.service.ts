@@ -34,50 +34,55 @@ export class ChatService {
     });
   }
 
+  private async checkGroupAccess(group: any, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser): Promise<boolean> {
+    const userId = actor.userId;
+    const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
+    if (isGlobalAdmin) return true;
+
+    if (group.type === 'DEPARTMENT') {
+      if (!group.departmentId) return false;
+      const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+      if (visibleDepts && visibleDepts.includes(group.departmentId)) {
+        return true;
+      }
+      const dept = await this.prisma.department.findUnique({
+        where: { id: group.departmentId },
+        select: { leaderUserId: true }
+      });
+      if (dept?.leaderUserId === userId) return true;
+
+      const deptMember = await this.prisma.departmentMember.findUnique({
+        where: { departmentId_userId: { userId, departmentId: group.departmentId } }
+      });
+      if (deptMember && !deptMember.leftAt) return true;
+
+      return false;
+    }
+
+    if (group.type === 'DIRECT' || group.type === 'CUSTOM' || group.type === 'TASK') {
+      const member = await this.prisma.chatGroupMember.findUnique({
+        where: { groupId_userId: { groupId: group.id, userId } }
+      });
+      return !!member;
+    }
+
+    return false;
+  }
+
   async getMessages(groupId: string, actor: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser, skip: number = 0, take: number = 50) {
     const userId = actor.userId;
     const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
     if (!group) throw new NotFoundException('Chat group not found');
 
+    const hasAccess = await this.checkGroupAccess(group, actor);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have permission to read this chat');
+    }
+
     const member = await this.prisma.chatGroupMember.findUnique({
       where: { groupId_userId: { groupId, userId } },
       select: { clearedAt: true, joinedAt: true }
     });
-
-    if (!member) {
-      if (group.type === 'DIRECT') {
-        throw new ForbiddenException('You do not have permission to read this direct chat');
-      }
-      
-      const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
-      let hasAccess = false;
-
-      if (isGlobalAdmin) {
-        hasAccess = true;
-      } else {
-        if (group.type === 'CUSTOM' || group.type === 'TASK') {
-          // Regional admins can view CUSTOM/TASK if they are in the group, but we already know they are not a member here.
-          // Let's see if we should allow regional admin to view TASK. For now, deny.
-          hasAccess = false;
-        } else if (group.type === 'DEPARTMENT' && group.departmentId) {
-          const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
-          if (visibleDepts && visibleDepts.includes(group.departmentId)) {
-            hasAccess = true;
-          } else {
-            const deptMember = await this.prisma.departmentMember.findUnique({
-              where: { departmentId_userId: { userId, departmentId: group.departmentId } }
-            });
-            if (deptMember && !deptMember.leftAt) {
-              hasAccess = true;
-            }
-          }
-        }
-      }
-
-      if (!hasAccess) {
-        throw new ForbiddenException('You do not have permission to read this chat');
-      }
-    }
 
     const whereClause: any = { groupId };
     
@@ -129,29 +134,9 @@ export class ChatService {
     });
     if (!group) throw new NotFoundException('Chat group not found');
 
-    const isGlobalAdmin = actor.roles.includes('ADMIN') && (await this.scopes.getVisibleDepartmentIds(actor)) === null;
-
-    const member = await this.prisma.chatGroupMember.findUnique({
-      where: { groupId_userId: { groupId, userId } }
-    });
-
-    if (!member && !isGlobalAdmin) {
-      if (group.type === 'DIRECT' || group.type === 'CUSTOM' || group.type === 'TASK') {
-        throw new ForbiddenException('You do not have permission to send messages to this chat');
-      }
-      if (group.type === 'DEPARTMENT' && group.departmentId) {
-        const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
-        if (visibleDepts && visibleDepts.includes(group.departmentId)) {
-          // Regional admin has access
-        } else {
-          const deptMember = await this.prisma.departmentMember.findUnique({
-            where: { departmentId_userId: { userId, departmentId: group.departmentId } }
-          });
-          if (!deptMember || deptMember.leftAt) {
-            throw new ForbiddenException('You do not have permission to send messages to this chat');
-          }
-        }
-      }
+    const hasAccess = await this.checkGroupAccess(group, actor);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have permission to send messages to this chat');
     }
 
     const message = await this.prisma.chatMessage.create({
@@ -420,7 +405,13 @@ export class ChatService {
     });
     for (const m of customMemberships) {
       if (m.group) {
-        rawGroups.push(m.group);
+        if (m.group.type === 'DEPARTMENT') {
+          if (m.group.departmentId && targetDeptIds.has(m.group.departmentId)) {
+            rawGroups.push(m.group);
+          }
+        } else {
+          rawGroups.push(m.group);
+        }
       }
     }
 
@@ -544,6 +535,11 @@ export class ChatService {
       }
     });
     if (!group) throw new NotFoundException('Chat group not found');
+
+    const hasAccess = await this.checkGroupAccess(group, actor);
+    if (!hasAccess) {
+      throw new ForbiddenException('You do not have permission to view members of this chat group');
+    }
 
     if (group.type === 'DEPARTMENT' && group.departmentId) {
       const deptMembers = await this.prisma.departmentMember.findMany({
@@ -794,6 +790,36 @@ export class ChatService {
   }
 
   async markGroupAsRead(groupId: string, userId: string) {
+    const group = await this.prisma.chatGroup.findUnique({
+      where: { id: groupId },
+      select: { id: true, type: true, departmentId: true }
+    });
+    if (!group) return { success: false };
+
+    let canUpsertMember = true;
+    if (group.type === 'DEPARTMENT' && group.departmentId) {
+      const [dept, deptMember, userRoles] = await Promise.all([
+        this.prisma.department.findUnique({
+          where: { id: group.departmentId },
+          select: { leaderUserId: true }
+        }),
+        this.prisma.departmentMember.findUnique({
+          where: { departmentId_userId: { userId, departmentId: group.departmentId } },
+          select: { leftAt: true }
+        }),
+        this.prisma.userRole.findMany({
+          where: { userId },
+          include: { role: true }
+        })
+      ]);
+      const isLeader = dept?.leaderUserId === userId;
+      const isMember = deptMember && !deptMember.leftAt;
+      const isAdmin = userRoles.some(r => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r.role?.code?.toUpperCase() || ''));
+      if (!isLeader && !isMember && !isAdmin) {
+        canUpsertMember = false;
+      }
+    }
+
     const unreadChatNotifications = await this.prisma.notificationTarget.findMany({
       where: {
         userId,
@@ -818,12 +844,14 @@ export class ChatService {
       });
     }
 
-    // Update lastReadAt on ChatGroupMember (upsert to handle users who are viewing without explicit ChatGroupMember record)
-    await this.prisma.chatGroupMember.upsert({
-      where: { groupId_userId: { groupId, userId } },
-      create: { groupId, userId, lastReadAt: new Date() },
-      update: { lastReadAt: new Date() }
-    });
+    if (canUpsertMember) {
+      // Update lastReadAt on ChatGroupMember (upsert to handle users who are viewing without explicit ChatGroupMember record)
+      await this.prisma.chatGroupMember.upsert({
+        where: { groupId_userId: { groupId, userId } },
+        create: { groupId, userId, lastReadAt: new Date() },
+        update: { lastReadAt: new Date() }
+      });
+    }
 
     this.realtime.emitToRoom(`group:${groupId}`, 'chat:group_read', { groupId, userId, readAt: new Date() });
 
