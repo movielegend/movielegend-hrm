@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import {StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl, TextInput} from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, ActivityIndicator, RefreshControl, TextInput, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../src/providers/AuthProvider';
 import { CustomAlert } from '../../../src/components/CustomAlert';
 import { getRoleBaseRoute } from '../../../src/utils/role-routing';
-import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 import { getEmployeeRequests, approveEmployeeRequest, rejectEmployeeRequest } from '../../../src/api/employee-requests.api';
@@ -27,6 +27,7 @@ const REQUEST_TYPES: { type: EmployeeRequestType | 'ALL', label: string, icon: k
 ];
 
 export default function LeaderRequestsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
   const rolePrefix = getRoleBaseRoute(user);
@@ -134,17 +135,20 @@ export default function LeaderRequestsScreen() {
   };
 
   return (
-    <Screen>
-      {/* 1. Header (Back button + Title on same row + Right Action Button) */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View style={styles.headerRow}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-              <MaterialCommunityIcons name="chevron-left" size={26} color="#0F172A" />
-            </Pressable>
-            <Text style={styles.title}>Duyệt yêu cầu</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+
+      {/* ── Top Header (#102739) ── */}
+      <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={styles.headerMainRow}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+            <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+          </Pressable>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>Duyệt yêu cầu</Text>
+            <Text style={styles.headerSubtitle}>Quản lý yêu cầu của nhân sự</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={styles.headerRightActions}>
             {isAccountantOrAdmin && (
               <Pressable 
                 style={[styles.headerExportBtn, isExporting && { opacity: 0.6 }]} 
@@ -177,185 +181,195 @@ export default function LeaderRequestsScreen() {
             </Pressable>
           </View>
         </View>
-        <Text style={styles.subtitle}>Quản lý yêu cầu của nhân sự</Text>
       </View>
 
-      {/* 2. Segmented Control */}
-      <View style={styles.segmentedContainer}>
-        <Pressable 
-          style={[styles.segmentBtn, activeTab === 'PENDING' && styles.segmentBtnActive]} 
-          onPress={() => setActiveTab('PENDING')}
-        >
-          <Text style={[styles.segmentText, activeTab === 'PENDING' && styles.segmentTextActive]}>Chờ xử lý</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.segmentBtn, activeTab === 'APPROVED' && styles.segmentBtnActive]} 
-          onPress={() => setActiveTab('APPROVED')}
-        >
-          <Text style={[styles.segmentText, activeTab === 'APPROVED' && styles.segmentTextActive]}>Đã duyệt</Text>
-        </Pressable>
-        <Pressable 
-          style={[styles.segmentBtn, activeTab === 'REJECTED' && styles.segmentBtnActive]} 
-          onPress={() => setActiveTab('REJECTED')}
-        >
-          <Text style={[styles.segmentText, activeTab === 'REJECTED' && styles.segmentTextActive]}>Từ chối</Text>
-        </Pressable>
-      </View>
-
-      {/* 3. Search Bar */}
-      <View style={styles.searchSection}>
-        <View style={styles.searchBar}>
-          <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm người gửi hoặc nội dung"
-            placeholderTextColor="#94A3B8"
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')}>
-              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
-            </Pressable>
-          )}
+      {/* ── Main Curved Sheet ── */}
+      <View style={styles.curvedSheet}>
+        {/* 2. Segmented Control */}
+        <View style={styles.segmentedContainer}>
+          <Pressable 
+            style={[styles.segmentBtn, activeTab === 'PENDING' && styles.segmentBtnActive]} 
+            onPress={() => setActiveTab('PENDING')}
+          >
+            <Text style={[styles.segmentText, activeTab === 'PENDING' && styles.segmentTextActive]}>Chờ xử lý</Text>
+          </Pressable>
+          <Pressable 
+            style={[styles.segmentBtn, activeTab === 'APPROVED' && styles.segmentBtnActive]} 
+            onPress={() => setActiveTab('APPROVED')}
+          >
+            <Text style={[styles.segmentText, activeTab === 'APPROVED' && styles.segmentTextActive]}>Đã duyệt</Text>
+          </Pressable>
+          <Pressable 
+            style={[styles.segmentBtn, activeTab === 'REJECTED' && styles.segmentBtnActive]} 
+            onPress={() => setActiveTab('REJECTED')}
+          >
+            <Text style={[styles.segmentText, activeTab === 'REJECTED' && styles.segmentTextActive]}>Từ chối</Text>
+          </Pressable>
         </View>
-      </View>
 
-      {/* 4. Categories Filter */}
-      <View style={styles.filterSection}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
-          {REQUEST_TYPES.map((t) => {
-            const isSelected = selectedType === t.type;
-            return (
-              <Pressable 
-                key={t.type} 
-                style={[styles.filterPill, isSelected && styles.filterPillActive]}
-                onPress={() => setSelectedType(t.type)}
-              >
-                <Text style={[styles.filterPillText, isSelected && styles.filterPillTextActive]}>
-                  {t.label}
-                </Text>
+        {/* 3. Search Bar */}
+        <View style={styles.searchSection}>
+          <View style={styles.searchBar}>
+            <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Tìm người gửi hoặc nội dung"
+              placeholderTextColor="#94A3B8"
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch('')}>
+                <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
               </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* 5. List */}
-      {isLoading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#1B382B" />
-        </View>
-      ) : requests.length === 0 ? (
-        <ScrollView 
-          contentContainerStyle={styles.emptyContainer}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-        >
-          <View style={styles.emptyIconBg}>
-            <MaterialCommunityIcons name="text-box-search-outline" size={54} color="#94A3B8" />
+            )}
           </View>
-          <Text style={styles.emptyText}>Không có yêu cầu phù hợp</Text>
-          <Text style={styles.emptySubtext}>Thử chọn danh mục khác hoặc thay đổi bộ lọc</Text>
-        </ScrollView>
-      ) : (
-        <ScrollView 
-          contentContainerStyle={styles.listContainer}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
-          showsVerticalScrollIndicator={false}
-        >
-          {requests.map((item: any) => {
-            const config = getTypeConfig(item.type);
-            const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '';
-            const userName = item.user?.profile?.fullName || item.user?.email || 'Nhân viên';
-            const statusObj = getStatusDisplay(item);
-            const initials = getInitials(userName);
-            
-            return (
-              <Pressable 
-                key={item.id} 
-                style={styles.card}
-                onPress={() => router.push(`${rolePrefix}/employee-requests/${item.id}` as any)}
-              >
-                <View style={styles.cardHeader}>
-                  <View style={styles.avatarBox}>
-                    <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+
+        {/* 4. Categories Filter */}
+        <View style={styles.filterSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
+            {REQUEST_TYPES.map((t) => {
+              const isSelected = selectedType === t.type;
+              return (
+                <Pressable 
+                  key={t.type} 
+                  style={[styles.filterPill, isSelected && styles.filterPillActive]}
+                  onPress={() => setSelectedType(t.type)}
+                >
+                  <Text style={[styles.filterPillText, isSelected && styles.filterPillTextActive]}>
+                    {t.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* 5. List */}
+        {isLoading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#102739" />
+          </View>
+        ) : requests.length === 0 ? (
+          <ScrollView 
+            contentContainerStyle={styles.emptyContainer}
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+          >
+            <View style={styles.emptyIconBg}>
+              <MaterialCommunityIcons name="text-box-search-outline" size={48} color="#0284C7" />
+            </View>
+            <Text style={styles.emptyText}>Không có yêu cầu phù hợp</Text>
+            <Text style={styles.emptySubtext}>Thử chọn danh mục khác hoặc thay đổi bộ lọc</Text>
+          </ScrollView>
+        ) : (
+          <ScrollView 
+            contentContainerStyle={styles.listContainer}
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+            showsVerticalScrollIndicator={false}
+          >
+            {requests.map((item: any) => {
+              const config = getTypeConfig(item.type);
+              const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '';
+              const userName = item.user?.profile?.fullName || item.user?.email || 'Nhân viên';
+              const statusObj = getStatusDisplay(item);
+              const initials = getInitials(userName);
+              
+              return (
+                <Pressable 
+                  key={item.id} 
+                  style={styles.card}
+                  onPress={() => router.push(`${rolePrefix}/employee-requests/${item.id}` as any)}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={styles.avatarBox}>
+                      <Text style={styles.avatarText}>{initials}</Text>
+                    </View>
+                    <View style={styles.cardHeaderMiddle}>
+                      <Text style={styles.cardUserName}>{userName}</Text>
+                      <Text style={styles.cardMeta}>{config.label} • {dateStr}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: statusObj.bg }]}>
+                      <Text style={[styles.statusBadgeText, { color: statusObj.color }]}>
+                        {statusObj.text}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.cardHeaderMiddle}>
-                    <Text style={styles.cardUserName}>{userName}</Text>
-                    <Text style={styles.cardMeta}>{config.label} • {dateStr}</Text>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: statusObj.bg }]}>
-                    <Text style={[styles.statusBadgeText, { color: statusObj.color }]}>
-                      {statusObj.text}
+                  
+                  <Text style={styles.cardTitle}>{item.title || config.label}</Text>
+                  {item.content ? (
+                    <Text style={styles.cardContent} numberOfLines={2}>{item.content}</Text>
+                  ) : null}
+                  
+                  {item.amount != null && (
+                    <Text style={styles.cardAmount}>
+                      {Number(item.amount).toLocaleString('vi-VN')} VNĐ
+                    </Text>
+                  )}
+
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.cardFooterLink}>
+                      Xem chi tiết & xử lý →
                     </Text>
                   </View>
-                </View>
-                
-                <Text style={styles.cardTitle}>{item.title || config.label}</Text>
-                {item.content ? (
-                  <Text style={styles.cardContent} numberOfLines={2}>{item.content}</Text>
-                ) : null}
-                
-                {item.amount != null && (
-                  <Text style={styles.cardAmount}>
-                    {Number(item.amount).toLocaleString('vi-VN')} VNĐ
-                  </Text>
-                )}
-
-                <View style={styles.cardFooter}>
-                  <Text style={styles.cardFooterLink}>
-                    Xem chi tiết & xử lý →
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      )}
-    </Screen>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    backgroundColor: '#FFFFFF',
+  container: {
+    flex: 1,
+    backgroundColor: '#102739',
+  },
+  headerWrap: {
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    paddingBottom: 16,
   },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerRow: {
+  headerMainRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   backBtn: {
+    padding: 4,
     marginRight: 6,
-    padding: 2,
+    marginLeft: -4,
   },
-  title: {
+  headerTitleWrap: {
+    flex: 1,
+  },
+  headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
-  subtitle: {
-    fontSize: 13,
-    color: '#64748B',
+  headerSubtitle: {
+    fontSize: 12.5,
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontWeight: '500',
     marginTop: 2,
-    marginLeft: 34,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerCreateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E3E2F',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 20,
     gap: 4,
   },
   headerCreateText: {
@@ -366,44 +380,46 @@ const styles = StyleSheet.create({
   headerExportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#059669',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 20,
     gap: 4,
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
   },
   headerExportText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
+  curvedSheet: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
   segmentedContainer: {
     flexDirection: 'row',
     backgroundColor: '#F1F5F9',
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 16,
     padding: 4,
-    borderRadius: 10,
+    borderRadius: 14,
     gap: 4,
   },
   segmentBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
   },
   segmentBtnActive: {
-    backgroundColor: '#1E3E2F',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: '#102739',
+    shadowColor: '#102739',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
     elevation: 2,
   },
   segmentText: {
@@ -417,7 +433,7 @@ const styles = StyleSheet.create({
   },
   searchSection: {
     paddingHorizontal: 16,
-    marginTop: 10,
+    marginTop: 12,
   },
   searchBar: {
     flexDirection: 'row',
@@ -425,9 +441,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 42,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 44,
     gap: 8,
   },
   searchInput: {
@@ -437,21 +453,21 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   filterSection: {
-    marginTop: 8,
+    marginTop: 10,
   },
   filterContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingVertical: 2,
     gap: 8,
   },
   filterPill: {
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: '#F1F5F9',
   },
   filterPillActive: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E0F2FE',
   },
   filterPillText: {
     fontSize: 13,
@@ -459,7 +475,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   filterPillTextActive: {
-    color: '#166534',
+    color: '#0284C7',
     fontWeight: '700',
   },
   centerContainer: {
@@ -473,22 +489,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingBottom: 40,
   },
   emptyIconBg: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F1F5F9',
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#E0F2FE',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   emptyText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 6,
   },
   emptySubtext: {
     fontSize: 13,
@@ -502,11 +518,11 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 16,
+    padding: 15,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#000',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -521,7 +537,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#D9E4DD',
+    backgroundColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
@@ -529,7 +545,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#1B382B',
+    color: '#102739',
   },
   cardHeaderMiddle: {
     flex: 1,
@@ -554,7 +570,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 4,
@@ -568,7 +584,7 @@ const styles = StyleSheet.create({
   cardAmount: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#166534',
+    color: '#0284C7',
     marginTop: 4,
   },
   cardFooter: {
@@ -582,6 +598,6 @@ const styles = StyleSheet.create({
   cardFooterLink: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1E3E2F',
+    color: '#102739',
   },
 });

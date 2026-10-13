@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useAppAlert } from '../../../src/contexts/AlertContext';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -731,26 +731,30 @@ export default function CreateRequestScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#F8FAFC' }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
-    >
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#F8FAFC' }}>
+    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#102739' }}>
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-              <MaterialCommunityIcons name="chevron-left" size={28} color="#0F172A" />
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
             </Pressable>
-            <Text style={styles.headerTitle}>Tạo đơn mới</Text>
-            <View style={{ flex: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>Tạo đơn mới</Text>
+              <Text style={styles.headerSubtitle}>Gửi yêu cầu của bạn trong vài bước.</Text>
+            </View>
             <View style={styles.topAvatarCircle}>
               <Text style={styles.topAvatarText}>{userInitials}</Text>
             </View>
           </View>
-          <Text style={styles.headerSubtitle}>Gửi yêu cầu của bạn trong vài bước.</Text>
         </View>
       </SafeAreaView>
+
+      <KeyboardAvoidingView 
+        style={styles.curvedSheet} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
+      >
 
       <ScrollView 
         ref={scrollViewRef}
@@ -2568,18 +2572,26 @@ export default function CreateRequestScreen() {
         </Pressable>
       </SafeAreaView>
     </KeyboardAvoidingView>
+  </View>
   );
 }
 
 const styles = StyleSheet.create({
+  curvedSheet: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
   content: {
     paddingBottom: 24,
   },
   header: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 10,
-    backgroundColor: '#F8FAFC',
+    paddingBottom: 16,
+    backgroundColor: '#102739',
   },
   headerRow: {
     flexDirection: 'row',
@@ -2588,32 +2600,32 @@ const styles = StyleSheet.create({
   backBtn: {
     padding: 4,
     marginLeft: -4,
-    marginRight: 6,
+    marginRight: 10,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0F2F20',
-    letterSpacing: -0.5,
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: 12.5,
+    color: 'rgba(255, 255, 255, 0.72)',
     marginTop: 2,
-    marginLeft: 34,
   },
   topAvatarCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#D9E4DD',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 12,
   },
   topAvatarText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#1B382B',
+    fontWeight: '800',
+    color: '#102739',
   },
   sectionHeadingWrap: {
     flexDirection: 'row',
@@ -2667,7 +2679,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gridIconBoxActive: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
   },
   gridColLabel: {
     fontSize: 11.5,
@@ -2702,15 +2714,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#D9E4DD',
+    backgroundColor: '#D1FAE5',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   userAvatarText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1B382B',
+    fontWeight: '800',
+    color: '#065F46',
   },
   userTextCol: {
     flex: 1,
@@ -2854,7 +2866,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     height: 50,
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2995,7 +3007,7 @@ const styles = StyleSheet.create({
     borderColor: '#0284C7',
   },
   calendarDaySelected: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
   },
   calendarDayText: {
     fontSize: 14,
