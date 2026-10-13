@@ -6,6 +6,7 @@ import {
   createShiftRegistration,
   createShiftSwap,
   deleteShift,
+  getDepartmentShiftAssignments,
   getMySchedule,
   getShifts,
   updateShift,
@@ -13,8 +14,10 @@ import {
 } from '../api/shifts.api';
 import { queryKeys } from '../constants/queryKeys';
 import type {
+  AssignShiftBatchPayload,
   AssignShiftPayload,
   CreateShiftPayload,
+  DepartmentAssignmentsQuery,
   ShiftRegistrationPayload,
   ShiftSwapPayload,
   UpdateShiftPayload,
@@ -64,6 +67,7 @@ export function useAssignShift() {
     mutationFn: (payload: AssignShiftPayload) => assignShift(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['shift-schedule'] });
+      void queryClient.invalidateQueries({ queryKey: ['shift-assignments-dept'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
@@ -72,13 +76,23 @@ export function useAssignShift() {
 export function useAssignShiftBatch() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { userIds: string[]; departmentId: string; shiftId: string; dates: string[] }) => assignShiftBatch(payload),
+    mutationFn: (payload: AssignShiftBatchPayload) => assignShiftBatch(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['shift-schedule'] });
+      void queryClient.invalidateQueries({ queryKey: ['shift-assignments-dept'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
+
+export function useDepartmentShiftAssignments(params?: DepartmentAssignmentsQuery, enabled = true) {
+  return useQuery({
+    queryKey: ['shift-assignments-dept', params?.departmentId, params?.startDate, params?.endDate],
+    queryFn: () => (params ? getDepartmentShiftAssignments(params) : Promise.resolve([])),
+    enabled: Boolean(enabled && params?.departmentId && params?.startDate && params?.endDate),
+  });
+}
+
 
 export function useCreateShiftRegistration() {
   const queryClient = useQueryClient();

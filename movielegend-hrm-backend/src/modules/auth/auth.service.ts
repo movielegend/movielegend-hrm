@@ -277,6 +277,14 @@ export class AuthService {
       this.notifications.emitCreated(result.notifPayload);
     }
 
+    if (dto.email) {
+      this.emailService
+        .sendRegistrationReceivedEmail(dto.email, dto.fullName, result.userCode)
+        .catch((e) => {
+          this.logger.error(`[AuthService] Failed to send registration received email to ${dto.email}`, e);
+        });
+    }
+
     return {
       id: result.id,
       userCode: result.userCode,

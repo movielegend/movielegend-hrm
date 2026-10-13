@@ -18,12 +18,14 @@ import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
 import { CustomAlert } from '../../components/CustomAlert';
 
 import { useAuth } from '../../providers/AuthProvider';
-import { useShifts, useAssignShiftBatch } from '../../hooks/useShifts';
+import { useShifts, useAssignShiftBatch, useDepartmentShiftAssignments } from '../../hooks/useShifts';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { useRegions } from '../../api/regions.api';
 import { useBranches } from '../../api/branches.api';
 import { useDepartments } from '../../hooks/useDepartments';
 import { normalizeApiError } from '../../utils/api-error';
+import { toIsoDate } from '../../utils/date-time';
+
 
 export function AssignShiftScreen() {
   const router = useRouter();
@@ -174,65 +176,7 @@ export function AssignShiftScreen() {
     ];
   }, [availableDepartments]);
 
-  // Employee/Leader Options
-  const employeeOptions: SelectOption[] = useMemo(() => {
-    if (!employeesQuery.data?.items) return [];
-    let items = employeesQuery.data.items;
-
-    if (isAdmin) {
-      if (effectiveRegionId !== 'ALL') {
-        items = items.filter((emp: any) => emp.department?.branch?.region?.id === effectiveRegionId);
-      }
-      if (selectedBranchId !== 'ALL') {
-        items = items.filter((emp: any) => emp.department?.branch?.id === selectedBranchId);
-      }
-      if (selectedDeptId !== 'ALL') {
-        items = items.filter((emp: any) => emp.department?.id === selectedDeptId || emp.departmentId === selectedDeptId);
-      }
-    } else {
-      // Leader assigns shift to staff in their own department + Leader themselves
-      if (leaderDeptId) {
-        items = items.filter((emp: any) => {
-          const empDeptId = emp.departmentId || emp.department?.id;
-          return empDeptId === leaderDeptId || emp.id === user?.id;
-        });
-      }
-    }
-
-    return items.map((emp: any) => {
-      const isMe = emp.id === user?.id;
-      const isLeaderRole = emp.roles?.some((r: any) => r.role?.code === 'LEADER' || r.name?.toUpperCase().includes('LEADER'));
-      const roleName = isMe ? 'Bạn (Leader)' : isLeaderRole ? 'Leader' : (emp.position?.name ?? 'Nhân viên');
-      const parts = [
-        roleName,
-        emp.department?.name ?? 'Chưa phân phòng',
-        emp.department?.branch?.name,
-      ].filter(Boolean);
-      return {
-        id: emp.id,
-        label: isMe ? `${emp.fullName ?? emp.userCode} (Bạn)` : (emp.fullName ?? emp.userCode),
-        subtitle: parts.join(' · '),
-        raw: emp,
-      };
-    });
-  }, [employeesQuery.data, isAdmin, effectiveRegionId, selectedBranchId, selectedDeptId, leaderDeptId, user?.id]);
-
-  // Shifts options
-  const shiftOptions: SelectOption[] = useMemo(() => {
-    if (!allShiftsQuery.data) return [];
-    let list = allShiftsQuery.data.filter((s: any) => s.isActive);
-    const currentDeptId = isAdmin ? (selectedDeptId !== 'ALL' ? selectedDeptId : null) : leaderDeptId;
-    if (currentDeptId) {
-      list = list.filter((s: any) => !s.departmentId || s.departmentId === currentDeptId);
-    }
-    return list.map((s: any) => ({
-      id: s.id,
-      label: s.name,
-      subtitle: `${s.startTime} - ${s.endTime}${s.department?.name ? ` · ${s.department.name}` : ' · Chung'}`,
-    }));
-  }, [allShiftsQuery.data, isAdmin, selectedDeptId, leaderDeptId]);
-
-  // Week Days array computation around workDate
+  // Week Days array computation around workDate (computed early for assignment lookup)
   const weekInfo = useMemo(() => {
     const currentDay = workDate.getDay();
     // Monday is start of week
@@ -267,6 +211,94 @@ export function AssignShiftScreen() {
     return { days, rangeStr };
   }, [workDate]);
 
+  const datesToAssign = useMemo(() => {
+    return selectedWeekdays
+      .map(index => weekInfo.days[index]?.dateIso)
+      .filter(Boolean) as string[];
+  }, [selectedWeekdays, weekInfo]);
+
+  // Query existing department shift assignments for the selected week
+  const currentTargetDeptId = isAdmin ? (selectedDeptId !== 'ALL' ? selectedDeptId : undefined) : leaderDeptId;
+  const deptAssignmentsQuery = useDepartmentShiftAssignments(
+    currentTargetDeptId && weekInfo.days[0]?.dateIso && weekInfo.days[6]?.dateIso
+      ? {
+          departmentId: currentTargetDeptId,
+          startDate: weekInfo.days[0].dateIso,
+          endDate: weekInfo.days[6].dateIso,
+        }
+      : undefined,
+    Boolean(currentTargetDeptId)
+  );
+  const existingAssignments = deptAssignmentsQuery.data || [];
+
+  // Employee/Leader Options
+  const employeeOptions: SelectOption[] = useMemo(() => {
+    if (!employeesQuery.data?.items) return [];
+    let items = employeesQuery.data.items;
+
+    if (isAdmin) {
+      if (effectiveRegionId !== 'ALL') {
+        items = items.filter((emp: any) => emp.department?.branch?.region?.id === effectiveRegionId);
+      }
+      if (selectedBranchId !== 'ALL') {
+        items = items.filter((emp: any) => emp.department?.branch?.id === selectedBranchId);
+      }
+      if (selectedDeptId !== 'ALL') {
+        items = items.filter((emp: any) => emp.department?.id === selectedDeptId || emp.departmentId === selectedDeptId);
+      }
+    } else {
+      // Leader assigns shift to staff in their own department + Leader themselves
+      if (leaderDeptId) {
+        items = items.filter((emp: any) => {
+          const empDeptId = emp.departmentId || emp.department?.id;
+          return empDeptId === leaderDeptId || emp.id === user?.id;
+        });
+      }
+    }
+
+    return items.map((emp: any) => {
+      const isMe = emp.id === user?.id;
+      const isLeaderRole = emp.roles?.some((r: any) => r.role?.code === 'LEADER' || r.name?.toUpperCase().includes('LEADER'));
+      const roleName = isMe ? 'Bạn (Leader)' : isLeaderRole ? 'Leader' : (emp.position?.name ?? 'Nhân viên');
+      const parts = [
+        roleName,
+        emp.department?.name ?? 'Chưa phân phòng',
+        emp.department?.branch?.name,
+      ].filter(Boolean);
+
+      // Check existing shift assignments in the selected dates
+      const assignedInDates = existingAssignments.filter(
+        (a: any) => a.userId === emp.id && datesToAssign.includes(toIsoDate(a.workDate))
+      );
+      if (assignedInDates.length > 0) {
+        const shiftNames = Array.from(new Set(assignedInDates.map((a: any) => a.shift?.name).filter(Boolean)));
+        parts.push(`⚡ Đang xếp: ${shiftNames.join(', ')}`);
+      }
+
+      return {
+        id: emp.id,
+        label: isMe ? `${emp.fullName ?? emp.userCode} (Bạn)` : (emp.fullName ?? emp.userCode),
+        subtitle: parts.join(' · '),
+        raw: emp,
+      };
+    });
+  }, [employeesQuery.data, isAdmin, effectiveRegionId, selectedBranchId, selectedDeptId, leaderDeptId, user?.id, existingAssignments, datesToAssign]);
+
+  // Shifts options
+  const shiftOptions: SelectOption[] = useMemo(() => {
+    if (!allShiftsQuery.data) return [];
+    let list = allShiftsQuery.data.filter((s: any) => s.isActive);
+    const currentDeptId = isAdmin ? (selectedDeptId !== 'ALL' ? selectedDeptId : null) : leaderDeptId;
+    if (currentDeptId) {
+      list = list.filter((s: any) => !s.departmentId || s.departmentId === currentDeptId);
+    }
+    return list.map((s: any) => ({
+      id: s.id,
+      label: s.name,
+      subtitle: `${s.startTime} - ${s.endTime}${s.department?.name ? ` · ${s.department.name}` : ' · Chung'}`,
+    }));
+  }, [allShiftsQuery.data, isAdmin, selectedDeptId, leaderDeptId]);
+
   const toggleWeekday = (index: number) => {
     setSelectedWeekdays(prev =>
       prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index].sort()
@@ -297,56 +329,104 @@ export function AssignShiftScreen() {
     }
   };
 
+  // Find employees that already have a different shift on any of the selected dates
+  const conflictedEmployees = useMemo(() => {
+    if (!selectedShift || selectedEmployees.length === 0 || datesToAssign.length === 0) return [];
+    const list: { id: string; name: string; shifts: string[] }[] = [];
+    for (const empOpt of selectedEmployees) {
+      const empId = empOpt.id;
+      if (!empId) continue;
+      const conflicts = existingAssignments.filter(
+        (a: any) => a.userId === empId && datesToAssign.includes(toIsoDate(a.workDate)) && a.shiftId !== selectedShift.id
+      );
+      if (conflicts.length > 0) {
+        const shiftNames = Array.from(new Set(conflicts.map((c: any) => c.shift?.name).filter(Boolean)));
+        list.push({ id: empId, name: empOpt.label, shifts: shiftNames as string[] });
+      }
+    }
+    return list;
+  }, [selectedShift, selectedEmployees, datesToAssign, existingAssignments]);
+
+  const executeAssignment = async (allowOverwrite: boolean) => {
+    if (datesToAssign.length === 0) {
+      CustomAlert.alert('Lỗi', 'Vui lòng chọn ít nhất một ngày trong tuần.');
+      return;
+    }
+
+    const deptGroups = new Map<string, string[]>();
+    for (const empOpt of selectedEmployees) {
+      const raw = (empOpt as any).raw;
+      const dId = raw?.department?.id || (isAdmin ? (selectedDeptId !== 'ALL' ? selectedDeptId : undefined) : leaderDeptId);
+      if (!dId) {
+        CustomAlert.alert('Cảnh báo', `Nhân sự "${empOpt.label}" chưa xác định được phòng ban áp dụng.`);
+        return;
+      }
+      const empId = empOpt.id;
+      if (!empId) continue;
+      if (!deptGroups.has(dId)) {
+        deptGroups.set(dId, []);
+      }
+      deptGroups.get(dId)!.push(empId);
+    }
+
+    for (const [deptId, uIds] of deptGroups.entries()) {
+      if (!selectedShift?.id) continue;
+      await assignBatchMutation.mutateAsync({
+        userIds: uIds,
+        departmentId: deptId,
+        shiftId: selectedShift.id,
+        dates: datesToAssign,
+        allowOverwrite,
+        reason: allowOverwrite ? 'Điều chuyển / Vá ca bởi Leader' : undefined,
+      });
+    }
+
+    CustomAlert.alert(
+      'Thành công',
+      allowOverwrite
+        ? `Đã phân ca & điều chuyển thành công cho ${selectedEmployees.length} nhân sự.`
+        : `Đã phân ca tuần thành công cho ${selectedEmployees.length} ${isAdmin ? 'Leader' : 'nhân viên'}.`,
+      [{ text: 'OK', onPress: () => router.back() }]
+    );
+  };
+
   const handleSubmit = async () => {
     if (selectedEmployees.length === 0 || !selectedShift) return;
 
-    try {
-      const datesToAssign = selectedWeekdays
-        .map(index => weekInfo.days[index]?.dateIso)
-        .filter(Boolean) as string[];
-
-      if (datesToAssign.length === 0) {
-        CustomAlert.alert('Lỗi', 'Vui lòng chọn ít nhất một ngày trong tuần.');
-        return;
-      }
-
-      // Group users by departmentId
-      const deptGroups = new Map<string, string[]>();
-      for (const empOpt of selectedEmployees) {
-        const raw = (empOpt as any).raw;
-        const dId = raw?.department?.id;
-        if (!dId) {
-          CustomAlert.alert('Cảnh báo', `Nhân sự "${empOpt.label}" chưa được phân vào phòng ban nào.`);
-          return;
-        }
-        const empId = empOpt.id;
-        if (!empId) continue;
-        if (!deptGroups.has(dId)) {
-          deptGroups.set(dId, []);
-        }
-        deptGroups.get(dId)!.push(empId);
-      }
-
-      for (const [deptId, uIds] of deptGroups.entries()) {
-        if (!selectedShift?.id) continue;
-        await assignBatchMutation.mutateAsync({
-          userIds: uIds,
-          departmentId: deptId,
-          shiftId: selectedShift.id,
-          dates: datesToAssign,
-        });
-      }
+    if (conflictedEmployees.length > 0) {
+      const namesList = conflictedEmployees
+        .slice(0, 3)
+        .map(c => `• ${c.name}: ${c.shifts.join(', ')}`)
+        .join('\n');
+      const moreText = conflictedEmployees.length > 3 ? `\nvà ${conflictedEmployees.length - 3} nhân sự khác...` : '';
 
       CustomAlert.alert(
-        'Thành công',
-        `Đã phân ca tuần thành công cho ${selectedEmployees.length} ${isAdmin ? 'Leader' : 'nhân viên'}.`,
-        [{ text: 'OK', onPress: () => router.back() }]
+        'Điều chuyển ca làm việc (Vá ca)',
+        `Phát hiện ${conflictedEmployees.length} nhân sự đã có lịch làm việc trong ngày đã chọn:\n\n${namesList}${moreText}\n\nBạn có muốn điều chuyển/vá ca các nhân sự này sang "${selectedShift.label}" không?\n(Chỉ áp dụng với nhân sự chưa check-in)`,
+        [
+          { text: 'Hủy bỏ', style: 'cancel' },
+          {
+            text: 'Đồng ý điều chuyển',
+            onPress: () => {
+              void executeAssignment(true).catch(error => {
+                const normalized = normalizeApiError(error);
+                CustomAlert.alert('Lỗi phân ca', normalized.message);
+              });
+            },
+          },
+        ]
       );
+      return;
+    }
+
+    try {
+      await executeAssignment(false);
     } catch (error) {
       const normalized = normalizeApiError(error);
       CustomAlert.alert('Lỗi phân ca', normalized.message);
     }
   };
+
 
   const isFormValid = selectedEmployees.length > 0 && !!selectedShift && selectedWeekdays.length > 0;
 
@@ -516,6 +596,23 @@ export function AssignShiftScreen() {
               </View>
               <Ionicons name="chevron-down" size={18} color="#64748B" />
             </Pressable>
+
+            {/* Reassign / Vá ca Warning Notice */}
+            {conflictedEmployees.length > 0 && (
+              <View style={styles.reassignNoticeBox}>
+                <View style={styles.reassignNoticeIconCircle}>
+                  <Ionicons name="swap-horizontal" size={16} color="#D97706" />
+                </View>
+                <View style={styles.reassignNoticeContent}>
+                  <Text style={styles.reassignNoticeTitle}>
+                    Có {conflictedEmployees.length} nhân sự đã có lịch trong ngày đã chọn
+                  </Text>
+                  <Text style={styles.reassignNoticeSubtitle}>
+                    Hệ thống sẽ tự động điều chuyển / vá sang ca này khi bạn xác nhận (áp dụng với nhân sự chưa check-in).
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
 
           {/* CARD 03: Lịch áp dụng */}
@@ -884,6 +981,43 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#102739',
     flex: 1,
+  },
+
+  /* ── Reassign / Vá ca Notice ── */
+  reassignNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 12,
+    marginTop: 12,
+    gap: 10,
+  },
+  reassignNoticeIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  reassignNoticeContent: {
+    flex: 1,
+  },
+  reassignNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  reassignNoticeSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#B45309',
+    lineHeight: 16,
   },
 
   /* ── Card 03: Weekdays ── */

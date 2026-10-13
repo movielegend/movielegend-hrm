@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Post, Delete, Param } from '@nestjs/common';
+import { Body, Controller, Get, Post, Delete, Param, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { AssignShiftDto, BatchAssignShiftDto } from './dto/shift-assignment.dto';
+import { AssignShiftDto, BatchAssignShiftDto, DepartmentAssignmentsQueryDto } from './dto/shift-assignment.dto';
 import { ShiftRegistrationDto, ShiftSwapDto } from './dto/shift-request.dto';
 import { ShiftAssignmentsService } from './shift-assignments.service';
 
@@ -31,6 +31,15 @@ export class ShiftAssignmentsController {
     return this.shiftAssignmentsService.mySchedule(actor.userId);
   }
 
+  @Permissions('shift.read')
+  @Get('department')
+  getDepartmentAssignments(
+    @Query() query: DepartmentAssignmentsQueryDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.shiftAssignmentsService.getDepartmentAssignments(query, actor);
+  }
+
   @Permissions('shift.register')
   @Post('registrations')
   register(@Body() dto: ShiftRegistrationDto, @CurrentUser() actor: AuthenticatedUser) {
@@ -49,3 +58,4 @@ export class ShiftAssignmentsController {
     return this.shiftAssignmentsService.revokeAssignment(id, actor);
   }
 }
+

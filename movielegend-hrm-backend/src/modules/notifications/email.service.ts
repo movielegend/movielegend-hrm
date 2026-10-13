@@ -12,21 +12,69 @@ export class EmailService {
     const host = this.config.get<string>('SMTP_HOST');
     const port = this.config.get<number>('SMTP_PORT');
     const user = this.config.get<string>('SMTP_USER');
-    const pass = this.config.get<string>('SMTP_PASS');
-    this.from = this.config.get<string>('SMTP_FROM') || '"MovieLegend HRM" <noreply@movielegend.vn>';
+    const rawPass = this.config.get<string>('SMTP_PASS');
+    const pass = rawPass ? rawPass.replace(/^"|"$/g, '').trim() : rawPass;
+    const numPort = Number(port) || 587;
+    const rawFrom = this.config.get<string>('SMTP_FROM');
+    this.from = rawFrom ? rawFrom.replace(/^"|"$/g, '').trim() : '"MovieLegend HRM" <noreply@movielegend.vn>';
 
-    if (host && port && user && pass) {
+    if (host && numPort && user && pass) {
       this.transporter = nodemailer.createTransport({
         host,
-        port,
-        secure: port === 465, // true for 465, false for other ports
+        port: numPort,
+        secure: numPort === 465, // true for 465, false for other ports
         auth: {
           user,
           pass,
         },
         family: 4, // Ép dùng IPv4 tránh lỗi ENETUNREACH khi mạng không hỗ trợ IPv6
       } as any);
-      this.logger.log(`EmailService configured with host: ${host}`);
+      this.logger.log(`EmailService configured with host: ${host}, user: ${user}, port: ${numPort}`);
+    } else {
+      this.logger.warn(`EmailService NOT configured: missing credentials (host=${host}, user=${user}, port=${numPort})`);
+    }
+  }
+
+  async sendRegistrationReceivedEmail(toEmail: string, fullName: string, userCode?: string): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`Cannot send registration email to ${toEmail} because SMTP is not configured.`);
+      return;
+    }
+
+    try {
+      const subject = '[Movie Legend HRM] Tiếp nhận yêu cầu đăng ký tài khoản thành công';
+      const html = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); padding: 25px; text-align: center; color: #ffffff;">
+            <h2 style="margin: 0; font-size: 20px;">MOVIE LEGEND HRM</h2>
+            <p style="margin: 5px 0 0; font-size: 13px; color: #93c5fd;">Thông báo tiếp nhận yêu cầu đăng ký tài khoản</p>
+          </div>
+          <div style="padding: 25px;">
+            <p>Xin chào <strong>${fullName}</strong>,</p>
+            <p>Hệ thống <strong>MovieLegend HRM</strong> xác nhận đã tiếp nhận thông tin đăng ký tài khoản nhân viên của bạn.</p>
+            ${userCode ? `<p>Mã nhân viên tạm thời: <strong style="font-family: monospace; font-size: 15px; color: #2563eb;">${userCode}</strong></p>` : ''}
+            <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px 15px; margin: 18px 0; border-radius: 0 6px 6px 0;">
+              <p style="margin: 0; font-size: 13px; color: #1e40af;">
+                <strong>Trạng thái:</strong> Đang chờ Quản trị viên và Trưởng phòng ban xét duyệt. Bạn sẽ nhận được email thông báo ngay khi tài khoản được duyệt.
+              </p>
+            </div>
+            <p style="font-size: 13px; color: #64748b;">Nếu có thắc mắc, vui lòng liên hệ phòng Nhân sự Movie Legend.</p>
+            <br/>
+            <p style="margin: 0;">Trân trọng,<br/><strong>Ban Quản Trị MovieLegend</strong></p>
+          </div>
+        </div>
+      `;
+
+      await this.transporter.sendMail({
+        from: this.from,
+        to: toEmail,
+        subject,
+        html,
+      });
+
+      this.logger.log(`Registration received email sent successfully to ${toEmail}`);
+    } catch (error) {
+      this.logger.error(`Failed to send registration received email to ${toEmail}`, error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -37,16 +85,24 @@ export class EmailService {
     }
 
     try {
-      const subject = 'Tài khoản MovieLegend HRM của bạn đã được duyệt';
+      const subject = '[Movie Legend HRM] Tài khoản của bạn đã được phê duyệt thành công';
       const html = `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <h2 style="color: #4CAF50;">Chúc mừng!</h2>
-          <p>Chào <strong>${fullName}</strong>,</p>
-          <p>Tài khoản của bạn trên hệ thống <strong>MovieLegend HRM</strong> đã được ban quản trị phê duyệt.</p>
-          <p>Bây giờ bạn đã có thể đăng nhập vào ứng dụng và sử dụng các tính năng của hệ thống.</p>
-          <br/>
-          <p>Trân trọng,</p>
-          <p><strong>Ban Quản Trị MovieLegend</strong></p>
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 25px; text-align: center; color: #ffffff;">
+            <h2 style="margin: 0; font-size: 20px;">XÉT DUYỆT THÀNH CÔNG</h2>
+            <p style="margin: 5px 0 0; font-size: 13px; color: #d1fae5;">Chào mừng bạn đến với Movie Legend</p>
+          </div>
+          <div style="padding: 25px;">
+            <p>Chào <strong>${fullName}</strong>,</p>
+            <p>Tài khoản của bạn trên hệ thống <strong>MovieLegend HRM</strong> đã được Ban Quản trị phê duyệt chính thức.</p>
+            <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 12px 15px; margin: 18px 0; border-radius: 0 6px 6px 0;">
+              <p style="margin: 0; font-size: 14px; font-weight: 600; color: #065f46;">
+                ✓ Bạn đã có thể đăng nhập vào ứng dụng Web & Mobile để sử dụng các tính năng!
+              </p>
+            </div>
+            <br/>
+            <p style="margin: 0;">Trân trọng,<br/><strong>Ban Quản Trị MovieLegend</strong></p>
+          </div>
         </div>
       `;
 
@@ -60,6 +116,44 @@ export class EmailService {
       this.logger.log(`Account approval email sent successfully to ${toEmail}`);
     } catch (error) {
       this.logger.error(`Failed to send approval email to ${toEmail}`, error instanceof Error ? error.stack : String(error));
+    }
+  }
+
+  async sendAccountRejectedEmail(toEmail: string, fullName: string, reason?: string): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`Cannot send rejection email to ${toEmail} because SMTP is not configured.`);
+      return;
+    }
+
+    try {
+      const subject = '[Movie Legend HRM] Thông báo kết quả xét duyệt tài khoản';
+      const html = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); padding: 25px; text-align: center; color: #ffffff;">
+            <h2 style="margin: 0; font-size: 20px;">THÔNG BÁO XÉT DUYỆT</h2>
+            <p style="margin: 5px 0 0; font-size: 13px; color: #fee2e2;">Movie Legend HRM</p>
+          </div>
+          <div style="padding: 25px;">
+            <p>Chào <strong>${fullName}</strong>,</p>
+            <p>Yêu cầu khởi tạo tài khoản của bạn trên hệ thống <strong>MovieLegend HRM</strong> đã không được phê duyệt.</p>
+            ${reason ? `<div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 12px 15px; margin: 18px 0; border-radius: 0 6px 6px 0; color: #991b1b;"><strong>Lý do từ chối:</strong> ${reason}</div>` : ''}
+            <p style="font-size: 13px; color: #64748b;">Nếu bạn có thắc mắc hoặc cần chỉnh sửa lại thông tin, vui lòng liên hệ phòng Nhân sự / Quản trị viên để được hỗ trợ.</p>
+            <br/>
+            <p style="margin: 0;">Trân trọng,<br/><strong>Ban Quản Trị MovieLegend</strong></p>
+          </div>
+        </div>
+      `;
+
+      await this.transporter.sendMail({
+        from: this.from,
+        to: toEmail,
+        subject,
+        html,
+      });
+
+      this.logger.log(`Account rejection email sent successfully to ${toEmail}`);
+    } catch (error) {
+      this.logger.error(`Failed to send rejection email to ${toEmail}`, error instanceof Error ? error.stack : String(error));
     }
   }
   async sendPasswordResetOtpEmail(toEmail: string, otpCode: string, fullName: string): Promise<void> {

@@ -61,7 +61,25 @@ export interface AssignShiftPayload {
   departmentId: string;
   shiftId: string;
   workDate: string;
+  allowOverwrite?: boolean;
+  reason?: string;
 }
+
+export interface AssignShiftBatchPayload {
+  userIds: string[];
+  departmentId: string;
+  shiftId: string;
+  dates: string[];
+  allowOverwrite?: boolean;
+  reason?: string;
+}
+
+export interface DepartmentAssignmentsQuery {
+  departmentId: string;
+  startDate: string;
+  endDate: string;
+}
+
 
 export interface ShiftRegistrationPayload {
   shiftId: string;
