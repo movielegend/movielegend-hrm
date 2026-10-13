@@ -26,7 +26,6 @@ import { assertSocketUrl } from '../../constants/env';
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
 import { PageHeader } from '../../components/PageHeader';
-import { GlossyHeaderBackground } from '../../components/common/GlossyHeaderBackground';
 import { PrimaryButton } from '../../components/Buttons';
 import ImageView from '../../components/ImageViewer/ImageViewer';
 import { FacebookPhotoGrid, type FacebookGridLayoutType } from './components/FacebookPhotoGrid';
@@ -193,11 +192,10 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
-        <GlossyHeaderBackground idPrefix="newsfeedHeader" />
         <View style={newsStyles.headerMainRow}>
           <View style={{ flex: 1, marginRight: 12 }}>
             <Text style={newsStyles.headerBrand}>MOVIE LEGEND</Text>
@@ -368,7 +366,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
           ) : !posts.isLoading ? (
             <View style={newsStyles.emptyWrap}>
               <View style={newsStyles.emptyIconCircle}>
-                <MaterialCommunityIcons name="newspaper-variant-outline" size={48} color="#1B3B2B" />
+                <MaterialCommunityIcons name="newspaper-variant-outline" size={48} color="#102739" />
               </View>
               <Text style={newsStyles.emptyTitle}>
                 {activeTab === 'following' ? 'Chưa có bài viết theo dõi' : 'Chưa có bài đăng'}
@@ -476,7 +474,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   if (postQuery.isLoading) {
     return (
       <View style={newsStyles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
         <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
           <View style={newsStyles.headerRow}>
             <Pressable style={newsStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
@@ -488,7 +486,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
           </View>
         </View>
         <View style={[newsStyles.curvedSheetWhite, { justifyContent: 'center', alignItems: 'center' }]}>
-          <ActivityIndicator color="#1B3B2B" size="large" />
+          <ActivityIndicator color="#102739" size="large" />
         </View>
       </View>
     );
@@ -497,7 +495,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   if (!post) {
     return (
       <View style={newsStyles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
         <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
           <View style={newsStyles.headerRow}>
             <Pressable style={newsStyles.backBtn} onPress={() => router.back()} hitSlop={10}>
@@ -567,7 +565,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -963,7 +961,7 @@ export function CreatePostScreen() {
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -1027,7 +1025,7 @@ export function CreatePostScreen() {
                 disabled={uploading}
               >
                 <View style={newsStyles.dropzoneIconWrap}>
-                  <MaterialCommunityIcons name="image-outline" size={24} color="#1B3B2B" />
+                  <MaterialCommunityIcons name="image-outline" size={24} color="#102739" />
                 </View>
                 <Text style={newsStyles.dropzoneText}>
                   {uploading
@@ -1289,7 +1287,7 @@ export function PendingNewsfeedListScreen() {
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -1319,7 +1317,7 @@ export function PendingNewsfeedListScreen() {
             paddingBottom: Math.max(insets.bottom, 16) + 24,
           }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#1B3B2B" />
+            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#102739" />
           }
           showsVerticalScrollIndicator={false}
         >
@@ -1398,7 +1396,7 @@ export function PendingNewsfeedListScreen() {
           ) : !posts.isLoading ? (
             <View style={newsStyles.emptyWrap}>
               <View style={newsStyles.emptyIconCircle}>
-                <MaterialCommunityIcons name="file-document-check-outline" size={48} color="#1B3B2B" />
+                <MaterialCommunityIcons name="file-document-check-outline" size={48} color="#102739" />
               </View>
               <Text style={newsStyles.emptyTitle}>Không có bài viết chờ duyệt</Text>
               <Text style={newsStyles.emptySubtitle}>Bài viết cần phê duyệt sẽ hiển thị tại đây.</Text>
@@ -1475,7 +1473,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
 
   return (
     <View style={newsStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" translucent={false} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -1494,7 +1492,7 @@ export function PendingNewsfeedDetailScreen({ postId }: { postId: string }) {
       <View style={newsStyles.curvedSheetWhite}>
         {postQuery.isLoading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator color="#1B3B2B" size="large" />
+            <ActivityIndicator color="#102739" size="large" />
           </View>
         ) : !post ? (
           <View style={newsStyles.emptyWrap}>
@@ -2232,6 +2230,7 @@ const newsStyles = StyleSheet.create({
     backgroundColor: '#102739',
   },
   headerWrap: {
+    backgroundColor: '#102739',
     paddingHorizontal: 20,
     paddingBottom: 16,
     overflow: 'hidden',

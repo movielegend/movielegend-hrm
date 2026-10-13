@@ -43,6 +43,8 @@ import {
   Boxes,
   ClipboardCheck,
   Zap,
+  Bot,
+  Sparkles,
   Plus,
   Minus,
   Check,
@@ -58,16 +60,11 @@ import {
   CORE_APP_KEYS,
   AppRegistryItem,
   getAppRoute,
+  isAppAllowedForRole,
 } from '../../../constants/app-registry';
 import { usePinnedApps } from '../../../hooks/usePinnedApps';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// Pre-grouped categories to avoid re-filtering on every render
-const CATEGORIZED_APPS = APP_CATEGORIES.map(cat => ({
-  ...cat,
-  apps: ALL_APPS_LIST.filter(a => a.category === cat.id),
-}));
 
 interface AllServicesModalProps {
   visible: boolean;
@@ -112,6 +109,8 @@ export function renderAppIcon(iconName: string, color: string, size = 24, stroke
     case 'Boxes': return <Boxes size={size} color={color} strokeWidth={strokeWidth} />;
     case 'ClipboardCheck': return <ClipboardCheck size={size} color={color} strokeWidth={strokeWidth} />;
     case 'Zap': return <Zap size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Bot': return <Bot size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'Sparkles': return <Sparkles size={size} color={color} strokeWidth={strokeWidth} />;
     case 'ArrowRightLeft': return <ArrowRightLeft size={size} color={color} strokeWidth={strokeWidth} />;
     default: return <Briefcase size={size} color={color} strokeWidth={strokeWidth} />;
   }
@@ -238,6 +237,13 @@ export function AllServicesModal({
   }, [visible, pinnedKeys, initialEditMode]);
 
   const selectedKeySet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
+
+  const categorizedApps = useMemo(() => {
+    return APP_CATEGORIES.map(cat => ({
+      ...cat,
+      apps: ALL_APPS_LIST.filter(a => a.category === cat.id && isAppAllowedForRole(a, role)),
+    })).filter(cat => cat.apps.length > 0);
+  }, [role]);
 
   const handleTogglePin = useCallback((appKey: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -424,8 +430,8 @@ export function AllServicesModal({
               </View>
             )}
 
-            {/* Render danh mục đã pre-grouped */}
-            {CATEGORIZED_APPS.map(category => (
+            {/* Render danh mục đã lọc theo phân quyền (role) */}
+            {categorizedApps.map(category => (
               <View key={category.id} style={styles.drawerSection}>
                 <Text style={styles.drawerSectionHeader}>{category.label}</Text>
                 <View style={styles.modalServiceGrid}>

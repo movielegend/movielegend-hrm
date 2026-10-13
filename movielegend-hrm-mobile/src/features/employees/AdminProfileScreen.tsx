@@ -390,6 +390,12 @@ export function AdminProfileScreen() {
                         title="Báo cáo sự cố"
                         onPress={() => router.push('/admin/asset-incidents')}
                       />
+                      <FeatureItem
+                        icon="robot"
+                        iconType="mci"
+                        title="Trợ lý AI"
+                        onPress={() => router.push('/admin/ai-chat')}
+                      />
                     </View>
                   </View>
 

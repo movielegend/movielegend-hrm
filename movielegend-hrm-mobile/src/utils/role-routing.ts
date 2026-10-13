@@ -19,34 +19,95 @@ export const roleRoutePriority: Array<{ role: UserRole; route: AppRoute }> = [
   { role: 'EMPLOYEE', route: '/employee/(tabs)' },
 ];
 
+export function hasUserRole(
+  user: AuthUser | null,
+  targetRole: 'ADMIN' | 'HR' | 'ACCOUNTANT' | 'WAREHOUSE_MANAGER' | 'LEADER' | 'EMPLOYEE'
+): boolean {
+  if (!user) return false;
+  const roles = user.roles || [];
+  const roleCodes = roles.map((r: any) =>
+    String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+  );
+  const positionName = (user.position?.name || '').toLowerCase();
+  const departmentName = (user.department?.name || '').toLowerCase();
+
+  switch (targetRole) {
+    case 'ADMIN':
+      return roleCodes.some((c) => c === 'ADMIN' || c === 'SUPER_ADMIN' || c === 'SUPERADMIN' || c === 'SYSTEM_ADMIN');
+    case 'HR':
+      return (
+        roleCodes.some((c) => c === 'HR' || c.includes('HR_') || c.includes('_HR') || c === 'HUMAN_RESOURCE') ||
+        departmentName.includes('nhân sự') ||
+        positionName.includes('nhân sự')
+      );
+    case 'ACCOUNTANT':
+      return (
+        roleCodes.some(
+          (c) =>
+            c.includes('ACCOUNTANT') ||
+            c === 'KT' ||
+            c === 'KETOAN' ||
+            c === 'CHIEF_ACCOUNTANT'
+        ) ||
+        departmentName.includes('kế toán') ||
+        departmentName.includes('tài chính') ||
+        positionName.includes('kế toán') ||
+        positionName.includes('tài chính')
+      );
+    case 'WAREHOUSE_MANAGER':
+      return (
+        roleCodes.some((c) => c.includes('WAREHOUSE') || c.includes('KHO')) ||
+        departmentName.includes('kho') ||
+        positionName.includes('thủ kho')
+      );
+    case 'LEADER':
+      return (
+        roleCodes.some(
+          (c) =>
+            c === 'LEADER' ||
+            c.includes('LEAD') ||
+            c.includes('TRUONG_PHONG') ||
+            c === 'MANAGER' ||
+            c === 'DEPARTMENT_HEAD'
+        ) ||
+        positionName.includes('trưởng') ||
+        positionName.includes('quản lý')
+      );
+    case 'EMPLOYEE':
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function getRoleBaseRoute(user: AuthUser | null): RoleBaseRoute {
   if (!user) return '/employee';
-  const roleBasePriority: Array<{ role: UserRole; route: RoleBaseRoute }> = [
-    { role: 'ADMIN', route: '/admin' },
-    { role: 'HR', route: '/hr' },
-    { role: 'ACCOUNTANT', route: '/hr' },
-    { role: 'WAREHOUSE_MANAGER', route: '/warehouse-manager' },
-    { role: 'LEADER', route: '/leader' },
-    { role: 'EMPLOYEE', route: '/employee' },
-  ];
-  const matched = roleBasePriority.find((item) => user.roles.includes(item.role));
-  return matched?.route ?? '/employee';
+  if (hasUserRole(user, 'ADMIN')) return '/admin';
+  if (hasUserRole(user, 'HR')) return '/hr';
+  if (hasUserRole(user, 'ACCOUNTANT')) return '/hr';
+  if (hasUserRole(user, 'WAREHOUSE_MANAGER')) return '/warehouse-manager';
+  if (hasUserRole(user, 'LEADER')) return '/leader';
+  return '/employee';
 }
 
 export function getHomeRouteForUser(user: AuthUser | null): AppRoute | '/deactivated-account' {
   if (!user) return '/login';
   if (user.accountStatus === 'DEACTIVATED_30_DAYS' || Boolean(user.deletionScheduledAt)) return '/deactivated-account';
-  const matched = roleRoutePriority.find((item) => user.roles.includes(item.role));
-  return matched?.route ?? '/employee/(tabs)';
+  if (hasUserRole(user, 'ADMIN')) return '/admin/(tabs)';
+  if (hasUserRole(user, 'HR')) return '/hr/(tabs)';
+  if (hasUserRole(user, 'ACCOUNTANT')) return '/hr/(tabs)';
+  if (hasUserRole(user, 'WAREHOUSE_MANAGER')) return '/warehouse-manager';
+  if (hasUserRole(user, 'LEADER')) return '/leader/(tabs)';
+  return '/employee/(tabs)';
 }
 
 export function canAccessRoleRoute(user: AuthUser | null, route: string): boolean {
   if (!user) return route === '/login';
   // Allow ADMIN to access any route
-  if (user.roles.includes('ADMIN')) return true;
+  if (hasUserRole(user, 'ADMIN')) return true;
   
   // Cho phép Nhân sự (HR) và Kế toán (ACCOUNTANT) có thẩm quyền quản trị & nghiệp vụ được phép truy cập các màn hình HR, Leader, Employee, Admin
-  if (user.roles.includes('HR') || user.roles.includes('ACCOUNTANT')) {
+  if (hasUserRole(user, 'HR') || hasUserRole(user, 'ACCOUNTANT')) {
     if (
       route.startsWith('/hr') ||
       route.startsWith('/leader') ||
@@ -57,7 +118,7 @@ export function canAccessRoleRoute(user: AuthUser | null, route: string): boolea
   }
 
   // Cho phép Quản lý (LEADER) được phép truy cập vào các màn hình của Quản lý (LEADER) và Nhân viên (EMPLOYEE)
-  if (user.roles.includes('LEADER') && (route.startsWith('/employee') || route.startsWith('/leader'))) return true;
+  if (hasUserRole(user, 'LEADER') && (route.startsWith('/employee') || route.startsWith('/leader'))) return true;
   
   const baseRoute = getRoleBaseRoute(user);
   return route.startsWith(baseRoute);

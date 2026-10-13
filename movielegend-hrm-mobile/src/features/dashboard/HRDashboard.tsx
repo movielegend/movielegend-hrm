@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
-import { useAttendanceDashboardStats } from '../../hooks/useAttendance';
+import { useAttendanceDashboardStats, useCurrentAttendance } from '../../hooks/useAttendance';
 import { getVaultWithdrawalRequests } from '../../api/employees.api';
 import { getEmployeeRequests } from '../../api/employee-requests.api';
 import { useNewsfeedPosts } from '../../hooks/useNewsfeed';
@@ -37,6 +37,7 @@ import {
   ShieldCheck,
   MessageSquare,
   Receipt,
+  Bot,
   ChevronDown,
   ChevronUp,
   Plus,
@@ -67,8 +68,23 @@ export function HRDashboard() {
   const [isQuickExpanded, setIsQuickExpanded] = useState(false);
 
   // Role detection
-  const isAccountant = Boolean(user?.roles?.includes('ACCOUNTANT'));
-  const isOnlyAccountant = isAccountant && !user?.roles?.includes('HR') && !user?.roles?.includes('ADMIN');
+  const isAccountant = Boolean(
+    user?.roles?.some((r: any) => {
+      const code = String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+      return code.includes('ACCOUNTANT') || code === 'KT' || code === 'KETOAN';
+    }) ||
+    user?.position?.name?.toLowerCase().includes('kế toán') ||
+    user?.department?.name?.toLowerCase().includes('kế toán')
+  );
+  const isHr = Boolean(user?.roles?.some((r: any) => {
+    const code = String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+    return code === 'HR' || code.includes('HR_');
+  }));
+  const isAdmin = Boolean(user?.roles?.some((r: any) => {
+    const code = String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+    return code === 'ADMIN' || code === 'SUPER_ADMIN';
+  }));
+  const isOnlyAccountant = isAccountant && !isHr && !isAdmin;
 
   // Branches System
   const branchesQuery = useBranches();
@@ -105,8 +121,11 @@ export function HRDashboard() {
   }, [branches]);
 
   const handleSelectBranch = (option: SelectOption) => {
-    setSelectedBranchId(option.value);
-    SecureStore.setItemAsync('HR_ACTIVE_BRANCH_ID', option.value).catch(() => {});
+    const val = option.value ? String(option.value) : null;
+    setSelectedBranchId(val);
+    if (val) {
+      SecureStore.setItemAsync('HR_ACTIVE_BRANCH_ID', val).catch(() => {});
+    }
   };
 
   // Pinned Apps System (1 dòng 4 app ban đầu, dropdown mở rộng app phụ + Tất cả)
@@ -133,6 +152,7 @@ export function HRDashboard() {
   // Attendance Stats
   const currentDateStr = new Date().toISOString().split('T')[0];
   const { data: attStats } = useAttendanceDashboardStats({ fromDate: currentDateStr, toDate: currentDateStr });
+  const { data: currentAttendance } = useCurrentAttendance();
 
   // Pending Employee Requests (for "Đơn chờ duyệt")
   const { data: pendingRequests = [] } = useQuery({
@@ -204,6 +224,15 @@ export function HRDashboard() {
     await queryClient.invalidateQueries();
     setRefreshing(false);
   }, [queryClient]);
+
+  // Attendance Check-in / Check-out quick action
+  const handleAttendanceAction = useCallback(() => {
+    if (currentAttendance?.state === 'CHECKED_IN') {
+      router.push('/hr/attendance/check-out' as any);
+    } else {
+      router.push('/hr/attendance/check-in' as any);
+    }
+  }, [currentAttendance?.state, router]);
 
   // Greeting by hour
   const getGreeting = () => {
@@ -294,14 +323,24 @@ export function HRDashboard() {
               </View>
             </View>
 
-            {/* Frosted Glass Notification Bell Button */}
-            <Pressable
-              style={styles.bellButton}
-              onPress={() => router.push('/hr/notifications' as any)}
-            >
-              <Bell size={22} color="#FFFFFF" strokeWidth={1.5} />
-              {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
-            </Pressable>
+            {/* Header Right Actions: AI Assistant & Notification Bell */}
+            <View style={styles.headerRightActions}>
+              <Pressable
+                style={styles.aiHeaderButton}
+                onPress={() => router.push('/hr/ai-chat' as any)}
+                accessibilityLabel="Trợ lý AI"
+              >
+                <Bot size={20} color="#FFFFFF" strokeWidth={2.2} />
+              </Pressable>
+
+              <Pressable
+                style={styles.bellButton}
+                onPress={() => router.push('/hr/notifications' as any)}
+              >
+                <Bell size={22} color="#FFFFFF" strokeWidth={1.5} />
+                {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -321,39 +360,71 @@ export function HRDashboard() {
               />
             </View>
 
-            {/* Top row inside card: Role Tag + Ngày hôm nay thay lời chào */}
+            {/* Top row inside card: Role Tag + Attendance Tag + Ngày hôm nay */}
             <View style={styles.cardHeaderRow}>
-              <View
-                style={[
-                  styles.adminRoleTag,
-                  isOnlyAccountant ? { backgroundColor: '#ECFDF5' } : { backgroundColor: '#E0F2FE' },
-                ]}
-              >
-                {isOnlyAccountant ? (
-                  <>
-                    <Receipt size={14} color="#059669" strokeWidth={1.8} />
-                    <Text style={[styles.adminRoleTagText, { color: '#059669' }]}>
-                      Kế toán & Tài chính
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={14} color="#0284C7" strokeWidth={1.8} />
-                    <Text style={[styles.adminRoleTagText, { color: '#0284C7' }]}>
-                      Quản trị Nhân sự
-                    </Text>
-                  </>
-                )}
+              <View style={styles.cardHeaderLeftGroup}>
+                <View
+                  style={[
+                    styles.adminRoleTag,
+                    isOnlyAccountant ? { backgroundColor: '#ECFDF5' } : { backgroundColor: '#E0F2FE' },
+                  ]}
+                >
+                  {isOnlyAccountant ? (
+                    <>
+                      <Receipt size={14} color="#059669" strokeWidth={1.8} />
+                      <Text style={[styles.adminRoleTagText, { color: '#059669' }]}>
+                        Kế toán & Tài chính
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck size={14} color="#0284C7" strokeWidth={1.8} />
+                      <Text style={[styles.adminRoleTagText, { color: '#0284C7' }]}>
+                        Quản trị Nhân sự
+                      </Text>
+                    </>
+                  )}
+                </View>
+
+                {/* Chữ ra ca / vào ca - nhẹ nhàng, không viền, chữ màu đen */}
+                <Pressable
+                  onPress={handleAttendanceAction}
+                  style={({ pressed }) => [
+                    styles.attendanceHeaderTag,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Chấm công"
+                >
+                  <Clock
+                    size={11}
+                    color="#000000"
+                    strokeWidth={2.2}
+                  />
+                  <Text style={styles.attendanceHeaderTagText}>
+                    {currentAttendance?.state === 'CHECKED_IN'
+                      ? 'Ra ca'
+                      : currentAttendance?.state === 'CHECKED_OUT'
+                      ? 'Đã xong ca'
+                      : 'Vào ca'}
+                  </Text>
+                </Pressable>
               </View>
+
               <Text style={styles.cardHeaderDateText}>
                 {formattedTodayDate}
               </Text>
             </View>
 
-            {/* Big Bold Live Time: 17:50:29 */}
-            <View style={styles.dateNumberRow}>
+            {/* Big Bold Live Time */}
+            <Pressable
+              onPress={handleAttendanceAction}
+              style={({ pressed }) => [styles.dateNumberRow, pressed && { opacity: 0.75 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Chấm công"
+            >
               <LiveClockText style={styles.bigDateNumberText} />
-            </View>
+            </Pressable>
 
             {/* Bottom 2-Column Metrics Row */}
             <View style={styles.cardMetricsRow}>
@@ -376,7 +447,7 @@ export function HRDashboard() {
                   if (isOnlyAccountant) {
                     router.push('/hr/financial-requests' as any);
                   } else {
-                    router.push('/hr/my-tasks' as any);
+                    router.push('/hr/tasks' as any);
                   }
                 }}
               >
@@ -987,6 +1058,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     marginTop: 1,
   },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  aiHeaderButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.32)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   bellButton: {
     width: 44,
     height: 44,
@@ -1050,6 +1136,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 6,
   },
+  cardHeaderLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   adminRoleTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1061,6 +1152,20 @@ const styles = StyleSheet.create({
   adminRoleTagText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  attendanceHeaderTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  attendanceHeaderTagText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#000000',
   },
   cardHeaderDateText: {
     fontSize: 13,

@@ -50,10 +50,10 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       {/* Top Forest Green Header */}
       <View style={{
-        backgroundColor: '#1B3B2B',
+        backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,
@@ -89,7 +89,7 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
         <Pressable
           onPress={() => router.push(`${basePath}/feedbacks/create` as any)}
           style={{
-            backgroundColor: '#1B3B2B',
+            backgroundColor: '#102739',
             height: 48,
             borderRadius: 12,
             alignItems: 'center',
@@ -115,9 +115,9 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
                   paddingHorizontal: 18,
                   paddingVertical: 8,
                   borderRadius: 20,
-                  backgroundColor: isActive ? '#1B3B2B' : '#FFFFFF',
+                  backgroundColor: isActive ? '#102739' : '#FFFFFF',
                   borderWidth: 1,
-                  borderColor: isActive ? '#1B3B2B' : '#E2E8F0',
+                  borderColor: isActive ? '#102739' : '#E2E8F0',
                 }}
               >
                 <Text style={{
@@ -135,7 +135,7 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
         {/* List Content or Empty State */}
         <View style={{ gap: 12 }}>
           {feedbacksQuery.isLoading ? (
-            <ActivityIndicator style={{ marginVertical: 30 }} color="#1B3B2B" />
+            <ActivityIndicator style={{ marginVertical: 30 }} color="#102739" />
           ) : !feedbacksQuery.data || !feedbacksQuery.data.items || feedbacksQuery.data.items.length === 0 ? (
             <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}>
               {/* Illustrated mint circle */}
@@ -250,10 +250,10 @@ export function CreateFeedbackScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       {/* Top Forest Green Header */}
       <View style={{
-        backgroundColor: '#1B3B2B',
+        backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,
@@ -327,7 +327,7 @@ export function CreateFeedbackScreen() {
               <Switch
                 value={field.value}
                 onValueChange={field.onChange}
-                trackColor={{ false: '#E5E7EB', true: '#1B3B2B' }}
+                trackColor={{ false: '#E5E7EB', true: '#102739' }}
                 thumbColor={'#FFFFFF'}
               />
             )}
@@ -361,7 +361,7 @@ export function CreateFeedbackScreen() {
             style={{
               height: 48,
               borderRadius: 12,
-              backgroundColor: '#1B3B2B',
+              backgroundColor: '#102739',
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -401,7 +401,7 @@ export function FeedbackDetailScreen() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
-        <ActivityIndicator size="large" color="#1B3B2B" />
+        <ActivityIndicator size="large" color="#102739" />
       </View>
     );
   }
@@ -409,9 +409,9 @@ export function FeedbackDetailScreen() {
   if (isError || !feedback) {
     return (
       <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
         <View style={{
-          backgroundColor: '#1B3B2B',
+          backgroundColor: '#102739',
           paddingTop: Math.max(insets.top, 16),
           paddingBottom: 20,
           paddingHorizontal: 16,
@@ -440,10 +440,10 @@ export function FeedbackDetailScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
       {/* Top Forest Green Header */}
       <View style={{
-        backgroundColor: '#1B3B2B',
+        backgroundColor: '#102739',
         paddingTop: Math.max(insets.top, 16),
         paddingBottom: 20,
         paddingHorizontal: 16,

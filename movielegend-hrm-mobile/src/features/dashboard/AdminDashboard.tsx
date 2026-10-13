@@ -118,8 +118,11 @@ export function AdminDashboard() {
   }, [branches]);
 
   const handleSelectBranch = (option: SelectOption) => {
-    setSelectedBranchId(option.value);
-    SecureStore.setItemAsync('ADMIN_ACTIVE_BRANCH_ID', option.value).catch(() => {});
+    const val = option.value ? String(option.value) : null;
+    setSelectedBranchId(val);
+    if (val) {
+      SecureStore.setItemAsync('ADMIN_ACTIVE_BRANCH_ID', val).catch(() => {});
+    }
   };
 
   // Pinned Apps System (1 dòng 4 app ban đầu, dropdown mở rộng app phụ + Tất cả)
@@ -295,14 +298,24 @@ export function AdminDashboard() {
               </View>
             </View>
 
-            {/* Frosted Glass Notification Bell Button */}
-            <Pressable
-              style={styles.bellButton}
-              onPress={() => router.push('/admin/notifications' as any)}
-            >
-              <Bell size={22} color="#FFFFFF" strokeWidth={1.5} />
-              {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
-            </Pressable>
+            {/* Header Right Actions: AI Assistant & Notification Bell */}
+            <View style={styles.headerRightActions}>
+              <Pressable
+                style={styles.aiHeaderButton}
+                onPress={() => router.push('/admin/ai-chat' as any)}
+                accessibilityLabel="Trợ lý AI"
+              >
+                <Bot size={20} color="#FFFFFF" strokeWidth={2.2} />
+              </Pressable>
+
+              <Pressable
+                style={styles.bellButton}
+                onPress={() => router.push('/admin/notifications' as any)}
+              >
+                <Bell size={22} color="#FFFFFF" strokeWidth={1.5} />
+                {unreadNotifications > 0 && <View style={styles.bellRedDot} />}
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -927,6 +940,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     marginTop: 1,
   },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  aiHeaderButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.32)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   bellButton: {
     width: 44,
     height: 44,
@@ -1479,7 +1507,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   modalSheet: {
     backgroundColor: '#FFFFFF',

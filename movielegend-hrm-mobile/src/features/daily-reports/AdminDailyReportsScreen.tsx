@@ -752,8 +752,8 @@ export function AdminDailyReportsScreen() {
   // RENDER LIST VIEW
   // -------------------------------------------------------------
   return (
-    <Screen backgroundColor="#F8FAFC">
-      {/* ── Solid Forest Green Hero Banner matching Screen 2 ── */}
+    <Screen backgroundColor="#102739" statusBarStyle="light">
+      {/* ── Deep Navy Hero Banner ── */}
       <View style={styles.greenBannerContainer}>
         <View style={styles.greenBannerTopNav}>
           <Pressable onPress={() => router.back()} style={styles.greenBannerBackBtn} hitSlop={10}>
@@ -809,7 +809,7 @@ export function AdminDailyReportsScreen() {
             onPress={() => setIsDeptModalVisible(true)}
           >
             <View style={styles.deptSelectLeft}>
-              <MaterialCommunityIcons name="domain" size={20} color="#204E3B" />
+              <MaterialCommunityIcons name="domain" size={20} color="#102739" />
               <Text style={styles.deptSelectText} numberOfLines={1}>
                 {selectedDeptName}
               </Text>
@@ -891,15 +891,15 @@ export function AdminDailyReportsScreen() {
         {/* Report Cards List */}
         {reportsQuery.isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#204E3B" />
+            <ActivityIndicator size="small" color="#102739" />
             <Text style={styles.loadingPromptText}>Đang tải danh sách báo cáo...</Text>
           </View>
         ) : reports.length === 0 ? (
           <View style={styles.templateEmptyContainer}>
             <View style={styles.templateEmptyIconCircle}>
-              <MaterialCommunityIcons name="file-document-outline" size={38} color="#204E3B" />
+              <MaterialCommunityIcons name="file-document-outline" size={38} color="#102739" />
               <View style={styles.templateMagnifyIconBadge}>
-                <Ionicons name="search" size={14} color="#204E3B" />
+                <Ionicons name="search" size={14} color="#102739" />
               </View>
             </View>
             <Text style={styles.templateEmptyTitle}>Chưa có báo cáo phù hợp</Text>
@@ -1888,9 +1888,9 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
-  /* Green Hero Banner & Calendar (Screen 2) */
+  /* Deep Navy Hero Banner & Calendar */
   greenBannerContainer: {
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     paddingTop: 12,
     paddingBottom: 16,
     paddingHorizontal: 16,
@@ -2024,7 +2024,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   metricTabCountActive: {
-    color: '#204E3B',
+    color: '#102739',
   },
   metricTabLabel: {
     fontSize: 12,
@@ -2032,7 +2032,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   metricTabLabelActive: {
-    color: '#204E3B',
+    color: '#102739',
     fontWeight: '700',
   },
   metricTabActiveUnderline: {
@@ -2041,7 +2041,7 @@ const styles = StyleSheet.create({
     left: 8,
     right: 8,
     height: 3,
-    backgroundColor: '#204E3B',
+    backgroundColor: '#102739',
     borderRadius: 2,
   },
 
