@@ -227,7 +227,28 @@ export function LeaderDashboard() {
     (Array.isArray((user as any)?.departmentLinks) && (user as any).departmentLinks[0]?.department?.name) ||
     '';
   const cleanDeptName = rawDeptName.replace(/\s*\(.*?\)\s*/g, '').trim();
-  const leaderRoleTitle = cleanDeptName ? `Trưởng phòng • ${cleanDeptName}` : 'Quản lý Đội ngũ';
+
+  // Rút gọn tên phòng/mã phòng để hiển thị ngắn gọn, tránh tràn mất chữ
+  const formatShortDept = (name: string, code?: string) => {
+    if (code && code.trim().length > 0) return code.trim();
+    if (!name) return '';
+    let clean = (name || '').replace(/\s*\(.*?\)\s*/g, '').trim();
+    clean = clean.replace(/^(phòng\s*ban|phòng|bộ\s*phận|ban)\s+/i, '').trim();
+    const upper = clean.toUpperCase();
+    if (upper.includes('HÀNH CHÍNH NHÂN SỰ') || upper.includes('NHÂN SỰ')) return 'HCNS';
+    if (upper.includes('XỬ LÝ KHIẾU NẠI') || upper.includes('KHIẾU NẠI')) return 'XLKN';
+    if (upper.includes('PHÁT TRIỂN THỊ TRƯỜNG')) return 'PTTT';
+    if (upper.includes('KINH DOANH')) return 'KINH DOANH';
+    if (upper.includes('KỸ THUẬT')) return 'KỸ THUẬT';
+    if (upper.includes('KHO VẬN')) return 'KHO VẬN';
+    return clean;
+  };
+
+  const shortDeptName = formatShortDept(
+    cleanDeptName,
+    user?.department?.code || (Array.isArray((user as any)?.departmentLinks) && (user as any).departmentLinks[0]?.department?.code)
+  );
+  const leaderRoleTitle = shortDeptName ? `Trưởng phòng • ${shortDeptName}` : 'Quản lý Đội ngũ';
 
   return (
     <Screen
@@ -336,7 +357,9 @@ export function LeaderDashboard() {
                   onPress={() => router.push('/leader/leveling' as any)}
                 >
                   <Crown size={14} color="#1D4ED8" strokeWidth={2.5} />
-                  <Text style={styles.adminRoleTagText}>Lv.{currentLevelNumber} • {cleanDeptName ? `Trưởng phòng ${cleanDeptName}` : levelTitle}</Text>
+                  <Text style={styles.adminRoleTagText} numberOfLines={1} ellipsizeMode="tail">
+                    Lv.{currentLevelNumber} • {shortDeptName || levelTitle}
+                  </Text>
                 </Pressable>
 
                 {/* Chữ ra ca / vào ca - nhẹ nhàng cạnh Trưởng phòng DEV, không viền, chữ màu đen */}
@@ -1174,11 +1197,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     gap: 4,
+    maxWidth: 165,
   },
   adminRoleTagText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#102739',
+    flexShrink: 1,
   },
   attendanceHeaderTag: {
     flexDirection: 'row',
