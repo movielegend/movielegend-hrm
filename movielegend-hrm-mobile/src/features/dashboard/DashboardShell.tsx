@@ -171,14 +171,6 @@ export function DashboardShell({
                   </SecondaryButton>
                 ) : null}
 
-                {hasPermission(user, 'role.assign') ? (
-                  <SecondaryButton
-                    onPress={() => router.push('/admin/leaders')}
-                  >
-                    Gán Leader
-                  </SecondaryButton>
-                ) : null}
-
                 {hasPermission(user, 'task.read_all') ? (
                   <SecondaryButton
                     onPress={() => router.push('/admin/tasks')}

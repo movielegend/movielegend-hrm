@@ -6,10 +6,21 @@ import {
   resetMyPinnedAppsApi,
   PinnedAppsResponse,
 } from '../api/pinned-apps.api';
-import { CORE_APP_KEYS, APP_REGISTRY, AppRegistryItem } from '../constants/app-registry';
+import { CORE_APP_KEYS, APP_REGISTRY, AppRegistryItem, isUserInLiveDepartment, isAppAllowedForRole } from '../constants/app-registry';
 import { useMemo } from 'react';
 
-export function usePinnedApps() {
+function resolveUserRole(user: any): 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' {
+  if (!user?.roles || !Array.isArray(user.roles)) return 'EMPLOYEE';
+  const roleStrings = user.roles.map((r: any) =>
+    (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+  );
+  if (roleStrings.some((r: string) => r.includes('ADMIN'))) return 'ADMIN';
+  if (roleStrings.some((r: string) => r.includes('HR'))) return 'HR';
+  if (roleStrings.some((r: string) => r.includes('LEADER'))) return 'LEADER';
+  return 'EMPLOYEE';
+}
+
+export function usePinnedApps(roleOverride?: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR') {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -38,14 +49,28 @@ export function usePinnedApps() {
     },
   });
 
-  // Toàn bộ các keys đã ghim (tối thiểu 4 app, mặc định là 4 core apps)
+  // Toàn bộ các keys đã ghim (tối thiểu 4 app, tự động lọc theo vai trò)
   const pinnedKeys = useMemo(() => {
+    const role = roleOverride || resolveUserRole(user);
     const rawKeys = data?.pinnedApps && data.pinnedApps.length >= 4
       ? data.pinnedApps
       : [...CORE_APP_KEYS];
-    const valid = rawKeys.filter(k => Boolean(APP_REGISTRY[k]));
-    return valid.length >= 4 ? valid : [...CORE_APP_KEYS];
-  }, [data?.pinnedApps]);
+
+    const valid = rawKeys.filter(k => {
+      const item = APP_REGISTRY[k];
+      if (!item) return false;
+      return isAppAllowedForRole(item, role, user);
+    });
+
+    const fallbackCore = CORE_APP_KEYS.filter(k => {
+      const item = APP_REGISTRY[k];
+      return item && isAppAllowedForRole(item, role, user);
+    });
+
+    if (valid.length >= 4) return valid;
+    const merged = Array.from(new Set([...valid, ...fallbackCore]));
+    return merged.length >= 4 ? merged : fallbackCore;
+  }, [data?.pinnedApps, user, roleOverride]);
 
   // Danh sách các AppRegistryItem đầy đủ
   const allPinnedApps = useMemo(() => {

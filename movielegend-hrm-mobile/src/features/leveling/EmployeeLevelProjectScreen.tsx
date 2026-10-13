@@ -36,7 +36,18 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/employee');
+      const roleCodes = (user?.roles || []).map((r: any) =>
+        String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+      );
+      if (roleCodes.some(c => c === 'HR' || c.includes('HR_'))) {
+        router.replace('/hr' as any);
+      } else if (roleCodes.some(c => c === 'LEADER')) {
+        router.replace('/leader' as any);
+      } else if (roleCodes.some(c => c === 'ADMIN' || c === 'SUPER_ADMIN')) {
+        router.replace('/admin/(tabs)' as any);
+      } else {
+        router.replace('/employee' as any);
+      }
     }
   };
 

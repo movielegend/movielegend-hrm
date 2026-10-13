@@ -133,14 +133,18 @@ function extractPostLayout(post?: NewsfeedPostDto | null): FacebookGridLayoutTyp
 
 // ── Newsfeed List Screen ──
 
-export function NewsfeedListScreen({ canModerate = false }: { canModerate?: boolean }) {
+export function NewsfeedListScreen({
+  canModerate = false,
+  showBackButton = false,
+}: {
+  canModerate?: boolean;
+  showBackButton?: boolean;
+}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showAlert, showConfirm } = useAppAlert();
   const tabBarScroll = useTabBarScroll();
-  
-  const [activeTab, setActiveTab] = useState<'latest' | 'following'>('latest');
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
 
@@ -177,10 +181,7 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
   }
 
   const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as any)?.items ?? [];
-
-  const displayedPosts = activeTab === 'following'
-    ? postItems.filter((p: NewsfeedPostDto) => (p as any).isFollowing || (p as any).isBookmarked)
-    : postItems;
+  const displayedPosts = postItems;
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -197,6 +198,15 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
       {/* Header Container */}
       <View style={[newsStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={newsStyles.headerMainRow}>
+          {showBackButton && (
+            <Pressable
+              onPress={() => router.back()}
+              style={{ marginRight: 10, padding: 4 }}
+              hitSlop={8}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+            </Pressable>
+          )}
           <View style={{ flex: 1, marginRight: 12 }}>
             <Text style={newsStyles.headerBrand}>MOVIE LEGEND</Text>
             <Text style={newsStyles.headerTitle}>Bảng tin công ty</Text>
@@ -218,38 +228,6 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
 
       {/* Main Curved White Sheet */}
       <View style={newsStyles.curvedSheet}>
-        {/* Sub-tabs: Mới nhất & Theo dõi */}
-        <View style={newsStyles.tabRow}>
-          <Pressable
-            style={newsStyles.tabItem}
-            onPress={() => setActiveTab('latest')}
-          >
-            <MaterialCommunityIcons
-              name="clock-outline"
-              size={16}
-              color={activeTab === 'latest' ? '#102739' : '#94A3B8'}
-            />
-            <Text style={[newsStyles.tabText, activeTab === 'latest' && newsStyles.tabTextActive]}>
-              Mới nhất
-            </Text>
-            {activeTab === 'latest' && <View style={newsStyles.tabIndicator} />}
-          </Pressable>
-
-          <Pressable
-            style={newsStyles.tabItem}
-            onPress={() => setActiveTab('following')}
-          >
-            <MaterialCommunityIcons
-              name="star-outline"
-              size={16}
-              color={activeTab === 'following' ? '#102739' : '#94A3B8'}
-            />
-            <Text style={[newsStyles.tabText, activeTab === 'following' && newsStyles.tabTextActive]}>
-              Theo dõi
-            </Text>
-            {activeTab === 'following' && <View style={newsStyles.tabIndicator} />}
-          </Pressable>
-        </View>
 
         {/* Post List / Feed */}
         <ScrollView
@@ -368,13 +346,9 @@ export function NewsfeedListScreen({ canModerate = false }: { canModerate?: bool
               <View style={newsStyles.emptyIconCircle}>
                 <MaterialCommunityIcons name="newspaper-variant-outline" size={48} color="#102739" />
               </View>
-              <Text style={newsStyles.emptyTitle}>
-                {activeTab === 'following' ? 'Chưa có bài viết theo dõi' : 'Chưa có bài đăng'}
-              </Text>
+              <Text style={newsStyles.emptyTitle}>Chưa có bài đăng</Text>
               <Text style={newsStyles.emptySubtitle}>
-                {activeTab === 'following'
-                  ? 'Các bài viết từ đồng nghiệp theo dõi sẽ xuất hiện tại đây.'
-                  : 'Chia sẻ thông tin đầu tiên với công ty.'}
+                Chia sẻ thông tin đầu tiên với công ty.
               </Text>
               <Pressable
                 style={newsStyles.createPostBtn}

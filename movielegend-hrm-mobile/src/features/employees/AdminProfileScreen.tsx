@@ -291,16 +291,16 @@ export function AdminProfileScreen() {
                         onPress={() => router.push('/admin/shifts')}
                       />
                       <FeatureItem
-                        icon="file-document-outline"
+                        icon="clipboard-check-outline"
                         iconType="mci"
-                        title="Duyệt đơn"
-                        onPress={() => router.push('/leader/employee-requests')}
+                        title="Duyệt đơn từ"
+                        onPress={() => router.push('/admin/approvals')}
                       />
                       <FeatureItem
                         icon="account-outline"
                         iconType="mci"
                         title="Duyệt tài khoản"
-                        onPress={() => router.push('/admin/approvals')}
+                        onPress={() => router.push('/admin/approvals/account')}
                       />
                     </View>
                   </View>

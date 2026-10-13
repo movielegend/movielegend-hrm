@@ -44,6 +44,8 @@ import { shadows } from '../../theme/shadows';
 import type { OtReport, OtReportStatus, EligibleCheckinDay } from '../../types/ot-report.types';
 import { businessDateToday, formatDate, formatTime, formatDateTime } from '../../utils/date-time';
 import { normalizeApiError } from '../../utils/api-error';
+import { useAuth } from '../../providers/AuthProvider';
+import { isUserInLiveDepartment } from '../../constants/app-registry';
 
 export function OtReportHomeScreen() {
   const router = useRouter();
@@ -681,6 +683,16 @@ export function CreateOtReportScreen() {
 type OtFilterStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
 
 export function LeaderOtReviewScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const rawRoles = user?.roles || [];
+  const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+  const roleCodes = userRoles.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
+  const isAdmin =
+    roleCodes.includes('ADMIN') ||
+    roleCodes.includes('SUPER_ADMIN');
+  const isLive = isUserInLiveDepartment(user);
+
   const [selectedStatus, setSelectedStatus] = useState<OtFilterStatus>('PENDING');
   const reportsQuery = usePendingOtReports({ status: selectedStatus, page: 1, limit: 50 });
   const approveMutation = useApproveOtReport();
@@ -786,6 +798,28 @@ export function LeaderOtReviewScreen() {
       case 'ALL': return 'Chưa có báo cáo OT nào';
     }
   };
+
+  if (!isLive && !isAdmin) {
+    return (
+      <Screen>
+        <PageHeader title="Duyệt OT Live" subtitle="Xét duyệt báo cáo tăng ca" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, marginTop: 40 }}>
+          <MaterialCommunityIcons name="shield-lock-outline" size={64} color="#94A3B8" />
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#0F172A', marginTop: 16, textAlign: 'center' }}>
+            Quyền truy cập hạn chế
+          </Text>
+          <Text style={{ fontSize: 14, color: '#64748B', marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
+            Chức năng Duyệt OT Live chỉ dành riêng cho Quản lý phòng Live và Quản trị viên hệ thống.
+          </Text>
+          <View style={{ marginTop: 24, width: '100%', maxWidth: 200 }}>
+            <PrimaryButton onPress={() => (router.canGoBack() ? router.back() : router.replace('/leader/(tabs)' as any))}>
+              Quay lại
+            </PrimaryButton>
+          </View>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>

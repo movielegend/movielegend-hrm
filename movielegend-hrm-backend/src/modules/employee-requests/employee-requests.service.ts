@@ -1081,27 +1081,76 @@ export class EmployeeRequestsService {
     return isMember;
   }
 
-  private async isAccountantLeadActor(actor: AuthenticatedUser): Promise<boolean> {
+  async isAccountingLeaderOnly(actor: AuthenticatedUser): Promise<boolean> {
     if (this.scope.isRegionAdmin(actor)) return false;
-    const isGlobalAdmin = (actor.roles.includes('ADMIN') && !this.scope.isRegionAdmin(actor)) || this.scope.isGlobalAdmin(actor);
-    if (isGlobalAdmin || actor.roles.some((r) => ['ACCOUNTANT_LEAD', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'DIRECTOR'].includes(r.toUpperCase()))) {
+
+    // 1. Kiểm tra roles chuyên biệt cho Trưởng phòng Kế toán
+    const normalizedRoles = (actor.roles || []).map((r) => r.toUpperCase());
+    const isLeadRole = normalizedRoles.some((r) =>
+      [
+        'ACCOUNTANT_LEAD',
+        'CHIEF_ACCOUNTANT',
+        'KT_TRUONG',
+        'LEAD_ACCOUNTANT',
+        'TRUONG_PHONG_KE_TOAN',
+        'TP_KETOAN',
+        'TP_KE_TOAN',
+      ].includes(r),
+    );
+    if (isLeadRole) {
       return true;
     }
+
+    // 2. Query thông tin người dùng từ DB (phòng ban lãnh đạo & chức vụ)
     const user = await this.prisma.user.findUnique({
       where: { id: actor.userId },
       select: {
         ledDepartments: {
           select: { name: true, code: true },
         },
+        profile: {
+          select: {
+            position: {
+              select: { name: true, code: true },
+            },
+          },
+        },
       },
     });
+
     if (!user) return false;
-    return user.ledDepartments.some(
-      (d) =>
-        d.name.toLowerCase().includes('kế toán') ||
-        d.name.toLowerCase().includes('tài chính') ||
-        ['KT', 'TC', 'ACC', 'ACCOUNTING'].includes(d.code?.toUpperCase() || ''),
-    );
+
+    // 3. Chức danh (Position) là Kế toán trưởng hoặc Trưởng phòng kế toán / tài chính
+    const posName = user.profile?.position?.name?.toLowerCase() || '';
+    const posCode = user.profile?.position?.code?.toUpperCase() || '';
+    const isChiefPosition =
+      posName.includes('kế toán trưởng') ||
+      posName.includes('trưởng phòng kế toán') ||
+      posName.includes('trưởng ban tài chính') ||
+      posName.includes('lead kế toán') ||
+      posName.includes('trưởng nhóm kế toán') ||
+      ['KTT', 'KT_TRUONG', 'TP_KT', 'ACCOUNTANT_LEAD', 'CHIEF_ACCOUNTANT'].includes(posCode);
+
+    if (isChiefPosition) {
+      return true;
+    }
+
+    // 4. Lãnh đạo (Leader) phòng ban Kế toán/Tài chính
+    const leadsAccountingDept = (user.ledDepartments || []).some((d) => {
+      const dName = d.name.toLowerCase();
+      const dCode = d.code?.toUpperCase() || '';
+      return (
+        dName.includes('kế toán') ||
+        dName.includes('tài chính') ||
+        ['KT', 'TC', 'ACC', 'ACCOUNTING'].includes(dCode)
+      );
+    });
+
+    return leadsAccountingDept;
+  }
+
+  private async isAccountantLeadActor(actor: AuthenticatedUser): Promise<boolean> {
+    return this.isAccountingLeaderOnly(actor);
   }
 
   private async isHrActor(actor: AuthenticatedUser): Promise<boolean> {
@@ -1203,8 +1252,13 @@ export class EmployeeRequestsService {
   }
 
   async exportDailyTransactions(query: ExportTransactionsQueryDto, actor: AuthenticatedUser) {
-    const isAccountant = await this.isAccountantActor(actor);
-    const isGlobalAdmin = (actor.roles.includes('ADMIN') && !this.scope.isRegionAdmin(actor)) || this.scope.isGlobalAdmin(actor);
+    const isAccountingLead = await this.isAccountingLeaderOnly(actor);
+    if (!isAccountingLead) {
+      throw forbidden(
+        'FINANCIAL_EXPORT_ACCOUNTANT_LEAD_ONLY',
+        'Chỉ có duy nhất Trưởng phòng Kế toán mới có quyền xuất Excel tài chính.',
+      );
+    }
 
     // Xử lý khoảng thời gian (theo ngày hoặc từ ngày - đến ngày hoặc Tất cả)
     let dateFilter: Prisma.DateTimeFilter | undefined = undefined;
@@ -1234,13 +1288,6 @@ export class EmployeeRequestsService {
       ...(query.status && query.status !== 'ALL' ? { status: query.status as EmployeeRequestStatus } : {}),
       ...(query.departmentId ? { departmentId: query.departmentId } : {}),
     };
-
-    if (!isAccountant && !isGlobalAdmin) {
-      const visibleDepartmentIds = await this.scope.getVisibleDepartmentIds(actor);
-      if (visibleDepartmentIds) {
-        where.departmentId = { in: visibleDepartmentIds };
-      }
-    }
 
     const requests = await this.prisma.employeeRequest.findMany({
       where,
@@ -1770,7 +1817,7 @@ export class EmployeeRequestsService {
     const isAccountant = await this.isAccountantActor(actor);
     const isGlobalAdmin = (actor.roles.includes('ADMIN') && !this.scope.isRegionAdmin(actor)) || this.scope.isGlobalAdmin(actor);
     if (!isAccountant && !isGlobalAdmin) {
-      throw forbidden('FORBIDDEN', 'Chỉ Chị Tâm (Kế toán) hoặc Quản trị viên mới có quyền đẩy file thanh toán.');
+      throw forbidden('FORBIDDEN', 'Chỉ Kế toán hoặc Quản trị viên mới có quyền đẩy file thanh toán.');
     }
 
     let items: ImportPaymentItemDto[] = [];
@@ -1819,6 +1866,12 @@ export class EmployeeRequestsService {
     let failedCount = 0;
     let skippedCount = 0;
     const results: any[] = [];
+
+    const actorProfile = await this.prisma.employeeProfile.findUnique({
+      where: { userId: actor.userId },
+      select: { fullName: true },
+    });
+    const accountantDisplayName = actorProfile?.fullName ? `${actorProfile.fullName} (Kế toán)` : 'Kế toán';
 
     for (const item of items) {
       if (!item.requestId) continue;
@@ -1871,7 +1924,7 @@ export class EmployeeRequestsService {
         stage: 'DISBURSED',
         action: 'DISBURSED',
         actorId: actor.userId,
-        actorName: 'Chị Tâm (Kế toán)',
+        actorName: accountantDisplayName,
         note: item.note || (item.bankRefCode ? `Đã thanh toán ngân hàng (Mã GD: ${item.bankRefCode})` : 'Đã thanh toán qua đẩy file tt'),
         bankRefCode: item.bankRefCode,
         at: new Date().toISOString(),

@@ -1,5 +1,5 @@
-// This file was conflicting with app/employee/(tabs)/newsfeed.tsx
-// It is intentionally left blank.
-export default function DeprecatedNewsfeedRoute() {
-  return null;
+import { NewsfeedListScreen } from '../../../src/features/newsfeed/NewsfeedScreens';
+
+export default function EmployeeNewsfeedRoute() {
+  return <NewsfeedListScreen showBackButton />;
 }

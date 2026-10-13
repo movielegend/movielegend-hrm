@@ -546,87 +546,82 @@ export function LeaderDepartmentReportsScreen() {
       <DailyReportFormScreen
         hideHeaderTitle
         headerSlot={({ currentStep }: { currentStep: number }) => (
-          <View>
+          <View style={{
+            backgroundColor: '#102739',
+            paddingTop: Math.max(insets.top, 16),
+            paddingBottom: 20,
+            paddingHorizontal: 16,
+          }}>
             <StatusBar barStyle="light-content" backgroundColor="#102739" />
-            {/* Deep Navy Banner */}
-            <View style={{
-              backgroundColor: '#102739',
-              paddingTop: Math.max(insets.top, 16),
-              paddingBottom: 18,
-              paddingHorizontal: 16,
-              marginHorizontal: -16,
-              marginTop: -8,
-              marginBottom: 14,
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Pressable onPress={() => router.back()} style={{ padding: 4, marginLeft: -4 }} hitSlop={10}>
-                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                </Pressable>
-                <Text style={{
-                  fontSize: 11,
-                  fontWeight: '700',
-                  letterSpacing: 1.5,
-                  color: 'rgba(255,255,255,0.7)',
-                  textTransform: 'uppercase',
-                }}>
-                  MOVIE LEGEND
-                </Text>
-                <View style={{ width: 28 }} />
-              </View>
-
-              <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 10 }}>
-                {currentStep === 2 ? 'Xem lại báo cáo' : 'Báo cáo cuối ngày'}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Pressable onPress={() => router.back()} style={{ padding: 4, marginLeft: -4 }} hitSlop={10}>
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </Pressable>
+              <Text style={{
+                fontSize: 11,
+                fontWeight: '700',
+                letterSpacing: 1.5,
+                color: 'rgba(255,255,255,0.7)',
+                textTransform: 'uppercase',
+              }}>
+                MOVIE LEGEND
               </Text>
-              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
-                {currentStep === 2 ? 'Kiểm tra toàn bộ nội dung trước khi nộp.' : 'Báo cáo cá nhân của trưởng phòng.'}
-              </Text>
+              <View style={{ width: 28 }} />
             </View>
 
-            {/* Scope Switcher: [ Phòng ban | Của tôi ] */}
-            <View style={{
-              flexDirection: 'row',
-              backgroundColor: '#F1F5F9',
-              borderRadius: 24,
-              padding: 4,
-              marginBottom: 14,
-            }}>
-              <Pressable
-                style={{
-                  flex: 1,
-                  alignItems: 'center',
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: 'transparent',
-                }}
-                onPress={() => setScope('team')}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '600', color: '#64748B' }}>
-                  Phòng ban
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={{
-                  flex: 1,
-                  alignItems: 'center',
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: '#FFFFFF',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 2,
-                  elevation: 2,
-                }}
-                onPress={() => setScope('mine')}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>
-                  Của tôi
-                </Text>
-              </Pressable>
-            </View>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 12 }}>
+              {currentStep === 2 ? 'Xem lại báo cáo' : 'Báo cáo cuối ngày'}
+            </Text>
+            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              {currentStep === 2 ? 'Kiểm tra toàn bộ nội dung trước khi nộp.' : 'Báo cáo cá nhân của trưởng phòng.'}
+            </Text>
           </View>
         )}
+        topContentSlot={
+          /* Scope Switcher: [ Phòng ban | Của tôi ] */
+          <View style={{
+            flexDirection: 'row',
+            backgroundColor: '#E2E8F0',
+            borderRadius: 14,
+            padding: 4,
+            marginBottom: 16,
+          }}>
+            <Pressable
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                paddingVertical: 9,
+                borderRadius: 10,
+                backgroundColor: 'transparent',
+              }}
+              onPress={() => setScope('team')}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#64748B' }}>
+                Phòng ban
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                paddingVertical: 9,
+                borderRadius: 10,
+                backgroundColor: '#FFFFFF',
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 3,
+                elevation: 2,
+              }}
+              onPress={() => setScope('mine')}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>
+                Của tôi
+              </Text>
+            </Pressable>
+          </View>
+        }
       />
     );
   }
@@ -678,8 +673,8 @@ export function LeaderDepartmentReportsScreen() {
         {/* Scope Switcher: [ Phòng ban | Của tôi ] */}
         <View style={{
           flexDirection: 'row',
-          backgroundColor: '#F1F5F9',
-          borderRadius: 24,
+          backgroundColor: '#E2E8F0',
+          borderRadius: 14,
           padding: 4,
           marginHorizontal: 16,
           marginTop: 14,
@@ -689,13 +684,13 @@ export function LeaderDepartmentReportsScreen() {
             style={{
               flex: 1,
               alignItems: 'center',
-              paddingVertical: 8,
-              borderRadius: 20,
+              paddingVertical: 9,
+              borderRadius: 10,
               backgroundColor: '#FFFFFF',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
+              shadowColor: '#0F172A',
+              shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.08,
-              shadowRadius: 2,
+              shadowRadius: 3,
               elevation: 2,
             }}
             onPress={() => setScope('team')}
@@ -709,8 +704,8 @@ export function LeaderDepartmentReportsScreen() {
             style={{
               flex: 1,
               alignItems: 'center',
-              paddingVertical: 8,
-              borderRadius: 20,
+              paddingVertical: 9,
+              borderRadius: 10,
               backgroundColor: 'transparent',
             }}
             onPress={() => setScope('mine')}

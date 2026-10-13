@@ -20,6 +20,7 @@ import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from './components/AvatarPicker';
 import { formatSeniority } from '../../utils/seniority';
 import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
+import { isUserInLiveDepartment } from '../../constants/app-registry';
 
 export function LeaderProfileScreen() {
   const router = useRouter();
@@ -75,6 +76,7 @@ export function LeaderProfileScreen() {
   const departmentName = rawBranchName && !rawDeptName.toLowerCase().includes(rawBranchName.toLowerCase())
     ? `${rawDeptName} (${rawBranchName})`
     : rawDeptName;
+  const isLiveDepartment = isUserInLiveDepartment(user);
 
   return (
     <View style={styles.container}>
@@ -263,6 +265,14 @@ export function LeaderProfileScreen() {
                         title="Yêu cầu VTTB"
                         onPress={() => showAlert('Thông báo', 'Chức năng đang được hoàn thiện.')}
                       />
+                      {isLiveDepartment && (
+                        <FeatureItem
+                          icon="television-play"
+                          iconType="mci"
+                          title="Duyệt OT Live"
+                          onPress={() => router.push('/leader/ot-report-approvals' as any)}
+                        />
+                      )}
                     </View>
                   </View>
 
@@ -348,8 +358,14 @@ export function LeaderProfileScreen() {
                       <FeatureItem
                         icon="briefcase-outline"
                         iconType="ionicons"
-                        title="Công việc"
+                        title="Giao việc"
                         onPress={() => router.push('/leader/tasks' as any)}
+                      />
+                      <FeatureItem
+                        icon="clipboard-outline"
+                        iconType="ionicons"
+                        title="Việc của tôi"
+                        onPress={() => router.push('/leader/my-tasks' as any)}
                       />
                       <FeatureItem
                         icon="document-text-outline"

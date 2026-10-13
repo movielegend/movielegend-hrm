@@ -17,7 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../providers/AuthProvider';
 import { CustomAlert } from '../../components/CustomAlert';
 import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
-import { getRoleBaseRoute } from '../../utils/role-routing';
+import { getRoleBaseRoute, isAccountingLeader } from '../../utils/role-routing';
 import { Screen } from '../../components/Screen';
 import { getEmployeeRequests } from '../../api/employee-requests.api';
 import { exportAndShareFinancialExcel } from '../../utils/export-financial-excel';
@@ -34,6 +34,7 @@ export function FinancialRequestsScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const rolePrefix = getRoleBaseRoute(user);
+  const canExportExcel = isAccountingLeader(user);
 
   const [activeTab, setActiveTab] = useState<EmployeeRequestStatus>('PENDING');
   const [selectedType, setSelectedType] = useState<EmployeeRequestType | 'ALL'>('ALL');
@@ -116,6 +117,11 @@ export function FinancialRequestsScreen() {
 
 
   const handleCustomExport = async () => {
+    if (!canExportExcel) {
+      CustomAlert.alert('Từ chối', 'Chỉ có duy nhất Trưởng phòng Kế toán mới có quyền xuất Excel tài chính.');
+      setIsExportModalOpen(false);
+      return;
+    }
     setIsExporting(true);
     try {
       let targetDate: string | undefined = undefined;
@@ -175,7 +181,7 @@ export function FinancialRequestsScreen() {
           return { text: 'Chờ Ban Giám Đốc', color: '#6D28D9', bg: '#EDE9FE' };
         case 'PENDING_ACCOUNTANT':
         case 'PENDING_DISBURSEMENT':
-          return { text: 'Chờ Chị Tâm chi', color: '#047857', bg: '#D1FAE5' };
+          return { text: 'Chờ Kế toán chi', color: '#047857', bg: '#D1FAE5' };
         default:
           return { text: 'Chờ duyệt', color: '#B45309', bg: '#FEF3C7' };
       }
@@ -202,14 +208,16 @@ export function FinancialRequestsScreen() {
             <Text style={styles.title} numberOfLines={1}>Duyệt Tài chính</Text>
             <Text style={styles.subtitle} numberOfLines={1}>Kế toán & Ban Giám Đốc</Text>
           </View>
-          <Pressable
-            style={styles.exportHeaderBtn}
-            onPress={() => setIsExportModalOpen(true)}
-            hitSlop={6}
-          >
-            <MaterialCommunityIcons name="file-excel-box" size={18} color="#059669" />
-            <Text style={styles.exportHeaderBtnText}>Xuất Excel</Text>
-          </Pressable>
+          {canExportExcel && (
+            <Pressable
+              style={styles.exportHeaderBtn}
+              onPress={() => setIsExportModalOpen(true)}
+              hitSlop={6}
+            >
+              <MaterialCommunityIcons name="file-excel-box" size={18} color="#059669" />
+              <Text style={styles.exportHeaderBtnText}>Xuất Excel</Text>
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -394,7 +402,7 @@ export function FinancialRequestsScreen() {
 
       {/* Export Options Modal */}
       <Modal
-        visible={isExportModalOpen}
+        visible={isExportModalOpen && canExportExcel}
         transparent
         animationType="fade"
         onRequestClose={() => setIsExportModalOpen(false)}
@@ -495,7 +503,7 @@ export function FinancialRequestsScreen() {
               <View style={styles.vatOptionGroup}>
                 {[
                   { key: 'ALL', label: 'Tất cả (Có VAT & Không VAT)' },
-                  { key: 'VAT_ONLY', label: 'Chỉ đơn có VAT (Chị Tâm)' },
+                  { key: 'VAT_ONLY', label: 'Chỉ đơn có VAT (Kế toán)' },
                   { key: 'NO_VAT_ONLY', label: 'Chỉ đơn không VAT' },
                 ].map((opt) => (
                   <Pressable
@@ -525,7 +533,7 @@ export function FinancialRequestsScreen() {
                 <Text style={styles.modalCancelText}>Đóng</Text>
               </Pressable>
               <Pressable
-                style={[styles.modalSubmitBtn, isExporting && styles.exportBtnDisabled]}
+                style={[styles.modalSubmitBtn, isExporting && { opacity: 0.6 }]}
                 onPress={handleCustomExport}
                 disabled={isExporting}
               >

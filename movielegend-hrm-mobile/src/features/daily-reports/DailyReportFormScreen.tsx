@@ -14,6 +14,7 @@ import {
   Modal,
   Pressable,
   StatusBar,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,9 +73,10 @@ const ASSESSMENT_LEVELS = [
 export interface DailyReportFormScreenProps {
   headerSlot?: React.ReactNode | ((props: { currentStep: number }) => React.ReactNode);
   hideHeaderTitle?: boolean;
+  topContentSlot?: React.ReactNode;
 }
 
-export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyReportFormScreenProps = {}) {
+export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentSlot }: DailyReportFormScreenProps = {}) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
@@ -485,72 +487,75 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
   }
 
   return (
-    <Screen
-      backgroundColor="#102739"
-      edges={['left', 'right']}
-      statusBarStyle="light"
-      statusBarTranslucent
-    >
-      <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 20) }}>
-        {/* Leader / Custom Header Slot */}
-        {typeof headerSlot === 'function' ? headerSlot({ currentStep }) : headerSlot}
+    <View style={styles.rootContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
-        {/* Default Modern Deep Navy Banner when no custom headerSlot is provided */}
-        {!headerSlot && !hideHeaderTitle && (
-          <View style={{
-            backgroundColor: '#102739',
-            paddingTop: Math.max(insets.top, 16),
-            paddingBottom: 18,
-            paddingHorizontal: 16,
-            marginHorizontal: -16,
-            marginTop: -8,
-            marginBottom: 14,
-          }}>
-            <StatusBar barStyle="light-content" backgroundColor="#102739" />
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Pressable onPress={() => router.back()} style={{ padding: 4, marginLeft: -4 }} hitSlop={10}>
-                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-              </Pressable>
-              <Text style={{
-                fontSize: 11,
-                fontWeight: '700',
-                letterSpacing: 1.5,
-                color: 'rgba(255,255,255,0.7)',
-                textTransform: 'uppercase',
-              }}>
-                MOVIE LEGEND
+      {/* Leader / Custom Header Slot */}
+      {typeof headerSlot === 'function' ? headerSlot({ currentStep }) : headerSlot}
+
+      {/* Default Modern Deep Navy Banner when no custom headerSlot is provided */}
+      {!headerSlot && !hideHeaderTitle && (
+        <View style={[styles.headerBanner, { paddingTop: Math.max(insets.top, 16) }]}>
+          <View style={styles.headerTopBar}>
+            <Pressable
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/employee');
+                }
+              }}
+              style={styles.headerBackBtn}
+              hitSlop={12}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </Pressable>
+
+            <Text style={styles.headerBrandText}>MOVIE LEGEND</Text>
+
+            <View style={styles.headerStatusBadge}>
+              <Text style={styles.headerStatusBadgeText}>
+                {reportData?.status === 'REVIEWED'
+                  ? 'Đã duyệt'
+                  : reportData?.status === 'SUBMITTED'
+                  ? 'Đã gửi'
+                  : 'Bản mẫu'}
               </Text>
-              <View style={{
-                backgroundColor: 'rgba(255,255,255,0.15)',
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.25)',
-              }}>
-                <Text style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '700' }}>
-                  {reportData?.status === 'REVIEWED'
-                    ? 'Đã duyệt'
-                    : reportData?.status === 'SUBMITTED'
-                    ? 'Đã gửi'
-                    : 'Bản mẫu'}
-                </Text>
-              </View>
             </View>
-
-            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 10 }}>
-              {currentStep === 2 ? 'Xem lại báo cáo' : 'Báo cáo cuối ngày'}
-            </Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
-              {currentStep === 2 ? 'Kiểm tra toàn bộ nội dung trước khi nộp.' : displayDate}
-            </Text>
           </View>
-        )}
 
-        {/* ========================================================================= */}
-        {/* MAIN SEGMENT SWITCHER: [ VIẾT BÁO CÁO | BÁO CÁO ĐÃ DUYỆT ]                */}
-        {/* ========================================================================= */}
-        <View style={styles.mainSegmentBar}>
+          <Text style={styles.headerMainTitle}>
+            {currentStep === 2 ? 'Xem lại báo cáo' : 'Báo cáo cuối ngày'}
+          </Text>
+          <Text style={styles.headerDateSubtitle}>
+            {currentStep === 2 ? 'Kiểm tra toàn bộ nội dung trước khi nộp.' : displayDate}
+          </Text>
+        </View>
+      )}
+
+      {/* Curved Sheet with Light Slate Background extending to bottom */}
+      <View style={styles.bodySheet}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        >
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: Math.max(insets.bottom + 28, 48) },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Optional top content slot (e.g. Scope Switcher for leader) */}
+            {topContentSlot}
+
+            {/* ========================================================================= */}
+            {/* MAIN SEGMENT SWITCHER: [ VIẾT BÁO CÁO | BÁO CÁO ĐÃ DUYỆT ]                */}
+            {/* ========================================================================= */}
+            <View style={styles.mainSegmentBar}>
           <Pressable
             style={[styles.mainSegmentBtn, activeTab === 'write' && styles.mainSegmentBtnActive]}
             onPress={() => {
@@ -1662,13 +1667,36 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
                   </View>
                 ) : approvedReports.length === 0 ? (
                   <View style={styles.emptyApprovedBox}>
-                    <View style={styles.emptyApprovedIconCircle}>
-                      <MaterialCommunityIcons name="check-decagram-outline" size={44} color="#166534" />
+                    <View style={styles.emptyApprovedHalo}>
+                      <View style={styles.emptyApprovedIconInner}>
+                        <MaterialCommunityIcons name="shield-check" size={32} color="#15803D" />
+                      </View>
                     </View>
                     <Text style={styles.emptyApprovedTitle}>Chưa có báo cáo nào được duyệt</Text>
                     <Text style={styles.emptyApprovedSub}>
-                      Báo cáo sẽ hiển thị tại đây sau khi được Admin / Ban giám đốc đánh giá và cho điểm.
+                      Báo cáo sau khi được Quản lý hoặc Admin đánh giá và cho điểm sẽ được lưu trữ đầy đủ tại đây.
                     </Text>
+
+                    <TouchableOpacity
+                      style={styles.emptyApprovedActionBtn}
+                      onPress={() => {
+                        setActiveTab('write');
+                        setSelectedApprovedReport(null);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <MaterialCommunityIcons name="pencil-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.emptyApprovedActionBtnText}>
+                        {isSubmittedToday ? 'Xem báo cáo hôm nay' : 'Viết báo cáo hôm nay'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.emptyApprovedTipBox}>
+                      <MaterialCommunityIcons name="lightbulb-on-outline" size={16} color="#B45309" />
+                      <Text style={styles.emptyApprovedTipText}>
+                        Nộp báo cáo trước 18:00 hàng ngày để quản lý xem và duyệt kịp thời.
+                      </Text>
+                    </View>
                   </View>
                 ) : (
                   <View style={{ gap: 12 }}>
@@ -1729,54 +1757,56 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle }: DailyRepo
             )}
           </View>
         )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
 
-        {/* ========================================================================= */}
-        {/* FULLSCREEN IMAGE PREVIEW MODAL                                            */}
-        {/* ========================================================================= */}
-        <Modal
-          visible={!!previewImageUri}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setPreviewImageUri(null)}
-        >
-          <View style={styles.imageModalOverlay}>
-            <View style={[styles.imageModalHeader, { paddingTop: Math.max(insets.top + 8, 36) }]}>
-              <TouchableOpacity
-                style={styles.imageModalCloseBtn}
-                onPress={() => setPreviewImageUri(null)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.imageModalTitle} numberOfLines={1}>
-                {previewImageTitle}
-              </Text>
-              <View style={{ width: 36 }} />
-            </View>
-
-            <View style={styles.imageModalBody}>
-              {previewImageUri ? (
-                <Image
-                  source={{ uri: previewImageUri }}
-                  style={styles.imageModalFullImage}
-                  resizeMode="contain"
-                />
-              ) : null}
-            </View>
+      {/* ========================================================================= */}
+      {/* FULLSCREEN IMAGE PREVIEW MODAL                                            */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={!!previewImageUri}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPreviewImageUri(null)}
+      >
+        <View style={styles.imageModalOverlay}>
+          <View style={[styles.imageModalHeader, { paddingTop: Math.max(insets.top + 8, 36) }]}>
+            <TouchableOpacity
+              style={styles.imageModalCloseBtn}
+              onPress={() => setPreviewImageUri(null)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.imageModalTitle} numberOfLines={1}>
+              {previewImageTitle}
+            </Text>
+            <View style={{ width: 36 }} />
           </View>
-        </Modal>
 
-        {/* ========================================================================= */}
-        {/* PDF / DOCUMENT VIEWER MODAL                                               */}
-        {/* ========================================================================= */}
-        <PdfViewerModal
-          visible={!!pdfPreviewUrl}
-          url={pdfPreviewUrl}
-          title={pdfPreviewTitle}
-          onClose={() => setPdfPreviewUrl(null)}
-        />
-      </ScreenContainer>
-    </Screen>
+          <View style={styles.imageModalBody}>
+            {previewImageUri ? (
+              <Image
+                source={{ uri: previewImageUri }}
+                style={styles.imageModalFullImage}
+                resizeMode="contain"
+              />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* PDF / DOCUMENT VIEWER MODAL                                               */}
+      {/* ========================================================================= */}
+      <PdfViewerModal
+        visible={!!pdfPreviewUrl}
+        url={pdfPreviewUrl}
+        title={pdfPreviewTitle}
+        onClose={() => setPdfPreviewUrl(null)}
+      />
+    </View>
   );
 }
 
@@ -1791,7 +1821,71 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F6FA',
   },
 
-  // HEADER
+  // ROOT & SHEETS
+  rootContainer: {
+    flex: 1,
+    backgroundColor: '#102739',
+  },
+  headerBanner: {
+    backgroundColor: '#102739',
+    paddingBottom: 20,
+    paddingHorizontal: 16,
+  },
+  headerTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerBackBtn: {
+    padding: 4,
+    marginLeft: -4,
+  },
+  headerBrandText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    color: 'rgba(255,255,255,0.7)',
+    textTransform: 'uppercase',
+  },
+  headerStatusBadge: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  headerStatusBadgeText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  headerMainTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 12,
+    letterSpacing: -0.3,
+  },
+  headerDateSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 2,
+  },
+  bodySheet: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+
+  // HEADER (Legacy fallback)
   headerBox: {
     paddingHorizontal: 4,
     paddingTop: 2,
@@ -1832,10 +1926,10 @@ const styles = StyleSheet.create({
   // MAIN SEGMENT SWITCHER
   mainSegmentBar: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#E2E8F0',
     padding: 4,
-    borderRadius: 24,
-    marginBottom: 14,
+    borderRadius: 14,
+    marginBottom: 16,
     gap: 4,
   },
   mainSegmentBtn: {
@@ -1843,21 +1937,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
     gap: 6,
     backgroundColor: 'transparent',
   },
   mainSegmentBtnActive: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 2,
+    shadowRadius: 3,
     elevation: 2,
   },
   mainSegmentBtnText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '600',
     color: '#64748B',
   },
@@ -1866,7 +1960,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   mainSegmentCountBadge: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#CBD5E1',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
@@ -1875,12 +1969,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCFCE7',
   },
   mainSegmentCountText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#475569',
   },
   mainSegmentCountTextActive: {
-    color: '#166534',
+    color: '#15803D',
   },
 
   // Person Card
@@ -2580,26 +2674,41 @@ const styles = StyleSheet.create({
   },
   emptyApprovedBox: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 48,
-    paddingHorizontal: 24,
+    borderRadius: 20,
+    paddingVertical: 36,
+    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginTop: 8,
+    marginTop: 4,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  emptyApprovedIconCircle: {
+  emptyApprovedHalo: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
+  emptyApprovedIconInner: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyApprovedTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
     marginBottom: 8,
@@ -2610,7 +2719,47 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 20,
-    paddingHorizontal: 16,
+    maxWidth: 300,
+  },
+  emptyApprovedActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#102739',
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderRadius: 12,
+    marginTop: 20,
+    shadowColor: '#102739',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  emptyApprovedActionBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13.5,
+  },
+  emptyApprovedTipBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 20,
+    width: '100%',
+  },
+  emptyApprovedTipText: {
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 17,
+    flex: 1,
   },
   approvedReportCard: {
     backgroundColor: '#FFFFFF',
