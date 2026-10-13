@@ -5,12 +5,12 @@ import {
   View,
   ScrollView,
   Pressable,
-  Platform,
   RefreshControl,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { SelectModal, SelectOption } from '../../components/SelectModal';
@@ -28,6 +28,7 @@ import { normalizeApiError } from '../../utils/api-error';
 export function AssignShiftScreen() {
   const router = useRouter();
   const segments = useSegments();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
   const isLeaderRoute = segments[0] === 'leader';
@@ -61,6 +62,22 @@ export function AssignShiftScreen() {
   const leaderDeptName = user?.department?.name || 'Phòng ban của bạn';
   const leaderBranchName = (user?.department as any)?.branch?.name || '';
 
+  // Formatted display names for Card 01
+  const displayDeptTitle = useMemo(() => {
+    if (!leaderDeptName) return 'PHÒNG BAN CỦA BẠN';
+    const upperDept = leaderDeptName.toUpperCase();
+    const upperBranch = leaderBranchName ? leaderBranchName.toUpperCase() : '';
+    if (upperBranch && !upperDept.includes(upperBranch)) {
+      return `${upperDept} (${upperBranch})`;
+    }
+    return upperDept;
+  }, [leaderDeptName, leaderBranchName]);
+
+  const displayBranchSubtitle = useMemo(() => {
+    if (leaderBranchName) return leaderBranchName.toUpperCase();
+    return ((user as any)?.company?.name || 'MOVIELEGEND').toUpperCase();
+  }, [leaderBranchName, user]);
+
   // Queries
   const allShiftsQuery = useShifts();
   const employeesQuery = useScopedEmployees({ page: 1, limit: 150 });
@@ -71,7 +88,7 @@ export function AssignShiftScreen() {
   const { data: departmentsData, refetch: refetchDepartments } = useDepartments({ limit: 1000 });
   const departments = departmentsData?.items || [];
 
-  // Filter States (Card 01)
+  // Filter States (Card 01 for Admin)
   const [selectedRegionId, setSelectedRegionId] = useState<string>('ALL');
   const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL');
   const [selectedDeptId, setSelectedDeptId] = useState<string>('ALL');
@@ -229,7 +246,6 @@ export function AssignShiftScreen() {
     const formatShort = (d: Date) => {
       const day = String(d.getDate()).padStart(2, '0');
       const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
       return `${day}/${month}`;
     };
 
@@ -255,6 +271,30 @@ export function AssignShiftScreen() {
     setSelectedWeekdays(prev =>
       prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index].sort()
     );
+  };
+
+  const weekdayShortcutText = useMemo(() => {
+    if (selectedWeekdays.length === 5 && !selectedWeekdays.includes(5) && !selectedWeekdays.includes(6)) {
+      return 'T2 – T6';
+    }
+    if (selectedWeekdays.length === 6 && !selectedWeekdays.includes(6)) {
+      return 'T2 – T7';
+    }
+    if (selectedWeekdays.length === 7) {
+      return 'Cả tuần';
+    }
+    if (selectedWeekdays.length === 0) {
+      return 'Chưa chọn';
+    }
+    return `${selectedWeekdays.length} ngày`;
+  }, [selectedWeekdays]);
+
+  const toggleSelectAllEmployees = () => {
+    if (selectedEmployees.length === employeeOptions.length && employeeOptions.length > 0) {
+      setSelectedEmployees([]);
+    } else {
+      setSelectedEmployees(employeeOptions);
+    }
   };
 
   const handleSubmit = async () => {
@@ -311,265 +351,261 @@ export function AssignShiftScreen() {
   const isFormValid = selectedEmployees.length > 0 && !!selectedShift && selectedWeekdays.length > 0;
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {/* 1. Header (Back button + Title + Subtitle) */}
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <Ionicons name="chevron-back" size={24} color="#0F172A" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+
+      {/* ── Top Header (#102739) ── */}
+      <View style={[styles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={styles.headerMainRow}>
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/leader/(tabs)' as any))}
+            style={styles.backBtn}
+            hitSlop={10}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.screenTitle}>Phân ca làm việc</Text>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>Phân ca làm việc</Text>
+            <Text style={styles.headerSubtitle}>
+              {isAdmin ? 'Sắp xếp ca làm cho Leader.' : 'Sắp xếp ca làm cho nhân viên.'}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.screenSubtitle}>
-          {isAdmin ? 'Sắp xếp ca làm cho Leader.' : 'Sắp xếp ca làm cho nhân viên.'}
-        </Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-      >
-        {/* CARD 01: Phạm vi áp dụng */}
-        {isAdmin ? (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>01</Text>
+      {/* ── Main Curved Sheet ── */}
+      <View style={styles.curvedSheet}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 24) + 24 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        >
+          {/* CARD 01: Phạm vi áp dụng / Phòng ban phụ trách */}
+          {isAdmin ? (
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>01</Text>
+                </View>
+                <Text style={styles.cardTitle}>Phạm vi áp dụng</Text>
               </View>
-              <Text style={styles.cardTitle}>Phạm vi áp dụng</Text>
-            </View>
 
-            {/* Field: Khu vực */}
-            <Text style={styles.fieldLabel}>Khu vực</Text>
-            <Pressable
-              style={styles.selectPill}
-              onPress={() => setRegionModalVisible(true)}
-              disabled={!isGlobalAdmin}
-            >
-              <View style={styles.selectLeft}>
-                <Ionicons name="location-outline" size={18} color="#102739" />
-                <Text style={styles.selectText} numberOfLines={1}>
-                  {regionOptions.find(r => r.id === effectiveRegionId)?.label || 'Tất cả các miền'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-down" size={16} color="#64748B" />
-            </Pressable>
-
-            {/* Field: Chi nhánh */}
-            <Text style={styles.fieldLabel}>Chi nhánh</Text>
-            <Pressable style={styles.selectPill} onPress={() => setBranchModalVisible(true)}>
-              <View style={styles.selectLeft}>
-                <Ionicons name="business-outline" size={18} color="#102739" />
-                <Text style={styles.selectText} numberOfLines={1}>
-                  {branchOptions.find(b => b.id === selectedBranchId)?.label || 'Tất cả chi nhánh'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-down" size={16} color="#64748B" />
-            </Pressable>
-
-            {/* Field: Phòng ban */}
-            <Text style={styles.fieldLabel}>Phòng ban</Text>
-            <Pressable style={styles.selectPill} onPress={() => setDeptModalVisible(true)}>
-              <View style={styles.selectLeft}>
-                <Ionicons name="git-network-outline" size={18} color="#102739" />
-                <Text style={styles.selectText} numberOfLines={1}>
-                  {deptOptions.find(d => d.id === selectedDeptId)?.label || 'Tất cả phòng ban'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-down" size={16} color="#64748B" />
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>01</Text>
-              </View>
-              <Text style={styles.cardTitle}>Phòng ban phụ trách</Text>
-            </View>
-
-            <View style={styles.deptInfoBanner}>
-              <View style={styles.deptIconBox}>
-                <Ionicons name="business-outline" size={20} color="#102739" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.deptNameText}>{leaderDeptName}</Text>
-                {leaderBranchName ? (
-                  <Text style={styles.deptBranchText}>{leaderBranchName}</Text>
-                ) : null}
-              </View>
-              <View style={styles.deptScopeBadge}>
-                <Text style={styles.deptScopeBadgeText}>Phòng của bạn</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* CARD 02: Nhân sự & ca làm */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.stepBadge}>
-              <Text style={styles.stepBadgeText}>02</Text>
-            </View>
-            <Text style={styles.cardTitle}>Nhân sự & ca làm</Text>
-          </View>
-
-          {/* Quick select buttons */}
-          <View style={styles.quickSelectHeader}>
-            <Text style={styles.fieldLabel}>
-              {isAdmin ? 'Nhân sự / Quản lý ca' : 'Nhân sự phòng ban'}
-            </Text>
-            <View style={styles.quickSelectActions}>
+              {/* Khu vực */}
+              <Text style={styles.fieldLabel}>Khu vực</Text>
               <Pressable
-                onPress={() => setSelectedEmployees(employeeOptions)}
+                style={styles.selectPill}
+                onPress={() => setRegionModalVisible(true)}
+                disabled={!isGlobalAdmin}
+              >
+                <View style={styles.selectLeft}>
+                  <Ionicons name="location-outline" size={18} color="#64748B" />
+                  <Text style={styles.selectText} numberOfLines={1}>
+                    {regionOptions.find(r => r.id === effectiveRegionId)?.label || 'Tất cả các miền'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={18} color="#64748B" />
+              </Pressable>
+
+              {/* Chi nhánh */}
+              <Text style={styles.fieldLabel}>Chi nhánh</Text>
+              <Pressable style={styles.selectPill} onPress={() => setBranchModalVisible(true)}>
+                <View style={styles.selectLeft}>
+                  <Ionicons name="business-outline" size={18} color="#64748B" />
+                  <Text style={styles.selectText} numberOfLines={1}>
+                    {branchOptions.find(b => b.id === selectedBranchId)?.label || 'Tất cả chi nhánh'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={18} color="#64748B" />
+              </Pressable>
+
+              {/* Phòng ban */}
+              <Text style={styles.fieldLabel}>Phòng ban</Text>
+              <Pressable style={styles.selectPill} onPress={() => setDeptModalVisible(true)}>
+                <View style={styles.selectLeft}>
+                  <Ionicons name="git-network-outline" size={18} color="#64748B" />
+                  <Text style={styles.selectText} numberOfLines={1}>
+                    {deptOptions.find(d => d.id === selectedDeptId)?.label || 'Tất cả phòng ban'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={18} color="#64748B" />
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>01</Text>
+                </View>
+                <Text style={styles.cardTitle}>Phòng ban phụ trách</Text>
+              </View>
+
+              <View style={styles.deptCardBox}>
+                <View style={styles.deptIconBox}>
+                  <Ionicons name="business-outline" size={22} color="#102739" />
+                </View>
+                <View style={styles.deptInfoCol}>
+                  <Text style={styles.deptNameText}>{displayDeptTitle}</Text>
+                  <Text style={styles.deptBranchText}>{displayBranchSubtitle}</Text>
+                </View>
+                <View style={styles.deptScopeBadge}>
+                  <Text style={styles.deptScopeBadgeText}>Phòng của bạn</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* CARD 02: Nhân sự & ca làm */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.stepBadge}>
+                <Text style={styles.stepBadgeText}>02</Text>
+              </View>
+              <Text style={styles.cardTitle}>Nhân sự & ca làm</Text>
+            </View>
+
+            {/* Label row with Quick select pill */}
+            <View style={styles.fieldHeaderRow}>
+              <Text style={styles.fieldLabel}>
+                {isAdmin ? 'Nhân sự / Quản lý ca' : 'Nhân sự phòng ban'}
+              </Text>
+              <Pressable
+                onPress={toggleSelectAllEmployees}
                 hitSlop={6}
-                style={styles.quickSelectBtn}
+                style={styles.quickSelectPill}
               >
                 <Ionicons name="checkmark-done" size={14} color="#102739" />
-                <Text style={styles.quickSelectBtnText}>Tất cả ({employeeOptions.length})</Text>
+                <Text style={styles.quickSelectPillText}>Tất cả ({employeeOptions.length})</Text>
               </Pressable>
-              {selectedEmployees.length > 0 && (
-                <Pressable
-                  onPress={() => setSelectedEmployees([])}
-                  hitSlop={6}
-                  style={styles.quickClearBtn}
-                >
-                  <Text style={styles.quickClearBtnText}>Bỏ chọn</Text>
-                </Pressable>
-              )}
             </View>
+
+            <Pressable style={styles.selectPill} onPress={() => setEmployeeModalVisible(true)}>
+              <View style={styles.selectLeft}>
+                <Ionicons name="person-outline" size={18} color="#64748B" />
+                <Text
+                  style={[
+                    styles.selectText,
+                    selectedEmployees.length === 0 && styles.placeholderText,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {selectedEmployees.length > 0
+                    ? selectedEmployees.length === 1
+                      ? selectedEmployees[0]?.label
+                      : `Đã chọn ${selectedEmployees.length} nhân sự`
+                    : 'Chọn nhân sự / quản lý...'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-down" size={18} color="#64748B" />
+            </Pressable>
+
+            {/* Ca làm việc */}
+            <Text style={styles.fieldLabel}>Ca làm việc</Text>
+            <Pressable style={styles.selectPill} onPress={() => setShiftModalVisible(true)}>
+              <View style={styles.selectLeft}>
+                <Ionicons name="time-outline" size={18} color="#64748B" />
+                <Text
+                  style={[styles.selectText, !selectedShift && styles.placeholderText]}
+                  numberOfLines={1}
+                >
+                  {selectedShift ? `${selectedShift.label} (${selectedShift.subtitle})` : 'Chọn ca làm...'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-down" size={18} color="#64748B" />
+            </Pressable>
           </View>
 
-          <Pressable style={styles.selectPill} onPress={() => setEmployeeModalVisible(true)}>
-            <View style={styles.selectLeft}>
-              <Ionicons name="person-outline" size={18} color="#102739" />
-              <Text
-                style={[
-                  styles.selectText,
-                  selectedEmployees.length === 0 && styles.placeholderText,
-                ]}
-                numberOfLines={1}
-              >
-                {selectedEmployees.length > 0
-                  ? selectedEmployees.length === 1
-                    ? selectedEmployees[0]?.label
-                    : `Đã chọn ${selectedEmployees.length} nhân sự`
-                  : 'Chọn nhân sự / quản lý...'}
+          {/* CARD 03: Lịch áp dụng */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.stepBadge}>
+                <Text style={styles.stepBadgeText}>03</Text>
+              </View>
+              <Text style={styles.cardTitle}>Lịch áp dụng</Text>
+            </View>
+
+            {/* Tuần làm việc */}
+            <Text style={styles.fieldLabel}>Tuần làm việc</Text>
+            <Pressable style={styles.selectPill} onPress={() => setShowDatePicker(true)}>
+              <View style={styles.selectLeft}>
+                <Ionicons name="calendar-outline" size={18} color="#102739" />
+                <Text style={styles.dateRangeText}>{weekInfo.rangeStr}</Text>
+              </View>
+              <Ionicons name="pencil-sharp" size={18} color="#64748B" />
+            </Pressable>
+
+            {/* Ngày áp dụng Header */}
+            <View style={styles.weekdayHeaderRow}>
+              <Text style={styles.fieldLabel}>Ngày áp dụng</Text>
+              <Text style={styles.weekdayHintText}>{weekdayShortcutText}</Text>
+            </View>
+
+            {/* Weekday Badges Grid */}
+            <View style={styles.weekdayGrid}>
+              {weekInfo.days.map(day => {
+                const isSelected = selectedWeekdays.includes(day.index);
+                return (
+                  <Pressable
+                    key={day.index}
+                    onPress={() => toggleWeekday(day.index)}
+                    style={[styles.dayCard, isSelected ? styles.dayCardActive : styles.dayCardInactive]}
+                  >
+                    <Text style={[styles.dayCardLabel, isSelected ? styles.dayCardLabelActive : styles.dayCardLabelInactive]}>
+                      {day.label}
+                    </Text>
+                    <Text style={[styles.dayCardNum, isSelected ? styles.dayCardNumActive : styles.dayCardNumInactive]}>
+                      {day.dayNum}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Status tick below */}
+            <View style={styles.weekSelectedStatusRow}>
+              <Ionicons name="checkmark-circle" size={16} color="#102739" />
+              <Text style={styles.weekSelectedStatusText}>
+                Đã chọn {selectedWeekdays.length} ngày trong tuần
               </Text>
             </View>
-            <Ionicons name="chevron-down" size={16} color="#64748B" />
-          </Pressable>
-
-          {/* Field: Ca làm việc */}
-          <Text style={styles.fieldLabel}>Ca làm việc</Text>
-          <Pressable style={styles.selectPill} onPress={() => setShiftModalVisible(true)}>
-            <View style={styles.selectLeft}>
-              <Ionicons name="time-outline" size={18} color="#102739" />
-              <Text
-                style={[styles.selectText, !selectedShift && styles.placeholderText]}
-                numberOfLines={1}
-              >
-                {selectedShift ? `${selectedShift.label} (${selectedShift.subtitle})` : 'Chọn ca làm...'}
-              </Text>
-            </View>
-            <Ionicons name="chevron-down" size={16} color="#64748B" />
-          </Pressable>
-        </View>
-
-        {/* CARD 03: Lịch áp dụng */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.stepBadge}>
-              <Text style={styles.stepBadgeText}>03</Text>
-            </View>
-            <Text style={styles.cardTitle}>Lịch áp dụng</Text>
           </View>
 
-          {/* Tuần làm việc */}
-          <Text style={styles.fieldLabel}>Tuần làm việc</Text>
-          <Pressable style={styles.selectPill} onPress={() => setShowDatePicker(true)}>
-            <View style={styles.selectLeft}>
-              <Ionicons name="calendar-outline" size={18} color="#102739" />
-              <Text style={styles.selectText}>{weekInfo.rangeStr}</Text>
-            </View>
-            <Ionicons name="pencil-outline" size={16} color="#64748B" />
-          </Pressable>
-
-          {/* Ngày áp dụng (T2 - T6 indicator + Calendar weekday badges) */}
-          <View style={styles.weekdayHeaderRow}>
-            <Text style={styles.fieldLabel}>Ngày áp dụng</Text>
-            <Text style={styles.weekdayHintText}>
-              {selectedWeekdays.length === 5 && !selectedWeekdays.includes(5) && !selectedWeekdays.includes(6)
-                ? 'T2 – T6'
-                : selectedWeekdays.length === 6 && !selectedWeekdays.includes(6)
-                ? 'T2 – T7'
-                : selectedWeekdays.length === 7
-                ? 'Cả tuần'
-                : `${selectedWeekdays.length} ngày`}
+          {/* Bottom Action Area */}
+          <View style={styles.bottomArea}>
+            <Text style={styles.hintText}>
+              {isFormValid
+                ? `Sẵn sàng phân ca cho ${selectedEmployees.length} nhân sự`
+                : isAdmin
+                ? 'Chọn Leader và ca làm để tiếp tục.'
+                : 'Chọn nhân viên và ca làm để tiếp tục.'}
             </Text>
-          </View>
-
-          {/* Weekday Badges Grid */}
-          <View style={styles.weekdayGrid}>
-            {weekInfo.days.map(day => {
-              const isSelected = selectedWeekdays.includes(day.index);
-              return (
-                <Pressable
-                  key={day.index}
-                  onPress={() => toggleWeekday(day.index)}
-                  style={[styles.dayCard, isSelected && styles.dayCardActive]}
-                >
-                  <Text style={[styles.dayCardLabel, isSelected && styles.dayCardLabelActive]}>
-                    {day.label}
-                  </Text>
-                  <Text style={[styles.dayCardNum, isSelected && styles.dayCardNumActive]}>
-                    {day.dayNum}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Status tick below */}
-          <View style={styles.weekSelectedStatusRow}>
-            <Ionicons name="checkmark-circle" size={16} color="#102739" />
-            <Text style={styles.weekSelectedStatusText}>
-              Đã chọn {selectedWeekdays.length} ngày trong tuần
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* BOTTOM STICKY ACTION BAR */}
-      <View style={styles.bottomBar}>
-        {!isFormValid && (
-          <Text style={styles.hintText}>
-            {isAdmin ? 'Chọn Leader và ca làm để tiếp tục.' : 'Chọn nhân viên và ca làm để tiếp tục.'}
-          </Text>
-        )}
-        <Pressable
-          onPress={() => void handleSubmit()}
-          disabled={!isFormValid || assignBatchMutation.isPending}
-          style={[
-            styles.submitBtn,
-            isFormValid ? styles.submitBtnActive : styles.submitBtnDisabled,
-          ]}
-          android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-        >
-          {assignBatchMutation.isPending ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text
+            <Pressable
+              onPress={() => void handleSubmit()}
+              disabled={!isFormValid || assignBatchMutation.isPending}
               style={[
-                styles.submitBtnText,
-                isFormValid ? styles.submitBtnTextActive : styles.submitBtnTextDisabled,
+                styles.submitBtn,
+                isFormValid ? styles.submitBtnActive : styles.submitBtnDisabled,
               ]}
+              android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
             >
-              Lưu phân ca
-            </Text>
-          )}
-        </Pressable>
+              {assignBatchMutation.isPending ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text
+                  style={[
+                    styles.submitBtnText,
+                    isFormValid ? styles.submitBtnTextActive : styles.submitBtnTextDisabled,
+                  ]}
+                >
+                  Lưu phân ca
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </ScrollView>
       </View>
 
       {/* Date Picker Modal */}
@@ -651,58 +687,70 @@ export function AssignShiftScreen() {
         onSelect={setSelectedShift}
         onClose={() => setShiftModalVisible(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#102739',
   },
-  header: {
+  headerWrap: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
+    paddingBottom: 20,
+    backgroundColor: '#102739',
   },
-  headerRow: {
+  headerMainRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    gap: 12,
   },
   backBtn: {
     padding: 4,
     marginLeft: -4,
   },
-  screenTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.5,
+  headerTitleWrap: {
+    flex: 1,
   },
-  screenSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 13.5,
+    color: 'rgba(255, 255, 255, 0.72)',
     fontWeight: '500',
-    marginLeft: 36,
+    marginTop: 2,
+  },
+
+  /* ── Curved Body Sheet ── */
+  curvedSheet: {
+    flex: 1,
+    backgroundColor: '#F4F6F9',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 100,
+    paddingTop: 18,
     gap: 14,
   },
+
+  /* ── Cards ── */
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
+    borderColor: '#EDF2F7',
+    shadowColor: '#102739',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 1,
   },
   cardHeader: {
@@ -725,12 +773,14 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#102739',
   },
-  deptInfoBanner: {
+
+  /* ── Card 01: Dept Box ── */
+  deptCardBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
@@ -738,53 +788,79 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   deptIconBox: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    backgroundColor: '#E7F0F7',
+    backgroundColor: '#F0F4F8',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  deptInfoCol: {
+    flex: 1,
+  },
   deptNameText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#102739',
+    letterSpacing: -0.2,
   },
   deptBranchText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 3,
   },
   deptScopeBadge: {
     backgroundColor: '#E7F0F7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
   deptScopeBadgeText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#102739',
   },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
+
+  /* ── Form Fields ── */
+  fieldHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 6,
-    marginTop: 6,
+    marginTop: 2,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  quickSelectPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: '#E7F0F7',
+  },
+  quickSelectPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#102739',
   },
   selectPill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingVertical: 12,
     paddingHorizontal: 14,
-    marginBottom: 6,
   },
   selectLeft: {
     flexDirection: 'row',
@@ -795,22 +871,31 @@ const styles = StyleSheet.create({
   },
   selectText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '600',
+    color: '#102739',
     flex: 1,
   },
   placeholderText: {
-    color: '#94A3B8',
+    color: '#64748B',
     fontWeight: '500',
   },
+  dateRangeText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#102739',
+    flex: 1,
+  },
+
+  /* ── Card 03: Weekdays ── */
   weekdayHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 12,
+    marginBottom: 6,
   },
   weekdayHintText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#64748B',
   },
@@ -818,67 +903,69 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 6,
-    marginVertical: 10,
+    marginVertical: 4,
   },
   dayCard: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 12,
+  },
+  dayCardActive: {
+    backgroundColor: '#102739',
+    borderWidth: 1,
+    borderColor: '#102739',
+  },
+  dayCardInactive: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  dayCardActive: {
-    backgroundColor: '#102739',
-    borderColor: '#102739',
-  },
   dayCardLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 2,
+    fontWeight: '700',
+    marginBottom: 3,
   },
   dayCardLabelActive: {
     color: '#94B5CB',
   },
+  dayCardLabelInactive: {
+    color: '#64748B',
+  },
   dayCardNum: {
-    fontSize: 13,
+    fontSize: 14.5,
     fontWeight: '800',
-    color: '#0F172A',
   },
   dayCardNumActive: {
     color: '#FFFFFF',
+  },
+  dayCardNumInactive: {
+    color: '#102739',
   },
   weekSelectedStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 4,
+    marginTop: 12,
   },
   weekSelectedStatusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#102739',
   },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+
+  /* ── Bottom Submit Area ── */
+  bottomArea: {
+    marginTop: 4,
+    paddingTop: 10,
   },
   hintText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    fontWeight: '500',
   },
   submitBtn: {
     borderRadius: 14,
@@ -891,54 +978,20 @@ const styles = StyleSheet.create({
     shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowRadius: 8,
     elevation: 3,
   },
   submitBtnDisabled: {
     backgroundColor: '#CBD5E1',
   },
   submitBtnText: {
-    fontSize: 15,
+    fontSize: 15.5,
     fontWeight: '800',
   },
   submitBtnTextActive: {
     color: '#FFFFFF',
   },
   submitBtnTextDisabled: {
-    color: '#94A3B8',
-  },
-  quickSelectHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  quickSelectActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  quickSelectBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    backgroundColor: '#E7F0F7',
-  },
-  quickSelectBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#102739',
-  },
-  quickClearBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-  quickClearBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#EF4444',
+    color: '#8A9BA8',
   },
 });
