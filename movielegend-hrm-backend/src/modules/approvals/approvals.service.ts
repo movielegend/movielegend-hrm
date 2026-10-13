@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   AccountStatus,
   ApprovalAction,
@@ -17,6 +17,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ApprovalsService {
+  private readonly logger = new Logger(ApprovalsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly policy: ApprovalPolicyService,
@@ -208,9 +210,11 @@ export class ApprovalsService {
 
       if (user?.email) {
         // Gửi email không block luồng transaction (fire and forget)
-        this.emailService.sendAccountApprovedEmail(user.email, user.profile?.fullName || user.userCode).catch(e => {
-          // Ignored
-        });
+        this.emailService
+          .sendAccountApprovedEmail(user.email, user.profile?.fullName || user.userCode)
+          .catch((e) => {
+            this.logger.error(`[ApprovalsService] Failed to send approval email to ${user.email}`, e);
+          });
       }
 
       return { id, status: ApprovalStatus.APPROVED };
@@ -288,6 +292,19 @@ export class ApprovalsService {
         reason: dto.reason ? `Từ chối duyệt đăng ký: ${dto.reason}` : 'Từ chối duyệt đăng ký',
         performedByName: actorName,
       });
+
+      if (rejectedUser?.email) {
+        // Gửi email thông báo từ chối tới người dùng
+        this.emailService
+          .sendAccountRejectedEmail(
+            rejectedUser.email,
+            rejectedUser.profile?.fullName || rejectedUser.userCode,
+            dto.reason,
+          )
+          .catch((e) => {
+            this.logger.error(`[ApprovalsService] Failed to send rejection email to ${rejectedUser.email}`, e);
+          });
+      }
 
       return { id, status: ApprovalStatus.REJECTED };
     });
