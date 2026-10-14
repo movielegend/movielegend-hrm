@@ -26,8 +26,8 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
   private jobCounter = 0;
   private pendingJobs = new Map<string, { resolve: (res: any) => void; reject: (err: any) => void }>();
   
-  // Cache descriptor on the main thread to avoid reading source image buffer every time
-  private descriptorCache = new Map<string, { url: string, descriptor: Float32Array }>();
+  // Cache descriptors per user and per pose (FRONT, LEFT, RIGHT)
+  private descriptorCache = new Map<string, Map<string, { url: string, descriptor: Float32Array }>>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -73,9 +73,10 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
   }
 
   private runWorkerVerification(
-    sourceDescriptor: Float32Array | undefined,
-    sourceBuffer: Buffer | undefined,
-    targetBuffer: Buffer
+    targetBuffer: Buffer,
+    candidates?: Array<{ id: string; pose: string; descriptor?: Float32Array; buffer?: Uint8Array }>,
+    sourceDescriptor?: Float32Array,
+    sourceBuffer?: Buffer,
   ): Promise<any> {
     return new Promise((resolve, reject) => {
       if (!this.worker) {
@@ -87,6 +88,7 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
       this.worker.postMessage({
         type: 'VERIFY',
         jobId,
+        candidates,
         sourceDescriptor,
         sourceBuffer: sourceBuffer ? new Uint8Array(sourceBuffer) : undefined,
         targetBuffer: new Uint8Array(targetBuffer)
@@ -107,7 +109,7 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      // 1. Get user's registered face (prioritize FRONT pose image)
+      // 1. Get user's registered face profiles
       const profile = await this.prisma.faceProfile.findUnique({
         where: { userId: input.userId },
         include: { images: true },
@@ -121,39 +123,50 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
         };
       }
 
-      // Luôn ưu tiên lấy ảnh chụp chính diện (FRONT) để làm ảnh gốc so sánh khuôn mặt
-      const frontImage = profile.images.find(img => img.pose === 'FRONT') || profile.images[0];
-      const registeredImageUrl = frontImage.imageUrl;
-      let sourceDescriptor: Float32Array | undefined;
-      let sourceBuffer: Buffer | undefined;
-      
-      const cached = this.descriptorCache.get(input.userId);
-      if (cached && cached.url === registeredImageUrl) {
-        sourceDescriptor = cached.descriptor;
-      } else {
+      let userPoseCache = this.descriptorCache.get(input.userId);
+      if (!userPoseCache) {
+        userPoseCache = new Map();
+        this.descriptorCache.set(input.userId, userPoseCache);
+      }
+
+      // Helper to read image buffer from storage or URL
+      const readImageBuffer = async (imageUrl: string): Promise<Buffer | undefined> => {
         try {
-          // Ưu tiên trích xuất storageKey để đọc trực tiếp từ ổ cứng/Storage nội bộ (tránh lỗi đổi IP/mạng khi fetch HTTP loopback)
-          const storageKey = this.storage.extractKeyFromUrl(registeredImageUrl) || registeredImageUrl;
+          const storageKey = this.storage.extractKeyFromUrl(imageUrl) || imageUrl;
           try {
-            sourceBuffer = await this.storage.read(storageKey);
-          } catch {
-            sourceBuffer = undefined;
-          }
+            const buf = await this.storage.read(storageKey);
+            if (buf) return buf;
+          } catch {}
 
-          if (!sourceBuffer && registeredImageUrl.startsWith('http')) {
-            const response = await fetch(registeredImageUrl);
-            if (response.ok) {
-              sourceBuffer = Buffer.from(await response.arrayBuffer());
-            }
-          }
-
-          if (!sourceBuffer) {
-            throw new Error(`Cannot locate physical image for key: ${storageKey} or url: ${registeredImageUrl}`);
+          if (imageUrl.startsWith('http')) {
+            const resp = await fetch(imageUrl);
+            if (resp.ok) return Buffer.from(await resp.arrayBuffer());
           }
         } catch (e) {
-          this.logger.error('Failed to read registered face image', e);
-          return { matched: false, reason: 'Không thể tải dữ liệu khuôn mặt đã đăng ký của bạn. Vui lòng cập nhật lại khuôn mặt trong hồ sơ cá nhân.' };
+          this.logger.warn(`Could not read registered image buffer for url: ${imageUrl}`);
         }
+        return undefined;
+      };
+
+      const candidates: Array<{ id: string; pose: string; descriptor?: Float32Array; buffer?: Uint8Array }> = [];
+
+      for (const img of profile.images) {
+        const cached = userPoseCache.get(img.pose);
+        if (cached && cached.url === img.imageUrl) {
+          candidates.push({ id: img.id, pose: img.pose, descriptor: cached.descriptor });
+        } else {
+          const buf = await readImageBuffer(img.imageUrl);
+          if (buf) {
+            candidates.push({ id: img.id, pose: img.pose, buffer: new Uint8Array(buf) });
+          }
+        }
+      }
+
+      if (candidates.length === 0) {
+        return {
+          matched: false,
+          reason: 'Không thể tải dữ liệu khuôn mặt đã đăng ký của bạn. Vui lòng cập nhật lại khuôn mặt trong hồ sơ cá nhân.',
+        };
       }
 
       // 2. Get target face (attendance photo)
@@ -176,12 +189,21 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
         return { matched: false, reason: 'Không thể tải ảnh điểm danh vừa chụp. Vui lòng thử lại.' };
       }
 
-      // 3. Offload heavy verification to Worker Thread
-      const result = await this.runWorkerVerification(sourceDescriptor, sourceBuffer, targetBuffer);
+      // 3. Offload multi-pose verification to Worker Thread
+      const result = await this.runWorkerVerification(targetBuffer, candidates);
 
-      // Cache the descriptor if it was newly calculated by the worker
-      if (result.sourceDescriptor) {
-        this.descriptorCache.set(input.userId, { url: registeredImageUrl, descriptor: result.sourceDescriptor });
+      // Cache newly computed descriptors per pose
+      if (Array.isArray(result.newDescriptors)) {
+        for (const item of result.newDescriptors) {
+          const imgRecord = profile.images.find((i) => i.id === item.id || i.pose === item.pose);
+          if (imgRecord) {
+            userPoseCache.set(item.pose, { url: imgRecord.imageUrl, descriptor: item.descriptor });
+          }
+        }
+      }
+
+      if (result.matched) {
+        this.logger.log(`Face match verified for user ${input.userId} (Pose: ${result.bestPose ?? 'FRONT'}, Confidence: ${result.confidence})`);
       }
 
       return {
