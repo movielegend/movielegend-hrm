@@ -553,12 +553,14 @@ export function LeaderApprovalScreen() {
   const isDeptLeader = reqDept?.leaderUserId === currentUser?.id ||
     (roleCodes.includes('LEADER') && (currentUser?.department?.id === request.departmentId || currentUser?.department?.id === reqDept?.id));
 
+  const isLeaderOrAdmin = isAdmin || isHr || roleCodes.includes('LEADER') || roleCodes.includes('MANAGER') || roleCodes.includes('DIRECTOR') || isDeptLeader;
+
   // Determine if current user can perform an approval/reject action at the current stage
   let canActOnCurrentStage = false;
   let waitingStageDescription = '';
 
   if (isCancellationRequested) {
-    if (isAdmin || isHr || isDeptLeader) {
+    if (isLeaderOrAdmin) {
       canActOnCurrentStage = true;
     } else {
       waitingStageDescription = 'Đang chờ Trưởng bộ phận hoặc Quản trị viên phê duyệt hủy ca làm bù.';
@@ -799,6 +801,9 @@ export function LeaderApprovalScreen() {
 
   // Screen Title based on status and type
   const getScreenTitle = () => {
+    if (isCancellationRequested) {
+      return 'Duyệt hủy ca làm bù';
+    }
     if (request.status === 'PENDING') {
       switch (request.type) {
         case 'EXPENSE': return 'Duyệt thanh toán';
@@ -1540,7 +1545,7 @@ export function LeaderApprovalScreen() {
     </View>
 
       {/* 6. Bottom Sticky Action Area */}
-      {request.status === 'PENDING' ? (
+      {(request.status === 'PENDING' || isCancellationRequested) ? (
         canActOnCurrentStage ? (
           <View style={[styles.bottomActionBar, shadows.lg, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             {/* Upload proof if accountant disbursement */}
