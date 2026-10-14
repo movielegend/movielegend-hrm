@@ -102,28 +102,10 @@ export function EmployeeUpdateFaceScreen() {
     };
   }, []);
 
-  // Automatic Hands-free Capture Timer
+  // Reset progress and errors when pose changes
   useEffect(() => {
-    if (!cameraReady || step !== 'SCANNING' || capturing) return;
-    if (capturedPhotos[activePose]) return; // Already captured this pose
-
-    progressAnim.setValue(0);
-    const progressAnimation = Animated.timing(progressAnim, {
-      toValue: 1,
-      duration: activePose === 'FRONT' ? 1400 : 1800,
-      useNativeDriver: false,
-    });
-    progressAnimation.start();
-
-    const autoTimer = setTimeout(() => {
-      void takeSnapshot(activePose);
-    }, activePose === 'FRONT' ? 1400 : 1800);
-
-    return () => {
-      progressAnimation.stop();
-      clearTimeout(autoTimer);
-    };
-  }, [cameraReady, activePose, step, capturedPhotos]);
+    setCaptureError(null);
+  }, [activePose]);
 
   const takeSnapshot = async (pose: FacePose) => {
     if (capturing || !cameraRef.current) return;
@@ -441,7 +423,7 @@ export function EmployeeUpdateFaceScreen() {
                   <MaterialCommunityIcons name="camera" size={24} color="#0F172A" />
                 </View>
               </Pressable>
-              <Text style={styles.shutterHint}>Tự động chụp sau 1.5s hoặc chạm để chụp ngay</Text>
+              <Text style={styles.shutterHint}>Bấm nút để chụp góc này</Text>
             </View>
           )}
         </View>

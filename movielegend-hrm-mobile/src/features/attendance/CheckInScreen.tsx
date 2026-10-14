@@ -182,6 +182,7 @@ export function CheckInScreen() {
       }
       const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi chấm công.';
       CustomAlert.alert('Lỗi chấm công', msg);
+      throw e;
     } finally {
       setLoading(false);
       setCameraVisible(false);
