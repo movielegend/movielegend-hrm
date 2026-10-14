@@ -317,3 +317,18 @@ export class ImportPaymentBatchDto {
   batchNote?: string;
 }
 
+export class RequestCancelCompensatoryDto {
+  @ApiProperty({ description: 'Lý do xin hủy ca làm bù' })
+  @IsString()
+  @MinLength(3)
+  reason!: string;
+}
+
+export class DecideCancelCompensatoryDto {
+  @ApiPropertyOptional({ description: 'Ghi chú của Leader khi duyệt/từ chối hủy' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+

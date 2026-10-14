@@ -9,7 +9,15 @@ import ImageView from '../../components/ImageViewer/ImageViewer';
 import { resolveFileUrl } from '../../utils/url';
 import { spacing } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
-import { useEmployeeRequestById, useApproveEmployeeRequest, useRejectEmployeeRequest, useResubmitPurchaseByHr, useFulfillPurchaseByHr } from '../../hooks/useEmployeeRequests';
+import {
+  useEmployeeRequestById,
+  useApproveEmployeeRequest,
+  useRejectEmployeeRequest,
+  useResubmitPurchaseByHr,
+  useFulfillPurchaseByHr,
+  useApproveCancelCompensatory,
+  useRejectCancelCompensatory,
+} from '../../hooks/useEmployeeRequests';
 import { useAuth } from '../../providers/AuthProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { ActivityIndicator } from 'react-native';
@@ -33,6 +41,8 @@ export function LeaderApprovalScreen() {
   const rejectMutation = useRejectEmployeeRequest();
   const resubmitPurchaseMutation = useResubmitPurchaseByHr();
   const fulfillPurchaseMutation = useFulfillPurchaseByHr();
+  const approveCancelMutation = useApproveCancelCompensatory();
+  const rejectCancelMutation = useRejectCancelCompensatory();
 
   const [comment, setComment] = useState('');
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -396,6 +406,26 @@ export function LeaderApprovalScreen() {
     }
   };
 
+  const handleApproveCancelComp = async () => {
+    try {
+      await approveCancelMutation.mutateAsync({ id, note: comment.trim() || undefined });
+      showAlert('Thành công', 'Đã duyệt hủy ca làm bù thành công. Ca làm việc đã được gỡ bỏ khỏi lịch.');
+      router.back();
+    } catch (err: any) {
+      showAlert('Lỗi', err.response?.data?.message || err.message || 'Không thể duyệt hủy ca làm bù.');
+    }
+  };
+
+  const handleRejectCancelComp = async () => {
+    try {
+      await rejectCancelMutation.mutateAsync({ id, note: comment.trim() || undefined });
+      showAlert('Thông báo', 'Đã từ chối yêu cầu hủy ca làm bù. Ca làm việc vẫn được giữ nguyên.');
+      router.back();
+    } catch (err: any) {
+      showAlert('Lỗi', err.response?.data?.message || err.message || 'Không thể từ chối hủy ca làm bù.');
+    }
+  };
+
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
@@ -481,6 +511,10 @@ export function LeaderApprovalScreen() {
   const stage = meta.stage || 'PENDING';
   const approvalSteps = Array.isArray(meta.approvalSteps) ? meta.approvalSteps : [];
   const isNonVatOver2M = isFinancial && request.type === 'EXPENSE' && !meta.hasVat && amount > 2000000;
+  const isCompensatory = (request.type as string) === 'COMPENSATORY_WORK' ||
+    Boolean(request.title?.includes('[LÀM BÙ]')) ||
+    meta?.requestType === 'COMPENSATORY_WORK';
+  const isCancellationRequested = isCompensatory && Boolean(meta?.cancellationRequested);
 
   const rawRoles = currentUser?.roles || [];
   const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
@@ -513,7 +547,13 @@ export function LeaderApprovalScreen() {
   let canActOnCurrentStage = false;
   let waitingStageDescription = '';
 
-  if (request.status !== 'PENDING') {
+  if (isCancellationRequested) {
+    if (isAdmin || isHr || isDeptLeader) {
+      canActOnCurrentStage = true;
+    } else {
+      waitingStageDescription = 'Đang chờ Trưởng bộ phận hoặc Quản trị viên phê duyệt hủy ca làm bù.';
+    }
+  } else if (request.status !== 'PENDING') {
     canActOnCurrentStage = false;
   } else if (!isFinancial) {
     if (isAdmin || isHr || isDeptLeader) {
@@ -656,6 +696,14 @@ export function LeaderApprovalScreen() {
 
   // Status badge logic
   const getStatusBadgeInfo = () => {
+    if (request.status === 'CANCELLED') {
+      return {
+        label: 'Đã hủy ca',
+        bg: '#F3F4F6',
+        color: '#6B7280',
+        icon: 'close-circle' as const,
+      };
+    }
     if (request.status === 'REJECTED') {
       return {
         label: 'Đã từ chối',
@@ -665,6 +713,14 @@ export function LeaderApprovalScreen() {
       };
     }
     if (request.status === 'APPROVED') {
+      if (isCancellationRequested) {
+        return {
+          label: 'Xin hủy làm bù',
+          bg: '#FEF3C7',
+          color: '#D97706',
+          icon: 'alert-circle' as const,
+        };
+      }
       if (stage === 'PURCHASE_FULFILLED') {
         return {
           label: 'Đã hoàn tất mua sắm',
@@ -848,6 +904,99 @@ export function LeaderApprovalScreen() {
         </View>
 
         {/* 3. Meta Details Card */}
+        {/* COMPENSATORY_WORK CARD */}
+        {isCompensatory && (
+          <View style={[styles.card, shadows.sm]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <MaterialCommunityIcons name="calendar-sync-outline" size={20} color="#0284C7" style={{ marginRight: 6 }} />
+              <Text style={[styles.metaSectionTitle, { color: '#0369A1', marginBottom: 0 }]}>
+                Thông tin làm bù
+              </Text>
+            </View>
+
+            {meta.targetLeaveDate ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Làm bù cho ngày</Text>
+                <Text style={[styles.metaValue, { color: '#EF4444', fontWeight: '700' }]}>
+                  {formatDateStr(meta.targetLeaveDate)}
+                </Text>
+              </View>
+            ) : null}
+
+            {meta.compensatoryDate ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Ngày làm bù</Text>
+                <Text style={[styles.metaValue, { color: '#0284C7', fontWeight: '700' }]}>
+                  {formatDateStr(meta.compensatoryDate)}
+                </Text>
+              </View>
+            ) : null}
+
+            {meta.compensatoryShiftName ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Ca làm bù</Text>
+                <Text style={[styles.metaValue, { fontWeight: '700' }]}>{meta.compensatoryShiftName}</Text>
+              </View>
+            ) : null}
+
+            {meta.compensatoryType ? (
+              <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                <Text style={styles.metaLabel}>Hình thức</Text>
+                <Text style={styles.metaValue}>
+                  {meta.compensatoryType} {meta.missedHours ? `(${meta.missedHours} giờ)` : ''}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {/* CANCELLATION REQUESTED BANNER */}
+        {isCancellationRequested && (
+          <View style={[styles.card, { backgroundColor: '#FFFBEB', borderColor: '#F59E0B', borderWidth: 1.5 }, shadows.sm]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <MaterialCommunityIcons name="alert-circle" size={22} color="#D97706" style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#B45309' }}>
+                Yêu cầu hủy ca làm bù từ nhân viên
+              </Text>
+            </View>
+            <View style={{ backgroundColor: '#FEF3C7', padding: 12, borderRadius: 8, marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#92400E', marginBottom: 2 }}>
+                Lý do xin hủy:
+              </Text>
+              <Text style={{ fontSize: 14, color: '#78350F' }}>
+                "{meta.cancellationReason || 'Nhân viên có việc đột xuất không thể làm bù'}"
+              </Text>
+            </View>
+            {meta.cancellationRequestedAt ? (
+              <Text style={{ fontSize: 12, color: '#94A3B8' }}>
+                Thời gian gửi: {new Date(meta.cancellationRequestedAt).toLocaleString('vi-VN')}
+              </Text>
+            ) : null}
+          </View>
+        )}
+
+        {/* CANCELLATION STATUS (ALREADY CANCELLED) */}
+        {request.status === 'CANCELLED' && (
+          <View style={[styles.card, { backgroundColor: '#F8FAFC', borderColor: '#CBD5E1', borderWidth: 1 }, shadows.sm]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+              <MaterialCommunityIcons name="close-circle" size={20} color="#64748B" style={{ marginRight: 6 }} />
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#475569' }}>
+                Ca làm bù này đã được duyệt hủy
+              </Text>
+            </View>
+            {meta.cancellationReason ? (
+              <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 4 }}>
+                Lý do nhân viên xin hủy: {meta.cancellationReason}
+              </Text>
+            ) : null}
+            {meta.cancellationLeaderNote ? (
+              <Text style={{ fontSize: 13, color: '#0F172A', fontWeight: '600' }}>
+                Ghi chú phê duyệt hủy: {meta.cancellationLeaderNote}
+              </Text>
+            ) : null}
+          </View>
+        )}
+
         {/* LEAVE */}
         {request.type === 'LEAVE' && (
           <View style={[styles.card, shadows.sm]}>
@@ -1426,7 +1575,44 @@ export function LeaderApprovalScreen() {
             ) : null}
 
             {/* Button Row */}
-            {request.type === 'PURCHASE' ? (
+            {isCancellationRequested ? (
+              <View style={styles.actionButtonsRow}>
+                <Pressable 
+                  style={[
+                    styles.rejectBtnModern,
+                    { flex: 1, borderColor: '#EA580C', backgroundColor: '#FFF7ED' },
+                    (rejectCancelMutation.isPending || approveCancelMutation.isPending) && { opacity: 0.5 },
+                  ]} 
+                  onPress={handleRejectCancelComp}
+                  disabled={rejectCancelMutation.isPending || approveCancelMutation.isPending}
+                >
+                  {rejectCancelMutation.isPending ? (
+                    <ActivityIndicator color="#EA580C" />
+                  ) : (
+                    <Text style={[styles.rejectBtnModernText, { color: '#EA580C' }]}>Từ chối hủy ca</Text>
+                  )}
+                </Pressable>
+
+                <Pressable 
+                  style={[
+                    styles.approveBtnModern,
+                    { flex: 1.2, backgroundColor: '#DC2626' },
+                    (approveCancelMutation.isPending || rejectCancelMutation.isPending) && { opacity: 0.5 },
+                  ]} 
+                  onPress={handleApproveCancelComp}
+                  disabled={approveCancelMutation.isPending || rejectCancelMutation.isPending}
+                >
+                  {approveCancelMutation.isPending ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                      <MaterialCommunityIcons name="calendar-remove" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.approveBtnModernText}>Đồng ý hủy ca</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+            ) : request.type === 'PURCHASE' ? (
               stage === 'PENDING_HR_PURCHASE' ? (
                 <View style={styles.actionButtonsRow}>
                   <Pressable 

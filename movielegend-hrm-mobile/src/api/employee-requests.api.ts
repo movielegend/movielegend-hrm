@@ -112,3 +112,28 @@ export async function createExpenseFromPurchase(
   return unwrapData(response);
 }
 
+export async function requestCancelCompensatory(
+  id: string,
+  payload: { reason: string }
+): Promise<EmployeeRequest> {
+  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/request-cancel`, payload);
+  return unwrapData(response);
+}
+
+export async function approveCancelCompensatory(
+  id: string,
+  payload?: { note?: string }
+): Promise<EmployeeRequest> {
+  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/approve-cancel`, payload);
+  return unwrapData(response);
+}
+
+export async function rejectCancelCompensatory(
+  id: string,
+  payload?: { note?: string }
+): Promise<EmployeeRequest> {
+  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/reject-cancel`, payload);
+  return unwrapData(response);
+}
+
+

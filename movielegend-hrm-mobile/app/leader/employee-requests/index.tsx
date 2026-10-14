@@ -47,7 +47,10 @@ export default function LeaderRequestsScreen() {
 
   // Client-side filtering
   const requests = allRequests.filter((r: any) => {
-    const matchTab = r.status === activeTab;
+    const isPendingCancel = r.status === 'APPROVED' && r.attachmentMetadata?.cancellationRequested;
+    const matchTab = (activeTab === 'PENDING' && (r.status === 'PENDING' || isPendingCancel)) ||
+                     (activeTab === 'APPROVED' && r.status === 'APPROVED' && !isPendingCancel) ||
+                     (activeTab === 'REJECTED' && (r.status === 'REJECTED' || r.status === 'CANCELLED'));
     const isItemCompensatory = r.type === 'COMPENSATORY_WORK' || r.title?.includes('[LÀM BÙ]') || r.attachmentMetadata?.requestType === 'COMPENSATORY_WORK';
     const matchType = selectedType === 'ALL' || 
       (selectedType === 'COMPENSATORY_WORK' ? isItemCompensatory : (r.type === selectedType && !isItemCompensatory));
@@ -88,10 +91,16 @@ export default function LeaderRequestsScreen() {
     const meta = (typeof item?.attachmentMetadata === 'object' && item?.attachmentMetadata !== null) ? item.attachmentMetadata : {};
     const stage = meta.stage;
 
+    if (status === 'CANCELLED') {
+      return { text: 'Đã hủy ca', color: '#6B7280', bg: '#F3F4F6' };
+    }
     if (status === 'REJECTED') {
       return { text: 'Từ chối', color: '#EF4444', bg: '#FEE2E2' };
     }
     if (status === 'APPROVED') {
+      if (meta.cancellationRequested) {
+        return { text: 'Xin hủy làm bù', color: '#D97706', bg: '#FEF3C7' };
+      }
       if (stage === 'PURCHASE_FULFILLED') {
         return { text: 'Đã hoàn tất mua sắm', color: '#166534', bg: '#DCFCE7' };
       }

@@ -13,6 +13,8 @@ import {
   ExportTransactionsQueryDto,
   ResubmitPurchaseByHrDto,
   FulfillPurchaseByHrDto,
+  RequestCancelCompensatoryDto,
+  DecideCancelCompensatoryDto,
 } from './dto/employee-request.dto';
 import { EmployeeRequestsService } from './employee-requests.service';
 
@@ -129,5 +131,35 @@ export class EmployeeRequestsController {
     @Body() body: any,
   ) {
     return this.employeeRequestsService.createExpenseFromPurchase(id, body, actor);
+  }
+
+  @Permissions('employee.request')
+  @Post(':id/request-cancel')
+  requestCancelCompensatory(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() body: RequestCancelCompensatoryDto,
+  ) {
+    return this.employeeRequestsService.requestCancelCompensatory(id, actor, body);
+  }
+
+  @Permissions('employee.request.approve')
+  @Post(':id/approve-cancel')
+  approveCancelCompensatory(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() body?: DecideCancelCompensatoryDto,
+  ) {
+    return this.employeeRequestsService.approveCancelCompensatory(id, actor, body);
+  }
+
+  @Permissions('employee.request.approve')
+  @Post(':id/reject-cancel')
+  rejectCancelCompensatory(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() body?: DecideCancelCompensatoryDto,
+  ) {
+    return this.employeeRequestsService.rejectCancelCompensatory(id, actor, body);
   }
 }

@@ -19,6 +19,8 @@ import {
   CreateExpenseFromPurchaseDto,
   ResubmitPurchaseByHrDto,
   FulfillPurchaseByHrDto,
+  RequestCancelCompensatoryDto,
+  DecideCancelCompensatoryDto,
 } from './dto/employee-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -182,6 +184,19 @@ export class EmployeeRequestsService {
         throw badRequest(
           'LEAVE_NOT_APPROVED',
           'Đơn nghỉ phép tham chiếu chưa được phê duyệt. Chỉ đơn đã duyệt mới được làm bù.',
+        );
+      }
+
+      const existingActiveComp = await this.prisma.employeeRequest.findFirst({
+        where: {
+          referenceId: dto.referenceId,
+          status: { in: [EmployeeRequestStatus.PENDING, EmployeeRequestStatus.APPROVED] },
+        },
+      });
+      if (existingActiveComp) {
+        throw badRequest(
+          'COMPENSATORY_ALREADY_EXISTS',
+          'Đơn nghỉ phép này đã có đơn làm bù đang chờ duyệt hoặc đã được phê duyệt.',
         );
       }
     }
@@ -1427,6 +1442,252 @@ export class EmployeeRequestsService {
 
       return updated;
     });
+  }
+
+  async requestCancelCompensatory(id: string, actor: AuthenticatedUser, payload: RequestCancelCompensatoryDto) {
+    if (!payload.reason || !payload.reason.trim()) {
+      throw badRequest('REASON_REQUIRED', 'Vui lòng nhập lý do xin hủy ca làm bù.');
+    }
+
+    const request = await this.prisma.employeeRequest.findUnique({
+      where: { id },
+      include: {
+        department: true,
+        user: { select: { profile: { select: { fullName: true } } } },
+      },
+    });
+    if (!request) throw notFound('REQUEST_NOT_FOUND', 'Yêu cầu không tồn tại');
+    if (request.userId !== actor.userId) {
+      throw forbidden('NOT_OWNER', 'Bạn chỉ có thể xin hủy đơn của chính mình.');
+    }
+    if (request.status !== EmployeeRequestStatus.APPROVED) {
+      throw badRequest('INVALID_STATUS', 'Chỉ có thể xin hủy ca làm bù đối với đơn đã được phê duyệt.');
+    }
+
+    const isCompensatory = (request.type as string) === 'COMPENSATORY_WORK' ||
+      request.title.includes('[LÀM BÙ]') ||
+      (request.attachmentMetadata as any)?.requestType === 'COMPENSATORY_WORK';
+
+    if (!isCompensatory) {
+      throw badRequest('NOT_COMPENSATORY', 'Chức năng xin hủy này chỉ áp dụng cho đơn làm bù.');
+    }
+
+    const meta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
+      ? { ...(request.attachmentMetadata as Record<string, any>) }
+      : {};
+
+    if (meta.cancellationRequested) {
+      throw badRequest('ALREADY_REQUESTED', 'Yêu cầu hủy ca làm bù này đang chờ Leader xem xét.');
+    }
+
+    const compDateStr = meta.compensatoryDate
+      ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+      : null;
+
+    if (!compDateStr) {
+      throw badRequest('MISSING_COMPENSATORY_DATE', 'Không tìm thấy ngày làm bù trong đơn.');
+    }
+
+    const todayStr = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+    if (moment(compDateStr).isBefore(todayStr, 'day')) {
+      throw badRequest('DATE_PASSED', 'Ngày làm bù đã trôi qua, không thể xin hủy.');
+    }
+
+    const workDate = this.businessTime.startOfBusinessDate(compDateStr);
+    const attendance = await this.prisma.attendanceRecord.findFirst({
+      where: {
+        userId: request.userId,
+        workDate,
+      },
+    });
+    if (attendance) {
+      throw badRequest('ALREADY_CHECKED_IN', 'Bạn đã vào ca chấm công ngày làm bù này, không thể xin hủy đơn làm bù.');
+    }
+
+    const updatedMeta = {
+      ...meta,
+      cancellationRequested: true,
+      cancellationReason: payload.reason.trim(),
+      cancellationRequestedAt: new Date().toISOString(),
+      cancellationRejected: false,
+    };
+
+    const updated = await this.prisma.employeeRequest.update({
+      where: { id },
+      data: {
+        attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
+      },
+    });
+
+    const leaderId = request.department?.leaderUserId;
+    const targetUserIds: string[] = [];
+    if (leaderId && leaderId !== actor.userId) {
+      targetUserIds.push(leaderId);
+    } else {
+      const adminUserIds = await this.findRelevantAdminUserIds(request.departmentId, this.prisma);
+      targetUserIds.push(...adminUserIds.filter((uid) => uid !== actor.userId));
+    }
+
+    if (targetUserIds.length > 0) {
+      await this.prisma.$transaction(async (tx) => {
+        const notif = await this.notifications.createForUsers(tx as any, targetUserIds, {
+          type: NotificationType.SYSTEM,
+          title: 'Yêu cầu hủy ca làm bù ⚠️',
+          body: `${request.user?.profile?.fullName || 'Nhân viên'} xin hủy ca làm bù ngày ${moment.tz(compDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')}. Lý do: ${payload.reason.trim()}`,
+          metadata: { requestId: id, isCompensatoryCancel: true },
+        });
+        if (notif) this.notifications.emitCreated(notif);
+      });
+    }
+
+    return updated;
+  }
+
+  async approveCancelCompensatory(id: string, actor: AuthenticatedUser, payload?: DecideCancelCompensatoryDto) {
+    const request = await this.prisma.employeeRequest.findUnique({
+      where: { id },
+      include: {
+        department: true,
+        user: { select: { profile: { select: { fullName: true } } } },
+      },
+    });
+    if (!request) throw notFound('REQUEST_NOT_FOUND', 'Yêu cầu không tồn tại');
+
+    const isGlobalAdmin = actor.roles.includes('ADMIN') || this.scope.isGlobalAdmin(actor);
+    const isDeptLeader = request.department?.leaderUserId === actor.userId;
+    const canDeptAccess = request.departmentId ? await this.scope.canAccessDepartmentAsync(actor, request.departmentId) : false;
+    const isHr = await this.isHrActor(actor);
+
+    if (!isGlobalAdmin && !isDeptLeader && !canDeptAccess && !isHr) {
+      throw forbidden('FORBIDDEN', 'Bạn không có quyền phê duyệt hủy yêu cầu này.');
+    }
+
+    const meta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
+      ? { ...(request.attachmentMetadata as Record<string, any>) }
+      : {};
+
+    if (!meta.cancellationRequested) {
+      throw badRequest('NOT_REQUESTED', 'Yêu cầu này không có đề xuất xin hủy.');
+    }
+
+    const compDateStr = meta.compensatoryDate
+      ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+      : null;
+
+    const actorProfile = await this.prisma.employeeProfile.findUnique({
+      where: { userId: actor.userId },
+      select: { fullName: true },
+    });
+    const actorName = actorProfile?.fullName || 'Leader';
+
+    return this.prisma.$transaction(async (tx) => {
+      if (compDateStr) {
+        const workDate = this.businessTime.startOfBusinessDate(compDateStr);
+        const attendance = await tx.attendanceRecord.findFirst({
+          where: { userId: request.userId, workDate },
+        });
+        if (attendance) {
+          throw badRequest('ALREADY_CHECKED_IN', 'Nhân viên đã chấm công ngày làm bù này, không thể duyệt hủy.');
+        }
+
+        await tx.shiftAssignment.deleteMany({
+          where: { userId: request.userId, workDate },
+        });
+      }
+
+      const updatedMeta = {
+        ...meta,
+        cancellationRequested: false,
+        cancellationApproved: true,
+        cancellationApprovedBy: actor.userId,
+        cancellationApprovedByName: actorName,
+        cancellationApprovedAt: new Date().toISOString(),
+        cancellationLeaderNote: payload?.note?.trim() || 'Leader đã đồng ý hủy ca làm bù',
+      };
+
+      const updated = await tx.employeeRequest.update({
+        where: { id },
+        data: {
+          status: EmployeeRequestStatus.CANCELLED,
+          decidedByUserId: actor.userId,
+          decidedAt: new Date(),
+          attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
+        },
+      });
+
+      const notif = await this.notifications.createForUsers(tx as any, [request.userId], {
+        type: NotificationType.SYSTEM,
+        title: 'Đã duyệt hủy ca làm bù ✅',
+        body: `Leader ${actorName} đã đồng ý hủy ca làm bù${compDateStr ? ` ngày ${moment.tz(compDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')}` : ''}. Ca làm bù đã được gỡ bỏ khỏi lịch và bạn có thể tạo lại lịch làm bù khác.`,
+        metadata: { requestId: id, status: 'CANCELLED' },
+      });
+      if (notif) this.notifications.emitCreated(notif);
+
+      return updated;
+    });
+  }
+
+  async rejectCancelCompensatory(id: string, actor: AuthenticatedUser, payload?: DecideCancelCompensatoryDto) {
+    const request = await this.prisma.employeeRequest.findUnique({
+      where: { id },
+      include: {
+        department: true,
+        user: { select: { profile: { select: { fullName: true } } } },
+      },
+    });
+    if (!request) throw notFound('REQUEST_NOT_FOUND', 'Yêu cầu không tồn tại');
+
+    const isGlobalAdmin = actor.roles.includes('ADMIN') || this.scope.isGlobalAdmin(actor);
+    const isDeptLeader = request.department?.leaderUserId === actor.userId;
+    const canDeptAccess = request.departmentId ? await this.scope.canAccessDepartmentAsync(actor, request.departmentId) : false;
+    const isHr = await this.isHrActor(actor);
+
+    if (!isGlobalAdmin && !isDeptLeader && !canDeptAccess && !isHr) {
+      throw forbidden('FORBIDDEN', 'Bạn không có quyền từ chối hủy yêu cầu này.');
+    }
+
+    const meta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
+      ? { ...(request.attachmentMetadata as Record<string, any>) }
+      : {};
+
+    if (!meta.cancellationRequested) {
+      throw badRequest('NOT_REQUESTED', 'Yêu cầu này không có đề xuất xin hủy.');
+    }
+
+    const actorProfile = await this.prisma.employeeProfile.findUnique({
+      where: { userId: actor.userId },
+      select: { fullName: true },
+    });
+    const actorName = actorProfile?.fullName || 'Leader';
+
+    const updatedMeta = {
+      ...meta,
+      cancellationRequested: false,
+      cancellationRejected: true,
+      cancellationRejectedBy: actor.userId,
+      cancellationRejectedByName: actorName,
+      cancellationRejectedAt: new Date().toISOString(),
+      cancellationRejectReason: payload?.note?.trim() || 'Leader không đồng ý hủy ca làm bù',
+    };
+
+    const updated = await this.prisma.employeeRequest.update({
+      where: { id },
+      data: {
+        attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
+      },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      const notif = await this.notifications.createForUsers(tx as any, [request.userId], {
+        type: NotificationType.SYSTEM,
+        title: 'Từ chối hủy ca làm bù ❌',
+        body: `Leader ${actorName} đã từ chối yêu cầu hủy ca làm bù của bạn. Lý do: ${payload?.note?.trim() || 'Không chấp thuận'}. Ca làm bù vẫn giữ nguyên theo lịch.`,
+        metadata: { requestId: id },
+      });
+      if (notif) this.notifications.emitCreated(notif);
+    });
+
+    return updated;
   }
 
   async resubmitPurchaseByHr(id: string, payload: ResubmitPurchaseByHrDto, actor: AuthenticatedUser) {

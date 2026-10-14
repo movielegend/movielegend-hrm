@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, Text, View, Pressable, Image, ActivityIndicator
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import ImageView from '../../components/ImageViewer/ImageViewer';
-import { useMyEmployeeRequests, useEmployeeRequestById } from '../../hooks/useEmployeeRequests';
+import { useMyEmployeeRequests, useEmployeeRequestById, useRequestCancelCompensatory } from '../../hooks/useEmployeeRequests';
 import { useAuth } from '../../providers/AuthProvider';
 import { useAppAlert } from '../../contexts/AlertContext';
 import { uploadFile } from '../../api/uploads.api';
@@ -26,10 +26,16 @@ export function EmployeeRequestsHomeScreen() {
     const meta = (typeof req?.attachmentMetadata === 'object' && req?.attachmentMetadata !== null) ? req.attachmentMetadata : {};
     const stage = meta.stage;
 
+    if (status === 'CANCELLED') {
+      return { text: 'Đã hủy ca', color: '#6B7280', bg: 'rgba(107, 114, 128, 0.1)' };
+    }
     if (status === 'REJECTED') {
       return { text: 'Từ chối', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' };
     }
     if (status === 'APPROVED') {
+      if (meta.cancellationRequested) {
+        return { text: 'Chờ duyệt hủy', color: '#D97706', bg: 'rgba(217, 119, 6, 0.1)' };
+      }
       if (stage === 'PURCHASE_FULFILLED') {
         return { text: 'Đã hoàn tất mua sắm', color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' };
       }
@@ -139,6 +145,30 @@ export function EmployeeRequestDetailScreen() {
   const [hrBankName, setHrBankName] = useState('');
   const [hrAccountHolder, setHrAccountHolder] = useState('');
   const [isSubmittingHrExpense, setIsSubmittingHrExpense] = useState(false);
+
+  // Compensatory Work Cancellation State
+  const [isCancelCompModalOpen, setIsCancelCompModalOpen] = useState(false);
+  const [cancelCompReason, setCancelCompReason] = useState('');
+  const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
+  const cancelCompMutation = useRequestCancelCompensatory();
+
+  const handleRequestCancel = async () => {
+    if (!cancelCompReason.trim()) {
+      showAlert('Lỗi', 'Vui lòng nhập lý do xin hủy ca làm bù.');
+      return;
+    }
+    setIsSubmittingCancel(true);
+    try {
+      await cancelCompMutation.mutateAsync({ id, reason: cancelCompReason.trim() });
+      showAlert('Thành công', 'Đã gửi yêu cầu xin hủy ca làm bù đến Leader phê duyệt.');
+      setIsCancelCompModalOpen(false);
+      setCancelCompReason('');
+    } catch (err: any) {
+      showAlert('Lỗi', err.response?.data?.message || err.message || 'Không thể gửi yêu cầu hủy ca làm bù.');
+    } finally {
+      setIsSubmittingCancel(false);
+    }
+  };
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -252,6 +282,9 @@ export function EmployeeRequestDetailScreen() {
     const meta = (typeof req?.attachmentMetadata === 'object' && req?.attachmentMetadata !== null) ? req.attachmentMetadata : {};
     const stage = meta.stage;
 
+    if (status === 'CANCELLED') {
+      return { text: 'Đã hủy ca', color: '#6B7280', bg: '#F3F4F6' };
+    }
     if (status === 'REJECTED') {
       return { text: 'Từ chối', color: '#EF4444', bg: '#FEE2E2' };
     }
@@ -262,6 +295,9 @@ export function EmployeeRequestDetailScreen() {
       return { text: 'HR đã mua hàng', color: '#10B981', bg: '#D1FAE5' };
     }
     if (status === 'APPROVED') {
+      if (meta.cancellationRequested) {
+        return { text: 'Chờ duyệt hủy', color: '#D97706', bg: '#FEF3C7' };
+      }
       if (meta.disbursementProofUrl || stage === 'DISBURSED') {
         return { text: 'Đã giải ngân', color: '#10B981', bg: '#D1FAE5' };
       }
@@ -510,6 +546,97 @@ export function EmployeeRequestDetailScreen() {
                     </Text>
                   </View>
                 ) : null}
+              </View>
+            )}
+
+            {/* Trạng thái xin hủy ca làm bù */}
+            {isCompensatory && meta.cancellationRequested && request.status === 'APPROVED' && (
+              <View style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#D97706" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#B45309' }}>
+                    Đang chờ Leader duyệt hủy ca làm bù
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 13, color: '#78350F', marginBottom: 4 }}>
+                  Lý do xin hủy: "{meta.cancellationReason}"
+                </Text>
+                {meta.cancellationRequestedAt ? (
+                  <Text style={{ fontSize: 11, color: '#94A3B8' }}>
+                    Gửi lúc: {new Date(meta.cancellationRequestedAt).toLocaleString('vi-VN')}
+                  </Text>
+                ) : null}
+              </View>
+            )}
+
+            {/* Thông báo nếu đã bị từ chối hủy */}
+            {isCompensatory && meta.cancellationRejected && request.status === 'APPROVED' && (
+              <View style={{ backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="close-circle-outline" size={20} color="#DC2626" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#991B1B' }}>
+                    Leader không đồng ý hủy ca làm bù
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 13, color: '#7F1D1D' }}>
+                  Lý do: "{meta.cancellationRejectReason || 'Không chấp thuận'}"
+                </Text>
+                <Text style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
+                  Ca làm bù của bạn vẫn giữ nguyên theo lịch phân công.
+                </Text>
+              </View>
+            )}
+
+            {/* Thông báo nếu đơn đã hủy thành công */}
+            {isCompensatory && request.status === 'CANCELLED' && (
+              <View style={{ backgroundColor: '#F8FAFC', borderColor: '#CBD5E1', borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="check-circle-outline" size={20} color="#64748B" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#475569' }}>
+                    Đơn làm bù đã được duyệt hủy
+                  </Text>
+                </View>
+                {meta.cancellationReason ? (
+                  <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 4 }}>
+                    Lý do xin hủy: "{meta.cancellationReason}"
+                  </Text>
+                ) : null}
+                {meta.cancellationLeaderNote ? (
+                  <Text style={{ fontSize: 13, color: '#0F172A', fontWeight: '600', marginBottom: 4 }}>
+                    Ghi chú của Leader: "{meta.cancellationLeaderNote}"
+                  </Text>
+                ) : null}
+                <Text style={{ fontSize: 12, color: '#059669', marginTop: 4 }}>
+                  Ca làm việc đã được gỡ bỏ khỏi lịch. Bạn có thể chọn ngày khác để tạo đơn làm bù mới.
+                </Text>
+              </View>
+            )}
+
+            {/* Nút xin hủy ca làm bù cho nhân viên khi đơn APPROVED và chưa xin hủy */}
+            {isCompensatory && request.status === 'APPROVED' && !meta.cancellationRequested && (
+              <View style={{ marginBottom: 16 }}>
+                <TouchableOpacity
+                  onPress={() => setIsCancelCompModalOpen(true)}
+                  style={{
+                    borderWidth: 1.5,
+                    borderColor: '#EA580C',
+                    backgroundColor: '#FFF7ED',
+                    borderRadius: 10,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                  }}
+                >
+                  <MaterialCommunityIcons name="calendar-remove" size={18} color="#EA580C" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#EA580C' }}>
+                    Xin hủy ca làm bù
+                  </Text>
+                </TouchableOpacity>
+                <Text style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginTop: 4 }}>
+                  (Nếu có việc đột xuất, bạn có thể xin hủy ca làm bù để Leader xét duyệt)
+                </Text>
               </View>
             )}
 
@@ -1200,6 +1327,109 @@ export function EmployeeRequestDetailScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Modal Xin Hủy Ca Làm Bù */}
+      <Modal
+        visible={isCancelCompModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isSubmittingCancel && setIsCancelCompModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 }}
+        >
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 440 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFEDD5', justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                  <MaterialCommunityIcons name="calendar-remove" size={20} color="#EA580C" />
+                </View>
+                <Text style={{ fontSize: 17, fontWeight: '800', color: '#0F172A' }}>Xin hủy ca làm bù</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsCancelCompModalOpen(false)}
+                disabled={isSubmittingCancel}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons name="close" size={22} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0' }}>
+              <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 2 }}>Ca làm bù hiện tại:</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                {meta.compensatoryDate ? formatDateStr(meta.compensatoryDate) : ''} · {meta.compensatoryShiftName || 'Ca làm việc'}
+              </Text>
+              <Text style={{ fontSize: 12, color: '#D97706', marginTop: 4 }}>
+                Khi được Leader duyệt hủy, ca làm việc sẽ được gỡ khỏi lịch và bạn có thể tạo lại đơn làm bù cho ngày khác.
+              </Text>
+            </View>
+
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 6 }}>
+                Lý do xin hủy ca làm bù <Text style={{ color: '#DC2626' }}>*</Text>
+              </Text>
+              <TextInput
+                style={{
+                  backgroundColor: '#F8FAFC',
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1',
+                  borderRadius: 10,
+                  padding: 12,
+                  fontSize: 14,
+                  color: '#0F172A',
+                  minHeight: 80,
+                  textAlignVertical: 'top',
+                }}
+                placeholder="Ví dụ: Em có việc gia đình đột xuất không thể đi làm bù ca này..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                value={cancelCompReason}
+                onChangeText={setCancelCompReason}
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => setIsCancelCompModalOpen(false)}
+                disabled={isSubmittingCancel}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: '#CBD5E1',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#64748B' }}>Đóng</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleRequestCancel}
+                disabled={isSubmittingCancel}
+                style={{
+                  flex: 1.5,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  backgroundColor: '#EA580C',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: isSubmittingCancel ? 0.6 : 1,
+                }}
+              >
+                {isSubmittingCancel ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>Gửi yêu cầu hủy</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
