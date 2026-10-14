@@ -24,6 +24,7 @@ import { resolveFileUrl } from '../../../src/utils/url';
 
 const REQUEST_TYPES: { type: EmployeeRequestType, label: string, icon: keyof typeof MaterialCommunityIcons.glyphMap, color: string }[] = [
   { type: 'LEAVE', label: 'Nghỉ phép', icon: 'umbrella-outline', color: '#1B382B' },
+  { type: 'COMPENSATORY_WORK', label: 'Làm bù', icon: 'calendar-sync-outline', color: '#1B382B' },
   { type: 'ATTENDANCE_ADJUSTMENT', label: 'Giải trình\ncông', icon: 'file-document-outline', color: '#1B382B' },
   { type: 'BUSINESS_TRIP', label: 'Đi công tác', icon: 'airplane', color: '#1B382B' },
   { type: 'LATE_ARRIVAL', label: 'Đi muộn', icon: 'clock-outline', color: '#1B382B' },
@@ -103,6 +104,23 @@ export default function CreateRequestScreen() {
   const [tripImages, setTripImages] = useState<string[]>([]);
   const [isUploadingTripImages, setIsUploadingTripImages] = useState(false);
 
+  // Specific fields for Compensatory Work (Làm bù)
+  const [targetLeaveDate, setTargetLeaveDate] = useState<Date | null>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [compensatoryDate, setCompensatoryDate] = useState<Date | null>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [compensatoryShift, setCompensatoryShift] = useState<Shift | null>(null);
+  const [compensatoryType, setCompensatoryType] = useState<string>('Cả ca');
+  const [compensatoryHours, setCompensatoryHours] = useState<string>('8');
+  const [showCompensatoryTypeModal, setShowCompensatoryTypeModal] = useState(false);
+  const compensatoryTypes = ['Cả ca', 'Theo giờ', 'Ca đôi'];
+
   // Specific fields for Leave & Explanation
   const [leaveDurationType, setLeaveDurationType] = useState('');
   const [leaveType, setLeaveType] = useState('');
@@ -123,7 +141,7 @@ export default function CreateRequestScreen() {
   const [timePickerTab, setTimePickerTab] = useState<'hour' | 'minute'>('hour');
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState<'start' | 'end' | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | 'single' | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | 'single' | 'target_leave' | 'compensatory' | null>(null);
   const [showLeaveDurationModal, setShowLeaveDurationModal] = useState(false);
   const [showLeaveTypeModal, setShowLeaveTypeModal] = useState(false);
   const [showExplanationTypeModal, setShowExplanationTypeModal] = useState(false);
@@ -134,11 +152,13 @@ export default function CreateRequestScreen() {
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
 
-  const handleOpenDatePicker = (mode: 'from' | 'to' | 'single') => {
+  const handleOpenDatePicker = (mode: 'from' | 'to' | 'single' | 'target_leave' | 'compensatory') => {
     let initialDate = new Date();
     if (mode === 'from' && fromDate) initialDate = new Date(fromDate);
     if (mode === 'to' && toDate) initialDate = new Date(toDate);
     if (mode === 'single' && fromDate) initialDate = new Date(fromDate);
+    if (mode === 'target_leave' && targetLeaveDate) initialDate = new Date(targetLeaveDate);
+    if (mode === 'compensatory' && compensatoryDate) initialDate = new Date(compensatoryDate);
     setCalendarViewDate(initialDate);
     setShowDatePicker(mode);
   };
@@ -206,6 +226,7 @@ export default function CreateRequestScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLeave = selectedType === 'LEAVE';
+  const isCompensatory = selectedType === 'COMPENSATORY_WORK';
   const isExplanation = selectedType === 'ATTENDANCE_ADJUSTMENT';
   const isBusinessTrip = selectedType === 'BUSINESS_TRIP';
   const isOvertime = selectedType === 'OVERTIME';
@@ -260,13 +281,13 @@ export default function CreateRequestScreen() {
   }, [user?.id, user?.department?.id, (user as any)?.departmentId]);
 
   React.useEffect(() => {
-    if (isLateOrEarly || isExplanation || isOvertime) {
+    if (isLateOrEarly || isExplanation || isOvertime || isCompensatory) {
       getShifts()
         .then(setApiShifts)
         .catch(err => console.log('Error fetching shifts', err));
     }
     void fetchEmployeesList();
-  }, [isLateOrEarly, isLeave, isExplanation, isOvertime, fetchEmployeesList]);
+  }, [isLateOrEarly, isLeave, isExplanation, isOvertime, isCompensatory, fetchEmployeesList]);
 
 
 
@@ -390,6 +411,10 @@ export default function CreateRequestScreen() {
       }
     } else if (showDatePicker === 'to') {
       setToDate(chosen);
+    } else if (showDatePicker === 'target_leave') {
+      setTargetLeaveDate(chosen);
+    } else if (showDatePicker === 'compensatory') {
+      setCompensatoryDate(chosen);
     }
     setShowDatePicker(null);
   };
@@ -409,6 +434,10 @@ export default function CreateRequestScreen() {
       }
     } else if (showDatePicker === 'to') {
       setToDate(target);
+    } else if (showDatePicker === 'target_leave') {
+      setTargetLeaveDate(target);
+    } else if (showDatePicker === 'compensatory') {
+      setCompensatoryDate(target);
     }
     setShowDatePicker(null);
   };
@@ -485,7 +514,11 @@ export default function CreateRequestScreen() {
   };
 
   const handleSelectShift = (selectedShift: Shift) => {
-    setShift(selectedShift);
+    if (isCompensatory) {
+      setCompensatoryShift(selectedShift);
+    } else {
+      setShift(selectedShift);
+    }
     setShowShiftModal(false);
   };
 
@@ -504,6 +537,11 @@ export default function CreateRequestScreen() {
         generatedTitle = `Giải trình: ${explanationType} - ${dateStr}`;
       } else if (isLeave && leaveType) {
         generatedTitle = `Nghỉ phép: ${leaveType} - ${dateStr}`;
+      } else if (isCompensatory) {
+        const compDateStr = compensatoryDate ? formatDate(compensatoryDate) : '';
+        const targetDateStr = targetLeaveDate ? formatDate(targetLeaveDate) : '';
+        const shiftName = compensatoryShift?.name || (compensatoryType === 'Theo giờ' ? `${compensatoryHours}h` : 'ca làm');
+        generatedTitle = `[LÀM BÙ] Làm bù ${shiftName}${compDateStr ? ` ngày ${compDateStr}` : ''}${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`;
       } else if (isPurchase) {
         generatedTitle = `[Mua sắm] ${purchaseItemName.trim() || 'Vật tư'} (SL: ${purchaseQuantity.trim() || '1'})`;
       } else if (isAdvance) {
@@ -599,6 +637,24 @@ export default function CreateRequestScreen() {
           showAlert('Lỗi', 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.');
           return;
         }
+      }
+    }
+    if (isCompensatory) {
+      if (!targetLeaveDate) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày nghỉ cần làm bù.');
+        return;
+      }
+      if (!compensatoryDate) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày thực hiện làm bù.');
+        return;
+      }
+      if (!compensatoryShift) {
+        showAlert('Lỗi', 'Vui lòng chọn Ca làm bù.');
+        return;
+      }
+      if (compensatoryType === 'Theo giờ' && (!compensatoryHours || Number(compensatoryHours) <= 0)) {
+        showAlert('Lỗi', 'Vui lòng nhập số giờ làm bù hợp lệ.');
+        return;
       }
     }
     if (isLateOrEarly) {
@@ -705,6 +761,15 @@ export default function CreateRequestScreen() {
         ...(explanationType ? { explanationType } : {}),
         ...(leaveType ? { leaveType } : {}),
         ...(leaveDurationType ? { leaveDurationType } : {}),
+        ...(isCompensatory ? {
+          requestType: 'COMPENSATORY_WORK',
+          targetLeaveDate: targetLeaveDate ? targetLeaveDate.toISOString() : undefined,
+          compensatoryDate: compensatoryDate ? compensatoryDate.toISOString() : undefined,
+          compensatoryShiftId: compensatoryShift?.id,
+          compensatoryShiftName: compensatoryShift?.name,
+          compensatoryType,
+          missedHours: compensatoryType === 'Theo giờ' ? Number(compensatoryHours) : undefined,
+        } : {}),
         ...(handoverEmployee ? {
           handoverEmployee: (handoverEmployee as any).fullName || (handoverEmployee as any).profile?.fullName || (handoverEmployee as any).userCode || 'Nhân sự',
           handoverUserId: handoverEmployee.id
@@ -1242,6 +1307,137 @@ export default function CreateRequestScreen() {
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
+              </View>
+            </>
+          ) : isCompensatory ? (
+            <>
+              {/* Làm bù cho ngày nghỉ */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Làm bù cho ngày nghỉ <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('target_leave')}>
+                  <Text style={[styles.inputText, !targetLeaveDate && styles.inputPlaceholder]}>
+                    {targetLeaveDate ? formatDate(targetLeaveDate) : 'Chọn ngày đã nghỉ'}
+                  </Text>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                </Pressable>
+              </View>
+
+              {/* Ngày thực hiện làm bù */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Ngày làm bù <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory')}>
+                  <Text style={[styles.inputText, !compensatoryDate && styles.inputPlaceholder]}>
+                    {compensatoryDate ? formatDate(compensatoryDate) : 'Chọn ngày làm bù (VD: Chủ nhật)'}
+                  </Text>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                </Pressable>
+              </View>
+
+              {/* Ca làm bù */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Ca làm bù <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => setShowShiftModal(true)}>
+                  <Text style={[styles.inputText, !compensatoryShift && styles.inputPlaceholder]}>
+                    {compensatoryShift ? `${compensatoryShift.name} (${compensatoryShift.startTime} - ${compensatoryShift.endTime})` : 'Chọn ca làm bù'}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                </Pressable>
+              </View>
+
+              {/* Hình thức làm bù */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Hình thức làm bù <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => setShowCompensatoryTypeModal(true)}>
+                  <Text style={styles.inputText}>
+                    {compensatoryType}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                </Pressable>
+              </View>
+
+              {compensatoryType === 'Theo giờ' && (
+                <View style={styles.formItem}>
+                  <Text style={styles.formLabel}>
+                    Số giờ làm bù <Text style={styles.required}>*</Text>
+                  </Text>
+                  <View style={styles.inputBox}>
+                    <TextInput
+                      style={[styles.inputText, { flex: 1 }]}
+                      placeholder="VD: 2, 4..."
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="numeric"
+                      value={compensatoryHours}
+                      onChangeText={setCompensatoryHours}
+                    />
+                    <Text style={{ color: '#0F172A', fontWeight: '600', fontSize: 13, marginLeft: 6 }}>Giờ</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Lý do chi tiết */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Lý do chi tiết <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.textAreaBox}>
+                  <TextInput
+                    style={styles.textAreaInput}
+                    placeholder="Nhập lý do nghỉ và kế hoạch làm bù..."
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    maxLength={500}
+                    value={content}
+                    onChangeText={setContent}
+                    textAlignVertical="top"
+                    onFocus={() => {
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                    }}
+                  />
+                  <Text style={styles.counterText}>{content.length}/500</Text>
+                </View>
+              </View>
+
+              {/* Ảnh / minh chứng nếu có */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>Ảnh / Minh chứng đính kèm (nếu có)</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handlePickPhoto}>
+                    <MaterialCommunityIcons 
+                      name={photoUri ? "check-circle" : "image-plus"} 
+                      size={20} 
+                      color={photoUri ? "#10B981" : "#475569"} 
+                    />
+                    <Text style={[styles.photoButtonText, photoUri && styles.photoButtonTextSuccess]}>
+                      {photoUri ? 'Đã chọn ảnh' : 'Chọn từ máy'}
+                    </Text>
+                  </Pressable>
+                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handleTakePhoto}>
+                    <MaterialCommunityIcons 
+                      name="camera-outline" 
+                      size={20} 
+                      color="#475569" 
+                    />
+                    <Text style={styles.photoButtonText}>Chụp ảnh</Text>
+                  </Pressable>
+                </View>
+                {photoUri && (
+                  <View style={styles.photoPreviewWrap}>
+                    <TouchableOpacity onPress={() => setIsFullScreenPhoto(true)} style={{ width: '100%', height: '100%' }}>
+                      <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
+                      <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </>
           ) : isLateOrEarly ? (
@@ -2258,6 +2454,32 @@ export default function CreateRequestScreen() {
                 <TouchableOpacity 
                   style={styles.fullScreenModalItem} 
                   onPress={() => { setLeaveType(item); setShowLeaveTypeModal(false); }}
+                >
+                  <Text style={styles.fullScreenModalItemText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Compensatory Type Modal */}
+      <Modal visible={showCompensatoryTypeModal} transparent animationType="slide">
+        <View style={styles.fullScreenModalOverlay}>
+          <View style={styles.fullScreenModalContent}>
+            <View style={styles.fullScreenModalHeader}>
+              <Pressable onPress={() => setShowCompensatoryTypeModal(false)} style={{ padding: 8, marginRight: 8 }}>
+                <MaterialCommunityIcons name="close" size={24} color="#111827" />
+              </Pressable>
+              <Text style={styles.fullScreenModalTitle}>Hình thức làm bù</Text>
+            </View>
+            <FlatList
+              data={compensatoryTypes}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.fullScreenModalItem} 
+                  onPress={() => { setCompensatoryType(item); setShowCompensatoryTypeModal(false); }}
                 >
                   <Text style={styles.fullScreenModalItemText}>{item}</Text>
                 </TouchableOpacity>

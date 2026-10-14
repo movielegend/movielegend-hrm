@@ -57,10 +57,17 @@ export class EmployeeRequestsService {
       }
     }
 
-    const requestType = isAccountDeletion ? EmployeeRequestType.OTHER : dto.type;
+    const isCompensatoryWork = (dto.type as string) === 'COMPENSATORY_WORK' || dto.title?.includes('[LÀM BÙ]');
+    const requestType = (isAccountDeletion || isCompensatoryWork) ? EmployeeRequestType.OTHER : dto.type;
     let requestTitle = dto.title;
     if (isAccountDeletion && !dto.title.includes('[ACCOUNT_DELETION]')) {
       requestTitle = `[ACCOUNT_DELETION] ${dto.title}`;
+    } else if (isCompensatoryWork && (!dto.title || dto.title.trim() === '' || !dto.title.includes('[LÀM BÙ]'))) {
+      const meta: any = dto.attachmentMetadata || {};
+      const targetDate = meta.targetLeaveDate ? String(meta.targetLeaveDate).split('T')[0] : '';
+      const compDate = meta.compensatoryDate ? String(meta.compensatoryDate).split('T')[0] : '';
+      const shiftName = meta.compensatoryShiftName || (meta.missedHours ? `${meta.missedHours}h` : 'ca làm');
+      requestTitle = `[LÀM BÙ] Làm bù ${shiftName}${compDate ? ` ngày ${compDate}` : ''}${targetDate ? ` cho ngày ${targetDate}` : ''}`;
     } else if (dto.type === EmployeeRequestType.BUSINESS_TRIP && (!dto.title || dto.title.trim() === '' || dto.title === 'Công tác' || dto.title === 'Yêu cầu')) {
       const meta: any = dto.attachmentMetadata || {};
       const loc = meta.location || 'Ngoài công ty';
@@ -121,6 +128,7 @@ export class EmployeeRequestsService {
 
     const attachmentMetadata = {
       ...(typeof dto.attachmentMetadata === 'object' && dto.attachmentMetadata !== null ? dto.attachmentMetadata : {}),
+      ...(isCompensatoryWork ? { requestType: 'COMPENSATORY_WORK' } : {}),
       ...(isFinancial ? { stage: initialStage, approvalSteps: [] } : {}),
     };
 
@@ -566,6 +574,47 @@ export class EmployeeRequestsService {
               }
 
               curr.add(1, 'day');
+            }
+          }
+        }
+
+        const isCompensatory = (request.type as string) === 'COMPENSATORY_WORK' ||
+          request.title.includes('[LÀM BÙ]') ||
+          (request.attachmentMetadata as any)?.requestType === 'COMPENSATORY_WORK';
+
+        if (isCompensatory) {
+          const meta: any = request.attachmentMetadata || {};
+          const compDateStr = meta.compensatoryDate ? String(meta.compensatoryDate).split('T')[0] : null;
+          const shiftId = meta.compensatoryShiftId;
+          const deptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId));
+
+          if (compDateStr && shiftId && deptId) {
+            const workDate = new Date(`${compDateStr}T00:00:00.000Z`);
+            const existingAssignment = await tx.shiftAssignment.findFirst({
+              where: { userId: request.userId, workDate },
+            });
+
+            const targetDateStr = meta.targetLeaveDate ? String(meta.targetLeaveDate).split('T')[0] : '';
+            const noteText = `Ca làm bù${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`;
+
+            if (existingAssignment) {
+              await tx.shiftAssignment.update({
+                where: { id: existingAssignment.id },
+                data: {
+                  shiftId,
+                  assignedByUserId: actor.userId,
+                },
+              });
+            } else {
+              await tx.shiftAssignment.create({
+                data: {
+                  userId: request.userId,
+                  departmentId: deptId,
+                  shiftId,
+                  workDate,
+                  assignedByUserId: actor.userId,
+                },
+              });
             }
           }
         }

@@ -130,7 +130,7 @@ export class AttendanceReportService {
       }).catch(() => []),
       this.prisma.employeeRequest.findMany({
         where: {
-          type: { in: ['LATE_ARRIVAL', 'ATTENDANCE_ADJUSTMENT', 'LEAVE'] },
+          type: { in: ['LATE_ARRIVAL', 'ATTENDANCE_ADJUSTMENT', 'LEAVE', 'OTHER'] },
           status: 'APPROVED',
           userId: { in: userIds },
         },
@@ -582,6 +582,26 @@ export class AttendanceReportService {
           noteParts.push(`Nghỉ phép: ${leaveTypeName}${leaveReason ? ` (${leaveReason})` : ''}`);
         } else if (isHourlyLeave) {
           noteParts.push(`Nghỉ theo giờ: ${leaveTypeName}${leaveReason ? ` (${leaveReason})` : ''}`);
+        }
+
+        // Kiểm tra đơn làm bù (COMPENSATORY_WORK)
+        const approvedCompensatoryReq = lateRequestsRaw.find(r => {
+          if (r.userId !== user.id) return false;
+          const meta: any = r.attachmentMetadata;
+          const isComp = (r.type as string) === 'COMPENSATORY_WORK' || r.title.includes('[LÀM BÙ]') || meta?.requestType === 'COMPENSATORY_WORK';
+          if (!isComp || !meta) return false;
+          const compDate = meta.compensatoryDate ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          return compDate === dateStr;
+        });
+
+        if (approvedCompensatoryReq) {
+          const meta: any = approvedCompensatoryReq.attachmentMetadata || {};
+          const targetDateStr = meta.targetLeaveDate ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY') : '';
+          noteParts.push(`Đi làm bù${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`);
+          // Khóa OT cho ca làm bù (không tính vào OT x150%/x200%)
+          ot100 = 0;
+          ot150 = 0;
+          ot200 = 0;
         }
         const rowNotes = noteParts.join(' | ');
 
