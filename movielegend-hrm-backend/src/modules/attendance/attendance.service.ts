@@ -572,7 +572,7 @@ export class AttendanceService {
     // Bỏ qua ca làm việc của ngày hôm trước nếu đã checkout xong hoặc đã quá giờ cho phép checkout
     const isPreviousDay = record.workDate.getTime() < today.getTime();
     if (isPreviousDay) {
-      if (record.checkOutAt || record.status === AttendanceStatus.CHECKED_OUT) {
+      if (record.checkOutAt || record.status === AttendanceStatus.CHECKED_OUT || record.status === AttendanceStatus.MISSING) {
         return { state: 'NONE', attendance: null };
       }
 
@@ -1085,7 +1085,7 @@ export class AttendanceService {
   }
 
   private stateFor(record: { checkOutAt: Date | null; status: AttendanceStatus }) {
-    if (record.checkOutAt || record.status === AttendanceStatus.CHECKED_OUT) return 'CHECKED_OUT';
+    if (record.checkOutAt || record.status === AttendanceStatus.CHECKED_OUT || record.status === AttendanceStatus.MISSING) return 'CHECKED_OUT';
     return 'CHECKED_IN';
   }
 
