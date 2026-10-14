@@ -406,11 +406,19 @@ export function LeaderApprovalScreen() {
     }
   };
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/leader/employee-requests');
+    }
+  };
+
   const handleApproveCancelComp = async () => {
     try {
       await approveCancelMutation.mutateAsync({ id, note: comment.trim() || undefined });
       showAlert('Thành công', 'Đã duyệt hủy ca làm bù thành công. Ca làm việc đã được gỡ bỏ khỏi lịch.');
-      router.back();
+      handleGoBack();
     } catch (err: any) {
       showAlert('Lỗi', err.response?.data?.message || err.message || 'Không thể duyệt hủy ca làm bù.');
     }
@@ -420,7 +428,7 @@ export function LeaderApprovalScreen() {
     try {
       await rejectCancelMutation.mutateAsync({ id, note: comment.trim() || undefined });
       showAlert('Thông báo', 'Đã từ chối yêu cầu hủy ca làm bù. Ca làm việc vẫn được giữ nguyên.');
-      router.back();
+      handleGoBack();
     } catch (err: any) {
       showAlert('Lỗi', err.response?.data?.message || err.message || 'Không thể từ chối hủy ca làm bù.');
     }
@@ -446,7 +454,9 @@ export function LeaderApprovalScreen() {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
         <Text>Không tìm thấy yêu cầu</Text>
-        <Pressable onPress={() => router.back()} style={{ marginTop: 20 }}><Text style={{ color: '#3B82F6' }}>Quay lại</Text></Pressable>
+        <Pressable onPress={handleGoBack} style={{ marginTop: 20, padding: 8 }}>
+          <Text style={{ color: '#3B82F6', fontWeight: '600' }}>Quay lại</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -829,11 +839,16 @@ export function LeaderApprovalScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#102739" />
       <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
         <View style={styles.topHeader}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+          <TouchableOpacity 
+            onPress={handleGoBack} 
+            style={styles.backBtn} 
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.7}
+          >
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{screenTitle}</Text>
-          <View style={{ width: 32 }} />
+          <View style={{ width: 40 }} />
         </View>
       </View>
 
@@ -2546,6 +2561,8 @@ export function LeaderApprovalScreen() {
 const styles = StyleSheet.create({
   topSafeArea: {
     backgroundColor: '#102739',
+    zIndex: 10,
+    elevation: 10,
   },
   topHeader: {
     flexDirection: 'row',
@@ -2554,13 +2571,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     backgroundColor: '#102739',
+    zIndex: 10,
+    elevation: 10,
   },
   backBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'flex-start',
+    width: 40,
+    height: 40,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: -4,
+    marginLeft: -8,
   },
   headerTitle: {
     fontSize: 20,
