@@ -12,6 +12,7 @@ import {
   TextInput,
   ActivityIndicator,
   StatusBar,
+  Switch,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -107,26 +108,41 @@ function TimePickerField({ label, value, onChange }: { label: string; value: str
     </View>
   );
 }
-function calculateDuration(start: string, end: string): string {
-  if (!start || !end) return '0 giờ';
+function parseMinutesDiff(start: string, end: string): number {
+  if (!start || !end) return 0;
   const [shStr, smStr] = start.split(':');
   const [ehStr, emStr] = end.split(':');
   const sh = parseInt(shStr || '', 10);
   const sm = parseInt(smStr || '', 10);
   const eh = parseInt(ehStr || '', 10);
   const em = parseInt(emStr || '', 10);
-  if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return '0 giờ';
+  if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return 0;
   let diffMinutes = eh * 60 + em - (sh * 60 + sm);
   if (diffMinutes < 0) {
     diffMinutes += 24 * 60;
   }
-  const hours = Math.floor(diffMinutes / 60);
-  const minutes = diffMinutes % 60;
+  return diffMinutes;
+}
+
+function formatMinutesToString(totalMinutes: number): string {
+  if (totalMinutes <= 0) return '0 giờ';
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   if (minutes === 0) {
     return `${hours} giờ`;
   }
+  if (hours === 0) {
+    return `${minutes} phút`;
+  }
   return `${hours} giờ ${minutes} phút`;
 }
+
+function calculateDuration(start: string, end: string, breakMinutes: number = 0): string {
+  const totalShiftMinutes = parseMinutesDiff(start, end);
+  const workingMinutes = Math.max(0, totalShiftMinutes - (breakMinutes || 0));
+  return formatMinutesToString(workingMinutes);
+}
+
 
 function TimeSelectorBox({
   label,
@@ -772,10 +788,26 @@ export function AdminShiftsScreen() {
                   </View>
                   <View style={styles.durationBadge}>
                     <Text style={styles.durationBadgeText}>
-                      {calculateDuration(shift.startTime, shift.endTime)}
+                      {calculateDuration(shift.startTime, shift.endTime, shift.breakMinutes ?? 0)}
                     </Text>
                   </View>
                 </View>
+
+                {/* Break time info if present */}
+                {Boolean(shift.breakStartTime && shift.breakEndTime) && (
+                  <View style={styles.shiftBreakRow}>
+                    <View style={styles.shiftBreakLeft}>
+                      <Ionicons name="cafe-outline" size={14} color="#D97706" style={{ marginRight: 5 }} />
+                      <Text style={styles.shiftBreakText}>
+                        Nghỉ trưa: {shift.breakStartTime} – {shift.breakEndTime}
+                        {shift.breakMinutes ? ` (${formatMinutesToString(shift.breakMinutes)})` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.breakTag}>
+                      <Text style={styles.breakTagText}>Giờ nghỉ</Text>
+                    </View>
+                  </View>
+                )}
 
                 {/* Assigned employees if any */}
                 {(shift as any).assignments && (shift as any).assignments.length > 0 && (() => {
@@ -883,6 +915,9 @@ export function CreateShiftScreen() {
   const [name, setName] = useState('');
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('17:00');
+  const [hasBreakTime, setHasBreakTime] = useState(true);
+  const [breakStartTime, setBreakStartTime] = useState('12:00');
+  const [breakEndTime, setBreakEndTime] = useState('13:30');
 
   const [selectedDept, setSelectedDept] = useState<{ id: string; name: string } | null>(null);
   const [deptModalVisible, setDeptModalVisible] = useState(false);
@@ -900,6 +935,20 @@ export function CreateShiftScreen() {
 
   const isValid = Boolean(code.trim() && name.trim());
 
+  const totalShiftMinutes = useMemo(
+    () => parseMinutesDiff(startTime, endTime),
+    [startTime, endTime]
+  );
+
+  const breakMinutes = useMemo(() => {
+    if (!hasBreakTime) return 0;
+    return parseMinutesDiff(breakStartTime, breakEndTime);
+  }, [hasBreakTime, breakStartTime, breakEndTime]);
+
+  const workingMinutes = useMemo(() => {
+    return Math.max(0, totalShiftMinutes - breakMinutes);
+  }, [totalShiftMinutes, breakMinutes]);
+
   async function submit() {
     if (!isValid) return;
     try {
@@ -909,6 +958,9 @@ export function CreateShiftScreen() {
         startTime,
         endTime,
         departmentId: selectedDept?.id || undefined,
+        breakStartTime: hasBreakTime ? breakStartTime : null,
+        breakEndTime: hasBreakTime ? breakEndTime : null,
+        breakMinutes: hasBreakTime ? breakMinutes : 0,
       });
       showAlert('Thành công', 'Đã tạo ca làm việc mới', () => router.back());
     } catch (error) {
@@ -1005,7 +1057,7 @@ export function CreateShiftScreen() {
           />
         </View>
 
-        {/* Card 2: Thời gian làm việc */}
+        {/* Card 2: Thời gian làm việc & Giờ nghỉ trưa */}
         <View style={styles.formCard}>
           <View style={styles.formCardHeader}>
             <View style={styles.formCardIconBox}>
@@ -1014,6 +1066,7 @@ export function CreateShiftScreen() {
             <Text style={styles.formCardTitle}>Thời gian làm việc</Text>
           </View>
 
+          <Text style={styles.modernFieldLabel}>Khung giờ toàn ca</Text>
           <View style={styles.timeRangePickerRow}>
             <TimeSelectorBox label="Bắt đầu" value={startTime} onChange={setStartTime} />
             <View style={styles.timeArrowDivider}>
@@ -1022,16 +1075,97 @@ export function CreateShiftScreen() {
             <TimeSelectorBox label="Kết thúc" value={endTime} onChange={setEndTime} />
           </View>
 
-          {/* Duration info banner */}
-          <View style={styles.durationInfoBox}>
-            <View style={styles.durationIconCircle}>
-              <Ionicons name="time-outline" size={18} color="#102739" />
+          {/* Divider */}
+          <View style={styles.breakSectionDivider} />
+
+          {/* Break time toggle */}
+          <View style={styles.breakToggleHeaderRow}>
+            <View style={styles.breakToggleLeft}>
+              <View style={styles.breakToggleIconBox}>
+                <Ionicons name="cafe-outline" size={18} color="#D97706" />
+              </View>
+              <View>
+                <Text style={styles.breakToggleTitle}>Cấu hình giờ nghỉ trưa</Text>
+                <Text style={styles.breakToggleSubtitle}>Trừ thời gian nghỉ khi tính công</Text>
+              </View>
             </View>
-            <View style={styles.durationTextCol}>
-              <Text style={styles.durationMainText}>
-                Khoảng thời gian: {calculateDuration(startTime, endTime)}
+            <Switch
+              value={hasBreakTime}
+              onValueChange={setHasBreakTime}
+              trackColor={{ false: '#E2E8F0', true: '#102739' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          {hasBreakTime && (
+            <View style={styles.breakDetailsContainer}>
+              <Text style={styles.modernFieldLabel}>Khung giờ nghỉ</Text>
+              <View style={styles.timeRangePickerRow}>
+                <TimeSelectorBox label="Nghỉ từ" value={breakStartTime} onChange={setBreakStartTime} />
+                <View style={styles.timeArrowDivider}>
+                  <Ionicons name="arrow-forward" size={18} color="#94A3B8" />
+                </View>
+                <TimeSelectorBox label="Nghỉ đến" value={breakEndTime} onChange={setBreakEndTime} />
+              </View>
+
+              {/* Fast presets */}
+              <View style={styles.breakPresetWrap}>
+                <Text style={styles.breakPresetTitle}>Gợi ý nhanh:</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.breakPresetRow}
+                >
+                  {[
+                    { label: '30p (12:00-12:30)', start: '12:00', end: '12:30' },
+                    { label: '45p (12:00-12:45)', start: '12:00', end: '12:45' },
+                    { label: '60p (12:00-13:00)', start: '12:00', end: '13:00' },
+                    { label: '90p (12:00-13:30)', start: '12:00', end: '13:30' },
+                    { label: '120p (11:30-13:30)', start: '11:30', end: '13:30' },
+                  ].map((preset) => {
+                    const isActive = breakStartTime === preset.start && breakEndTime === preset.end;
+                    return (
+                      <Pressable
+                        key={preset.label}
+                        style={[styles.breakPresetPill, isActive && styles.breakPresetPillActive]}
+                        onPress={() => {
+                          setBreakStartTime(preset.start);
+                          setBreakEndTime(preset.end);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.breakPresetPillText,
+                            isActive && styles.breakPresetPillTextActive,
+                          ]}
+                        >
+                          {preset.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </View>
+          )}
+
+          {/* Duration Summary Grid */}
+          <View style={styles.durationSummaryGrid}>
+            <View style={styles.durationSummaryItem}>
+              <Text style={styles.durationItemLabel}>Toàn ca</Text>
+              <Text style={styles.durationItemValue}>{formatMinutesToString(totalShiftMinutes)}</Text>
+            </View>
+            <Text style={styles.durationSymbol}>-</Text>
+            <View style={styles.durationSummaryItem}>
+              <Text style={styles.durationItemLabel}>Nghỉ trưa</Text>
+              <Text style={styles.durationItemValue}>
+                {hasBreakTime ? formatMinutesToString(breakMinutes) : '0p'}
               </Text>
-              <Text style={styles.durationSubText}>Chưa trừ thời gian nghỉ</Text>
+            </View>
+            <Text style={styles.durationSymbol}>=</Text>
+            <View style={[styles.durationSummaryItem, styles.durationWorkHighlight]}>
+              <Text style={styles.durationHighlightLabel}>Tính công thực tế</Text>
+              <Text style={styles.durationHighlightValue}>{formatMinutesToString(workingMinutes)}</Text>
             </View>
           </View>
         </View>
@@ -1105,6 +1239,9 @@ export function EditShiftScreen() {
   const [name, setName] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [hasBreakTime, setHasBreakTime] = useState(false);
+  const [breakStartTime, setBreakStartTime] = useState('12:00');
+  const [breakEndTime, setBreakEndTime] = useState('13:30');
 
   useEffect(() => {
     if (shift) {
@@ -1112,15 +1249,46 @@ export function EditShiftScreen() {
       setName(shift.name);
       setStartTime(shift.startTime);
       setEndTime(shift.endTime);
+      if (shift.breakStartTime && shift.breakEndTime) {
+        setHasBreakTime(true);
+        setBreakStartTime(shift.breakStartTime);
+        setBreakEndTime(shift.breakEndTime);
+      } else {
+        setHasBreakTime(false);
+        setBreakStartTime('12:00');
+        setBreakEndTime('13:30');
+      }
     }
   }, [shift]);
 
   const isValid = Boolean(code.trim() && name.trim());
 
+  const totalShiftMinutes = useMemo(
+    () => parseMinutesDiff(startTime, endTime),
+    [startTime, endTime]
+  );
+
+  const breakMinutes = useMemo(() => {
+    if (!hasBreakTime) return 0;
+    return parseMinutesDiff(breakStartTime, breakEndTime);
+  }, [hasBreakTime, breakStartTime, breakEndTime]);
+
+  const workingMinutes = useMemo(() => {
+    return Math.max(0, totalShiftMinutes - breakMinutes);
+  }, [totalShiftMinutes, breakMinutes]);
+
   async function submit() {
     if (!isValid) return;
     try {
-      await updateShift.mutateAsync({ code: code.trim(), name: name.trim(), startTime, endTime });
+      await updateShift.mutateAsync({
+        code: code.trim(),
+        name: name.trim(),
+        startTime,
+        endTime,
+        breakStartTime: hasBreakTime ? breakStartTime : null,
+        breakEndTime: hasBreakTime ? breakEndTime : null,
+        breakMinutes: hasBreakTime ? breakMinutes : 0,
+      });
       showAlert('Thành công', 'Đã cập nhật ca làm việc', () => router.back());
     } catch (error) {
       const normalized = normalizeApiError(error);
@@ -1207,7 +1375,7 @@ export function EditShiftScreen() {
           </View>
         </View>
 
-        {/* Card 2: Thời gian làm việc */}
+        {/* Card 2: Thời gian làm việc & Giờ nghỉ trưa */}
         <View style={styles.formCard}>
           <View style={styles.formCardHeader}>
             <View style={styles.formCardIconBox}>
@@ -1216,6 +1384,7 @@ export function EditShiftScreen() {
             <Text style={styles.formCardTitle}>Thời gian làm việc</Text>
           </View>
 
+          <Text style={styles.modernFieldLabel}>Khung giờ toàn ca</Text>
           <View style={styles.timeRangePickerRow}>
             <TimeSelectorBox label="Bắt đầu" value={startTime} onChange={setStartTime} />
             <View style={styles.timeArrowDivider}>
@@ -1224,16 +1393,97 @@ export function EditShiftScreen() {
             <TimeSelectorBox label="Kết thúc" value={endTime} onChange={setEndTime} />
           </View>
 
-          {/* Duration info banner */}
-          <View style={styles.durationInfoBox}>
-            <View style={styles.durationIconCircle}>
-              <Ionicons name="time-outline" size={18} color="#102739" />
+          {/* Divider */}
+          <View style={styles.breakSectionDivider} />
+
+          {/* Break time toggle */}
+          <View style={styles.breakToggleHeaderRow}>
+            <View style={styles.breakToggleLeft}>
+              <View style={styles.breakToggleIconBox}>
+                <Ionicons name="cafe-outline" size={18} color="#D97706" />
+              </View>
+              <View>
+                <Text style={styles.breakToggleTitle}>Cấu hình giờ nghỉ trưa</Text>
+                <Text style={styles.breakToggleSubtitle}>Trừ thời gian nghỉ khi tính công</Text>
+              </View>
             </View>
-            <View style={styles.durationTextCol}>
-              <Text style={styles.durationMainText}>
-                Khoảng thời gian: {calculateDuration(startTime, endTime)}
+            <Switch
+              value={hasBreakTime}
+              onValueChange={setHasBreakTime}
+              trackColor={{ false: '#E2E8F0', true: '#102739' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          {hasBreakTime && (
+            <View style={styles.breakDetailsContainer}>
+              <Text style={styles.modernFieldLabel}>Khung giờ nghỉ</Text>
+              <View style={styles.timeRangePickerRow}>
+                <TimeSelectorBox label="Nghỉ từ" value={breakStartTime} onChange={setBreakStartTime} />
+                <View style={styles.timeArrowDivider}>
+                  <Ionicons name="arrow-forward" size={18} color="#94A3B8" />
+                </View>
+                <TimeSelectorBox label="Nghỉ đến" value={breakEndTime} onChange={setBreakEndTime} />
+              </View>
+
+              {/* Fast presets */}
+              <View style={styles.breakPresetWrap}>
+                <Text style={styles.breakPresetTitle}>Gợi ý nhanh:</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.breakPresetRow}
+                >
+                  {[
+                    { label: '30p (12:00-12:30)', start: '12:00', end: '12:30' },
+                    { label: '45p (12:00-12:45)', start: '12:00', end: '12:45' },
+                    { label: '60p (12:00-13:00)', start: '12:00', end: '13:00' },
+                    { label: '90p (12:00-13:30)', start: '12:00', end: '13:30' },
+                    { label: '120p (11:30-13:30)', start: '11:30', end: '13:30' },
+                  ].map((preset) => {
+                    const isActive = breakStartTime === preset.start && breakEndTime === preset.end;
+                    return (
+                      <Pressable
+                        key={preset.label}
+                        style={[styles.breakPresetPill, isActive && styles.breakPresetPillActive]}
+                        onPress={() => {
+                          setBreakStartTime(preset.start);
+                          setBreakEndTime(preset.end);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.breakPresetPillText,
+                            isActive && styles.breakPresetPillTextActive,
+                          ]}
+                        >
+                          {preset.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </View>
+          )}
+
+          {/* Duration Summary Grid */}
+          <View style={styles.durationSummaryGrid}>
+            <View style={styles.durationSummaryItem}>
+              <Text style={styles.durationItemLabel}>Toàn ca</Text>
+              <Text style={styles.durationItemValue}>{formatMinutesToString(totalShiftMinutes)}</Text>
+            </View>
+            <Text style={styles.durationSymbol}>-</Text>
+            <View style={styles.durationSummaryItem}>
+              <Text style={styles.durationItemLabel}>Nghỉ trưa</Text>
+              <Text style={styles.durationItemValue}>
+                {hasBreakTime ? formatMinutesToString(breakMinutes) : '0p'}
               </Text>
-              <Text style={styles.durationSubText}>Chưa trừ thời gian nghỉ</Text>
+            </View>
+            <Text style={styles.durationSymbol}>=</Text>
+            <View style={[styles.durationSummaryItem, styles.durationWorkHighlight]}>
+              <Text style={styles.durationHighlightLabel}>Tính công thực tế</Text>
+              <Text style={styles.durationHighlightValue}>{formatMinutesToString(workingMinutes)}</Text>
             </View>
           </View>
         </View>
@@ -2004,6 +2254,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#102739',
   },
+  shiftBreakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginTop: -4,
+    marginBottom: 12,
+  },
+  shiftBreakLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  shiftBreakText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400E',
+  },
+  breakTag: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  breakTagText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#B45309',
+  },
   shiftCardActions: {
     flexDirection: 'row',
     gap: 10,
@@ -2130,36 +2414,132 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
 
-  /* ── Duration Info Banner (Screen 02) ── */
-  durationInfoBox: {
+  /* ── Break Section & Duration Summary Grid (Screen 02) ── */
+  breakSectionDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 14,
+  },
+  breakToggleHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E7F0F7',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 14,
+    justifyContent: 'space-between',
   },
-  durationIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(16, 39, 57, 0.12)',
+  breakToggleLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  durationTextCol: {
+    gap: 10,
     flex: 1,
   },
-  durationMainText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#102739',
+  breakToggleIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  durationSubText: {
+  breakToggleTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  breakToggleSubtitle: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  breakDetailsContainer: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  breakPresetWrap: {
+    marginTop: 10,
+  },
+  breakPresetTitle: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  breakPresetRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  breakPresetPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  breakPresetPillActive: {
+    backgroundColor: '#102739',
+    borderColor: '#102739',
+  },
+  breakPresetPillText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  breakPresetPillTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  durationSummaryGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    marginTop: 16,
+  },
+  durationSummaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  durationItemLabel: {
     fontSize: 11,
     color: '#64748B',
-    marginTop: 2,
+    marginBottom: 2,
+  },
+  durationItemValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  durationSymbol: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#94A3B8',
+    paddingHorizontal: 4,
+  },
+  durationWorkHighlight: {
+    backgroundColor: '#E7F0F7',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    flex: 1.4,
+  },
+  durationHighlightLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#102739',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  durationHighlightValue: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#102739',
+    textAlign: 'center',
   },
 
   /* ── Form Bottom Footer (Screen 02) ── */

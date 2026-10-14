@@ -1,8 +1,10 @@
 import { apiClient, unwrapData } from './client';
 import type { ApiResponse } from '../types/api.types';
 import type {
+  AssignShiftBatchPayload,
   AssignShiftPayload,
   CreateShiftPayload,
+  DepartmentAssignmentsQuery,
   Shift,
   ShiftAssignment,
   ShiftRegistrationPayload,
@@ -38,8 +40,15 @@ export async function assignShift(payload: AssignShiftPayload): Promise<ShiftAss
   return unwrapData(response);
 }
 
-export async function assignShiftBatch(payload: { userIds: string[]; departmentId: string; shiftId: string; dates: string[] }): Promise<unknown> {
+export async function assignShiftBatch(payload: AssignShiftBatchPayload): Promise<unknown> {
   const response = await apiClient.post<ApiResponse<unknown>>('/shift-assignments/batch', payload);
+  return unwrapData(response);
+}
+
+export async function getDepartmentShiftAssignments(params: DepartmentAssignmentsQuery): Promise<ShiftAssignment[]> {
+  const response = await apiClient.get<ApiResponse<ShiftAssignment[]>>('/shift-assignments/department', {
+    params,
+  });
   return unwrapData(response);
 }
 
@@ -62,3 +71,4 @@ export async function createShiftSwap(payload: ShiftSwapPayload): Promise<ShiftS
   const response = await apiClient.post<ApiResponse<ShiftSwap>>('/shift-assignments/swaps', payload);
   return unwrapData(response);
 }
+

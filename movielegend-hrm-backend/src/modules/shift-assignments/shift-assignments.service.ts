@@ -4,7 +4,7 @@ import type { AuthenticatedUser } from '../../common/interfaces/authenticated-us
 import { badRequest, conflict, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
-import { AssignShiftDto, BatchAssignShiftDto } from './dto/shift-assignment.dto';
+import { AssignShiftDto, BatchAssignShiftDto, DepartmentAssignmentsQueryDto } from './dto/shift-assignment.dto';
 import { ShiftRegistrationDto, ShiftSwapDto } from './dto/shift-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
@@ -44,7 +44,69 @@ export class ShiftAssignmentsService {
 
       if (!shift) throw notFound('SHIFT_NOT_FOUND', 'Không tìm thấy ca làm');
       if (!shift.isActive || shift.deletedAt) throw badRequest('SHIFT_INACTIVE', 'Ca làm đã bị vô hiệu hóa');
-      if (existing) throw conflict('SHIFT_ALREADY_ASSIGNED', 'Nhân viên đã được phân ca trong ngày này');
+
+      if (existing) {
+        if (!dto.allowOverwrite) {
+          throw conflict('SHIFT_ALREADY_ASSIGNED', 'Nhân viên đã được phân ca trong ngày này');
+        }
+
+        // Kiểm tra xem nhân sự đã check-in ca ngày này chưa
+        const checkedIn = await tx.attendanceRecord.findFirst({
+          where: { userId: dto.userId, workDate },
+        });
+        if (checkedIn) {
+          throw badRequest('ALREADY_CHECKED_IN', 'Nhân viên đã check-in ca ngày hôm nay, không thể điều chuyển ca.');
+        }
+
+        const assignment = await tx.shiftAssignment.update({
+          where: { id: existing.id },
+          data: {
+            departmentId: dto.departmentId,
+            shiftId: dto.shiftId,
+            assignedByUserId: actor.userId,
+          },
+          include: {
+            shift: true,
+            user: {
+              select: {
+                id: true,
+                userCode: true,
+                phone: true,
+                email: true,
+                profile: true,
+              },
+            },
+            department: true,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            actorUserId: actor.userId,
+            action: 'shift.reassign',
+            entityType: 'ShiftAssignment',
+            entityId: assignment.id,
+            metadata: {
+              userId: dto.userId,
+              departmentId: dto.departmentId,
+              shiftId: dto.shiftId,
+              oldShiftId: existing.shiftId,
+              workDate: dto.workDate,
+              reason: dto.reason || 'Điều chuyển ca',
+            },
+          },
+        });
+
+        const notif = await this.notifications.createForUsers(tx as any, [dto.userId], {
+          type: 'SYSTEM' as NotificationType,
+          title: 'Điều chuyển ca làm việc',
+          body: `Lịch làm việc ngày ${workDate.toLocaleDateString('vi-VN')} của bạn đã được điều chỉnh sang ${shift.name}.`,
+          metadata: { shiftId: shift.id, assignmentId: assignment.id, reason: dto.reason },
+        });
+        if (notif) this.notifications.emitCreated(notif);
+
+        return assignment;
+      }
 
       const assignment = await tx.shiftAssignment.create({
         data: {
@@ -137,7 +199,42 @@ export class ShiftAssignmentsService {
           const existing = await tx.shiftAssignment.findUnique({
             where: { userId_workDate: { userId, workDate } }
           });
-          if (existing) continue;
+          if (existing) {
+            if (dto.allowOverwrite && existing.shiftId !== dto.shiftId) {
+              const checkedIn = await tx.attendanceRecord.findFirst({
+                where: { userId, workDate },
+              });
+              if (!checkedIn) {
+                const updated = await tx.shiftAssignment.update({
+                  where: { id: existing.id },
+                  data: {
+                    departmentId: dto.departmentId,
+                    shiftId: dto.shiftId,
+                    assignedByUserId: actor.userId,
+                  },
+                });
+                createdAssignments.push(updated);
+
+                await tx.auditLog.create({
+                  data: {
+                    actorUserId: actor.userId,
+                    action: 'shift.reassign',
+                    entityType: 'ShiftAssignment',
+                    entityId: existing.id,
+                    metadata: {
+                      userId,
+                      departmentId: dto.departmentId,
+                      shiftId: dto.shiftId,
+                      oldShiftId: existing.shiftId,
+                      workDate: dateStr,
+                      reason: dto.reason || 'Điều chuyển/Vá ca',
+                    },
+                  },
+                });
+              }
+            }
+            continue;
+          }
 
           const assignment = await tx.shiftAssignment.create({
             data: {
@@ -161,6 +258,43 @@ export class ShiftAssignmentsService {
       }
 
       return { count: createdAssignments.length };
+    });
+  }
+
+  async getDepartmentAssignments(query: DepartmentAssignmentsQueryDto, actor: AuthenticatedUser) {
+    await this.scope.assertDepartmentAccessAsync(actor, query.departmentId);
+    const start = new Date(query.startDate);
+    const end = new Date(query.endDate);
+    return this.prisma.shiftAssignment.findMany({
+      where: {
+        departmentId: query.departmentId,
+        workDate: {
+          gte: start,
+          lte: end,
+        },
+        status: ShiftAssignmentStatus.ASSIGNED,
+      },
+      include: {
+        shift: true,
+        attendanceRecords: {
+          select: {
+            id: true,
+            checkInAt: true,
+            checkOutAt: true,
+            status: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            userCode: true,
+            phone: true,
+            email: true,
+            profile: true,
+          },
+        },
+      },
+      orderBy: [{ workDate: 'asc' }, { createdAt: 'desc' }],
     });
   }
 

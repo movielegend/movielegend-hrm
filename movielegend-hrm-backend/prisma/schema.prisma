@@ -1345,6 +1345,8 @@ model Shift {
   startTime            String
   endTime              String
   breakMinutes         Int                 @default(0)
+  breakStartTime       String?
+  breakEndTime         String?
   checkInEarlyMinutes  Int                 @default(15)
   checkInLateMinutes   Int                 @default(60)
   checkOutEarlyMinutes Int                 @default(0)

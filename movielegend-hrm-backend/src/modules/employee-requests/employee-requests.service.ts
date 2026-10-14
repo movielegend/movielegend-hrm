@@ -59,10 +59,17 @@ export class EmployeeRequestsService {
       }
     }
 
-    const requestType = isAccountDeletion ? EmployeeRequestType.OTHER : dto.type;
+    const isCompensatoryWork = (dto.type as string) === 'COMPENSATORY_WORK' || dto.title?.includes('[LÀM BÙ]');
+    const requestType = (isAccountDeletion || isCompensatoryWork) ? EmployeeRequestType.OTHER : dto.type;
     let requestTitle = dto.title;
     if (isAccountDeletion && !dto.title.includes('[ACCOUNT_DELETION]')) {
       requestTitle = `[ACCOUNT_DELETION] ${dto.title}`;
+    } else if (isCompensatoryWork && (!dto.title || dto.title.trim() === '' || !dto.title.includes('[LÀM BÙ]'))) {
+      const meta: any = dto.attachmentMetadata || {};
+      const targetDate = meta.targetLeaveDate ? String(meta.targetLeaveDate).split('T')[0] : '';
+      const compDate = meta.compensatoryDate ? String(meta.compensatoryDate).split('T')[0] : '';
+      const shiftName = meta.compensatoryShiftName || (meta.missedHours ? `${meta.missedHours}h` : 'ca làm');
+      requestTitle = `[LÀM BÙ] Làm bù ${shiftName}${compDate ? ` ngày ${compDate}` : ''}${targetDate ? ` cho ngày ${targetDate}` : ''}`;
     } else if (dto.type === EmployeeRequestType.BUSINESS_TRIP && (!dto.title || dto.title.trim() === '' || dto.title === 'Công tác' || dto.title === 'Yêu cầu')) {
       const meta: any = dto.attachmentMetadata || {};
       const loc = meta.location || 'Ngoài công ty';
@@ -89,6 +96,54 @@ export class EmployeeRequestsService {
     const hasVat = Boolean((dto.attachmentMetadata as any)?.hasVat);
     const amountVal = Number(dto.amount || 0);
     const NON_VAT_ADMIN_THRESHOLD = 2000000; // 2.000.000 VNĐ theo sơ đồ (Trên 2tr: A Kiên)
+
+    // Kiểm tra quy định cho Đơn Nghỉ Phép (LEAVE)
+    if (dto.type === EmployeeRequestType.LEAVE) {
+      const meta: any = dto.attachmentMetadata || {};
+      if (meta.leaveDurationType === 'Theo giờ') {
+        if (!meta.startTime) {
+          throw badRequest('MISSING_START_TIME', 'Vui lòng chọn thời gian bắt đầu nghỉ');
+        }
+
+        const dateStr = meta.fromDate
+          ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+          : moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+        const timeStr = moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm:ss');
+        const startMoment = moment.tz(`${dateStr} ${timeStr}`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Ho_Chi_Minh');
+        const nowMoment = moment.tz('Asia/Ho_Chi_Minh');
+
+        const diffMinutes = startMoment.diff(nowMoment, 'minutes', true);
+        if (diffMinutes < 180) {
+          throw badRequest(
+            'LEAVE_HOURLY_ADVANCE_NOTICE_REQUIRED',
+            'Đơn nghỉ theo giờ phải được tạo trước thời điểm bắt đầu nghỉ ít nhất 3 tiếng.',
+          );
+        }
+      }
+    }
+
+    // Kiểm tra quy định cho Đơn Làm bù (COMPENSATORY_WORK)
+    if (isCompensatoryWork) {
+      if (!dto.referenceId) {
+        throw badRequest(
+          'MISSING_LEAVE_REFERENCE',
+          'Vui lòng chọn đơn nghỉ phép đã được phê duyệt để thực hiện làm bù.',
+        );
+      }
+
+      const referencedLeave = await this.prisma.employeeRequest.findUnique({
+        where: { id: dto.referenceId },
+      });
+      if (!referencedLeave || referencedLeave.userId !== actor.userId) {
+        throw badRequest('INVALID_LEAVE_REFERENCE', 'Đơn nghỉ phép tham chiếu không hợp lệ hoặc không thuộc về bạn.');
+      }
+      if (referencedLeave.status !== EmployeeRequestStatus.APPROVED) {
+        throw badRequest(
+          'LEAVE_NOT_APPROVED',
+          'Đơn nghỉ phép tham chiếu chưa được phê duyệt. Chỉ đơn đã duyệt mới được làm bù.',
+        );
+      }
+    }
 
     // Xử lý riêng cho Đơn Tạm ứng Lương (ADVANCE) - Leader sẽ trực tiếp xét duyệt
     if (isAdvance) {
@@ -128,6 +183,7 @@ export class EmployeeRequestsService {
 
     const attachmentMetadata = {
       ...(typeof dto.attachmentMetadata === 'object' && dto.attachmentMetadata !== null ? dto.attachmentMetadata : {}),
+      ...(isCompensatoryWork ? { requestType: 'COMPENSATORY_WORK' } : {}),
       ...(isFinancial ? { stage: initialStage, approvalSteps: [] } : {}),
     };
 
@@ -583,6 +639,47 @@ export class EmployeeRequestsService {
               }
 
               curr.add(1, 'day');
+            }
+          }
+        }
+
+        const isCompensatory = (request.type as string) === 'COMPENSATORY_WORK' ||
+          request.title.includes('[LÀM BÙ]') ||
+          (request.attachmentMetadata as any)?.requestType === 'COMPENSATORY_WORK';
+
+        if (isCompensatory) {
+          const meta: any = request.attachmentMetadata || {};
+          const compDateStr = meta.compensatoryDate ? String(meta.compensatoryDate).split('T')[0] : null;
+          const shiftId = meta.compensatoryShiftId;
+          const deptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId));
+
+          if (compDateStr && shiftId && deptId) {
+            const workDate = new Date(`${compDateStr}T00:00:00.000Z`);
+            const existingAssignment = await tx.shiftAssignment.findFirst({
+              where: { userId: request.userId, workDate },
+            });
+
+            const targetDateStr = meta.targetLeaveDate ? String(meta.targetLeaveDate).split('T')[0] : '';
+            const noteText = `Ca làm bù${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`;
+
+            if (existingAssignment) {
+              await tx.shiftAssignment.update({
+                where: { id: existingAssignment.id },
+                data: {
+                  shiftId,
+                  assignedByUserId: actor.userId,
+                },
+              });
+            } else {
+              await tx.shiftAssignment.create({
+                data: {
+                  userId: request.userId,
+                  departmentId: deptId,
+                  shiftId,
+                  workDate,
+                  assignedByUserId: actor.userId,
+                },
+              });
             }
           }
         }

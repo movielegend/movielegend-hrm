@@ -8,6 +8,8 @@ export interface Shift {
   startTime: string;
   endTime: string;
   breakMinutes: number;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
   checkInEarlyMinutes: number;
   checkInLateMinutes: number;
   checkOutEarlyMinutes?: number;
@@ -34,6 +36,12 @@ export interface ShiftAssignment {
   shift?: Shift;
   department?: Department;
   user?: EmployeeUser;
+  attendanceRecords?: {
+    id: string;
+    checkInAt: string;
+    checkOutAt?: string | null;
+    status?: string;
+  }[];
 }
 
 export interface CreateShiftPayload {
@@ -42,6 +50,8 @@ export interface CreateShiftPayload {
   startTime: string;
   endTime: string;
   breakMinutes?: number;
+  breakStartTime?: string | null;
+  breakEndTime?: string | null;
   checkInEarlyMinutes?: number;
   checkInLateMinutes?: number;
   isNightShift?: boolean;
@@ -57,7 +67,25 @@ export interface AssignShiftPayload {
   departmentId: string;
   shiftId: string;
   workDate: string;
+  allowOverwrite?: boolean;
+  reason?: string;
 }
+
+export interface AssignShiftBatchPayload {
+  userIds: string[];
+  departmentId: string;
+  shiftId: string;
+  dates: string[];
+  allowOverwrite?: boolean;
+  reason?: string;
+}
+
+export interface DepartmentAssignmentsQuery {
+  departmentId: string;
+  startDate: string;
+  endDate: string;
+}
+
 
 export interface ShiftRegistrationPayload {
   shiftId: string;

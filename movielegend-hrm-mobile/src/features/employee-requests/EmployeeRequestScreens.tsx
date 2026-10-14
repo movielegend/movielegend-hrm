@@ -242,6 +242,7 @@ export function EmployeeRequestDetailScreen() {
       case 'ADVANCE': return { label: 'Tạm ứng', color: '#14B8A6', icon: 'cash' };
       case 'EXPENSE': return { label: 'Thanh toán', color: '#F97316', icon: 'receipt' };
       case 'PURCHASE': return { label: 'Mua sắm', color: '#0EA5E9', icon: 'cart-outline' };
+      case 'COMPENSATORY_WORK': return { label: 'Làm bù', color: '#0284C7', icon: 'calendar-sync-outline' };
       default: return { label: 'Khác', color: '#6B7280', icon: 'file-document' };
     }
   };
@@ -302,7 +303,8 @@ export function EmployeeRequestDetailScreen() {
     ? (request.attachmentMetadata as Record<string, any>) 
     : {};
   const statusObj = getStatusDisplay(request);
-  const typeConfig = getTypeConfig(request.type);
+  const isCompensatory = request.type === 'COMPENSATORY_WORK' || request.title?.includes('[LÀM BÙ]') || meta.requestType === 'COMPENSATORY_WORK';
+  const typeConfig = isCompensatory ? { label: 'Làm bù', color: '#0284C7', icon: 'calendar-sync-outline' } : getTypeConfig(request.type);
   const dateStr = request.createdAt ? new Date(request.createdAt).toLocaleString('vi-VN') : '';
   const isFinancial = request.type === 'ADVANCE' || request.type === 'EXPENSE' || request.type === 'PURCHASE';
   const approvalSteps = Array.isArray(meta.approvalSteps) ? meta.approvalSteps : [];
@@ -464,6 +466,48 @@ export function EmployeeRequestDetailScreen() {
                         {meta.handoverEmployee}
                       </Text>
                     </View>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* Chi tiết thông tin Đơn Làm Bù (COMPENSATORY_WORK) */}
+            {isCompensatory && (
+              <View style={styles.metaCard}>
+                <View style={styles.metaCardHeader}>
+                  <MaterialCommunityIcons name="calendar-sync-outline" size={20} color="#0284C7" style={{ marginRight: 8 }} />
+                  <Text style={[styles.metaCardTitle, { color: '#0369A1' }]}>
+                    THÔNG TIN LÀM BÙ
+                  </Text>
+                </View>
+
+                {meta.targetLeaveDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Làm bù cho ngày:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#EF4444' }]}>{formatDateStr(meta.targetLeaveDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.compensatoryDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày làm bù:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#0284C7' }]}>{formatDateStr(meta.compensatoryDate)}</Text>
+                  </View>
+                ) : null}
+
+                {meta.compensatoryShiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm bù:</Text>
+                    <Text style={styles.metaValueBold}>{meta.compensatoryShiftName}</Text>
+                  </View>
+                ) : null}
+
+                {meta.compensatoryType ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Hình thức:</Text>
+                    <Text style={styles.metaValueBold}>
+                      {meta.compensatoryType} {meta.missedHours ? `(${meta.missedHours} giờ)` : ''}
+                    </Text>
                   </View>
                 ) : null}
               </View>

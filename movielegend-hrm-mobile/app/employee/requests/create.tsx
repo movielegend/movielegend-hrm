@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useAppAlert } from '../../../src/contexts/AlertContext';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,8 +11,8 @@ import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 import { shadows } from '../../../src/theme/shadows';
-import { createEmployeeRequest } from '../../../src/api/employee-requests.api';
-import type { EmployeeRequestType } from '../../../src/types/request.types';
+import { createEmployeeRequest, getMyEmployeeRequests } from '../../../src/api/employee-requests.api';
+import type { EmployeeRequestType, EmployeeRequest } from '../../../src/types/request.types';
 import { useAuth } from '../../../src/providers/AuthProvider';
 import { getShifts } from '../../../src/api/shifts.api';
 import type { Shift } from '../../../src/types/shift.types';
@@ -24,6 +24,7 @@ import { resolveFileUrl } from '../../../src/utils/url';
 
 const REQUEST_TYPES: { type: EmployeeRequestType, label: string, icon: keyof typeof MaterialCommunityIcons.glyphMap, color: string }[] = [
   { type: 'LEAVE', label: 'Nghỉ phép', icon: 'umbrella-outline', color: '#1B382B' },
+  { type: 'COMPENSATORY_WORK', label: 'Làm bù', icon: 'calendar-sync-outline', color: '#1B382B' },
   { type: 'ATTENDANCE_ADJUSTMENT', label: 'Giải trình\ncông', icon: 'file-document-outline', color: '#1B382B' },
   { type: 'BUSINESS_TRIP', label: 'Đi công tác', icon: 'airplane', color: '#1B382B' },
   { type: 'LATE_ARRIVAL', label: 'Đi muộn', icon: 'clock-outline', color: '#1B382B' },
@@ -103,6 +104,60 @@ export default function CreateRequestScreen() {
   const [tripImages, setTripImages] = useState<string[]>([]);
   const [isUploadingTripImages, setIsUploadingTripImages] = useState(false);
 
+  // Specific fields for Compensatory Work (Làm bù)
+  const [targetLeaveDate, setTargetLeaveDate] = useState<Date | null>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [compensatoryDate, setCompensatoryDate] = useState<Date | null>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [compensatoryShift, setCompensatoryShift] = useState<Shift | null>(null);
+  const [compensatoryType, setCompensatoryType] = useState<string>('Cả ca');
+  const [compensatoryHours, setCompensatoryHours] = useState<string>('8');
+  const [showCompensatoryTypeModal, setShowCompensatoryTypeModal] = useState(false);
+  const compensatoryTypes = ['Cả ca', 'Theo giờ', 'Ca đôi'];
+  const [approvedLeaves, setApprovedLeaves] = useState<EmployeeRequest[]>([]);
+  const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<EmployeeRequest | null>(null);
+  const [isLoadingApprovedLeaves, setIsLoadingApprovedLeaves] = useState(false);
+  const [showApprovedLeavesModal, setShowApprovedLeavesModal] = useState(false);
+
+  const applyLeaveRequest = (leaveReq: EmployeeRequest) => {
+    setSelectedLeaveRequest(leaveReq);
+    const meta: any = leaveReq.attachmentMetadata || {};
+
+    // 1. Tự fill ngày nghỉ (targetLeaveDate)
+    const rawDate = meta.fromDate || leaveReq.createdAt;
+    if (rawDate) {
+      const d = new Date(rawDate);
+      d.setHours(0, 0, 0, 0);
+      setTargetLeaveDate(d);
+    }
+
+    // 2. Tự tính và fill số giờ nếu là nghỉ theo giờ
+    if (meta.leaveDurationType === 'Theo giờ') {
+      setCompensatoryType('Theo giờ');
+      if (meta.startTime && meta.endTime) {
+        const start = new Date(meta.startTime);
+        const end = new Date(meta.endTime);
+        const diffMs = end.getTime() - start.getTime();
+        const diffHours = Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
+        if (diffHours > 0) {
+          setCompensatoryHours(String(diffHours));
+        }
+      }
+    } else if (['1/2 ngày', 'Nửa ngày'].includes(meta.leaveDurationType)) {
+      setCompensatoryType('Theo giờ');
+      setCompensatoryHours('4');
+    } else {
+      setCompensatoryType('Cả ca');
+      setCompensatoryHours('8');
+    }
+  };
+
   // Specific fields for Leave & Explanation
   const [leaveDurationType, setLeaveDurationType] = useState('');
   const [leaveType, setLeaveType] = useState('');
@@ -123,7 +178,7 @@ export default function CreateRequestScreen() {
   const [timePickerTab, setTimePickerTab] = useState<'hour' | 'minute'>('hour');
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState<'start' | 'end' | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | 'single' | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | 'single' | 'target_leave' | 'compensatory' | null>(null);
   const [showLeaveDurationModal, setShowLeaveDurationModal] = useState(false);
   const [showLeaveTypeModal, setShowLeaveTypeModal] = useState(false);
   const [showExplanationTypeModal, setShowExplanationTypeModal] = useState(false);
@@ -134,11 +189,13 @@ export default function CreateRequestScreen() {
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
 
-  const handleOpenDatePicker = (mode: 'from' | 'to' | 'single') => {
+  const handleOpenDatePicker = (mode: 'from' | 'to' | 'single' | 'target_leave' | 'compensatory') => {
     let initialDate = new Date();
     if (mode === 'from' && fromDate) initialDate = new Date(fromDate);
     if (mode === 'to' && toDate) initialDate = new Date(toDate);
     if (mode === 'single' && fromDate) initialDate = new Date(fromDate);
+    if (mode === 'target_leave' && targetLeaveDate) initialDate = new Date(targetLeaveDate);
+    if (mode === 'compensatory' && compensatoryDate) initialDate = new Date(compensatoryDate);
     setCalendarViewDate(initialDate);
     setShowDatePicker(mode);
   };
@@ -197,7 +254,7 @@ export default function CreateRequestScreen() {
     setTimePickerTab('minute');
   };
 
-  const leaveDurationTypes = ["1/4 ngày", "1/2 ngày", "3/4 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
+  const leaveDurationTypes = ["1/2 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
   const leaveTypes = ["Nghỉ phép năm", "Nghỉ ốm", "Nghỉ không lương", "Thai sản", "Khác"];
   const explanationTypes = ["Quên Check-in", "Quên Check-out", "Quên cả In & Out", "Lỗi hệ thống/máy chấm công", "Đi công tác/Làm việc bên ngoài"];
 
@@ -206,6 +263,7 @@ export default function CreateRequestScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLeave = selectedType === 'LEAVE';
+  const isCompensatory = selectedType === 'COMPENSATORY_WORK';
   const isExplanation = selectedType === 'ATTENDANCE_ADJUSTMENT';
   const isBusinessTrip = selectedType === 'BUSINESS_TRIP';
   const isOvertime = selectedType === 'OVERTIME';
@@ -260,13 +318,57 @@ export default function CreateRequestScreen() {
   }, [user?.id, user?.department?.id, (user as any)?.departmentId]);
 
   React.useEffect(() => {
-    if (isLateOrEarly || isExplanation || isOvertime) {
+    if (isLateOrEarly || isExplanation || isOvertime || isCompensatory) {
       getShifts()
         .then(setApiShifts)
         .catch(err => console.log('Error fetching shifts', err));
     }
     void fetchEmployeesList();
-  }, [isLateOrEarly, isLeave, isExplanation, isOvertime, fetchEmployeesList]);
+  }, [isLateOrEarly, isLeave, isExplanation, isOvertime, isCompensatory, fetchEmployeesList]);
+
+  // Tự động tìm nạp các đơn nghỉ phép đã duyệt trong 14 ngày gần nhất khi tạo đơn Làm bù
+  React.useEffect(() => {
+    if (selectedType === 'COMPENSATORY_WORK') {
+      setIsLoadingApprovedLeaves(true);
+      getMyEmployeeRequests({
+        type: 'LEAVE',
+        status: 'APPROVED',
+        limit: 20,
+      })
+        .then((res) => {
+          const items = res.items || [];
+          const fourteenDaysAgo = new Date();
+          fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+          fourteenDaysAgo.setHours(0, 0, 0, 0);
+
+          const eligible = items.filter((item) => {
+            const meta: any = item.attachmentMetadata || {};
+            const itemDate = new Date(meta.fromDate || item.createdAt || new Date());
+            return itemDate.getTime() >= fourteenDaysAgo.getTime();
+          });
+
+          eligible.sort((a, b) => {
+            const dateA = new Date((a.attachmentMetadata as any)?.fromDate || a.createdAt || 0).getTime();
+            const dateB = new Date((b.attachmentMetadata as any)?.fromDate || b.createdAt || 0).getTime();
+            return dateB - dateA;
+          });
+
+          setApprovedLeaves(eligible);
+
+          if (eligible.length > 0) {
+            applyLeaveRequest(eligible[0]);
+          } else {
+            setSelectedLeaveRequest(null);
+          }
+        })
+        .catch((err) => {
+          console.log('Error fetching approved leaves:', err);
+        })
+        .finally(() => {
+          setIsLoadingApprovedLeaves(false);
+        });
+    }
+  }, [selectedType]);
 
 
 
@@ -390,6 +492,10 @@ export default function CreateRequestScreen() {
       }
     } else if (showDatePicker === 'to') {
       setToDate(chosen);
+    } else if (showDatePicker === 'target_leave') {
+      setTargetLeaveDate(chosen);
+    } else if (showDatePicker === 'compensatory') {
+      setCompensatoryDate(chosen);
     }
     setShowDatePicker(null);
   };
@@ -409,6 +515,10 @@ export default function CreateRequestScreen() {
       }
     } else if (showDatePicker === 'to') {
       setToDate(target);
+    } else if (showDatePicker === 'target_leave') {
+      setTargetLeaveDate(target);
+    } else if (showDatePicker === 'compensatory') {
+      setCompensatoryDate(target);
     }
     setShowDatePicker(null);
   };
@@ -485,7 +595,11 @@ export default function CreateRequestScreen() {
   };
 
   const handleSelectShift = (selectedShift: Shift) => {
-    setShift(selectedShift);
+    if (isCompensatory) {
+      setCompensatoryShift(selectedShift);
+    } else {
+      setShift(selectedShift);
+    }
     setShowShiftModal(false);
   };
 
@@ -504,6 +618,11 @@ export default function CreateRequestScreen() {
         generatedTitle = `Giải trình: ${explanationType} - ${dateStr}`;
       } else if (isLeave && leaveType) {
         generatedTitle = `Nghỉ phép: ${leaveType} - ${dateStr}`;
+      } else if (isCompensatory) {
+        const compDateStr = compensatoryDate ? formatDate(compensatoryDate) : '';
+        const targetDateStr = targetLeaveDate ? formatDate(targetLeaveDate) : '';
+        const shiftName = compensatoryShift?.name || (compensatoryType === 'Theo giờ' ? `${compensatoryHours}h` : 'ca làm');
+        generatedTitle = `[LÀM BÙ] Làm bù ${shiftName}${compDateStr ? ` ngày ${compDateStr}` : ''}${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`;
       } else if (isPurchase) {
         generatedTitle = `[Mua sắm] ${purchaseItemName.trim() || 'Vật tư'} (SL: ${purchaseQuantity.trim() || '1'})`;
       } else if (isAdvance) {
@@ -599,6 +718,56 @@ export default function CreateRequestScreen() {
           showAlert('Lỗi', 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.');
           return;
         }
+      }
+      if (leaveDurationType === 'Theo giờ') {
+        if (!startTime) {
+          showAlert('Lỗi', 'Vui lòng chọn Giờ bắt đầu nghỉ.');
+          return;
+        }
+        if (!endTime) {
+          showAlert('Lỗi', 'Vui lòng chọn Giờ kết thúc nghỉ.');
+          return;
+        }
+
+        const leaveStart = new Date(fromDate);
+        leaveStart.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+
+        const now = new Date();
+        const diffMinutes = (leaveStart.getTime() - now.getTime()) / (1000 * 60);
+
+        if (diffMinutes < 180) {
+          showAlert('Chưa đủ điều kiện', 'Đối với hình thức nghỉ theo giờ, bạn phải tạo đơn trước thời điểm bắt đầu nghỉ ít nhất 3 tiếng.');
+          return;
+        }
+
+        const leaveEnd = new Date(fromDate);
+        leaveEnd.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+        if (leaveEnd.getTime() <= leaveStart.getTime()) {
+          showAlert('Lỗi', 'Giờ kết thúc nghỉ phải sau giờ bắt đầu nghỉ.');
+          return;
+        }
+      }
+    }
+    if (isCompensatory) {
+      if (approvedLeaves.length === 0 && !selectedLeaveRequest) {
+        showAlert('Chưa đủ điều kiện', 'Bạn không có đơn nghỉ phép nào đã được duyệt trong 14 ngày qua để thực hiện làm bù.');
+        return;
+      }
+      if (!targetLeaveDate) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày nghỉ cần làm bù.');
+        return;
+      }
+      if (!compensatoryDate) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày thực hiện làm bù.');
+        return;
+      }
+      if (!compensatoryShift) {
+        showAlert('Lỗi', 'Vui lòng chọn Ca làm bù.');
+        return;
+      }
+      if (compensatoryType === 'Theo giờ' && (!compensatoryHours || Number(compensatoryHours) <= 0)) {
+        showAlert('Lỗi', 'Vui lòng nhập số giờ làm bù hợp lệ.');
+        return;
       }
     }
     if (isLateOrEarly) {
@@ -699,12 +868,35 @@ export default function CreateRequestScreen() {
         } : {}),
         ...(fromDate ? { fromDate: fromDate.toISOString() } : {}),
         ...(toDate ? { toDate: toDate.toISOString() } : {}),
-        ...(startTime ? { startTime: startTime.toISOString() } : {}),
-        ...(endTime ? { endTime: endTime.toISOString() } : {}),
+        ...(fromDate && startTime ? {
+          startTime: (() => {
+            const d = new Date(fromDate);
+            d.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+            return d.toISOString();
+          })(),
+        } : (startTime ? { startTime: startTime.toISOString() } : {})),
+        ...(fromDate && endTime ? {
+          endTime: (() => {
+            const d = new Date(fromDate);
+            d.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+            return d.toISOString();
+          })(),
+        } : (endTime ? { endTime: endTime.toISOString() } : {})),
         ...(shift ? { shiftName: shift.name, shiftId: shift.id } : {}),
         ...(explanationType ? { explanationType } : {}),
         ...(leaveType ? { leaveType } : {}),
         ...(leaveDurationType ? { leaveDurationType } : {}),
+        ...(isCompensatory ? {
+          requestType: 'COMPENSATORY_WORK',
+          targetLeaveDate: targetLeaveDate ? targetLeaveDate.toISOString() : undefined,
+          compensatoryDate: compensatoryDate ? compensatoryDate.toISOString() : undefined,
+          compensatoryShiftId: compensatoryShift?.id,
+          compensatoryShiftName: compensatoryShift?.name,
+          compensatoryType,
+          missedHours: compensatoryType === 'Theo giờ' ? Number(compensatoryHours) : undefined,
+          leaveRequestId: selectedLeaveRequest?.id,
+          leaveRequestTitle: selectedLeaveRequest?.title,
+        } : {}),
         ...(handoverEmployee ? {
           handoverEmployee: (handoverEmployee as any).fullName || (handoverEmployee as any).profile?.fullName || (handoverEmployee as any).userCode || 'Nhân sự',
           handoverUserId: handoverEmployee.id
@@ -715,6 +907,7 @@ export default function CreateRequestScreen() {
         type: selectedType,
         title: generatedTitle,
         content: content.trim(),
+        referenceId: selectedLeaveRequest?.id,
         ...(isFinancial && amount ? { amount: Number(amount) } : {}),
         ...(Object.keys(attachmentMetadata).length > 0 ? { attachmentMetadata } : {})
       });
@@ -731,26 +924,30 @@ export default function CreateRequestScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: '#F8FAFC' }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
-    >
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#F8FAFC' }}>
+    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#102739' }}>
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-              <MaterialCommunityIcons name="chevron-left" size={28} color="#0F172A" />
+              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
             </Pressable>
-            <Text style={styles.headerTitle}>Tạo đơn mới</Text>
-            <View style={{ flex: 1 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>Tạo đơn mới</Text>
+              <Text style={styles.headerSubtitle}>Gửi yêu cầu của bạn trong vài bước.</Text>
+            </View>
             <View style={styles.topAvatarCircle}>
               <Text style={styles.topAvatarText}>{userInitials}</Text>
             </View>
           </View>
-          <Text style={styles.headerSubtitle}>Gửi yêu cầu của bạn trong vài bước.</Text>
         </View>
       </SafeAreaView>
+
+      <KeyboardAvoidingView 
+        style={styles.curvedSheet} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
+      >
 
       <ScrollView 
         ref={scrollViewRef}
@@ -1148,7 +1345,7 @@ export default function CreateRequestScreen() {
                     </Pressable>
                   </View>
                 </>
-              ) : ['Theo giờ', '1/4 ngày', '1/2 ngày', '3/4 ngày'].includes(leaveDurationType) ? (
+              ) : ['Theo giờ', '1/2 ngày', 'Nửa ngày'].includes(leaveDurationType) ? (
                 <>
                   <View style={styles.formItem}>
                     <Text style={styles.formLabel}>
@@ -1185,6 +1382,26 @@ export default function CreateRequestScreen() {
                       <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
                     </Pressable>
                   </View>
+
+                  {leaveDurationType === 'Theo giờ' && (
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#EFF6FF',
+                      borderWidth: 1,
+                      borderColor: '#BFDBFE',
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 9,
+                      marginBottom: 14,
+                      gap: 8,
+                    }}>
+                      <MaterialCommunityIcons name="information-outline" size={18} color="#2563EB" />
+                      <Text style={{ flex: 1, fontSize: 12, color: '#1E40AF', lineHeight: 17 }}>
+                        Lưu ý: Đơn nghỉ theo giờ cần được tạo trước thời điểm bắt đầu nghỉ tối thiểu <Text style={{ fontWeight: '700' }}>3 tiếng</Text>.
+                      </Text>
+                    </View>
+                  )}
                 </>
               ) : (
                 <View style={styles.formItem}>
@@ -1238,6 +1455,183 @@ export default function CreateRequestScreen() {
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
+              </View>
+            </>
+          ) : isCompensatory ? (
+            <>
+              {isLoadingApprovedLeaves ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, marginBottom: 12 }}>
+                  <ActivityIndicator size="small" color="#102739" style={{ marginRight: 8 }} />
+                  <Text style={{ fontSize: 13, color: '#64748B' }}>Đang tìm nạp đơn nghỉ đã duyệt gần nhất...</Text>
+                </View>
+              ) : approvedLeaves.length === 0 ? (
+                <View style={{
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FECACA',
+                  borderRadius: 10,
+                  padding: 12,
+                  marginBottom: 16,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#B91C1C' }}>Chưa có đơn nghỉ hợp lệ</Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: '#991B1B', lineHeight: 18 }}>
+                    Bạn chưa có đơn nghỉ phép nào được duyệt trong 14 ngày qua. Đơn làm bù chỉ được tạo khi đơn nghỉ phép tương ứng đã được Leader phê duyệt.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.formItem}>
+                  <Text style={styles.formLabel}>
+                    Làm bù cho ngày nghỉ <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable 
+                    style={[styles.inputBox, { height: 'auto', minHeight: 48, paddingVertical: 10 }]} 
+                    onPress={() => setShowApprovedLeavesModal(true)}
+                  >
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={[styles.inputText, !selectedLeaveRequest && styles.inputPlaceholder]}>
+                        {selectedLeaveRequest 
+                          ? `${targetLeaveDate ? formatDate(targetLeaveDate) : ''} · ${selectedLeaveRequest.title || 'Đơn nghỉ phép'}`
+                          : 'Chọn đơn nghỉ đã được duyệt'}
+                      </Text>
+                      {selectedLeaveRequest && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                          <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 6 }}>
+                            <Text style={{ fontSize: 10, color: '#166534', fontWeight: '700' }}>✓ Đã duyệt</Text>
+                          </View>
+                          <Text style={{ fontSize: 11, color: '#64748B' }}>
+                            {((selectedLeaveRequest.attachmentMetadata as any)?.leaveDurationType) || 'Nghỉ phép'}
+                            {((selectedLeaveRequest.attachmentMetadata as any)?.leaveDurationType === 'Theo giờ' && compensatoryHours) ? ` · ${compensatoryHours} giờ` : ''}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+                  {selectedLeaveRequest && (
+                    <Text style={{ fontSize: 11, color: '#059669', marginTop: 4, marginLeft: 2 }}>
+                      ✓ Đã tự động chọn đơn nghỉ gần nhất & điền số giờ nghỉ tương ứng
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Ngày thực hiện làm bù */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Ngày làm bù <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory')}>
+                  <Text style={[styles.inputText, !compensatoryDate && styles.inputPlaceholder]}>
+                    {compensatoryDate ? formatDate(compensatoryDate) : 'Chọn ngày làm bù (VD: Chủ nhật)'}
+                  </Text>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                </Pressable>
+              </View>
+
+              {/* Ca làm bù */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Ca làm bù <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => setShowShiftModal(true)}>
+                  <Text style={[styles.inputText, !compensatoryShift && styles.inputPlaceholder]}>
+                    {compensatoryShift ? `${compensatoryShift.name} (${compensatoryShift.startTime} - ${compensatoryShift.endTime})` : 'Chọn ca làm bù'}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                </Pressable>
+              </View>
+
+              {/* Hình thức làm bù */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Hình thức làm bù <Text style={styles.required}>*</Text>
+                </Text>
+                <Pressable style={styles.inputBox} onPress={() => setShowCompensatoryTypeModal(true)}>
+                  <Text style={styles.inputText}>
+                    {compensatoryType}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                </Pressable>
+              </View>
+
+              {compensatoryType === 'Theo giờ' && (
+                <View style={styles.formItem}>
+                  <Text style={styles.formLabel}>
+                    Số giờ làm bù <Text style={styles.required}>*</Text>
+                  </Text>
+                  <View style={styles.inputBox}>
+                    <TextInput
+                      style={[styles.inputText, { flex: 1 }]}
+                      placeholder="VD: 2, 4..."
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="numeric"
+                      value={compensatoryHours}
+                      onChangeText={setCompensatoryHours}
+                    />
+                    <Text style={{ color: '#0F172A', fontWeight: '600', fontSize: 13, marginLeft: 6 }}>Giờ</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Lý do chi tiết */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Lý do chi tiết <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={styles.textAreaBox}>
+                  <TextInput
+                    style={styles.textAreaInput}
+                    placeholder="Nhập lý do nghỉ và kế hoạch làm bù..."
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    maxLength={500}
+                    value={content}
+                    onChangeText={setContent}
+                    textAlignVertical="top"
+                    onFocus={() => {
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                    }}
+                  />
+                  <Text style={styles.counterText}>{content.length}/500</Text>
+                </View>
+              </View>
+
+              {/* Ảnh / minh chứng nếu có */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>Ảnh / Minh chứng đính kèm (nếu có)</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handlePickPhoto}>
+                    <MaterialCommunityIcons 
+                      name={photoUri ? "check-circle" : "image-plus"} 
+                      size={20} 
+                      color={photoUri ? "#10B981" : "#475569"} 
+                    />
+                    <Text style={[styles.photoButtonText, photoUri && styles.photoButtonTextSuccess]}>
+                      {photoUri ? 'Đã chọn ảnh' : 'Chọn từ máy'}
+                    </Text>
+                  </Pressable>
+                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handleTakePhoto}>
+                    <MaterialCommunityIcons 
+                      name="camera-outline" 
+                      size={20} 
+                      color="#475569" 
+                    />
+                    <Text style={styles.photoButtonText}>Chụp ảnh</Text>
+                  </Pressable>
+                </View>
+                {photoUri && (
+                  <View style={styles.photoPreviewWrap}>
+                    <TouchableOpacity onPress={() => setIsFullScreenPhoto(true)} style={{ width: '100%', height: '100%' }}>
+                      <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
+                      <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </>
           ) : isLateOrEarly ? (
@@ -2263,6 +2657,107 @@ export default function CreateRequestScreen() {
         </View>
       </Modal>
 
+      {/* Compensatory Type Modal */}
+      <Modal visible={showCompensatoryTypeModal} transparent animationType="slide">
+        <View style={styles.fullScreenModalOverlay}>
+          <View style={styles.fullScreenModalContent}>
+            <View style={styles.fullScreenModalHeader}>
+              <Pressable onPress={() => setShowCompensatoryTypeModal(false)} style={{ padding: 8, marginRight: 8 }}>
+                <MaterialCommunityIcons name="close" size={24} color="#111827" />
+              </Pressable>
+              <Text style={styles.fullScreenModalTitle}>Hình thức làm bù</Text>
+            </View>
+            <FlatList
+              data={compensatoryTypes}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.fullScreenModalItem} 
+                  onPress={() => { setCompensatoryType(item); setShowCompensatoryTypeModal(false); }}
+                >
+                  <Text style={styles.fullScreenModalItemText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Approved Leaves Modal */}
+      <Modal visible={showApprovedLeavesModal} transparent animationType="slide">
+        <View style={styles.fullScreenModalOverlay}>
+          <View style={styles.fullScreenModalContent}>
+            <View style={styles.fullScreenModalHeader}>
+              <Pressable onPress={() => setShowApprovedLeavesModal(false)} style={{ padding: 8, marginRight: 8 }}>
+                <MaterialCommunityIcons name="close" size={24} color="#111827" />
+              </Pressable>
+              <Text style={styles.fullScreenModalTitle}>Chọn đơn nghỉ đã duyệt</Text>
+            </View>
+            <FlatList
+              data={approvedLeaves}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8 }}
+              ListEmptyComponent={
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center' }}>
+                    Không có đơn nghỉ phép nào đã được duyệt trong 14 ngày qua.
+                  </Text>
+                </View>
+              }
+              renderItem={({ item }) => {
+                const meta: any = item.attachmentMetadata || {};
+                const isSelected = selectedLeaveRequest?.id === item.id;
+                const dateStr = meta.fromDate 
+                  ? new Date(meta.fromDate).toLocaleDateString('vi-VN') 
+                  : (item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '');
+                const durationType = meta.leaveDurationType || 'Nghỉ phép';
+                let timeRange = '';
+                if (meta.startTime && meta.endTime) {
+                  const s = new Date(meta.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                  const e = new Date(meta.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                  timeRange = `${s} - ${e}`;
+                }
+
+                return (
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
+                      borderWidth: 1,
+                      borderColor: isSelected ? '#86EFAC' : '#E2E8F0',
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: 10,
+                    }}
+                    onPress={() => {
+                      applyLeaveRequest(item);
+                      setShowApprovedLeavesModal(false);
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A', flex: 1, marginRight: 8 }} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 11, color: '#166534', fontWeight: '700' }}>✓ Đã duyệt</Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#475569', marginBottom: 2 }}>
+                      Ngày nghỉ: <Text style={{ fontWeight: '600', color: '#0F172A' }}>{dateStr}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#64748B' }}>
+                      Hình thức: <Text style={{ color: '#0284C7', fontWeight: '600' }}>{durationType}</Text>
+                      {timeRange ? ` (${timeRange})` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
       {/* Explanation Type Modal */}
       <Modal visible={showExplanationTypeModal} transparent animationType="slide">
         <View style={styles.fullScreenModalOverlay}>
@@ -2568,18 +3063,26 @@ export default function CreateRequestScreen() {
         </Pressable>
       </SafeAreaView>
     </KeyboardAvoidingView>
+  </View>
   );
 }
 
 const styles = StyleSheet.create({
+  curvedSheet: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
   content: {
     paddingBottom: 24,
   },
   header: {
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 10,
-    backgroundColor: '#F8FAFC',
+    paddingBottom: 16,
+    backgroundColor: '#102739',
   },
   headerRow: {
     flexDirection: 'row',
@@ -2588,32 +3091,32 @@ const styles = StyleSheet.create({
   backBtn: {
     padding: 4,
     marginLeft: -4,
-    marginRight: 6,
+    marginRight: 10,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0F2F20',
-    letterSpacing: -0.5,
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: 12.5,
+    color: 'rgba(255, 255, 255, 0.72)',
     marginTop: 2,
-    marginLeft: 34,
   },
   topAvatarCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#D9E4DD',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 12,
   },
   topAvatarText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#1B382B',
+    fontWeight: '800',
+    color: '#102739',
   },
   sectionHeadingWrap: {
     flexDirection: 'row',
@@ -2667,7 +3170,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gridIconBoxActive: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
   },
   gridColLabel: {
     fontSize: 11.5,
@@ -2702,15 +3205,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#D9E4DD',
+    backgroundColor: '#D1FAE5',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   userAvatarText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1B382B',
+    fontWeight: '800',
+    color: '#065F46',
   },
   userTextCol: {
     flex: 1,
@@ -2854,7 +3357,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     height: 50,
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2995,7 +3498,7 @@ const styles = StyleSheet.create({
     borderColor: '#0284C7',
   },
   calendarDaySelected: {
-    backgroundColor: '#1B382B',
+    backgroundColor: '#102739',
   },
   calendarDayText: {
     fontSize: 14,

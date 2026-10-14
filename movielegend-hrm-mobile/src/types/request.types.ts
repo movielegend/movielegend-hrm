@@ -12,6 +12,7 @@ export type EmployeeRequestType =
   | 'PURCHASE'
   | 'EQUIPMENT'
   | 'ACCOUNT_DELETION'
+  | 'COMPENSATORY_WORK'
   | 'OTHER';
 
 export type EmployeeRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';

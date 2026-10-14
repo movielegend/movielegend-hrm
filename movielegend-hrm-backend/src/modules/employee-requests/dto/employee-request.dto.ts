@@ -5,7 +5,7 @@ import { IsArray, IsBoolean, IsDateString, IsEnum, IsNumber, IsObject, IsOptiona
 
 export class CreateEmployeeRequestDto {
   @ApiProperty({ enum: EmployeeRequestType })
-  @IsEnum({ ...EmployeeRequestType, ACCOUNT_DELETION: 'ACCOUNT_DELETION' })
+  @IsEnum({ ...EmployeeRequestType, ACCOUNT_DELETION: 'ACCOUNT_DELETION', COMPENSATORY_WORK: 'COMPENSATORY_WORK' })
   type!: EmployeeRequestType;
 
   @ApiProperty()
@@ -39,7 +39,7 @@ export class CreateEmployeeRequestDto {
 export class EmployeeRequestQueryDto {
   @ApiPropertyOptional({ enum: EmployeeRequestType })
   @IsOptional()
-  @IsEnum(EmployeeRequestType)
+  @IsEnum({ ...EmployeeRequestType, ACCOUNT_DELETION: 'ACCOUNT_DELETION', COMPENSATORY_WORK: 'COMPENSATORY_WORK' })
   type?: EmployeeRequestType;
 
   @ApiPropertyOptional({ enum: EmployeeRequestStatus })
