@@ -28,6 +28,7 @@ const REQUEST_TYPES: {
 }[] = [
   { type: 'ALL', label: 'Tất cả loại yêu cầu', icon: 'format-list-bulleted', color: '#102739', bg: '#E7F0F7' },
   { type: 'LEAVE', label: 'Nghỉ phép', icon: 'beach', color: '#10B981', bg: '#ECFDF5' },
+  { type: 'COMPENSATORY_WORK', label: 'Làm bù', icon: 'calendar-sync-outline', color: '#0284C7', bg: '#E0F2FE' },
   { type: 'ATTENDANCE_ADJUSTMENT', label: 'Giải trình công', icon: 'clock-edit-outline', color: '#F59E0B', bg: '#FEF3C7' },
   { type: 'OVERTIME', label: 'Làm thêm', icon: 'briefcase-clock-outline', color: '#6366F1', bg: '#EEF2FF' },
   { type: 'LATE_ARRIVAL', label: 'Đi muộn', icon: 'run', color: '#EF4444', bg: '#FEE2E2' },
@@ -188,7 +189,8 @@ export default function RequestsScreen() {
               </View>
             ) : (
               requests.map((item: EmployeeRequest) => {
-                const config = getTypeConfig(item.type);
+                const isItemCompensatory = item.type === 'COMPENSATORY_WORK' || item.title?.includes('[LÀM BÙ]') || (item.attachmentMetadata as any)?.requestType === 'COMPENSATORY_WORK';
+                const config = isItemCompensatory ? { type: 'COMPENSATORY_WORK' as const, label: 'Làm bù', icon: 'calendar-sync-outline' as any, color: '#0284C7', bg: '#E0F2FE' } : getTypeConfig(item.type);
                 const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '';
                 const statusObj = getStatusDisplay(item);
                 return (

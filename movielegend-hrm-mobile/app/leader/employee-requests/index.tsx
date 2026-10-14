@@ -16,6 +16,7 @@ import type { EmployeeRequestType, EmployeeRequestStatus } from '../../../src/ty
 const REQUEST_TYPES: { type: EmployeeRequestType | 'ALL', label: string, icon: keyof typeof MaterialCommunityIcons.glyphMap, color: string }[] = [
   { type: 'ALL', label: 'Tất cả', icon: 'format-list-bulleted', color: colors.muted },
   { type: 'LEAVE', label: 'Nghỉ phép', icon: 'beach', color: '#10B981' },
+  { type: 'COMPENSATORY_WORK', label: 'Làm bù', icon: 'calendar-sync-outline', color: '#0284C7' },
   { type: 'ATTENDANCE_ADJUSTMENT', label: 'Giải trình công', icon: 'clock-edit-outline', color: '#F59E0B' },
   { type: 'OVERTIME', label: 'Làm thêm', icon: 'briefcase-clock-outline', color: '#6366F1' },
   { type: 'LATE_ARRIVAL', label: 'Đi muộn', icon: 'run', color: '#F43F5E' },
@@ -47,7 +48,9 @@ export default function LeaderRequestsScreen() {
   // Client-side filtering
   const requests = allRequests.filter((r: any) => {
     const matchTab = r.status === activeTab;
-    const matchType = selectedType === 'ALL' || r.type === selectedType;
+    const isItemCompensatory = r.type === 'COMPENSATORY_WORK' || r.title?.includes('[LÀM BÙ]') || r.attachmentMetadata?.requestType === 'COMPENSATORY_WORK';
+    const matchType = selectedType === 'ALL' || 
+      (selectedType === 'COMPENSATORY_WORK' ? isItemCompensatory : (r.type === selectedType && !isItemCompensatory));
     const userName = r.user?.profile?.fullName || r.user?.email || '';
     const content = r.content || '';
     const title = r.title || '';
@@ -257,7 +260,8 @@ export default function LeaderRequestsScreen() {
             showsVerticalScrollIndicator={false}
           >
             {requests.map((item: any) => {
-              const config = getTypeConfig(item.type);
+              const isItemCompensatory = item.type === 'COMPENSATORY_WORK' || item.title?.includes('[LÀM BÙ]') || item.attachmentMetadata?.requestType === 'COMPENSATORY_WORK';
+              const config = isItemCompensatory ? { type: 'COMPENSATORY_WORK', label: 'Làm bù', icon: 'calendar-sync-outline' as any, color: '#0284C7' } : getTypeConfig(item.type);
               const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '';
               const userName = item.user?.profile?.fullName || item.user?.email || 'Nhân viên';
               const statusObj = getStatusDisplay(item);
