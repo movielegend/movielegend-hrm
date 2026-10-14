@@ -97,7 +97,7 @@ export class AttendanceService {
 
     // 1. Kiểm tra xem có ca/lượt nào đang mở (chưa checkout) không
     const openRecord = await this.prisma.attendanceRecord.findFirst({
-      where: { userId: actor.userId, checkOutAt: null },
+      where: { userId: actor.userId, status: AttendanceStatus.CHECKED_IN, checkOutAt: null },
       orderBy: { checkInAt: 'desc' }
     });
     if (openRecord) {
@@ -251,7 +251,7 @@ export class AttendanceService {
     return this.prisma.$transaction(async (tx) => {
       // Atomic concurrency lock check: Đảm bảo không có request nào vừa tạo bản ghi mở song song
       const concurrentOpen = await tx.attendanceRecord.findFirst({
-        where: { userId: actor.userId, checkOutAt: null },
+        where: { userId: actor.userId, status: AttendanceStatus.CHECKED_IN, checkOutAt: null },
         orderBy: { checkInAt: 'desc' },
       });
       if (concurrentOpen) {
@@ -345,10 +345,12 @@ export class AttendanceService {
   }
 
   async checkOut(dto: CheckOutDto, actor: AuthenticatedUser, ip: string) {
+    const today = this.businessTime.startOfBusinessDate(this.businessTime.businessDateString());
+
     // 1. Tìm bản ghi check-in ĐANG MỞ (chưa checkout)
     const record = await this.prisma.attendanceRecord.findFirst({
-      where: { userId: actor.userId, checkOutAt: null },
-      include: { shiftAssignment: { include: { shift: true } } },
+      where: { userId: actor.userId, status: AttendanceStatus.CHECKED_IN, checkOutAt: null },
+      include: { shiftAssignment: { include: { shift: true } }, department: true },
       orderBy: { checkInAt: 'desc' },
     });
 
@@ -358,10 +360,30 @@ export class AttendanceService {
         where: { userId: actor.userId },
         orderBy: { checkInAt: 'desc' },
       });
-      if (latestRecord && latestRecord.checkOutAt) {
+      if (latestRecord && (latestRecord.checkOutAt || latestRecord.status === AttendanceStatus.CHECKED_OUT)) {
         throw conflict('ALREADY_CHECKED_OUT', 'Bảng công đã checkout. Không có ca làm việc nào đang mở.');
       }
+      if (latestRecord && latestRecord.status === AttendanceStatus.MISSING) {
+        throw conflict('ALREADY_CHECKED_OUT', 'Ca làm việc trước đó đã bị đóng do quá hạn check-out (MISSING). Bạn không có ca nào đang mở để check-out.');
+      }
       throw badRequest('NOT_CHECKED_IN', 'Chưa có bản ghi check-in đang mở');
+    }
+
+    const isLiveDepartment = Boolean(
+      (record.department?.name && record.department.name.toLowerCase().includes('live')) ||
+      (record.department?.code && record.department.code.toLowerCase().includes('live'))
+    );
+
+    // Đối với phòng ban thường: Ca mở của ngày hôm trước đã hết hạn, không cho phép checkout vào ngày hôm sau để tránh tính sai 30-70 tiếng!
+    if (!isLiveDepartment && record.workDate.getTime() < today.getTime()) {
+      await this.prisma.attendanceRecord.update({
+        where: { id: record.id },
+        data: {
+          status: AttendanceStatus.MISSING,
+          notes: 'Tự động đóng ca ngày trước do quá hạn check-out (qua 12h đêm), 0 công',
+        },
+      });
+      throw badRequest('SHIFT_ALREADY_EXPIRED', 'Ca làm việc của ngày hôm trước đã hết hạn check-out và được tính là quên check-out (0 công). Bạn có thể check-in ca mới hôm nay hoặc làm đơn bổ sung check-out nếu cần!');
     }
 
     const now = new Date();
@@ -547,7 +569,7 @@ export class AttendanceService {
     if (isLive) {
       // Đối với phòng Live: Ưu tiên tìm lượt chưa checkout (kể cả từ hôm trước hoặc ca đêm)
       const openRecord = await this.prisma.attendanceRecord.findFirst({
-        where: { userId: actor.userId, checkOutAt: null },
+        where: { userId: actor.userId, status: AttendanceStatus.CHECKED_IN, checkOutAt: null },
         include: this.attendanceInclude(),
         orderBy: { checkInAt: 'desc' },
       });
