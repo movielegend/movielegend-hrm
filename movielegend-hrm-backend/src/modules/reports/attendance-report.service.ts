@@ -124,6 +124,9 @@ export class AttendanceReportService {
           startDate: { lte: end },
           endDate: { gte: start },
         },
+        include: {
+          leaveType: true,
+        },
       }).catch(() => []),
       this.prisma.employeeRequest.findMany({
         where: {
@@ -492,8 +495,76 @@ export class AttendanceReportService {
           earlyMins = 0;
         }
 
+        // Kiểm tra đơn nghỉ phép được duyệt từ bảng LeaveRequest
+        const approvedLeaveDb = leavesDb.find(l => {
+          if (l.userId !== user.id) return false;
+          const s = moment.tz(l.startDate, 'Asia/Ho_Chi_Minh').startOf('day');
+          const e = moment.tz(l.endDate, 'Asia/Ho_Chi_Minh').endOf('day');
+          return currDate.isSameOrAfter(s, 'day') && currDate.isSameOrBefore(e, 'day');
+        });
+
+        // Kiểm tra đơn nghỉ phép được duyệt từ bảng EmployeeRequest (type: LEAVE)
+        const approvedLeaveReq = lateRequestsRaw.find(r => {
+          if (r.userId !== user.id || r.type !== 'LEAVE') return false;
+          const meta: any = r.attachmentMetadata;
+          if (!meta) return false;
+          const from = meta.fromDate ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').startOf('day') : null;
+          const to = meta.toDate ? moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').endOf('day') : from;
+          if (!from) return false;
+          return currDate.isSameOrAfter(from, 'day') && currDate.isSameOrBefore(to, 'day');
+        });
+
+        const isLeaveForDay = Boolean(approvedLeaveDb || approvedLeaveReq);
+        let leaveTypeName = '';
+        let isLeavePaid = false;
+        let isHalfDay = false;
+        let isHourlyLeave = false;
+        let leaveReason = '';
+
+        if (approvedLeaveDb) {
+          leaveTypeName = approvedLeaveDb.leaveType?.name || 'Nghỉ phép';
+          isLeavePaid = approvedLeaveDb.leaveType?.isPaid ?? true;
+          isHalfDay = Number(approvedLeaveDb.totalDays) === 0.5;
+          leaveReason = approvedLeaveDb.reason || '';
+        } else if (approvedLeaveReq) {
+          const meta: any = approvedLeaveReq.attachmentMetadata || {};
+          leaveTypeName = meta.leaveType || 'Nghỉ phép';
+          const duration = meta.leaveDurationType || 'Trong ngày';
+          isHourlyLeave = duration === 'Theo giờ';
+          isHalfDay = duration === 'Nửa ngày' || duration === '1/2 ngày';
+          leaveReason = approvedLeaveReq.content || '';
+
+          const lowerName = leaveTypeName.toLowerCase();
+          if (lowerName.includes('không lương') || lowerName.includes('ốm') || lowerName.includes('thai sản')) {
+            isLeavePaid = false;
+          } else {
+            isLeavePaid = true;
+          }
+        }
+
+        const isDailyLeave = isLeaveForDay && !isHourlyLeave;
+
+        if (isDailyLeave) {
+          // Nghỉ theo ngày (Cả ngày / Nửa ngày / Nhiều ngày) đã được duyệt:
+          // 1. Giờ check-in và check-out KHÔNG có giờ (để trống)
+          checkInDisplay = '';
+          checkOutDisplay = '';
+
+          // 2. Không tính vi phạm giờ làm
+          totalMinutes = 0;
+          lateMins = 0;
+          earlyMins = 0;
+          lateDeduction = 0;
+          ot100 = 0;
+          ot150 = 0;
+          ot200 = 0;
+
+          // 3. Tính công theo chế độ có lương hay không
+          attendance = isLeavePaid ? (isHalfDay ? 0.5 : 1) : 0;
+        }
+
         const isPastDate = currDate.isBefore(moment().tz('Asia/Ho_Chi_Minh'), 'day');
-        const isStandardMissCheckout = !isLiveDepartment && !businessTrip && Boolean(checkIn && !checkOut && isPastDate);
+        const isStandardMissCheckout = !isLiveDepartment && !businessTrip && !isDailyLeave && Boolean(checkIn && !checkOut && isPastDate);
         if (!checkOutDisplay && isStandardMissCheckout) {
           checkOutDisplay = 'Miss checkout';
         }
@@ -507,11 +578,10 @@ export class AttendanceReportService {
         if (isStandardMissCheckout) {
           noteParts.push('Quên check-out');
         }
-        const approvedLeave = leavesDb.find(l => l.userId === user.id && (
-          currDate.isSameOrAfter(moment(l.startDate), 'day') && currDate.isSameOrBefore(moment(l.endDate), 'day')
-        ));
-        if (approvedLeave) {
-          noteParts.push(`Nghỉ phép${approvedLeave.reason ? `: ${approvedLeave.reason}` : ''}`);
+        if (isDailyLeave) {
+          noteParts.push(`Nghỉ phép: ${leaveTypeName}${leaveReason ? ` (${leaveReason})` : ''}`);
+        } else if (isHourlyLeave) {
+          noteParts.push(`Nghỉ theo giờ: ${leaveTypeName}${leaveReason ? ` (${leaveReason})` : ''}`);
         }
         const rowNotes = noteParts.join(' | ');
 
@@ -522,9 +592,9 @@ export class AttendanceReportService {
           position: '',
           date: currDate.format('DD/MM/YYYY'),
           dayOfWeek,
-          checkIn: checkInDisplay,
-          checkOut: checkOutDisplay,
-          attendance: (dayRecords.length > 0 || businessTrip) ? attendance : 0,
+          checkIn: isDailyLeave ? '' : checkInDisplay,
+          checkOut: isDailyLeave ? '' : checkOutDisplay,
+          attendance: (dayRecords.length > 0 || businessTrip || isDailyLeave) ? attendance : 0,
           totalHours: formatHrs(totalMinutes),
           overtime100: formatHrs(ot100),
           overtime150: formatHrs(ot150),
