@@ -8,6 +8,9 @@ import {
   rejectEmployeeRequest,
   resubmitPurchaseByHr,
   fulfillPurchaseByHr,
+  requestCancelCompensatory,
+  approveCancelCompensatory,
+  rejectCancelCompensatory,
 } from '../api/employee-requests.api';
 import { queryKeys } from '../constants/queryKeys';
 import type { CreateEmployeeRequestPayload, EmployeeRequestFilters } from '../types/request.types';
@@ -133,4 +136,44 @@ export function useFulfillPurchaseByHr() {
     },
   });
 }
+
+export function useRequestCancelCompensatory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (arg: { id: string; reason: string }) =>
+      requestCancelCompensatory(arg.id, { reason: arg.reason }),
+    onSuccess: (data: any) => {
+      void queryClient.invalidateQueries({ queryKey: ['employee-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['leader-employee-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['employee-request', data?.id] });
+    },
+  });
+}
+
+export function useApproveCancelCompensatory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (arg: { id: string; note?: string }) =>
+      approveCancelCompensatory(arg.id, { note: arg.note }),
+    onSuccess: (data: any) => {
+      void queryClient.invalidateQueries({ queryKey: ['employee-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['leader-employee-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['employee-request', data?.id] });
+    },
+  });
+}
+
+export function useRejectCancelCompensatory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (arg: { id: string; note?: string }) =>
+      rejectCancelCompensatory(arg.id, { note: arg.note }),
+    onSuccess: (data: any) => {
+      void queryClient.invalidateQueries({ queryKey: ['employee-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['leader-employee-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['employee-request', data?.id] });
+    },
+  });
+}
+
 
