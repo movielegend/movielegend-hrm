@@ -55,9 +55,10 @@ export class ExportService {
     const endStr = endDate.toISOString().split('T')[0];
     
     const headers = [
-      'Mã NV', 'Tên nhân viên', 'Phòng ban', 'Chức vụ', 'Ngày', 'Thứ', 'Vào', 'Ra', 'Công',
-      'Giờ thực tế', 'Tăng ca x100%', 'Tăng ca x150%', 'Tăng ca x200%', 'Đi muộn ca chiều', 'Đi muộn ca sáng',
-      'Tổng đi muộn', 'Về sớm', 'Tổng đi muộn + về sớm', 'Trừ đi muộn/quên chấm công', 'Hỗ trợ làm đêm'
+      'Mã NV', 'Tên nhân viên', 'Phòng ban', 'Ngày', 'Thứ', 'Vào', 'Ra', 'Công',
+      'Giờ thực tế', 'Tăng ca x100%', 'Tăng ca x150%', 'Đi muộn ca chiều', 'Đi muộn ca sáng',
+      'Tổng đi muộn', 'Về sớm', 'Tổng đi muộn + về sớm', 'Trừ đi muộn/quên chấm công', 'Hỗ trợ làm đêm',
+      'Ghi chú'
     ];
 
     const exceljs = require('exceljs');
@@ -66,7 +67,7 @@ export class ExportService {
 
     // Add title row
     const titleRow = worksheet.addRow([`Từ ngày ${startStr} đến ngày ${endStr}`]);
-    worksheet.mergeCells('A1:T1');
+    worksheet.mergeCells('A1:S1');
     titleRow.getCell(1).font = { bold: true, size: 14 };
     titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
     titleRow.height = 25;
@@ -80,7 +81,7 @@ export class ExportService {
       cell.border = {
         top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' }
       };
-      if (colNumber >= 9 && colNumber <= 13) {
+      if (colNumber >= 8 && colNumber <= 11) {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF92D050' } }; // Green
       } else {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }; // Yellow
@@ -89,10 +90,11 @@ export class ExportService {
 
     // Set column widths
     worksheet.columns = [
-      { width: 10 }, { width: 20 }, { width: 15 }, { width: 12 }, { width: 12 },
+      { width: 10 }, { width: 20 }, { width: 15 }, { width: 12 },
       { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 12 },
-      { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 },
-      { width: 15 }, { width: 12 }, { width: 22 }, { width: 25 }, { width: 15 }
+      { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 },
+      { width: 15 }, { width: 12 }, { width: 22 }, { width: 15 }, { width: 15 },
+      { width: 25 }
     ];
 
     for (const group of userGroups) {
@@ -100,13 +102,12 @@ export class ExportService {
       const first = group[0];
       
       let sumCong = 0, sumTru = 0, sumDem = 0;
-      let sumTotalMinutes = 0, sumOt100 = 0, sumOt150 = 0, sumOt200 = 0, sumMuon = 0, sumSom = 0;
+      let sumTotalMinutes = 0, sumOt100 = 0, sumOt150 = 0, sumMuon = 0, sumSom = 0;
       for (const row of group) {
         sumCong += row.attendance;
         sumTotalMinutes += (row._rawTotalHours || 0);
         sumOt100 += (row._rawOt100 || 0);
         sumOt150 += (row._rawOt150 || 0);
-        sumOt200 += (row._rawOt200 || 0);
         sumMuon += (row._rawLate || 0);
         sumSom += (row._rawEarly || 0);
         sumTru += (row.lateDeduction || 0);
@@ -121,9 +122,10 @@ export class ExportService {
       };
 
       const summaryRow = worksheet.addRow([
-        first.employeeCode, first.employeeName, first.department, '', '', '', '', '',
-        sumCong, formatHrs(sumTotalMinutes), formatHrs(sumOt100), formatHrs(sumOt150), formatHrs(sumOt200), '', '',
-        formatHrs(sumMuon), formatHrs(sumSom), formatHrs(sumMuon + sumSom), sumTru, sumDem
+        first.employeeCode, first.employeeName, first.department, '', '', '', '',
+        sumCong, formatHrs(sumTotalMinutes), formatHrs(sumOt100), formatHrs(sumOt150), '', '',
+        formatHrs(sumMuon), formatHrs(sumSom), formatHrs(sumMuon + sumSom), sumTru, sumDem,
+        ''
       ]);
 
       summaryRow.eachCell((cell: any) => {
@@ -134,13 +136,14 @@ export class ExportService {
 
       for (const row of group) {
         const dataRow = worksheet.addRow([
-          '', '', '', '', row.date, row.dayOfWeek, row.checkIn, row.checkOut,
-          row.attendance, row.totalHours, row.overtime100 || '0:00:00', row.overtime150, row.overtime200,
+          '', '', '', row.date, row.dayOfWeek, row.checkIn, row.checkOut,
+          row.attendance, row.totalHours, row.overtime100 || '0:00:00', row.overtime150,
           row.lateAfternoon, row.lateMorning, row.totalLate, row.earlyLeave,
-          row.totalLateAndEarly, row.lateDeduction, row.nightAllowance
+          row.totalLateAndEarly, row.lateDeduction, row.nightAllowance,
+          row.notes || ''
         ]);
         dataRow.eachCell((cell: any, colNumber: number) => {
-          if (colNumber > 4) {
+          if (colNumber > 3) {
             cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
           }
         });
