@@ -495,9 +495,27 @@ export class EmployeeRequestsService {
   }
 
   async findMine(actor: AuthenticatedUser, query: EmployeeRequestQueryDto) {
+    const isCompensatoryQuery = (query.type as string) === 'COMPENSATORY_WORK';
+    const isAccountDeletionQuery = (query.type as string) === 'ACCOUNT_DELETION';
+
     const where: Prisma.EmployeeRequestWhereInput = {
       userId: actor.userId,
-      ...(query.type ? { type: query.type } : {}),
+      ...(isCompensatoryQuery
+        ? {
+            type: EmployeeRequestType.OTHER,
+            OR: [
+              { title: { contains: '[LÀM BÙ]' } },
+              { attachmentMetadata: { path: ['requestType'], equals: 'COMPENSATORY_WORK' } },
+            ],
+          }
+        : isAccountDeletionQuery
+        ? {
+            type: EmployeeRequestType.OTHER,
+            title: { contains: '[ACCOUNT_DELETION]' },
+          }
+        : query.type
+        ? { type: query.type as EmployeeRequestType }
+        : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(this.businessTime.inclusiveDateRange(query.fromDate, query.toDate)
         ? { createdAt: this.businessTime.inclusiveDateRange(query.fromDate, query.toDate) }
