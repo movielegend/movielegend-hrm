@@ -123,11 +123,11 @@
         "origin": false
       },
       "eas": {
-        "projectId": "1d0c9c5f-1663-4948-a0f5-59220f806aea"
+        "projectId": "9cefb433-4a11-4c1d-be7c-0deb883d85cc"
       }
     },
     "newArchEnabled": false,
     "runtimeVersion": "1.0.0",
-    "owner": "dinhhoc"
+    "owner": "bintran"
   }
 }
