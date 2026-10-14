@@ -1484,7 +1484,7 @@ export default function CreateRequestScreen() {
               ) : (
                 <View style={styles.formItem}>
                   <Text style={styles.formLabel}>
-                    Đơn nghỉ phép cần làm bù <Text style={styles.required}>*</Text>
+                    Làm bù cho ngày nghỉ <Text style={styles.required}>*</Text>
                   </Text>
                   <Pressable 
                     style={[styles.inputBox, { height: 'auto', minHeight: 48, paddingVertical: 10 }]} 
@@ -1493,7 +1493,7 @@ export default function CreateRequestScreen() {
                     <View style={{ flex: 1, paddingRight: 8 }}>
                       <Text style={[styles.inputText, !selectedLeaveRequest && styles.inputPlaceholder]}>
                         {selectedLeaveRequest 
-                          ? (selectedLeaveRequest.title || 'Đơn nghỉ phép')
+                          ? `${targetLeaveDate ? formatDate(targetLeaveDate) : ''} · ${selectedLeaveRequest.title || 'Đơn nghỉ phép'}`
                           : 'Chọn đơn nghỉ đã được duyệt'}
                       </Text>
                       {selectedLeaveRequest && (
@@ -1512,24 +1512,11 @@ export default function CreateRequestScreen() {
                   </Pressable>
                   {selectedLeaveRequest && (
                     <Text style={{ fontSize: 11, color: '#059669', marginTop: 4, marginLeft: 2 }}>
-                      ✓ Đã tự động điền ngày nghỉ & số giờ nghỉ tương ứng
+                      ✓ Đã tự động chọn đơn nghỉ gần nhất & điền số giờ nghỉ tương ứng
                     </Text>
                   )}
                 </View>
               )}
-
-              {/* Làm bù cho ngày nghỉ */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>
-                  Làm bù cho ngày nghỉ <Text style={styles.required}>*</Text>
-                </Text>
-                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('target_leave')}>
-                  <Text style={[styles.inputText, !targetLeaveDate && styles.inputPlaceholder]}>
-                    {targetLeaveDate ? formatDate(targetLeaveDate) : 'Chọn ngày đã nghỉ'}
-                  </Text>
-                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
-                </Pressable>
-              </View>
 
               {/* Ngày thực hiện làm bù */}
               <View style={styles.formItem}>
