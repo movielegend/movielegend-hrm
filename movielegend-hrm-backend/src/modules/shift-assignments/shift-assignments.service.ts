@@ -276,6 +276,14 @@ export class ShiftAssignmentsService {
       },
       include: {
         shift: true,
+        attendanceRecords: {
+          select: {
+            id: true,
+            checkInAt: true,
+            checkOutAt: true,
+            status: true,
+          },
+        },
         user: {
           select: {
             id: true,

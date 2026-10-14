@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -40,6 +40,7 @@ const statusLabels: Record<string, string> = {
 const rejectSchema = z.object({ reason: z.string().min(3, 'Vui lòng nhập lý do từ chối') });
 
 export function ApprovalListScreen({ title, detailRoute }: { title: string, detailRoute?: (id: string) => string }) {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [status, setStatus] = useState<ApprovalStatus | undefined>('PENDING');
   const [search, setSearch] = useState('');
@@ -65,146 +66,153 @@ export function ApprovalListScreen({ title, detailRoute }: { title: string, deta
   };
 
   return (
-    <Screen>
-      {/* 1. Header (Back button + Title on same row) */}
-      <View style={localStyles.header}>
-        <View style={localStyles.headerRow}>
+    <View style={localStyles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+
+      {/* ── Top Header (#102739) ── */}
+      <View style={[localStyles.headerWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={localStyles.headerMainRow}>
           <Pressable 
             onPress={() => (router.canGoBack() ? router.back() : router.replace('/admin/(tabs)' as any))} 
             style={localStyles.backBtn} 
-            hitSlop={8}
+            hitSlop={10}
           >
-            <MaterialCommunityIcons name="chevron-left" size={26} color="#0F172A" />
+            <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
           </Pressable>
-          <Text style={localStyles.headerTitle}>{title || 'Duyệt tài khoản'}</Text>
-        </View>
-        <Text style={localStyles.headerSubtitle}>Xét duyệt đăng ký nhân viên mới</Text>
-      </View>
-
-      {/* 2. Search Box */}
-      <View style={localStyles.searchSection}>
-        <View style={localStyles.searchBar}>
-          <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
-          <TextInput
-            style={localStyles.searchInput}
-            placeholder="Tìm tên, mã hoặc số điện thoại"
-            placeholderTextColor="#94A3B8"
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')}>
-              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
-            </Pressable>
-          )}
-        </View>
-      </View>
-
-      {/* 3. Status Filters */}
-      <View style={localStyles.filterSection}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={localStyles.filterContainer}>
-          {statuses.map((item) => {
-            const isSelected = status === item;
-            const label = item === undefined ? 'Tất cả' : item === 'PENDING' ? 'Chờ duyệt' : item === 'APPROVED' ? 'Đã duyệt' : 'Từ chối';
-            return (
-              <Pressable
-                key={item ?? 'ALL'}
-                style={[localStyles.filterPill, isSelected && localStyles.filterPillActive]}
-                onPress={() => setStatus(item)}
-              >
-                <Text style={[localStyles.filterPillText, isSelected && localStyles.filterPillTextActive]}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* 4. List / State */}
-      {approvals.isLoading ? (
-        <View style={localStyles.centerBox}>
-          <ActivityIndicator size="large" color="#102739" />
-        </View>
-      ) : approvals.isError ? (
-        <View style={localStyles.centerBox}>
-          <Text style={{ color: '#EF4444', marginBottom: 12 }}>Có lỗi xảy ra khi tải dữ liệu</Text>
-          <Pressable style={localStyles.retryBtn} onPress={() => void approvals.refetch()}>
-            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Thử lại</Text>
-          </Pressable>
-        </View>
-      ) : !approvals.data?.items?.length ? (
-        <ScrollView
-          contentContainerStyle={localStyles.emptyContainer}
-          refreshControl={<RefreshControl refreshing={approvals.isRefetching} onRefresh={() => void approvals.refetch()} />}
-        >
-          <View style={localStyles.emptyIconBg}>
-            <MaterialCommunityIcons name="account-search-outline" size={54} color="#94A3B8" />
+          <View style={localStyles.headerTitleWrap}>
+            <Text style={localStyles.headerTitle}>{title || 'Duyệt tài khoản phòng'}</Text>
+            <Text style={localStyles.headerSubtitle}>Xét duyệt đăng ký nhân viên mới</Text>
           </View>
-          <Text style={localStyles.emptyTitle}>Chưa có yêu cầu phù hợp</Text>
-          <Text style={localStyles.emptySubtitle}>Không tìm thấy tài khoản nào khớp với bộ lọc</Text>
-        </ScrollView>
-      ) : (
-        <ScrollView
-          contentContainerStyle={localStyles.listContent}
-          refreshControl={<RefreshControl refreshing={approvals.isRefetching} onRefresh={() => void approvals.refetch()} />}
-          showsVerticalScrollIndicator={false}
-        >
-          {approvals.data?.items?.map((approval) => {
-            const fullName = approval.user?.profile?.fullName ?? 'Chưa có tên';
-            const initials = getInitials(fullName);
-            const badge = getBadgeStyle(approval.status);
+        </View>
+      </View>
 
-            return (
-              <View key={approval.id} style={localStyles.card}>
-                <View style={localStyles.cardHeader}>
-                  <View style={localStyles.avatarBox}>
-                    <Text style={localStyles.avatarText}>{initials}</Text>
-                  </View>
-                  <View style={localStyles.cardHeaderInfo}>
-                    <Text style={localStyles.cardName}>{fullName}</Text>
-                    <Text style={localStyles.cardCode}>Mã: {approval.user?.userCode ?? '-'}</Text>
-                  </View>
-                  <View style={[localStyles.badgeBox, { backgroundColor: badge.bg }]}>
-                    <Text style={[localStyles.badgeText, { color: badge.color }]}>{badge.label}</Text>
-                  </View>
-                </View>
+      {/* ── Main Curved Sheet ── */}
+      <View style={localStyles.curvedSheet}>
+        {/* 2. Search Box */}
+        <View style={localStyles.searchSection}>
+          <View style={localStyles.searchBar}>
+            <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" />
+            <TextInput
+              style={localStyles.searchInput}
+              placeholder="Tìm tên, mã hoặc số điện thoại"
+              placeholderTextColor="#94A3B8"
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch('')}>
+                <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+              </Pressable>
+            )}
+          </View>
+        </View>
 
-                <View style={localStyles.cardBody}>
-                  <View style={localStyles.infoRow}>
-                    <MaterialCommunityIcons name="phone-outline" size={16} color="#64748B" />
-                    <Text style={localStyles.infoText}>SĐT: {maskPhone(approval.user?.phone)}</Text>
-                  </View>
-                  <View style={localStyles.infoRow}>
-                    <MaterialCommunityIcons name="office-building-outline" size={16} color="#64748B" />
-                    <Text style={localStyles.infoText}>Phòng ban: {approval.requestedDepartment?.name ?? '-'}</Text>
-                  </View>
-                  {approval.requestedDepartment?.branch?.name ? (
-                    <View style={localStyles.infoRow}>
-                      <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
-                      <Text style={localStyles.infoText}>Cơ sở: {approval.requestedDepartment.branch.name}</Text>
-                    </View>
-                  ) : null}
-                </View>
-
+        {/* 3. Status Filters */}
+        <View style={localStyles.filterSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={localStyles.filterContainer}>
+            {statuses.map((item) => {
+              const isSelected = status === item;
+              const label = item === undefined ? 'Tất cả' : item === 'PENDING' ? 'Chờ duyệt' : item === 'APPROVED' ? 'Đã duyệt' : 'Từ chối';
+              return (
                 <Pressable
-                  style={localStyles.detailButton}
-                  onPress={() => {
-                    if (detailRoute) {
-                      router.push(detailRoute(approval.id) as any);
-                    } else {
-                      router.push(`./${approval.id}`);
-                    }
-                  }}
+                  key={item ?? 'ALL'}
+                  style={[localStyles.filterPill, isSelected && localStyles.filterPillActive]}
+                  onPress={() => setStatus(item)}
                 >
-                  <Text style={localStyles.detailButtonText}>Xem chi tiết →</Text>
+                  <Text style={[localStyles.filterPillText, isSelected && localStyles.filterPillTextActive]}>
+                    {label}
+                  </Text>
                 </Pressable>
-              </View>
-            );
-          })}
-        </ScrollView>
-      )}
-    </Screen>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* 4. List / State */}
+        {approvals.isLoading ? (
+          <View style={localStyles.centerBox}>
+            <ActivityIndicator size="large" color="#102739" />
+          </View>
+        ) : approvals.isError ? (
+          <View style={localStyles.centerBox}>
+            <Text style={{ color: '#EF4444', marginBottom: 12 }}>Có lỗi xảy ra khi tải dữ liệu</Text>
+            <Pressable style={localStyles.retryBtn} onPress={() => void approvals.refetch()}>
+              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Thử lại</Text>
+            </Pressable>
+          </View>
+        ) : !approvals.data?.items?.length ? (
+          <ScrollView
+            contentContainerStyle={localStyles.emptyContainer}
+            refreshControl={<RefreshControl refreshing={approvals.isRefetching} onRefresh={() => void approvals.refetch()} />}
+          >
+            <View style={localStyles.emptyIconBg}>
+              <MaterialCommunityIcons name="account-search-outline" size={48} color="#0284C7" />
+            </View>
+            <Text style={localStyles.emptyTitle}>Chưa có yêu cầu phù hợp</Text>
+            <Text style={localStyles.emptySubtitle}>Không tìm thấy tài khoản nào khớp với bộ lọc</Text>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            contentContainerStyle={localStyles.listContent}
+            refreshControl={<RefreshControl refreshing={approvals.isRefetching} onRefresh={() => void approvals.refetch()} />}
+            showsVerticalScrollIndicator={false}
+          >
+            {approvals.data?.items?.map((approval) => {
+              const fullName = approval.user?.profile?.fullName ?? 'Chưa có tên';
+              const initials = getInitials(fullName);
+              const badge = getBadgeStyle(approval.status);
+
+              return (
+                <View key={approval.id} style={localStyles.card}>
+                  <View style={localStyles.cardHeader}>
+                    <View style={localStyles.avatarBox}>
+                      <Text style={localStyles.avatarText}>{initials}</Text>
+                    </View>
+                    <View style={localStyles.cardHeaderInfo}>
+                      <Text style={localStyles.cardName}>{fullName}</Text>
+                      <Text style={localStyles.cardCode}>Mã: {approval.user?.userCode ?? '-'}</Text>
+                    </View>
+                    <View style={[localStyles.badgeBox, { backgroundColor: badge.bg }]}>
+                      <Text style={[localStyles.badgeText, { color: badge.color }]}>{badge.label}</Text>
+                    </View>
+                  </View>
+
+                  <View style={localStyles.cardBody}>
+                    <View style={localStyles.infoRow}>
+                      <MaterialCommunityIcons name="phone-outline" size={16} color="#64748B" />
+                      <Text style={localStyles.infoText}>SĐT: {maskPhone(approval.user?.phone)}</Text>
+                    </View>
+                    <View style={localStyles.infoRow}>
+                      <MaterialCommunityIcons name="office-building-outline" size={16} color="#64748B" />
+                      <Text style={localStyles.infoText}>Phòng ban: {approval.requestedDepartment?.name ?? '-'}</Text>
+                    </View>
+                    {approval.requestedDepartment?.branch?.name ? (
+                      <View style={localStyles.infoRow}>
+                        <MaterialCommunityIcons name="map-marker-outline" size={16} color="#64748B" />
+                        <Text style={localStyles.infoText}>Cơ sở: {approval.requestedDepartment.branch.name}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <Pressable
+                    style={localStyles.detailButton}
+                    onPress={() => {
+                      if (detailRoute) {
+                        router.push(detailRoute(approval.id) as any);
+                      } else {
+                        router.push(`./${approval.id}`);
+                      }
+                    }}
+                  >
+                    <Text style={localStyles.detailButtonText}>Xem chi tiết →</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -486,34 +494,59 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  container: {
+    flex: 1,
+    backgroundColor: '#102739',
+  },
+  headerWrap: {
+    backgroundColor: '#102739',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  headerMainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   backBtn: {
+    padding: 4,
     marginRight: 6,
-    padding: 2,
+    marginLeft: -4,
+  },
+  headerTitleWrap: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: 12.5,
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontWeight: '500',
     marginTop: 2,
-    marginLeft: 34,
+  },
+  curvedSheet: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
   },
   searchSection: {
     paddingHorizontal: 16,
-    marginTop: 12,
+    marginTop: 16,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 42,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 44,
     gap: 8,
   },
   searchInput: {
@@ -523,7 +556,7 @@ const localStyles = StyleSheet.create({
     paddingVertical: 0,
   },
   filterSection: {
-    marginTop: 10,
+    marginTop: 12,
   },
   filterContainer: {
     paddingHorizontal: 16,
@@ -532,7 +565,7 @@ const localStyles = StyleSheet.create({
   },
   filterPill: {
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: '#F1F5F9',
   },
@@ -565,22 +598,22 @@ const localStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingBottom: 40,
   },
   emptyIconBg: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F1F5F9',
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#E0F2FE',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 6,
   },
   emptySubtitle: {
     fontSize: 13,
@@ -594,11 +627,11 @@ const localStyles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#000',
+    shadowColor: '#102739',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -613,15 +646,15 @@ const localStyles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#166534',
+    fontWeight: '800',
+    color: '#102739',
   },
   cardHeaderInfo: {
     flex: 1,
