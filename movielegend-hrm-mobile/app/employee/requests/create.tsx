@@ -638,6 +638,34 @@ export default function CreateRequestScreen() {
           return;
         }
       }
+      if (leaveDurationType === 'Theo giờ') {
+        if (!startTime) {
+          showAlert('Lỗi', 'Vui lòng chọn Giờ bắt đầu nghỉ.');
+          return;
+        }
+        if (!endTime) {
+          showAlert('Lỗi', 'Vui lòng chọn Giờ kết thúc nghỉ.');
+          return;
+        }
+
+        const leaveStart = new Date(fromDate);
+        leaveStart.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+
+        const now = new Date();
+        const diffMinutes = (leaveStart.getTime() - now.getTime()) / (1000 * 60);
+
+        if (diffMinutes < 180) {
+          showAlert('Chưa đủ điều kiện', 'Đối với hình thức nghỉ theo giờ, bạn phải tạo đơn trước thời điểm bắt đầu nghỉ ít nhất 3 tiếng.');
+          return;
+        }
+
+        const leaveEnd = new Date(fromDate);
+        leaveEnd.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+        if (leaveEnd.getTime() <= leaveStart.getTime()) {
+          showAlert('Lỗi', 'Giờ kết thúc nghỉ phải sau giờ bắt đầu nghỉ.');
+          return;
+        }
+      }
     }
     if (isCompensatory) {
       if (!targetLeaveDate) {
@@ -755,8 +783,20 @@ export default function CreateRequestScreen() {
         } : {}),
         ...(fromDate ? { fromDate: fromDate.toISOString() } : {}),
         ...(toDate ? { toDate: toDate.toISOString() } : {}),
-        ...(startTime ? { startTime: startTime.toISOString() } : {}),
-        ...(endTime ? { endTime: endTime.toISOString() } : {}),
+        ...(fromDate && startTime ? {
+          startTime: (() => {
+            const d = new Date(fromDate);
+            d.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+            return d.toISOString();
+          })(),
+        } : (startTime ? { startTime: startTime.toISOString() } : {})),
+        ...(fromDate && endTime ? {
+          endTime: (() => {
+            const d = new Date(fromDate);
+            d.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+            return d.toISOString();
+          })(),
+        } : (endTime ? { endTime: endTime.toISOString() } : {})),
         ...(shift ? { shiftName: shift.name, shiftId: shift.id } : {}),
         ...(explanationType ? { explanationType } : {}),
         ...(leaveType ? { leaveType } : {}),
@@ -1254,6 +1294,26 @@ export default function CreateRequestScreen() {
                       <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
                     </Pressable>
                   </View>
+
+                  {leaveDurationType === 'Theo giờ' && (
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#EFF6FF',
+                      borderWidth: 1,
+                      borderColor: '#BFDBFE',
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 9,
+                      marginBottom: 14,
+                      gap: 8,
+                    }}>
+                      <MaterialCommunityIcons name="information-outline" size={18} color="#2563EB" />
+                      <Text style={{ flex: 1, fontSize: 12, color: '#1E40AF', lineHeight: 17 }}>
+                        Lưu ý: Đơn nghỉ theo giờ cần được tạo trước thời điểm bắt đầu nghỉ tối thiểu <Text style={{ fontWeight: '700' }}>3 tiếng</Text>.
+                      </Text>
+                    </View>
+                  )}
                 </>
               ) : (
                 <View style={styles.formItem}>

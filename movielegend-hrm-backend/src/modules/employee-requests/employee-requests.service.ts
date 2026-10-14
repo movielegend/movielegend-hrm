@@ -95,6 +95,31 @@ export class EmployeeRequestsService {
     const amountVal = Number(dto.amount || 0);
     const NON_VAT_ADMIN_THRESHOLD = 2000000; // 2.000.000 VNĐ theo sơ đồ (Trên 2tr: A Kiên)
 
+    // Kiểm tra quy định cho Đơn Nghỉ Phép (LEAVE)
+    if (dto.type === EmployeeRequestType.LEAVE) {
+      const meta: any = dto.attachmentMetadata || {};
+      if (meta.leaveDurationType === 'Theo giờ') {
+        if (!meta.startTime) {
+          throw badRequest('MISSING_START_TIME', 'Vui lòng chọn thời gian bắt đầu nghỉ');
+        }
+
+        const dateStr = meta.fromDate
+          ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+          : moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+        const timeStr = moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm:ss');
+        const startMoment = moment.tz(`${dateStr} ${timeStr}`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Ho_Chi_Minh');
+        const nowMoment = moment.tz('Asia/Ho_Chi_Minh');
+
+        const diffMinutes = startMoment.diff(nowMoment, 'minutes', true);
+        if (diffMinutes < 180) {
+          throw badRequest(
+            'LEAVE_HOURLY_ADVANCE_NOTICE_REQUIRED',
+            'Đơn nghỉ theo giờ phải được tạo trước thời điểm bắt đầu nghỉ ít nhất 3 tiếng.',
+          );
+        }
+      }
+    }
+
     // Xử lý riêng cho Đơn Tạm ứng Lương (ADVANCE) - Leader sẽ trực tiếp xét duyệt
     if (isAdvance) {
       if (amountVal <= 0) {
