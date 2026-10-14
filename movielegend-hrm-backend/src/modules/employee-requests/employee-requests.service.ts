@@ -108,14 +108,15 @@ export class EmployeeRequestsService {
     // Kiểm tra quy định cho Đơn Nghỉ Phép (LEAVE)
     if (dto.type === EmployeeRequestType.LEAVE) {
       const meta: any = dto.attachmentMetadata || {};
+      const dateStr = meta.fromDate
+        ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+        : moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+
       if (meta.leaveDurationType === 'Theo giờ') {
         if (!meta.startTime) {
           throw badRequest('MISSING_START_TIME', 'Vui lòng chọn thời gian bắt đầu nghỉ');
         }
 
-        const dateStr = meta.fromDate
-          ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
-          : moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
         const timeStr = moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm:ss');
         const startMoment = moment.tz(`${dateStr} ${timeStr}`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Ho_Chi_Minh');
         const nowMoment = moment.tz('Asia/Ho_Chi_Minh');
@@ -126,6 +127,38 @@ export class EmployeeRequestsService {
             'LEAVE_HOURLY_ADVANCE_NOTICE_REQUIRED',
             'Đơn nghỉ theo giờ phải được tạo trước thời điểm bắt đầu nghỉ ít nhất 3 tiếng.',
           );
+        }
+      } else {
+        // Nghỉ theo ngày: "Trong ngày", "1/2 ngày", "Nửa ngày", "Nhiều ngày"
+        let totalDays = 1;
+        if (meta.leaveDurationType === 'Nhiều ngày' && meta.toDate) {
+          const toDateStr = moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+          const startDay = moment.tz(dateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').startOf('day');
+          const endDay = moment.tz(toDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').startOf('day');
+          totalDays = Math.max(1, endDay.diff(startDay, 'days') + 1);
+        }
+
+        const timeStr = meta.startTime
+          ? moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm:ss')
+          : '08:00:00';
+        const startMoment = moment.tz(`${dateStr} ${timeStr}`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Ho_Chi_Minh');
+        const nowMoment = moment.tz('Asia/Ho_Chi_Minh');
+        const diffHours = startMoment.diff(nowMoment, 'hours', true);
+
+        if (totalDays >= 2) {
+          if (diffHours < 72) {
+            throw badRequest(
+              'LEAVE_MULTI_DAY_ADVANCE_NOTICE_REQUIRED',
+              'Đơn xin nghỉ từ 2 ngày trở lên phải được tạo trước ngày bắt đầu nghỉ ít nhất 3 ngày (72 tiếng).',
+            );
+          }
+        } else {
+          if (diffHours < 24) {
+            throw badRequest(
+              'LEAVE_SINGLE_DAY_ADVANCE_NOTICE_REQUIRED',
+              'Đơn xin nghỉ 1 ngày (hoặc nửa ngày) phải được tạo trước thời điểm bắt đầu nghỉ ít nhất 24 tiếng (1 ngày).',
+            );
+          }
         }
       }
     }
