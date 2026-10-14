@@ -40,7 +40,16 @@ function cleanMyRequestParams(filters: EmployeeRequestFilters): Omit<EmployeeReq
 
 export async function approveEmployeeRequest(
   id: string,
-  payload?: { note?: string; disbursementProofUrl?: string }
+  payload?: {
+    note?: string;
+    disbursementProofUrl?: string;
+    bankRefCode?: string;
+    forwardToAdmin?: boolean;
+    bankAccount?: string;
+    bankName?: string;
+    accountHolder?: string;
+    adjustedAmount?: number;
+  }
 ): Promise<EmployeeRequest> {
   const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/approve`, payload);
   return unwrapData(response);
@@ -48,9 +57,41 @@ export async function approveEmployeeRequest(
 
 export async function rejectEmployeeRequest(
   id: string,
-  payload?: { reason?: string }
+  payload?: { reason?: string; permanentReject?: boolean }
 ): Promise<EmployeeRequest> {
   const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/reject`, payload);
+  return unwrapData(response);
+}
+
+export async function resubmitPurchaseByHr(
+  id: string,
+  payload: {
+    amount?: number;
+    bankAccount?: string;
+    bankName?: string;
+    accountHolder?: string;
+    note?: string;
+    explanation?: string;
+    images?: string[];
+    quoteUrls?: string[];
+  }
+): Promise<EmployeeRequest> {
+  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/resubmit-by-hr`, payload);
+  return unwrapData(response);
+}
+
+export async function fulfillPurchaseByHr(
+  id: string,
+  payload: {
+    actualAmount?: number;
+    note?: string;
+    receiptUrl?: string;
+    images?: string[];
+    receiptUrls?: string[];
+    deliveryProofUrls?: string[];
+  }
+): Promise<EmployeeRequest> {
+  const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/fulfill-purchase`, payload);
   return unwrapData(response);
 }
 

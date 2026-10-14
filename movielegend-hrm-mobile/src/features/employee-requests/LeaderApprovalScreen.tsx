@@ -9,7 +9,7 @@ import ImageView from '../../components/ImageViewer/ImageViewer';
 import { resolveFileUrl } from '../../utils/url';
 import { spacing } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
-import { useEmployeeRequestById, useApproveEmployeeRequest, useRejectEmployeeRequest } from '../../hooks/useEmployeeRequests';
+import { useEmployeeRequestById, useApproveEmployeeRequest, useRejectEmployeeRequest, useResubmitPurchaseByHr, useFulfillPurchaseByHr } from '../../hooks/useEmployeeRequests';
 import { useAuth } from '../../providers/AuthProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { ActivityIndicator } from 'react-native';
@@ -31,15 +31,42 @@ export function LeaderApprovalScreen() {
   const { data: request, isLoading, isError } = useEmployeeRequestById(id);
   const approveMutation = useApproveEmployeeRequest();
   const rejectMutation = useRejectEmployeeRequest();
+  const resubmitPurchaseMutation = useResubmitPurchaseByHr();
+  const fulfillPurchaseMutation = useFulfillPurchaseByHr();
 
   const [comment, setComment] = useState('');
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [permanentReject, setPermanentReject] = useState(false);
 
   // Disbursement modal state
   const [isDisburseModalOpen, setIsDisburseModalOpen] = useState(false);
   const [disburseNote, setDisburseNote] = useState('');
   const [disburseBankRefCode, setDisburseBankRefCode] = useState('');
+
+  // Purchase HR approval state
+  const [isHrApprovalModalOpen, setIsHrApprovalModalOpen] = useState(false);
+  const [hrBankAcc, setHrBankAcc] = useState('');
+  const [hrBankName, setHrBankName] = useState('');
+  const [hrAccHolder, setHrAccHolder] = useState('');
+  const [hrAdjustedAmount, setHrAdjustedAmount] = useState('');
+  const [hrApprovalNote, setHrApprovalNote] = useState('');
+
+  // Purchase HR resubmit state
+  const [isHrResubmitModalOpen, setIsHrResubmitModalOpen] = useState(false);
+  const [resubmitAmount, setResubmitAmount] = useState('');
+  const [resubmitBankAcc, setResubmitBankAcc] = useState('');
+  const [resubmitBankName, setResubmitBankName] = useState('');
+  const [resubmitAccHolder, setResubmitAccHolder] = useState('');
+  const [resubmitExplanation, setResubmitExplanation] = useState('');
+
+  // Purchase HR fulfillment state
+  const [isHrFulfillModalOpen, setIsHrFulfillModalOpen] = useState(false);
+  const [fulfillActualAmount, setFulfillActualAmount] = useState('');
+  const [fulfillNote, setFulfillNote] = useState('');
+  const [fulfillReceiptUri, setFulfillReceiptUri] = useState<string | null>(null);
+  const [fulfillDeliveryUri, setFulfillDeliveryUri] = useState<string | null>(null);
+  const [isFulfilling, setIsFulfilling] = useState(false);
 
   // Helper to map type to colors & labels
   const getTypeConfig = (type: string) => {
@@ -65,7 +92,7 @@ export function LeaderApprovalScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
       setDisbursementProofUri(result.assets[0].uri);
     }
   };
@@ -79,7 +106,7 @@ export function LeaderApprovalScreen() {
     const result = await ImagePicker.launchCameraAsync({
       quality: 0.8,
     });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
       setDisbursementProofUri(result.assets[0].uri);
     }
   };
@@ -176,18 +203,197 @@ export function LeaderApprovalScreen() {
       id,
       payload: {
         reason: rejectReason.trim(),
+        permanentReject: request?.type === 'PURCHASE' ? permanentReject : undefined,
       }
     }, {
       onSuccess: () => {
         setIsRejectModalOpen(false);
         setRejectReason('');
-        showAlert('Đã từ chối', 'Đơn từ đã được cập nhật từ chối.');
+        if (request?.type === 'PURCHASE' && !permanentReject) {
+          showAlert('Đã trả về HR', 'Đơn đề xuất mua sắm đã được trả về cho HR điều chỉnh.');
+        } else {
+          showAlert('Đã từ chối', 'Đơn từ đã được cập nhật từ chối.');
+        }
         router.back();
       },
       onError: (err: any) => {
         showAlert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra');
       }
     });
+  };
+
+  const openHrApprovalModal = () => {
+    setHrAdjustedAmount(request?.amount ? String(request.amount) : '');
+    const m = (typeof request?.attachmentMetadata === 'object' && request?.attachmentMetadata !== null) ? (request.attachmentMetadata as any) : {};
+    setHrBankAcc(m.hrBank?.bankAccount || (currentUser as any)?.bankAccount || '');
+    setHrBankName(m.hrBank?.bankName || (currentUser as any)?.bankName || '');
+    setHrAccHolder(m.hrBank?.accountHolder || (currentUser as any)?.profile?.fullName || (currentUser as any)?.name || '');
+    setHrApprovalNote(comment.trim());
+    setIsHrApprovalModalOpen(true);
+  };
+
+  const openHrResubmitModal = () => {
+    setResubmitAmount(request?.amount ? String(request.amount) : '');
+    const m = (typeof request?.attachmentMetadata === 'object' && request?.attachmentMetadata !== null) ? (request.attachmentMetadata as any) : {};
+    setResubmitBankAcc(m.hrBank?.bankAccount || (currentUser as any)?.bankAccount || '');
+    setResubmitBankName(m.hrBank?.bankName || (currentUser as any)?.bankName || '');
+    setResubmitAccHolder(m.hrBank?.accountHolder || (currentUser as any)?.profile?.fullName || (currentUser as any)?.name || '');
+    setResubmitExplanation('');
+    setIsHrResubmitModalOpen(true);
+  };
+
+  const openHrFulfillModal = () => {
+    setFulfillActualAmount(request?.amount ? String(request.amount) : '');
+    setFulfillNote('');
+    setFulfillReceiptUri(null);
+    setFulfillDeliveryUri(null);
+    setIsHrFulfillModalOpen(true);
+  };
+
+  const handlePickFulfillReceipt = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
+      setFulfillReceiptUri(result.assets[0].uri);
+    }
+  };
+
+  const handleTakeFulfillReceipt = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      showAlert('Quyền truy cập', 'Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh hóa đơn.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
+      setFulfillReceiptUri(result.assets[0].uri);
+    }
+  };
+
+  const handlePickFulfillDelivery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
+      setFulfillDeliveryUri(result.assets[0].uri);
+    }
+  };
+
+  const handleTakeFulfillDelivery = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      showAlert('Quyền truy cập', 'Vui lòng cấp quyền truy cập máy ảnh để chụp ảnh bàn giao.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
+      setFulfillDeliveryUri(result.assets[0].uri);
+    }
+  };
+
+  const handleConfirmHrPurchaseApproval = () => {
+    if (!hrBankAcc.trim() || !hrBankName.trim()) {
+      showAlert('Thiếu thông tin', 'Vui lòng nhập Số tài khoản và Tên ngân hàng nhận tiền của HR.');
+      return;
+    }
+    approveMutation.mutate({
+      id,
+      payload: {
+        bankAccount: hrBankAcc.trim(),
+        bankName: hrBankName.trim(),
+        accountHolder: hrAccHolder.trim() || undefined,
+        adjustedAmount: hrAdjustedAmount ? Number(hrAdjustedAmount) : undefined,
+        note: hrApprovalNote.trim() || undefined,
+      }
+    }, {
+      onSuccess: () => {
+        setIsHrApprovalModalOpen(false);
+        showAlert('Thành công', 'Đã duyệt đề xuất mua sắm và cung cấp STK chuyển Kế toán!');
+        router.back();
+      },
+      onError: (err: any) => {
+        showAlert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra');
+      }
+    });
+  };
+
+  const handleConfirmHrResubmit = () => {
+    if (!resubmitExplanation.trim()) {
+      showAlert('Yêu cầu giải trình', 'Vui lòng nhập nội dung giải trình hoặc cập nhật báo giá.');
+      return;
+    }
+    if (!resubmitBankAcc.trim() || !resubmitBankName.trim()) {
+      showAlert('Thiếu thông tin', 'Vui lòng nhập Số tài khoản và Tên ngân hàng nhận tiền.');
+      return;
+    }
+    resubmitPurchaseMutation.mutate({
+      id,
+      payload: {
+        amount: resubmitAmount ? Number(resubmitAmount) : undefined,
+        bankAccount: resubmitBankAcc.trim(),
+        bankName: resubmitBankName.trim(),
+        accountHolder: resubmitAccHolder.trim() || undefined,
+        explanation: resubmitExplanation.trim(),
+      }
+    }, {
+      onSuccess: () => {
+        setIsHrResubmitModalOpen(false);
+        showAlert('Thành công', 'Đã điều chỉnh và trình lại Kế toán thành công!');
+        router.back();
+      },
+      onError: (err: any) => {
+        showAlert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra');
+      }
+    });
+  };
+
+  const handleConfirmHrFulfill = async () => {
+    setIsFulfilling(true);
+    try {
+      let receiptUrl: string | undefined = undefined;
+      let deliveryUrl: string | undefined = undefined;
+
+      if (fulfillReceiptUri) {
+        const res = await uploadFile({
+          uri: fulfillReceiptUri,
+          name: `receipt_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          purpose: 'EMPLOYEE_DOCUMENT',
+        });
+        receiptUrl = res.fileUrl;
+      }
+
+      if (fulfillDeliveryUri) {
+        const res2 = await uploadFile({
+          uri: fulfillDeliveryUri,
+          name: `delivery_${Date.now()}.jpg`,
+          mimeType: 'image/jpeg',
+          purpose: 'EMPLOYEE_DOCUMENT',
+        });
+        deliveryUrl = res2.fileUrl;
+      }
+
+      await fulfillPurchaseMutation.mutateAsync({
+        id,
+        payload: {
+          actualAmount: fulfillActualAmount ? Number(fulfillActualAmount) : undefined,
+          note: fulfillNote.trim() || undefined,
+          receiptUrls: receiptUrl ? [receiptUrl] : [],
+          deliveryProofUrls: deliveryUrl ? [deliveryUrl] : [],
+        }
+      });
+
+      setIsHrFulfillModalOpen(false);
+      showAlert('Thành công', 'Đã hoàn tất mua sắm và bàn giao hàng hóa thành công!');
+      router.back();
+    } catch (err: any) {
+      showAlert('Lỗi', err.response?.data?.message || err.message || 'Có lỗi xảy ra khi hoàn tất mua sắm');
+    } finally {
+      setIsFulfilling(false);
+    }
   };
 
   const queryClient = useQueryClient();
@@ -216,6 +422,10 @@ export function LeaderApprovalScreen() {
   }
 
   const getStageLabelVi = (stageStr?: string, action?: string) => {
+    if (action === 'PURCHASE_FULFILLED' || stageStr === 'PURCHASE_FULFILLED') return 'HR đã hoàn tất mua sắm';
+    if (action === 'REJECTED_TO_HR' || stageStr === 'REJECTED_TO_HR') return 'Trả về HR điều chỉnh';
+    if (stageStr === 'PENDING_HR_PURCHASE') return 'HR đang mua hàng';
+    if (action === 'DISBURSED_TO_HR') return 'Kế toán/BGĐ giải ngân cho HR';
     if (action === 'DISBURSED' || stageStr === 'DISBURSED') return 'Kế toán giải ngân';
     if (action === 'REJECTED' || stageStr === 'REJECTED') return 'Từ chối';
     switch (stageStr) {
@@ -224,23 +434,29 @@ export function LeaderApprovalScreen() {
         return 'Trưởng bộ phận duyệt';
       case 'PENDING_HR':
       case 'HR':
-        return 'HR đối chứng & duyệt';
+        return request.type === 'PURCHASE' ? 'HR đối chứng & cấp STK' : 'HR đối chứng & duyệt';
       case 'PENDING_ADMIN':
       case 'ADMIN':
         return 'Ban Giám Đốc duyệt';
       case 'PENDING_ACCOUNTANT':
       case 'PENDING_DISBURSEMENT':
       case 'ACCOUNTANT':
-        return 'Kế toán giải ngân';
+        return request.type === 'PURCHASE' ? 'Kế toán chuyển tiền mua hàng' : 'Kế toán giải ngân';
+      case 'PENDING_HR_PURCHASE':
+        return 'HR tiến hành mua hàng';
+      case 'REJECTED_TO_HR':
+        return 'HR điều chỉnh & báo giá lại';
       default:
         return 'Cấp duyệt';
     }
   };
 
   const config = getTypeConfig(request.type);
-  const userName = request.user?.profile?.fullName || request.user?.email || 'Nhân viên';
-  const userDept = request.department?.name || 'Không rõ phòng ban';
-  const userPos = request.user?.profile?.position?.name || 'Nhân viên';
+  const reqUser = (request as any)?.user;
+  const reqDept = (request as any)?.department;
+  const userName = reqUser?.profile?.fullName || reqUser?.email || 'Nhân viên';
+  const userDept = reqDept?.name || 'Không rõ phòng ban';
+  const userPos = reqUser?.profile?.position?.name || 'Nhân viên';
   const dateStr = request.createdAt ? new Date(request.createdAt).toLocaleString('vi-VN') : '';
   const isFinancial = request.type === 'ADVANCE' || request.type === 'EXPENSE' || request.type === 'PURCHASE';
   const amount = Number(request.amount || 0);
@@ -290,8 +506,8 @@ export function LeaderApprovalScreen() {
     )) ||
     isAdmin ||
     roleCodes.includes('DIRECTOR');
-  const isDeptLeader = request.department?.leaderUserId === currentUser?.id ||
-    (roleCodes.includes('LEADER') && (currentUser?.department?.id === request.departmentId || currentUser?.department?.id === request.department?.id));
+  const isDeptLeader = reqDept?.leaderUserId === currentUser?.id ||
+    (roleCodes.includes('LEADER') && (currentUser?.department?.id === request.departmentId || currentUser?.department?.id === reqDept?.id));
 
   // Determine if current user can perform an approval/reject action at the current stage
   let canActOnCurrentStage = false;
@@ -307,6 +523,8 @@ export function LeaderApprovalScreen() {
     }
   } else {
     // Financial workflow
+    const isPurchase = request.type === 'PURCHASE';
+
     if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
       if (isDeptLeader || isAdmin) {
         canActOnCurrentStage = true;
@@ -317,22 +535,42 @@ export function LeaderApprovalScreen() {
       if (isHr || isAdmin) {
         canActOnCurrentStage = true;
       } else {
-        waitingStageDescription = 'Trưởng bộ phận đã duyệt. Đang chờ HR đối chứng hồ sơ.';
+        waitingStageDescription = isPurchase
+          ? 'Trưởng bộ phận đã duyệt. Đang chờ HR đối chứng báo giá & cung cấp STK nhận tiền.'
+          : 'Trưởng bộ phận đã duyệt. Đang chờ HR đối chứng hồ sơ.';
       }
     } else if (stage === 'PENDING_ADMIN') {
       if (isAdmin) {
         canActOnCurrentStage = true;
       } else {
-        waitingStageDescription = 'Đơn không VAT trên 2 triệu. Đang chờ Ban Giám Đốc phê duyệt.';
+        waitingStageDescription = isPurchase
+          ? 'Đề xuất mua sắm đang chờ Ban Giám Đốc phê duyệt cấp kinh phí.'
+          : 'Đơn không VAT trên 2 triệu. Đang chờ Ban Giám Đốc phê duyệt.';
       }
     } else if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
       if (isAccountantLead) {
         canActOnCurrentStage = true;
       } else if (isAccountant) {
         canActOnCurrentStage = false;
-        waitingStageDescription = 'Đơn đã duyệt các bước trước. Đang chờ Kế toán trưởng phê duyệt và giải ngân.';
+        waitingStageDescription = isPurchase
+          ? 'Đang chờ Kế toán trưởng phê duyệt và chuyển tiền mua hàng cho HR.'
+          : 'Đơn đã duyệt các bước trước. Đang chờ Kế toán trưởng phê duyệt và giải ngân.';
       } else {
-        waitingStageDescription = 'Đơn đã được duyệt. Đang chờ Kế toán trưởng thực hiện giải ngân.';
+        waitingStageDescription = isPurchase
+          ? 'Đang chờ Kế toán trưởng chuyển tiền mua hàng cho HR.'
+          : 'Đơn đã được duyệt. Đang chờ Kế toán trưởng thực hiện giải ngân.';
+      }
+    } else if (stage === 'REJECTED_TO_HR') {
+      if (isHr || isAdmin) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = 'Đề xuất mua hàng bị trả về. Đang chờ HR xem xét, điều chỉnh báo giá hoặc STK.';
+      }
+    } else if (stage === 'PENDING_HR_PURCHASE') {
+      if (isHr || isAdmin) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = 'Tiền mua hàng đã được giải ngân cho HR. Đang chờ HR tiến hành mua sắm và bàn giao.';
       }
     }
   }
@@ -341,17 +579,42 @@ export function LeaderApprovalScreen() {
   let approveButtonLabel = 'Phê duyệt';
   let approveSubtext = '';
   if (isFinancial) {
-    if (isAdmin) {
-      approveButtonLabel = 'Duyệt & Giải ngân';
-      approveSubtext = 'Ban Giám Đốc duyệt chi & hoàn tất giải ngân';
-    } else if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
-      approveButtonLabel = 'Duyệt & Giải ngân';
-      approveSubtext = 'Kế toán trưởng phê duyệt chi & hoàn tất';
+    const isPurchase = request.type === 'PURCHASE';
+    if (stage === 'REJECTED_TO_HR') {
+      approveButtonLabel = 'Chỉnh sửa & Trình lại';
+      approveSubtext = 'HR điều chỉnh báo giá/STK và gửi lại Kế toán';
+    } else if (stage === 'PENDING_HR_PURCHASE') {
+      approveButtonLabel = 'Xác nhận đã mua & Bàn giao';
+      approveSubtext = 'HR đã nhận tiền, mua hàng xong và bàn giao cho người đề xuất';
+    } else if (stage === 'PENDING_HR') {
+      if (isPurchase) {
+        approveButtonLabel = 'Duyệt & Cấp STK chuyển Kế toán';
+        approveSubtext = 'HR đối chứng hồ sơ & cung cấp STK nhận tiền chuyển Kế toán';
+      } else {
+        approveButtonLabel = 'Duyệt hồ sơ';
+        approveSubtext = 'HR đối chứng hồ sơ hợp lệ';
+      }
     } else if (stage === 'PENDING_ADMIN') {
-      approveButtonLabel = 'Duyệt & Giải ngân';
-      approveSubtext = 'Ban Giám Đốc duyệt chi & hoàn tất giải ngân';
+      if (isPurchase) {
+        approveButtonLabel = 'Duyệt & Chuyển tiền cho HR';
+        approveSubtext = 'Ban Giám Đốc duyệt chi tiền mua hàng cho HR';
+      } else {
+        approveButtonLabel = 'Duyệt & Giải ngân';
+        approveSubtext = 'Ban Giám Đốc duyệt chi & hoàn tất giải ngân';
+      }
+    } else if (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') {
+      if (isPurchase) {
+        approveButtonLabel = 'Duyệt & Chuyển tiền cho HR';
+        approveSubtext = 'Kế toán trưởng duyệt chi tiền mua sắm cho HR';
+      } else {
+        approveButtonLabel = 'Duyệt & Giải ngân';
+        approveSubtext = 'Kế toán trưởng phê duyệt chi & hoàn tất';
+      }
     } else if (stage === 'PENDING_LEADER' || stage === 'PENDING') {
-      if (request.type === 'EXPENSE' || request.type === 'PURCHASE' || request.type === 'ADVANCE') {
+      if (isPurchase) {
+        approveButtonLabel = 'Duyệt chuyển HR';
+        approveSubtext = 'Leader duyệt sơ bộ - Chuyển HR đối chứng & cấp STK';
+      } else if (request.type === 'EXPENSE' || request.type === 'ADVANCE') {
         approveButtonLabel = 'Duyệt chuyển Kế toán';
         approveSubtext = 'Trưởng bộ phận duyệt sơ bộ - Chuyển Kế toán xem xét';
       } else {
@@ -365,13 +628,20 @@ export function LeaderApprovalScreen() {
   const getUserInitials = (name: string) => {
     if (!name) return 'ML';
     const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    const pFirst = parts[0];
+    const pLast = parts[parts.length - 1];
+    if (parts.length === 1 && pFirst) return pFirst.slice(0, 2).toUpperCase();
+    if (pFirst && pLast && pFirst.length > 0 && pLast.length > 0) {
+      const fChar = pFirst.charAt(0);
+      const lChar = pLast.charAt(0);
+      return (fChar + lChar).toUpperCase();
+    }
+    return 'ML';
   };
   const userInitials = getUserInitials(userName);
 
   // Subtitle e.g. "Nhân viên · Kế toán · Hà Nội"
-  const branchName = request.department?.branch?.name || (currentUser?.branch as any)?.name || 'Hà Nội';
+  const branchName = reqDept?.branch?.name || (currentUser as any)?.branch?.name || 'Hà Nội';
   const userSubtitle = `${userPos} · ${userDept} · ${branchName}`;
 
   // Format submission time e.g. "Gửi lúc 15:21:51 · 06/10/2026"
@@ -395,6 +665,14 @@ export function LeaderApprovalScreen() {
       };
     }
     if (request.status === 'APPROVED') {
+      if (stage === 'PURCHASE_FULFILLED') {
+        return {
+          label: 'Đã hoàn tất mua sắm',
+          bg: '#DCFCE7',
+          color: '#166534',
+          icon: 'check-circle' as const,
+        };
+      }
       return {
         label: 'Đã duyệt',
         bg: '#DCFCE7',
@@ -403,6 +681,22 @@ export function LeaderApprovalScreen() {
       };
     }
     // PENDING
+    if (stage === 'PENDING_HR_PURCHASE') {
+      return {
+        label: 'HR đang mua hàng',
+        bg: '#E0F2FE',
+        color: '#0284C7',
+        icon: 'cart-outline' as const,
+      };
+    }
+    if (stage === 'REJECTED_TO_HR') {
+      return {
+        label: 'HR đang điều chỉnh',
+        bg: '#FFEDD5',
+        color: '#EA580C',
+        icon: 'alert-circle-outline' as const,
+      };
+    }
     if (stage === 'PENDING_HR') {
       return {
         label: 'Chờ HR đối chứng',
@@ -858,6 +1152,89 @@ export function LeaderApprovalScreen() {
           </View>
         )}
 
+        {/* PURCHASE - HR Bank Account Card */}
+        {request.type === 'PURCHASE' && meta.hrBank && (
+          <View style={[styles.card, shadows.sm]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <MaterialCommunityIcons name="bank" size={18} color="#2563EB" style={{ marginRight: 6 }} />
+              <Text style={[styles.metaSectionTitle, { marginBottom: 0 }]}>Tài khoản HR nhận tiền mua sắm</Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Ngân hàng</Text>
+              <Text style={styles.metaValue}>{meta.hrBank.bankName}</Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Số tài khoản</Text>
+              <Text style={[styles.metaValue, { fontWeight: '700', color: '#0F172A' }]}>{meta.hrBank.bankAccount}</Text>
+            </View>
+            <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+              <Text style={styles.metaLabel}>Chủ tài khoản</Text>
+              <Text style={styles.metaValue}>{meta.hrBank.accountHolder || 'HR tiếp nhận'}</Text>
+            </View>
+            {meta.adjustedAmount ? (
+              <View style={[styles.metaRow, { borderTopWidth: 1, borderColor: '#F1F5F9', marginTop: 8, paddingTop: 8 }]}>
+                <Text style={styles.metaLabel}>Số tiền HR duyệt</Text>
+                <Text style={[styles.metaValue, { fontWeight: '700', color: '#059669' }]}>
+                  {Number(meta.adjustedAmount).toLocaleString('vi-VN')} VNĐ
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {/* PURCHASE - Fulfillment Result Card */}
+        {request.type === 'PURCHASE' && meta.fulfillment && (
+          <View style={[styles.card, shadows.sm]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <MaterialCommunityIcons name="check-decagram" size={18} color="#166534" style={{ marginRight: 6 }} />
+              <Text style={[styles.metaSectionTitle, { marginBottom: 0 }]}>Kết quả mua sắm & Bàn giao</Text>
+            </View>
+            {meta.fulfillment.actualAmount ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Số tiền thực tế</Text>
+                <Text style={[styles.metaValue, { fontWeight: '700', color: '#166534' }]}>
+                  {Number(meta.fulfillment.actualAmount).toLocaleString('vi-VN')} VNĐ
+                </Text>
+              </View>
+            ) : null}
+            {meta.fulfillment.note ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Ghi chú bàn giao</Text>
+                <Text style={styles.metaValue}>{meta.fulfillment.note}</Text>
+              </View>
+            ) : null}
+            <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+              <Text style={styles.metaLabel}>Thời gian hoàn tất</Text>
+              <Text style={styles.metaValue}>
+                {meta.fulfillment.fulfilledAt ? new Date(meta.fulfillment.fulfilledAt).toLocaleString('vi-VN') : ''}
+              </Text>
+            </View>
+
+            {/* Fulfillment photos */}
+            {((Array.isArray(meta.fulfillment.receiptUrls) && meta.fulfillment.receiptUrls.length > 0) ||
+              (Array.isArray(meta.fulfillment.deliveryProofUrls) && meta.fulfillment.deliveryProofUrls.length > 0)) && (
+              <View style={{ marginTop: 12 }}>
+                <Text style={[styles.metaLabel, { marginBottom: 6, fontWeight: '700' }]}>Chứng từ hóa đơn & Bàn giao:</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {[...(meta.fulfillment.receiptUrls || []), ...(meta.fulfillment.deliveryProofUrls || [])].map((imgUrl: string, idx: number) => {
+                    const resolved = resolveFileUrl(imgUrl) || imgUrl;
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        activeOpacity={0.9}
+                        onPress={() => setSelectedImage(resolved)}
+                        style={{ width: '48%', height: 100, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC' }}
+                      >
+                        <Image source={{ uri: resolved }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* 4. Attachments Card */}
         {((Array.isArray(meta.images) && meta.images.length > 0) || meta.image) && (
           <View style={[styles.card, shadows.sm]}>
@@ -1049,7 +1426,159 @@ export function LeaderApprovalScreen() {
             ) : null}
 
             {/* Button Row */}
-            {!isAdmin && isNonVatOver2M && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') ? (
+            {request.type === 'PURCHASE' ? (
+              stage === 'PENDING_HR_PURCHASE' ? (
+                <View style={styles.actionButtonsRow}>
+                  <Pressable 
+                    style={[styles.approveBtnModern, { flex: 1, backgroundColor: '#059669' }, (isFulfilling || fulfillPurchaseMutation.isPending) && { opacity: 0.5 }]} 
+                    onPress={openHrFulfillModal}
+                    disabled={isFulfilling || fulfillPurchaseMutation.isPending}
+                  >
+                    {isFulfilling || fulfillPurchaseMutation.isPending ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        <MaterialCommunityIcons name="cart-check" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                        <Text style={styles.approveBtnModernText}>Xác nhận đã mua & Bàn giao</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                </View>
+              ) : stage === 'REJECTED_TO_HR' ? (
+                <View style={styles.actionButtonsRow}>
+                  <Pressable 
+                    style={[styles.rejectBtnModern, (rejectMutation.isPending || resubmitPurchaseMutation.isPending) && { opacity: 0.5 }]} 
+                    onPress={() => setIsRejectModalOpen(true)}
+                    disabled={rejectMutation.isPending || resubmitPurchaseMutation.isPending}
+                  >
+                    <Text style={styles.rejectBtnModernText}>Hủy đơn</Text>
+                  </Pressable>
+
+                  <Pressable 
+                    style={[styles.approveBtnModern, { flex: 2, backgroundColor: '#EA580C' }, resubmitPurchaseMutation.isPending && { opacity: 0.5 }]} 
+                    onPress={openHrResubmitModal}
+                    disabled={resubmitPurchaseMutation.isPending}
+                  >
+                    {resubmitPurchaseMutation.isPending ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        <MaterialCommunityIcons name="file-document-edit-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                        <Text style={styles.approveBtnModernText}>Sửa & Trình lại Kế toán</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                </View>
+              ) : stage === 'PENDING_ACCOUNTANT' ? (
+                <View style={{ gap: 8 }}>
+                  <View style={styles.actionButtonsRow}>
+                    <Pressable 
+                      style={[styles.rejectBtnModern, { flex: 1 }, (rejectMutation.isPending || approveMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                      onPress={() => setIsRejectModalOpen(true)}
+                      disabled={rejectMutation.isPending || approveMutation.isPending || isUploadingProof}
+                    >
+                      <Text style={styles.rejectBtnModernText}>Từ chối</Text>
+                    </Pressable>
+
+                    <Pressable 
+                      style={[{
+                        flex: 1.2,
+                        height: 48,
+                        backgroundColor: '#2563EB',
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        paddingHorizontal: 4,
+                      }, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                      onPress={handleApproveForwardAdmin}
+                      disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' }}>
+                        Duyệt chờ TT
+                      </Text>
+                    </Pressable>
+
+                    <Pressable 
+                      style={[{
+                        flex: 1.4,
+                        height: 48,
+                        backgroundColor: '#16A34A',
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        paddingHorizontal: 4,
+                      }, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                      onPress={() => setIsDisburseModalOpen(true)}
+                      disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' }}>
+                        Duyệt & Chi HR
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : stage === 'PENDING_ADMIN' ? (
+                <View style={styles.actionButtonsRow}>
+                  <Pressable 
+                    style={[styles.rejectBtnModern, (rejectMutation.isPending || approveMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                    onPress={() => setIsRejectModalOpen(true)}
+                    disabled={rejectMutation.isPending || approveMutation.isPending || isUploadingProof}
+                  >
+                    <Text style={styles.rejectBtnModernText}>Từ chối</Text>
+                  </Pressable>
+
+                  <Pressable 
+                    style={[styles.approveBtnModern, { backgroundColor: '#16A34A' }, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                    onPress={() => setIsDisburseModalOpen(true)}
+                    disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
+                  >
+                    {approveMutation.isPending || isUploadingProof ? <ActivityIndicator color="#fff" /> : (
+                      <Text style={styles.approveBtnModernText}>Duyệt & Chi HR</Text>
+                    )}
+                  </Pressable>
+                </View>
+              ) : stage === 'PENDING_HR' ? (
+                <View style={styles.actionButtonsRow}>
+                  <Pressable 
+                    style={[styles.rejectBtnModern, (rejectMutation.isPending || approveMutation.isPending) && { opacity: 0.5 }]} 
+                    onPress={() => setIsRejectModalOpen(true)}
+                    disabled={rejectMutation.isPending || approveMutation.isPending}
+                  >
+                    <Text style={styles.rejectBtnModernText}>Từ chối</Text>
+                  </Pressable>
+
+                  <Pressable 
+                    style={[styles.approveBtnModern, { backgroundColor: '#2563EB' }, (approveMutation.isPending || rejectMutation.isPending) && { opacity: 0.5 }]} 
+                    onPress={openHrApprovalModal}
+                    disabled={approveMutation.isPending || rejectMutation.isPending}
+                  >
+                    {approveMutation.isPending ? <ActivityIndicator color="#fff" /> : (
+                      <Text style={styles.approveBtnModernText}>Duyệt & Cấp STK</Text>
+                    )}
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.actionButtonsRow}>
+                  <Pressable 
+                    style={[styles.rejectBtnModern, (rejectMutation.isPending || approveMutation.isPending) && { opacity: 0.5 }]} 
+                    onPress={() => setIsRejectModalOpen(true)}
+                    disabled={rejectMutation.isPending || approveMutation.isPending}
+                  >
+                    <Text style={styles.rejectBtnModernText}>Từ chối</Text>
+                  </Pressable>
+
+                  <Pressable 
+                    style={[styles.approveBtnModern, (approveMutation.isPending || rejectMutation.isPending) && { opacity: 0.5 }]} 
+                    onPress={handleApprove}
+                    disabled={approveMutation.isPending || rejectMutation.isPending}
+                  >
+                    {approveMutation.isPending ? <ActivityIndicator color="#fff" /> : (
+                      <Text style={styles.approveBtnModernText}>{approveButtonLabel}</Text>
+                    )}
+                  </Pressable>
+                </View>
+              )
+            ) : !isAdmin && isNonVatOver2M && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_DISBURSEMENT') ? (
               <View style={{ gap: 8 }}>
                 <View style={styles.actionButtonsRow}>
                   <Pressable 
@@ -1185,9 +1714,18 @@ export function LeaderApprovalScreen() {
               {/* Amount & Beneficiary Banner */}
               <View style={styles.disburseInfoCard}>
                 <Text style={styles.disburseInfoLabel}>SỐ TIỀN CẦN GIẢI NGÂN</Text>
-                <Text style={styles.disburseInfoAmount}>{amount.toLocaleString('vi-VN')} VNĐ</Text>
+                <Text style={styles.disburseInfoAmount}>
+                  {(request.type === 'PURCHASE' && meta.adjustedAmount ? Number(meta.adjustedAmount) : amount).toLocaleString('vi-VN')} VNĐ
+                </Text>
                 
-                {(meta.beneficiaryName || meta.beneficiaryAccount || meta.beneficiaryBank) ? (
+                {request.type === 'PURCHASE' && meta.hrBank ? (
+                  <View style={styles.disburseRecipientWrap}>
+                    <Text style={styles.disburseRecipientName}>Người nhận (HR mua sắm): {meta.hrBank.accountHolder || 'HR tiếp nhận'}</Text>
+                    <Text style={styles.disburseRecipientBank}>
+                      STK: {meta.hrBank.bankAccount} · Ngân hàng: {meta.hrBank.bankName}
+                    </Text>
+                  </View>
+                ) : (meta.beneficiaryName || meta.beneficiaryAccount || meta.beneficiaryBank) ? (
                   <View style={styles.disburseRecipientWrap}>
                     {meta.beneficiaryName ? (
                       <Text style={styles.disburseRecipientName}>Chủ TK: {meta.beneficiaryName}</Text>
@@ -1336,7 +1874,9 @@ export function LeaderApprovalScreen() {
             </View>
 
             <Text style={styles.modalSubtitle}>
-              Vui lòng nhập lý do từ chối để nhân sự được thông báo rõ ràng về quyết định này.
+              {request?.type === 'PURCHASE' && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_ADMIN')
+                ? 'Đơn sẽ được trả về cho bộ phận HR để xem xét điều chỉnh báo giá hoặc STK. Nếu muốn hủy hẳn đơn, hãy tích chọn bên dưới.'
+                : 'Vui lòng nhập lý do từ chối để nhân sự được thông báo rõ ràng về quyết định này.'}
             </Text>
 
             <View style={{ marginTop: 14 }}>
@@ -1356,12 +1896,31 @@ export function LeaderApprovalScreen() {
               />
             </View>
 
+            {request?.type === 'PURCHASE' && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_ADMIN') && (
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, padding: 10, backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 1, borderColor: '#FECACA' }}
+                activeOpacity={0.8}
+                onPress={() => setPermanentReject(!permanentReject)}
+              >
+                <MaterialCommunityIcons
+                  name={permanentReject ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                  size={20}
+                  color={permanentReject ? '#DC2626' : '#64748B'}
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={{ fontSize: 13, color: '#991B1B', flex: 1, fontWeight: '600' }}>
+                  Từ chối vĩnh viễn (Hủy đơn ngay, không trả về cho HR điều chỉnh)
+                </Text>
+              </TouchableOpacity>
+            )}
+
             <View style={styles.modalActionsRow}>
               <TouchableOpacity 
                 style={styles.modalCancelBtn}
                 onPress={() => {
                   setIsRejectModalOpen(false);
                   setRejectReason('');
+                  setPermanentReject(false);
                 }}
                 disabled={rejectMutation.isPending}
               >
@@ -1376,10 +1935,413 @@ export function LeaderApprovalScreen() {
                 {rejectMutation.isPending ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.modalConfirmRejectBtnText}>Xác nhận từ chối</Text>
+                  <Text style={styles.modalConfirmRejectBtnText}>
+                    {request?.type === 'PURCHASE' && (stage === 'PENDING_ACCOUNTANT' || stage === 'PENDING_ADMIN')
+                      ? (permanentReject ? 'Xác nhận hủy đơn' : 'Trả về HR điều chỉnh')
+                      : 'Xác nhận từ chối'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* HR Approval & Bank Account Modal */}
+      <Modal
+        visible={isHrApprovalModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !approveMutation.isPending && setIsHrApprovalModalOpen(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalBackdrop}
+        >
+          <View style={[styles.modalCard, shadows.lg, { maxHeight: '90%' }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.modalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={[styles.modalHeaderIconWrap, { backgroundColor: '#DBEAFE' }]}>
+                    <MaterialCommunityIcons name="shield-check" size={22} color="#1D4ED8" />
+                  </View>
+                  <Text style={styles.modalTitle}>HR Duyệt & Cấp STK</Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => setIsHrApprovalModalOpen(false)}
+                  disabled={approveMutation.isPending}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons name="close" size={20} color="#94A3B8" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitle}>
+                Kiểm tra báo giá, điều chỉnh số tiền duyệt (nếu có) và nhập tài khoản ngân hàng của HR để Kế toán chuyển tiền mua hàng.
+              </Text>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>Số tiền duyệt chi (VNĐ)</Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="Nhập số tiền duyệt..."
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  value={hrAdjustedAmount}
+                  onChangeText={setHrAdjustedAmount}
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>
+                  Số tài khoản nhận tiền <Text style={{ color: '#DC2626' }}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="VD: 19036789101..."
+                  placeholderTextColor="#94A3B8"
+                  value={hrBankAcc}
+                  onChangeText={setHrBankAcc}
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>
+                  Tên ngân hàng <Text style={{ color: '#DC2626' }}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="VD: Techcombank, MB Bank, Vietcombank..."
+                  placeholderTextColor="#94A3B8"
+                  value={hrBankName}
+                  onChangeText={setHrBankName}
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>Chủ tài khoản (Tên HR nhận tiền)</Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="VD: NGUYEN VAN A"
+                  placeholderTextColor="#94A3B8"
+                  value={hrAccHolder}
+                  onChangeText={setHrAccHolder}
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>Ghi chú cho Kế toán (Tùy chọn)</Text>
+                <TextInput
+                  style={[styles.modalTextInput, { minHeight: 60 }]}
+                  placeholder="Nhập ghi chú hoặc lý do điều chỉnh giá..."
+                  placeholderTextColor="#94A3B8"
+                  multiline
+                  value={hrApprovalNote}
+                  onChangeText={setHrApprovalNote}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity 
+                  style={styles.modalCancelBtn}
+                  onPress={() => setIsHrApprovalModalOpen(false)}
+                  disabled={approveMutation.isPending}
+                >
+                  <Text style={styles.modalCancelBtnText}>Hủy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.modalConfirmDisburseBtn, { backgroundColor: '#2563EB' }, approveMutation.isPending && { opacity: 0.7 }]}
+                  onPress={handleConfirmHrPurchaseApproval}
+                  disabled={approveMutation.isPending}
+                >
+                  {approveMutation.isPending ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="send" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.modalConfirmDisburseBtnText}>Duyệt & Trình Kế toán</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* HR Resubmit Modal */}
+      <Modal
+        visible={isHrResubmitModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !resubmitPurchaseMutation.isPending && setIsHrResubmitModalOpen(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalBackdrop}
+        >
+          <View style={[styles.modalCard, shadows.lg, { maxHeight: '90%' }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.modalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={[styles.modalHeaderIconWrap, { backgroundColor: '#FFEDD5' }]}>
+                    <MaterialCommunityIcons name="file-document-edit" size={22} color="#EA580C" />
+                  </View>
+                  <Text style={styles.modalTitle}>HR Điều chỉnh & Trình lại</Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => setIsHrResubmitModalOpen(false)}
+                  disabled={resubmitPurchaseMutation.isPending}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons name="close" size={20} color="#94A3B8" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitle}>
+                Nhập nội dung giải trình / điều chỉnh báo giá và cập nhật STK nhận tiền để Kế toán xem xét lại đơn mua sắm.
+              </Text>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>
+                  Giải trình / Cập nhật báo giá <Text style={{ color: '#DC2626' }}>*</Text>
+                </Text>
+                <TextInput
+                  style={[styles.modalReasonInput, { minHeight: 70 }]}
+                  placeholder="Nhập lý do giải trình hoặc chi tiết giá mới..."
+                  placeholderTextColor="#94A3B8"
+                  multiline
+                  value={resubmitExplanation}
+                  onChangeText={setResubmitExplanation}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>Số tiền sau điều chỉnh (VNĐ)</Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="Nhập số tiền..."
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  value={resubmitAmount}
+                  onChangeText={setResubmitAmount}
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>
+                  Số tài khoản nhận tiền <Text style={{ color: '#DC2626' }}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="VD: 19036789101..."
+                  placeholderTextColor="#94A3B8"
+                  value={resubmitBankAcc}
+                  onChangeText={setResubmitBankAcc}
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>
+                  Tên ngân hàng <Text style={{ color: '#DC2626' }}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="VD: Techcombank, MB Bank, Vietcombank..."
+                  placeholderTextColor="#94A3B8"
+                  value={resubmitBankName}
+                  onChangeText={setResubmitBankName}
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>Chủ tài khoản</Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="VD: NGUYEN VAN A"
+                  placeholderTextColor="#94A3B8"
+                  value={resubmitAccHolder}
+                  onChangeText={setResubmitAccHolder}
+                />
+              </View>
+
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity 
+                  style={styles.modalCancelBtn}
+                  onPress={() => setIsHrResubmitModalOpen(false)}
+                  disabled={resubmitPurchaseMutation.isPending}
+                >
+                  <Text style={styles.modalCancelBtnText}>Hủy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.modalConfirmDisburseBtn, { backgroundColor: '#EA580C' }, resubmitPurchaseMutation.isPending && { opacity: 0.7 }]}
+                  onPress={handleConfirmHrResubmit}
+                  disabled={resubmitPurchaseMutation.isPending}
+                >
+                  {resubmitPurchaseMutation.isPending ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="send" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.modalConfirmDisburseBtnText}>Trình lại Kế toán</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* HR Fulfill Purchase Modal */}
+      <Modal
+        visible={isHrFulfillModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !isFulfilling && setIsHrFulfillModalOpen(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalBackdrop}
+        >
+          <View style={[styles.modalCard, shadows.lg, { maxHeight: '90%' }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.modalHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={[styles.modalHeaderIconWrap, { backgroundColor: '#DCFCE7' }]}>
+                    <MaterialCommunityIcons name="cart-check" size={22} color="#166534" />
+                  </View>
+                  <Text style={styles.modalTitle}>Xác nhận đã mua & Bàn giao</Text>
+                </View>
+                <TouchableOpacity 
+                  onPress={() => setIsHrFulfillModalOpen(false)}
+                  disabled={isFulfilling}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MaterialCommunityIcons name="close" size={20} color="#94A3B8" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitle}>
+                Cập nhật số tiền mua thực tế, tải ảnh hóa đơn mua sắm và ảnh bàn giao cho người đề xuất để hoàn tất đơn.
+              </Text>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>Số tiền mua thực tế (VNĐ)</Text>
+                <TextInput
+                  style={styles.modalTextInput}
+                  placeholder="Nhập số tiền thực tế..."
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                  value={fulfillActualAmount}
+                  onChangeText={setFulfillActualAmount}
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>Ghi chú bàn giao (Tùy chọn)</Text>
+                <TextInput
+                  style={[styles.modalTextInput, { minHeight: 60 }]}
+                  placeholder="VD: Đã bàn giao đủ chuột, bàn phím và phụ kiện cho người đề xuất..."
+                  placeholderTextColor="#94A3B8"
+                  multiline
+                  value={fulfillNote}
+                  onChangeText={setFulfillNote}
+                  textAlignVertical="top"
+                />
+              </View>
+
+              {/* Receipt photo section */}
+              <View style={{ marginTop: 14 }}>
+                <Text style={styles.modalInputLabel}>Ảnh Hóa đơn / Biên lai mua hàng</Text>
+                {fulfillReceiptUri ? (
+                  <View style={styles.billPreviewContainer}>
+                    <Image source={{ uri: fulfillReceiptUri }} style={styles.billPreviewImage} resizeMode="cover" />
+                    <View style={styles.billPreviewActions}>
+                      <TouchableOpacity style={styles.billChangeBtn} onPress={handlePickFulfillReceipt}>
+                        <MaterialCommunityIcons name="image-edit-outline" size={16} color="#1E3E2F" />
+                        <Text style={styles.billChangeBtnText}>Đổi ảnh</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.billRemoveBtn} onPress={() => setFulfillReceiptUri(null)}>
+                        <MaterialCommunityIcons name="delete-outline" size={16} color="#DC2626" />
+                        <Text style={styles.billRemoveBtnText}>Xóa</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.billPickerRow}>
+                    <TouchableOpacity style={styles.billPickerBtn} onPress={handlePickFulfillReceipt}>
+                      <MaterialCommunityIcons name="image-plus" size={22} color="#1E3E2F" />
+                      <Text style={styles.billPickerBtnText}>Thư viện ảnh</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.billPickerBtn} onPress={handleTakeFulfillReceipt}>
+                      <MaterialCommunityIcons name="camera-plus-outline" size={22} color="#1E3E2F" />
+                      <Text style={styles.billPickerBtnText}>Chụp ảnh bill</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              {/* Delivery photo section */}
+              <View style={{ marginTop: 14 }}>
+                <Text style={styles.modalInputLabel}>Ảnh Bàn giao / Nghiệm thu tài sản</Text>
+                {fulfillDeliveryUri ? (
+                  <View style={styles.billPreviewContainer}>
+                    <Image source={{ uri: fulfillDeliveryUri }} style={styles.billPreviewImage} resizeMode="cover" />
+                    <View style={styles.billPreviewActions}>
+                      <TouchableOpacity style={styles.billChangeBtn} onPress={handlePickFulfillDelivery}>
+                        <MaterialCommunityIcons name="image-edit-outline" size={16} color="#1E3E2F" />
+                        <Text style={styles.billChangeBtnText}>Đổi ảnh</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.billRemoveBtn} onPress={() => setFulfillDeliveryUri(null)}>
+                        <MaterialCommunityIcons name="delete-outline" size={16} color="#DC2626" />
+                        <Text style={styles.billRemoveBtnText}>Xóa</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.billPickerRow}>
+                    <TouchableOpacity style={styles.billPickerBtn} onPress={handlePickFulfillDelivery}>
+                      <MaterialCommunityIcons name="image-plus" size={22} color="#1E3E2F" />
+                      <Text style={styles.billPickerBtnText}>Thư viện ảnh</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.billPickerBtn} onPress={handleTakeFulfillDelivery}>
+                      <MaterialCommunityIcons name="camera-plus-outline" size={22} color="#1E3E2F" />
+                      <Text style={styles.billPickerBtnText}>Chụp bàn giao</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity 
+                  style={styles.modalCancelBtn}
+                  onPress={() => setIsHrFulfillModalOpen(false)}
+                  disabled={isFulfilling}
+                >
+                  <Text style={styles.modalCancelBtnText}>Hủy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.modalConfirmDisburseBtn, { backgroundColor: '#059669' }, isFulfilling && { opacity: 0.7 }]}
+                  onPress={handleConfirmHrFulfill}
+                  disabled={isFulfilling}
+                >
+                  {isFulfilling ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="check-bold" size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.modalConfirmDisburseBtnText}>Hoàn tất mua sắm</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>

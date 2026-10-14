@@ -30,6 +30,9 @@ export function EmployeeRequestsHomeScreen() {
       return { text: 'Từ chối', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' };
     }
     if (status === 'APPROVED') {
+      if (stage === 'PURCHASE_FULFILLED') {
+        return { text: 'Đã hoàn tất mua sắm', color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' };
+      }
       if (meta.disbursementProofUrl || stage === 'DISBURSED') {
         return { text: 'Đã giải ngân', color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' };
       }
@@ -46,6 +49,10 @@ export function EmployeeRequestsHomeScreen() {
         case 'PENDING_ACCOUNTANT':
         case 'PENDING_DISBURSEMENT':
           return { text: 'Chờ Kế toán giải ngân', color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' };
+        case 'PENDING_HR_PURCHASE':
+          return { text: 'HR đang mua hàng', color: '#0284C7', bg: 'rgba(2, 132, 199, 0.1)' };
+        case 'REJECTED_TO_HR':
+          return { text: 'HR đang điều chỉnh', color: '#EA580C', bg: 'rgba(234, 88, 12, 0.1)' };
         default:
           return { text: 'Đang chờ duyệt', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.1)' };
       }
@@ -97,7 +104,7 @@ export function EmployeeRequestsHomeScreen() {
                   </Text>
                 )}
                 <Text style={{ fontSize: 13, color: '#98A0A8', marginBottom: 4 }}>
-                  {new Date(req.createdAt).toLocaleDateString('vi-VN')}
+                  {req.createdAt ? new Date(req.createdAt).toLocaleDateString('vi-VN') : ''}
                 </Text>
                 <Text style={{ fontSize: 14, color: '#3B4A59' }} numberOfLines={2}>{req.content}</Text>
               </Pressable>
@@ -146,7 +153,7 @@ export function EmployeeRequestDetailScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
       setHrBillProofUri(result.assets[0].uri);
     }
   };
@@ -158,7 +165,7 @@ export function EmployeeRequestDetailScreen() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
       setHrBillProofUri(result.assets[0].uri);
     }
   };
@@ -668,6 +675,85 @@ export function EmployeeRequestDetailScreen() {
               </View>
             )}
 
+            {meta.hrBank && (
+              <View style={{ backgroundColor: '#F0F9FF', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#BAE6FD' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="bank" size={16} color="#0369A1" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1' }}>
+                    TÀI KHOẢN HR NHẬN TIỀN MUA HÀNG
+                  </Text>
+                </View>
+                {meta.hrBank.bankName ? (
+                  <Text style={{ fontSize: 13, color: '#334155', marginBottom: 2 }}>
+                    Ngân hàng: <Text style={{ fontWeight: '600' }}>{meta.hrBank.bankName}</Text>
+                  </Text>
+                ) : null}
+                {meta.hrBank.bankAccount ? (
+                  <Text style={{ fontSize: 13, color: '#334155', marginBottom: 2 }}>
+                    Số tài khoản: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{meta.hrBank.bankAccount}</Text>
+                  </Text>
+                ) : null}
+                {meta.hrBank.accountHolder ? (
+                  <Text style={{ fontSize: 13, color: '#334155' }}>
+                    Chủ tài khoản: <Text style={{ fontWeight: '600' }}>{meta.hrBank.accountHolder}</Text>
+                  </Text>
+                ) : null}
+              </View>
+            )}
+
+            {meta.fulfillment && (
+              <View style={{ backgroundColor: '#F0FDF4', padding: 14, borderRadius: 10, marginBottom: 16, borderWidth: 1, borderColor: '#86EFAC' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <MaterialCommunityIcons name="check-decagram" size={20} color="#15803D" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#15803D' }}>
+                    KẾT QUẢ MUA SẮM & BÀN GIAO
+                  </Text>
+                </View>
+                {meta.fulfillment.actualAmount != null && (
+                  <Text style={{ fontSize: 13, color: '#166534', marginBottom: 4 }}>
+                    Số tiền thực tế: <Text style={{ fontWeight: '700' }}>{Number(meta.fulfillment.actualAmount).toLocaleString('vi-VN')} VNĐ</Text>
+                  </Text>
+                )}
+                {meta.fulfillment.note ? (
+                  <Text style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}>
+                    Ghi chú HR: {meta.fulfillment.note}
+                  </Text>
+                ) : null}
+
+                {Array.isArray(meta.fulfillment.receiptUrls) && meta.fulfillment.receiptUrls.length > 0 && (
+                  <View style={{ marginTop: 6 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#15803D', marginBottom: 4 }}>Hóa đơn / Biên lai mua sắm:</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {meta.fulfillment.receiptUrls.map((rUrl: string, rIdx: number) => {
+                        const resolved = resolveFileUrl(rUrl) || rUrl;
+                        return (
+                          <TouchableOpacity key={rIdx} onPress={() => setSelectedImage(resolved)} style={{ width: 80, height: 80, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: '#86EFAC' }}>
+                            <Image source={{ uri: resolved }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                {Array.isArray(meta.fulfillment.deliveryProofUrls) && meta.fulfillment.deliveryProofUrls.length > 0 && (
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#15803D', marginBottom: 4 }}>Ảnh bàn giao / Nghiệm thu:</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {meta.fulfillment.deliveryProofUrls.map((dUrl: string, dIdx: number) => {
+                        const resolved = resolveFileUrl(dUrl) || dUrl;
+                        return (
+                          <TouchableOpacity key={dIdx} onPress={() => setSelectedImage(resolved)} style={{ width: 80, height: 80, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: '#86EFAC' }}>
+                            <Image source={{ uri: resolved }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
             {meta.bankInfo && (
               <View style={{ backgroundColor: '#F0F9FF', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: '#BAE6FD' }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1', marginBottom: 6 }}>
@@ -747,7 +833,6 @@ export function EmployeeRequestDetailScreen() {
             <Text style={styles.sectionTitle}>Tiến độ phê duyệt</Text>
           </View>
           <View style={styles.timelineCard}>
-
             {/* Step 1: Nộp đơn */}
             <View style={styles.timelineRow}>
               <View style={styles.timelineLine} />
@@ -766,11 +851,16 @@ export function EmployeeRequestDetailScreen() {
             {/* Recorded Multi-step Approval History */}
             {approvalSteps.map((step: any, idx: number) => {
               const isLast = idx === approvalSteps.length - 1 && request.status !== 'PENDING';
-              const isRejected = step.action === 'REJECTED';
-              const isDisbursed = step.action === 'DISBURSED';
+              const isRejected = step.action === 'REJECTED' || step.action === 'REJECTED_TO_HR';
+              const isDisbursed = step.action === 'DISBURSED' || step.action === 'DISBURSED_TO_HR';
 
               let stepTitle = 'Phê duyệt';
-              if (step.stage === 'PENDING_LEADER' || step.action === 'LEADER_APPROVED') stepTitle = 'Trưởng bộ phận duyệt';
+              if (step.action === 'RESUBMITTED_BY_HR') stepTitle = 'HR điều chỉnh & trình lại';
+              else if (step.action === 'PURCHASE_FULFILLED') stepTitle = 'HR hoàn tất mua sắm & bàn giao';
+              else if (step.action === 'REJECTED_TO_HR') stepTitle = 'Trả về HR điều chỉnh';
+              else if (step.action === 'DISBURSED_TO_HR') stepTitle = 'Kế toán/BGĐ giải ngân cho HR';
+              else if (step.action === 'FORWARD_ADMIN') stepTitle = 'Kế toán chuyển Ban Giám Đốc';
+              else if (step.stage === 'PENDING_LEADER' || step.action === 'LEADER_APPROVED') stepTitle = 'Trưởng bộ phận duyệt';
               else if (step.stage === 'PENDING_HR' || step.action === 'HR_VERIFIED' || step.action === 'HR_APPROVED') stepTitle = 'HR đối chứng & duyệt';
               else if (step.stage === 'PENDING_ADMIN' || step.action === 'ADMIN_APPROVED') stepTitle = 'Ban Giám Đốc duyệt';
               else if (step.stage === 'PENDING_ACCOUNTANT' || step.stage === 'PENDING_DISBURSEMENT' || isDisbursed) stepTitle = 'Kế toán giải ngân';
@@ -796,7 +886,12 @@ export function EmployeeRequestDetailScreen() {
                     </View>
                     <Text style={styles.timelineDesc}>
                       {step.actorName ? `${step.actorName} - ` : ''}
-                      {isRejected ? `Từ chối: ${step.reason || 'Không hợp lệ'}` : isDisbursed ? 'Đã thực hiện giải ngân thành công' : step.note ? `Ghi chú: ${step.note}` : 'Đã chấp thuận'}
+                      {step.action === 'REJECTED_TO_HR' ? `Yêu cầu HR điều chỉnh: ${step.reason || 'Xem xét lại báo giá'}` :
+                       isRejected ? `Từ chối: ${step.reason || 'Không hợp lệ'}` :
+                       step.action === 'PURCHASE_FULFILLED' ? 'HR đã mua hàng và bàn giao xong' :
+                       step.action === 'DISBURSED_TO_HR' ? 'Đã chuyển tiền mua hàng vào tài khoản HR' :
+                       isDisbursed ? 'Đã thực hiện giải ngân thành công' :
+                       step.note ? `Ghi chú: ${step.note}` : 'Đã chấp thuận'}
                     </Text>
                     {step.at && (
                       <Text style={styles.timelineDateText}>{new Date(step.at).toLocaleString('vi-VN')}</Text>
@@ -816,17 +911,21 @@ export function EmployeeRequestDetailScreen() {
                   <View style={styles.timelineHeader}>
                     <Text style={[styles.timelineTitle, { color: '#D97706' }]}>
                       {meta.stage === 'PENDING_LEADER' ? 'Chờ Leader duyệt' :
-                       meta.stage === 'PENDING_HR' ? 'Chờ Leader HR đối chứng' :
+                       meta.stage === 'PENDING_HR' ? 'Chờ HR đối chứng & cấp STK' :
                        meta.stage === 'PENDING_ADMIN' ? 'Chờ Ban Giám Đốc duyệt' :
                        meta.stage === 'PENDING_ACCOUNTANT' || meta.stage === 'PENDING_DISBURSEMENT' ? 'Chờ Kế toán giải ngân' :
+                       meta.stage === 'PENDING_HR_PURCHASE' ? 'HR đang tiến hành mua hàng' :
+                       meta.stage === 'REJECTED_TO_HR' ? 'HR đang xem xét điều chỉnh' :
                        'Đang chờ xem xét'}
                     </Text>
                   </View>
                   <Text style={styles.timelineDesc}>
                     {meta.stage === 'PENDING_LEADER' ? 'Đang chờ Trưởng bộ phận xem xét và phê duyệt' :
-                     meta.stage === 'PENDING_HR' ? 'HR đang đối chứng bảng lương & hợp đồng' :
-                     meta.stage === 'PENDING_ADMIN' ? 'Đơn không VAT trên 2 triệu đang chờ Ban Giám Đốc phê duyệt' :
+                     meta.stage === 'PENDING_HR' ? 'HR đang đối chứng báo giá và chuẩn bị STK nhận tiền mua sắm' :
+                     meta.stage === 'PENDING_ADMIN' ? 'Đơn đang chờ Ban Giám Đốc phê duyệt' :
                      meta.stage === 'PENDING_ACCOUNTANT' || meta.stage === 'PENDING_DISBURSEMENT' ? 'Kế toán đang tiến hành giải ngân chi tiền' :
+                     meta.stage === 'PENDING_HR_PURCHASE' ? 'Kinh phí đã được cấp. HR đang tiến hành mua sắm và chuẩn bị bàn giao' :
+                     meta.stage === 'REJECTED_TO_HR' ? 'Kế toán/BGĐ yêu cầu điều chỉnh. HR đang cập nhật lại thông tin/báo giá' :
                      'Đơn đang được xử lý theo quy trình'}
                   </Text>
                 </View>
@@ -873,7 +972,7 @@ export function EmployeeRequestDetailScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 16, fontWeight: '700', color: '#0369A1' }}>HR Đã Mua Hàng Xong?</Text>
                 <Text style={{ fontSize: 12, color: '#475569' }}>
-                  Bấm để tạo đơn thanh toán hoàn tiền cho {request.user?.profile?.fullName || 'nhân viên đề xuất'}.
+                  Bấm để tạo đơn thanh toán hoàn tiền cho {(request as any)?.user?.profile?.fullName || 'nhân viên đề xuất'}.
                 </Text>
               </View>
             </View>
@@ -931,10 +1030,10 @@ export function EmployeeRequestDetailScreen() {
               <View style={{ backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0' }}>
                 <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 2 }}>Đơn mua sắm cho nhân viên:</Text>
                 <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
-                  {request.user?.profile?.fullName || 'Nhân viên'} · {meta.itemName || request.title} (SL: {meta.quantity || '1'})
+                  {(request as any)?.user?.profile?.fullName || 'Nhân viên'} · {meta.itemName || request.title} (SL: {meta.quantity || '1'})
                 </Text>
                 <Text style={{ fontSize: 12, color: '#059669', marginTop: 4 }}>
-                  (Người yêu cầu: {request.user?.profile?.fullName || 'Nhân viên'} · Người tạo thanh toán: HR)
+                  (Người yêu cầu: {(request as any)?.user?.profile?.fullName || 'Nhân viên'} · Người tạo thanh toán: HR)
                 </Text>
               </View>
 

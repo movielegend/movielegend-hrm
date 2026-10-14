@@ -58,7 +58,7 @@ export default function LeaderRequestsScreen() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: approveEmployeeRequest,
+    mutationFn: (id: string) => approveEmployeeRequest(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leader-employee-requests'] });
       CustomAlert.alert('Thành công', 'Đã duyệt yêu cầu.');
@@ -69,7 +69,7 @@ export default function LeaderRequestsScreen() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: rejectEmployeeRequest,
+    mutationFn: (id: string) => rejectEmployeeRequest(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leader-employee-requests'] });
       CustomAlert.alert('Thành công', 'Đã từ chối yêu cầu.');
@@ -88,6 +88,9 @@ export default function LeaderRequestsScreen() {
       return { text: 'Từ chối', color: '#EF4444', bg: '#FEE2E2' };
     }
     if (status === 'APPROVED') {
+      if (stage === 'PURCHASE_FULFILLED') {
+        return { text: 'Đã hoàn tất mua sắm', color: '#166534', bg: '#DCFCE7' };
+      }
       if (meta.disbursementProofUrl || stage === 'DISBURSED') {
         return { text: 'Đã giải ngân', color: '#166534', bg: '#DCFCE7' };
       }
@@ -102,7 +105,12 @@ export default function LeaderRequestsScreen() {
         case 'PENDING_ADMIN':
           return { text: 'Chờ Admin duyệt', color: '#6D28D9', bg: '#EDE9FE' };
         case 'PENDING_DISBURSEMENT':
-          return { text: 'Chờ giải ngân', color: '#C2410C', bg: '#FFEDD5' };
+        case 'PENDING_ACCOUNTANT':
+          return { text: item?.type === 'PURCHASE' ? 'Chờ Kế toán chi HR' : 'Chờ giải ngân', color: '#C2410C', bg: '#FFEDD5' };
+        case 'PENDING_HR_PURCHASE':
+          return { text: 'HR đang mua hàng', color: '#0284C7', bg: '#E0F2FE' };
+        case 'REJECTED_TO_HR':
+          return { text: 'HR đang điều chỉnh', color: '#EA580C', bg: '#FFEDD5' };
         default:
           return { text: 'Chờ xử lý', color: '#B45309', bg: '#FEF3C7' };
       }

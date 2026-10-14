@@ -226,5 +226,57 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
   clearUserCache(userId: string) {
     this.descriptorCache.delete(userId);
   }
+
+  async warmUserCache(userId: string, images: Array<{ pose: string; imageUrl: string }>): Promise<void> {
+    if (!this.workerReady || !this.worker) return;
+
+    try {
+      const candidates: Array<{ pose: string; buffer: Uint8Array }> = [];
+      for (const img of images) {
+        const storageKey = this.storage.extractKeyFromUrl(img.imageUrl) || img.imageUrl;
+        let buf: Buffer | undefined;
+        try {
+          buf = await this.storage.read(storageKey);
+        } catch {}
+        if (!buf && img.imageUrl.startsWith('http')) {
+          const resp = await fetch(img.imageUrl);
+          if (resp.ok) buf = Buffer.from(await resp.arrayBuffer());
+        }
+        if (buf) {
+          candidates.push({ pose: img.pose, buffer: new Uint8Array(buf) });
+        }
+      }
+
+      if (candidates.length === 0) return;
+
+      const jobId = (++this.jobCounter).toString();
+      const res = await new Promise<any>((resolve, reject) => {
+        this.pendingJobs.set(jobId, { resolve, reject });
+        this.worker?.postMessage({
+          type: 'WARM_DESCRIPTORS',
+          jobId,
+          candidates,
+        });
+      });
+
+      if (res?.descriptors && Array.isArray(res.descriptors)) {
+        let userCache = this.descriptorCache.get(userId);
+        if (!userCache) {
+          userCache = new Map();
+          this.descriptorCache.set(userId, userCache);
+        }
+        for (const item of res.descriptors) {
+          const matchedImg = images.find((i) => i.pose === item.pose);
+          if (matchedImg) {
+            userCache.set(item.pose, { url: matchedImg.imageUrl, descriptor: item.descriptor });
+          }
+        }
+        this.logger.log(`Successfully pre-warmed ${res.descriptors.length} face descriptors for user ${userId}`);
+      }
+    } catch (err: any) {
+      this.logger.warn(`warmUserCache error for user ${userId}: ${err?.message}`);
+    }
+  }
 }
+
 

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,61 +13,61 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 import { colors } from '../../theme/colors';
 
-const { width } = Dimensions.get('window');
-const OVAL_WIDTH = Math.min(width * 0.68, 250);
-const OVAL_HEIGHT = Math.round(OVAL_WIDTH * 1.3);
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const CIRCLE_SIZE = Math.min(SCREEN_WIDTH * 0.72, 260);
+const RING_SIZE = CIRCLE_SIZE + 24;
+const STROKE_WIDTH = 4.5;
+const RADIUS = (RING_SIZE - STROKE_WIDTH) / 2;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 interface AttendanceCameraProps {
   photoUri: string | null;
   onCapture: (uri: string) => Promise<void> | void;
   onClose?: () => void;
+  onSuccess?: () => void;
+  title?: string;
+  mode?: 'in' | 'out';
 }
 
-export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCameraProps) {
+export function AttendanceCamera({
+  photoUri,
+  onCapture,
+  onClose,
+  onSuccess,
+  title = 'Xác thực khuôn mặt',
+  mode = 'in',
+}: AttendanceCameraProps) {
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
 
+  const [cameraReady, setCameraReady] = useState(false);
+  const [progressPercent, setProgressPercent] = useState(0);
   const [capturing, setCapturing] = useState(false);
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cameraReady, setCameraReady] = useState(false);
 
-  // Animations: Radar beam + Pulsing glow
-  const scanAnim = useRef(new Animated.Value(0)).current;
+  // Animated values
+  const progressAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const successScale = useRef(new Animated.Value(0.7)).current;
+  const scanTimerRef = useRef<any>(null);
 
-  // Continuous subtle radar sweep
+  // Subtle pulsing animation around the ring
   useEffect(() => {
-    const scanLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(scanAnim, {
-          toValue: 1,
-          duration: 1800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scanAnim, {
-          toValue: 0,
-          duration: 1800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    scanLoop.start();
-
     const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.03,
-          duration: 1100,
+          duration: 1000,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1100,
+          duration: 1000,
           useNativeDriver: true,
         }),
       ])
@@ -75,12 +75,30 @@ export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCam
     pulseLoop.start();
 
     return () => {
-      scanLoop.stop();
       pulseLoop.stop();
     };
   }, []);
 
-  const handleSnap = async () => {
+  // Sync animated progress value to state for SVG strokeDashoffset and percentage text
+  useEffect(() => {
+    const listenerId = progressAnim.addListener(({ value }) => {
+      setProgressPercent(Math.min(100, Math.max(0, Math.round(value))));
+    });
+
+    return () => {
+      progressAnim.removeListener(listenerId);
+    };
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+    };
+  }, []);
+
+  // Automated capture & submit flow
+  const handleAutoCapture = useCallback(async () => {
     if (capturing || verifiedSuccess || !cameraRef.current) return;
     setCapturing(true);
     setError(null);
@@ -97,10 +115,10 @@ export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCam
         Vibration.vibrate(50);
       } catch {}
 
-      // Hand over to parent onCapture (which compresses, uploads and verifies with Backend)
+      // Hand over to parent onCapture (compress, upload, verify on backend)
       await onCapture(photo.uri);
 
-      // ONLY if onCapture resolves without throwing error: Show verified success!
+      // Backend confirmed success!
       setVerifiedSuccess(true);
       try {
         Vibration.vibrate([0, 80, 50, 80]);
@@ -108,23 +126,66 @@ export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCam
 
       Animated.spring(successScale, {
         toValue: 1,
-        friction: 4,
+        friction: 5,
+        tension: 80,
         useNativeDriver: true,
       }).start();
 
       setTimeout(() => {
-        onClose?.();
-      }, 700);
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          onClose?.();
+        }
+      }, 1300);
     } catch (e: any) {
       const errorMsg =
         e?.response?.data?.message ||
         e?.response?.data?.error?.message ||
         e?.message ||
-        'Khuôn mặt chưa khớp hoặc không hợp lệ. Vui lòng căn chỉnh và chụp lại!';
+        'Khuôn mặt chưa khớp hoặc không hợp lệ. Vui lòng căn chỉnh lại!';
       setError(errorMsg);
       setCapturing(false);
       setVerifiedSuccess(false);
+
+      try {
+        Vibration.vibrate([0, 100, 50, 100]);
+      } catch {}
+
+      // Auto-restart scanning after 2.5 seconds so user can adjust face without touching screen
+      scanTimerRef.current = setTimeout(() => {
+        startScanSequence();
+      }, 2500);
     }
+  }, [capturing, verifiedSuccess, onCapture, onClose]);
+
+  // Start the circular progress sequence (0% -> 100% over 1.9s)
+  const startScanSequence = useCallback(() => {
+    if (capturing || verifiedSuccess) return;
+    if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+
+    setError(null);
+    progressAnim.setValue(0);
+    setProgressPercent(0);
+
+    Animated.timing(progressAnim, {
+      toValue: 100,
+      duration: 1900,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) {
+        void handleAutoCapture();
+      }
+    });
+  }, [capturing, verifiedSuccess, handleAutoCapture]);
+
+  // Trigger scanning sequence once camera is ready
+  const handleCameraReady = () => {
+    setCameraReady(true);
+    // Give camera 400ms to stabilize auto-exposure/focus before starting progress
+    scanTimerRef.current = setTimeout(() => {
+      startScanSequence();
+    }, 450);
   };
 
   if (!permission) {
@@ -157,172 +218,139 @@ export function AttendanceCamera({ photoUri, onCapture, onClose }: AttendanceCam
     );
   }
 
-  const translateY = scanAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, OVAL_HEIGHT - 6],
-  });
+  const strokeDashoffset = CIRCUMFERENCE * (1 - progressPercent / 100);
+  // Center the circular frame at 48% of available vertical height (perfect eye and face level)
+  const centerTop = insets.top + (SCREEN_HEIGHT - insets.top - insets.bottom) * 0.48 - CIRCLE_SIZE / 2;
 
   return (
     <View style={styles.container}>
-      {/* Live Camera Background */}
+      {/* Live Camera View full screen */}
       <CameraView
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
         facing="front"
         mirror
-        onCameraReady={() => setCameraReady(true)}
+        onCameraReady={handleCameraReady}
       />
 
-      {/* Foreground Overlay HUD */}
-      <View
-        style={[
-          styles.overlayContainer,
-          {
-            paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 44 : 28),
-            paddingBottom: Math.max(insets.bottom, 20),
-          },
-        ]}
-      >
-        {/* Top Header */}
-        <View style={styles.topHeader}>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerBadge}>AI eKYC CHECK-IN</Text>
-            <Text style={styles.headerTitle}>Xác thực khuôn mặt</Text>
-          </View>
-          {onClose && (
-            <Pressable style={styles.closeBtn} onPress={onClose} disabled={capturing}>
-              <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
-            </Pressable>
-          )}
+      {/* Unified Center Anchor: Cutout, SVG Ring, Aura, Top Capsule, Bottom Status */}
+      <View style={[styles.circleCenterAnchor, { top: centerTop }]}>
+        {/* 1. Dark vignette surround cutout - creates circular camera window */}
+        <View style={styles.cutoutHole} pointerEvents="none" />
+
+        {/* 2. Top Capsule - floats directly above the circle */}
+        <View style={styles.topCapsule}>
+          <Text style={styles.topCapsuleTitle}>{title}</Text>
+          <Text style={styles.topCapsuleSubtitle}>
+            {capturing ? 'Đang gửi dữ liệu xác thực...' : 'Giữ yên khi đang xác minh...'}
+          </Text>
         </View>
 
-        {/* Center Oval Face Guide */}
-        <View style={styles.faceFrameContainer}>
-          {/* Outer Pulsing Aura */}
-          <Animated.View
-            style={[
-              styles.ovalGlow,
-              {
-                borderColor: verifiedSuccess ? '#10B981' : capturing ? '#38BDF8' : 'rgba(56, 189, 248, 0.4)',
-                transform: [{ scale: pulseAnim }],
-              },
-            ]}
-          />
-
-          {/* Main Oval Frame */}
-          <View
-            style={[
-              styles.faceMask,
-              verifiedSuccess && styles.faceMaskSuccess,
-              capturing && !verifiedSuccess && styles.faceMaskCapturing,
-            ]}
-          >
-            {/* Tech Corner Brackets */}
-            <View style={[styles.cornerBracket, styles.bracketTopLeft]} />
-            <View style={[styles.cornerBracket, styles.bracketTopRight]} />
-            <View style={[styles.cornerBracket, styles.bracketBottomLeft]} />
-            <View style={[styles.cornerBracket, styles.bracketBottomRight]} />
-
-            {/* Radar Beam Scanning Line */}
-            {!verifiedSuccess && (
-              <Animated.View
-                style={[
-                  styles.radarBeam,
-                  {
-                    transform: [{ translateY }],
-                  },
-                ]}
-              />
-            )}
-
-            {/* Center Visual Cue */}
-            {verifiedSuccess && (
-              <Animated.View style={[styles.successBadge, { transform: [{ scale: successScale }] }]}>
-                <MaterialCommunityIcons name="check-circle" size={80} color="#10B981" />
-                <Text style={styles.successLabel}>XÁC THỰC THÀNH CÔNG</Text>
-              </Animated.View>
-            )}
-
-            {!verifiedSuccess && !capturing && (
-              <MaterialCommunityIcons
-                name="face-recognition"
-                size={80}
-                color="rgba(255, 255, 255, 0.2)"
-              />
-            )}
-
-            {capturing && !verifiedSuccess && (
-              <View style={styles.processingBadge}>
-                <ActivityIndicator size="large" color="#38BDF8" style={{ marginBottom: 12 }} />
-                <Text style={styles.processingLabel}>ĐANG ĐỐI CHIẾU AI...</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Bottom Controls */}
-        <View style={styles.bottomControls}>
-          {/* Status Instruction Pill */}
-          <View
-            style={[
-              styles.instructionPill,
-              verifiedSuccess && styles.instructionPillSuccess,
-              capturing && !verifiedSuccess && styles.instructionPillCapturing,
-              Boolean(error) && styles.instructionPillError,
-            ]}
-          >
-            <MaterialCommunityIcons
-              name={
-                verifiedSuccess
-                  ? 'check-decagram'
-                  : capturing
-                  ? 'cloud-sync'
-                  : error
-                  ? 'alert-circle'
-                  : 'face-recognition'
-              }
-              size={18}
-              color="#FFFFFF"
-              style={{ marginRight: 8 }}
+        {/* 3. Outer SVG Progress Ring */}
+        <View style={[styles.svgWrapper, { width: RING_SIZE, height: RING_SIZE }]} pointerEvents="none">
+          <Svg width={RING_SIZE} height={RING_SIZE}>
+            {/* Dark dashed circular track */}
+            <Circle
+              cx={RING_SIZE / 2}
+              cy={RING_SIZE / 2}
+              r={RADIUS}
+              stroke="rgba(255, 255, 255, 0.28)"
+              strokeDasharray="6 6"
+              strokeWidth={2}
+              fill="none"
             />
-            <Text style={styles.instructionText}>
-              {verifiedSuccess
-                ? 'Đã khớp khuôn mặt! Đang lưu ca...'
-                : capturing
-                ? 'Đang gửi ảnh & đối chiếu khuôn mặt...'
-                : error
-                ? error
-                : 'Đưa mặt vào khung và bấm nút Chụp'}
-            </Text>
-          </View>
+            {/* Animated Progress Ring (Green / Red) */}
+            <Circle
+              cx={RING_SIZE / 2}
+              cy={RING_SIZE / 2}
+              r={RADIUS}
+              stroke={verifiedSuccess ? '#22C55E' : error ? '#EF4444' : '#22C55E'}
+              strokeWidth={STROKE_WIDTH}
+              strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              fill="none"
+              rotation="-90"
+              origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+            />
+          </Svg>
+        </View>
 
-          {/* Shutter Button */}
-          {!verifiedSuccess && (
-            <View style={styles.shutterRow}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.shutterBtn,
-                  pressed && styles.shutterBtnPressed,
-                  capturing && { opacity: 0.6 },
-                ]}
-                onPress={() => void handleSnap()}
-                disabled={capturing}
-              >
-                <View style={styles.shutterBtnInner}>
-                  {capturing ? (
-                    <ActivityIndicator size="small" color="#102739" />
-                  ) : (
-                    <MaterialCommunityIcons name="camera" size={28} color="#102739" />
-                  )}
-                </View>
-              </Pressable>
-              <Text style={styles.shutterHint}>
-                {capturing ? 'Đang phân tích...' : 'Bấm để chụp & điểm danh'}
-              </Text>
+        {/* 4. Pulsing Aura Border */}
+        <Animated.View
+          style={[
+            styles.innerAura,
+            {
+              borderColor: verifiedSuccess
+                ? '#22C55E'
+                : error
+                ? '#EF4444'
+                : capturing
+                ? '#38BDF8'
+                : 'rgba(34, 197, 94, 0.45)',
+              transform: [{ scale: pulseAnim }],
+            },
+          ]}
+          pointerEvents="none"
+        />
+
+        {/* 5. Bottom Status Text - floats directly below the circle */}
+        <View style={styles.bottomStatusWrap}>
+          {verifiedSuccess ? (
+            <View style={styles.successPill}>
+              <MaterialCommunityIcons name="check-circle" size={20} color="#22C55E" style={{ marginRight: 6 }} />
+              <Text style={styles.successPillText}>Nhận diện thành công!</Text>
             </View>
+          ) : capturing ? (
+            <View style={styles.processingRow}>
+              <ActivityIndicator size="small" color="#22C55E" style={{ marginRight: 8 }} />
+              <Text style={styles.processingText}>Đang xử lý xác minh khuôn mặt... Vui lòng chờ...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorBox}>
+              <View style={styles.errorPill}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#F87171" style={{ marginRight: 6 }} />
+                <Text style={styles.errorText} numberOfLines={2}>
+                  {error}
+                </Text>
+              </View>
+              <Pressable style={styles.retryBtn} onPress={startScanSequence}>
+                <MaterialCommunityIcons name="reload" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.retryBtnText}>Thử lại ngay</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Text style={styles.bottomPercentText}>
+              Đang xác minh khuôn mặt... {progressPercent}%
+            </Text>
           )}
         </View>
       </View>
+
+      {/* Close Button in top right corner */}
+      {onClose && (
+        <Pressable
+          style={[styles.closeBtn, { top: insets.top + (Platform.OS === 'ios' ? 12 : 20) }]}
+          onPress={onClose}
+          disabled={capturing || verifiedSuccess}
+        >
+          <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
+        </Pressable>
+      )}
+
+      {/* Success Dialog Modal - Exactly like videoplayback.mp4 (00:52) */}
+      {verifiedSuccess && (
+        <View style={styles.successModalBackdrop}>
+          <Animated.View style={[styles.successModalCard, { transform: [{ scale: successScale }] }]}>
+            <View style={styles.successIconCircle}>
+              <MaterialCommunityIcons name="check" size={48} color="#22C55E" />
+            </View>
+            <Text style={styles.successModalTitle}>
+              {mode === 'out' ? 'Bạn đã check out thành công!' : 'Bạn đã check in thành công!'}
+            </Text>
+          </Animated.View>
+        </View>
+      )}
     </View>
   );
 }
@@ -334,34 +362,37 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#0F172A',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   permissionCard: {
     backgroundColor: '#1E293B',
-    padding: 32,
-    borderRadius: 24,
+    borderRadius: 20,
+    padding: 24,
     alignItems: 'center',
     width: '100%',
     maxWidth: 360,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   permissionTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    marginBottom: 12,
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   permissionDesc: {
-    color: '#94A3B8',
     fontSize: 14,
+    color: '#94A3B8',
     textAlign: 'center',
-    marginBottom: 28,
-    lineHeight: 22,
+    marginBottom: 20,
+    lineHeight: 20,
   },
   primaryBtn: {
-    backgroundColor: '#1E88E5',
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 14,
@@ -387,208 +418,202 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  overlayContainer: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+
+  circleCenterAnchor: {
+    position: 'absolute',
+    left: (SCREEN_WIDTH - CIRCLE_SIZE) / 2,
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  topHeader: {
+  cutoutHole: {
+    position: 'absolute',
+    width: CIRCLE_SIZE + 4000,
+    height: CIRCLE_SIZE + 4000,
+    borderRadius: (CIRCLE_SIZE + 4000) / 2,
+    borderWidth: 2000,
+    borderColor: 'rgba(0, 0, 0, 0.85)',
+  },
+  svgWrapper: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  innerAura: {
+    position: 'absolute',
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
+    borderWidth: 2.5,
+    opacity: 0.9,
+  },
+  topCapsule: {
+    position: 'absolute',
+    bottom: CIRCLE_SIZE + 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderRadius: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    minWidth: 240,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  topCapsuleTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  topCapsuleSubtitle: {
+    color: '#CBD5E1',
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  bottomStatusWrap: {
+    position: 'absolute',
+    top: CIRCLE_SIZE + 24,
+    alignItems: 'center',
+    minHeight: 52,
+    justifyContent: 'center',
+    width: SCREEN_WIDTH - 40,
+  },
+  bottomPercentText: {
+    color: '#22C55E',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  processingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    zIndex: 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
   },
-  headerTitleWrap: {
-    flex: 1,
-  },
-  headerBadge: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: 2,
-  },
-  headerTitle: {
+  processingText: {
     color: '#FFFFFF',
-    fontSize: 19,
-    fontWeight: '800',
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    fontSize: 13,
+    fontWeight: '600',
   },
+  successPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(6, 78, 59, 0.92)',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#22C55E',
+  },
+  successPillText: {
+    color: '#22C55E',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  errorBox: {
+    alignItems: 'center',
+  },
+  errorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(127, 29, 29, 0.92)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    marginBottom: 10,
+    maxWidth: SCREEN_WIDTH - 60,
+  },
+  errorText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 18,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  // Close button in top right
   closeBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    position: 'absolute',
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+    zIndex: 30,
   },
-  faceFrameContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  ovalGlow: {
-    position: 'absolute',
-    width: OVAL_WIDTH + 14,
-    height: OVAL_HEIGHT + 14,
-    borderRadius: (OVAL_WIDTH + 14) / 2,
-    borderWidth: 2,
-    opacity: 0.85,
-  },
-  faceMask: {
-    width: OVAL_WIDTH,
-    height: OVAL_HEIGHT,
-    borderRadius: OVAL_WIDTH / 2,
-    borderWidth: 2.5,
-    borderColor: 'rgba(255, 255, 255, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: 'transparent',
-  },
-  faceMaskCapturing: {
-    borderColor: '#38BDF8',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-  },
-  faceMaskSuccess: {
-    borderColor: '#10B981',
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
-    borderWidth: 3.5,
-  },
-  cornerBracket: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderColor: '#38BDF8',
-  },
-  bracketTopLeft: {
-    top: 16,
-    left: 16,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-  },
-  bracketTopRight: {
-    top: 16,
-    right: 16,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-  },
-  bracketBottomLeft: {
-    bottom: 16,
-    left: 16,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-  },
-  bracketBottomRight: {
-    bottom: 16,
-    right: 16,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-  },
-  radarBeam: {
+
+  // Modal dialog when check-in succeeds (like videoplayback.mp4 00:52)
+  successModalBackdrop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 3,
-    backgroundColor: '#38BDF8',
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  successBadge: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successLabel: {
-    color: '#10B981',
-    fontSize: 14,
-    fontWeight: '800',
-    marginTop: 8,
-    letterSpacing: 0.5,
-  },
-  processingBadge: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  processingLabel: {
-    color: '#38BDF8',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  bottomControls: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  instructionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 24,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    maxWidth: width - 40,
-  },
-  instructionPillCapturing: {
-    backgroundColor: 'rgba(30, 58, 138, 0.92)',
-    borderColor: '#38BDF8',
-  },
-  instructionPillSuccess: {
-    backgroundColor: 'rgba(6, 78, 59, 0.95)',
-    borderColor: '#10B981',
-  },
-  instructionPillError: {
-    backgroundColor: 'rgba(185, 28, 28, 0.92)',
-    borderColor: '#EF4444',
-  },
-  instructionText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  shutterRow: {
-    alignItems: 'center',
-  },
-  shutterBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2.5,
-    borderColor: '#FFFFFF',
+    zIndex: 50,
+    paddingHorizontal: 32,
   },
-  shutterBtnPressed: {
-    transform: [{ scale: 0.92 }],
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  shutterBtnInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  successModalCard: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: 32,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(34, 197, 94, 0.14)',
+    borderWidth: 3,
+    borderColor: '#22C55E',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 20,
   },
-  shutterHint: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 8,
+  successModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    lineHeight: 26,
   },
 });

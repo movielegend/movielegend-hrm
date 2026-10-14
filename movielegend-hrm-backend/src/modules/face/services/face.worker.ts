@@ -114,6 +114,29 @@ async function getFaceDescriptor(buffer: Uint8Array): Promise<Float32Array | und
 }
 
 parentPort?.on('message', async (message) => {
+  if (message.type === 'WARM_DESCRIPTORS') {
+    const { jobId, candidates } = message;
+    if (!modelsLoaded) {
+      return parentPort?.postMessage({ jobId, error: 'Models not loaded yet' });
+    }
+    try {
+      const descriptors: Array<{ pose: string; descriptor: Float32Array }> = [];
+      if (Array.isArray(candidates)) {
+        for (const item of candidates) {
+          if (item.buffer) {
+            const desc = await getFaceDescriptor(item.buffer);
+            if (desc) {
+              descriptors.push({ pose: item.pose, descriptor: desc });
+            }
+          }
+        }
+      }
+      return parentPort?.postMessage({ jobId, type: 'WARM_DESCRIPTORS_DONE', descriptors });
+    } catch (err: any) {
+      return parentPort?.postMessage({ jobId, error: err?.message });
+    }
+  }
+
   if (message.type === 'VERIFY') {
     const { jobId, sourceDescriptor: providedSourceDescriptor, sourceBuffer, targetBuffer, candidates } = message;
     

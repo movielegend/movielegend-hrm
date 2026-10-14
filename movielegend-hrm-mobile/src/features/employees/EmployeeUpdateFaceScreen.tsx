@@ -156,6 +156,28 @@ export function EmployeeUpdateFaceScreen() {
     }
   };
 
+  // Automated hands-free sequential capture for each pose (like videoplayback.mp4)
+  useEffect(() => {
+    if (step !== 'SCANNING' || !cameraReady || capturing || justCapturedPose) return;
+
+    progressAnim.setValue(0);
+    const animation = Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: 1800,
+      useNativeDriver: false,
+    });
+
+    animation.start(({ finished }) => {
+      if (finished) {
+        void takeSnapshot(activePose);
+      }
+    });
+
+    return () => {
+      animation.stop();
+    };
+  }, [activePoseIndex, step, cameraReady, justCapturedPose]);
+
   const handleBatchUpload = async (photosMap: typeof capturedPhotos) => {
     setStep('UPLOADING');
     setUploadPercent(10);
@@ -423,7 +445,7 @@ export function EmployeeUpdateFaceScreen() {
                   <MaterialCommunityIcons name="camera" size={24} color="#0F172A" />
                 </View>
               </Pressable>
-              <Text style={styles.shutterHint}>Bấm nút để chụp góc này</Text>
+              <Text style={styles.shutterHint}>Giữ yên góc mặt, hệ thống tự động chụp sau 1.8s (hoặc bấm nút chụp ngay)</Text>
             </View>
           )}
         </View>
