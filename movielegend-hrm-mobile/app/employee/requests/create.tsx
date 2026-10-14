@@ -480,12 +480,12 @@ export default function CreateRequestScreen() {
   };
 
   const handleSelectDay = (day: number) => {
-    const chosen = new Date(calendarYear, calendarMonth, day, 0, 0, 0, 0);
+    const chosen = new Date(calendarYear, calendarMonth, day, 12, 0, 0, 0);
     if (showDatePicker === 'from' || showDatePicker === 'single') {
       setFromDate(chosen);
       if (showDatePicker === 'from' && toDate) {
         const toNormalized = new Date(toDate);
-        toNormalized.setHours(0, 0, 0, 0);
+        toNormalized.setHours(12, 0, 0, 0);
         if (chosen.getTime() > toNormalized.getTime()) {
           setToDate(null);
         }
@@ -503,7 +503,7 @@ export default function CreateRequestScreen() {
   const handleQuickDateSelect = (daysOffset: number) => {
     const target = new Date();
     target.setDate(target.getDate() + daysOffset);
-    target.setHours(0, 0, 0, 0);
+    target.setHours(12, 0, 0, 0);
     if (showDatePicker === 'from' || showDatePicker === 'single') {
       setFromDate(target);
       if (showDatePicker === 'from' && toDate) {

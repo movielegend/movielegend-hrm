@@ -66,15 +66,23 @@ export class EmployeeRequestsService {
       requestTitle = `[ACCOUNT_DELETION] ${dto.title}`;
     } else if (isCompensatoryWork && (!dto.title || dto.title.trim() === '' || !dto.title.includes('[LÀM BÙ]'))) {
       const meta: any = dto.attachmentMetadata || {};
-      const targetDate = meta.targetLeaveDate ? String(meta.targetLeaveDate).split('T')[0] : '';
-      const compDate = meta.compensatoryDate ? String(meta.compensatoryDate).split('T')[0] : '';
+      const targetDate = meta.targetLeaveDate
+        ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : '';
+      const compDate = meta.compensatoryDate
+        ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : '';
       const shiftName = meta.compensatoryShiftName || (meta.missedHours ? `${meta.missedHours}h` : 'ca làm');
       requestTitle = `[LÀM BÙ] Làm bù ${shiftName}${compDate ? ` ngày ${compDate}` : ''}${targetDate ? ` cho ngày ${targetDate}` : ''}`;
     } else if (dto.type === EmployeeRequestType.BUSINESS_TRIP && (!dto.title || dto.title.trim() === '' || dto.title === 'Công tác' || dto.title === 'Yêu cầu')) {
       const meta: any = dto.attachmentMetadata || {};
       const loc = meta.location || 'Ngoài công ty';
-      const fromD = meta.fromDate ? String(meta.fromDate).split('T')[0] : '';
-      const toD = meta.toDate ? String(meta.toDate).split('T')[0] : fromD;
+      const fromD = meta.fromDate
+        ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : '';
+      const toD = meta.toDate
+        ? moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : fromD;
       requestTitle = `Công tác: ${loc}${fromD ? ` (${fromD}${toD && toD !== fromD ? ` -> ${toD}` : ''})` : ''}`;
     }
 
@@ -563,8 +571,12 @@ export class EmployeeRequestsService {
 
         if (request.type === EmployeeRequestType.BUSINESS_TRIP) {
           const meta: any = request.attachmentMetadata || {};
-          const fromDateStr = meta.fromDate ? String(meta.fromDate).split('T')[0] : null;
-          const toDateStr = meta.toDate ? String(meta.toDate).split('T')[0] : fromDateStr;
+          const fromDateStr = meta.fromDate
+            ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+            : null;
+          const toDateStr = meta.toDate
+            ? moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+            : fromDateStr;
           const location = meta.location || '';
           const startTime = meta.startTime || '08:00';
           const endTime = meta.endTime || '17:30';
@@ -576,7 +588,7 @@ export class EmployeeRequestsService {
 
             while (curr.isSameOrBefore(end, 'day')) {
               const workDateStr = curr.format('YYYY-MM-DD');
-              const workDate = new Date(`${workDateStr}T00:00:00.000Z`);
+              const workDate = this.businessTime.startOfBusinessDate(workDateStr);
 
               let sh = 8;
               let sm = 0;
@@ -649,19 +661,24 @@ export class EmployeeRequestsService {
 
         if (isCompensatory) {
           const meta: any = request.attachmentMetadata || {};
-          const compDateStr = meta.compensatoryDate ? String(meta.compensatoryDate).split('T')[0] : null;
+          const compDateStr = meta.compensatoryDate
+            ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+            : null;
           const shiftId = meta.compensatoryShiftId;
           const deptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId));
 
           if (compDateStr && shiftId && deptId) {
-            const workDate = new Date(`${compDateStr}T00:00:00.000Z`);
+            const workDate = this.businessTime.startOfBusinessDate(compDateStr);
             const existingAssignment = await tx.shiftAssignment.findFirst({
               where: { userId: request.userId, workDate },
             });
 
-            const targetDateStr = meta.targetLeaveDate ? String(meta.targetLeaveDate).split('T')[0] : '';
+            const targetDateStr = meta.targetLeaveDate
+              ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+              : '';
             const noteText = `Ca làm bù${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`;
 
+            let assignedId = existingAssignment?.id;
             if (existingAssignment) {
               await tx.shiftAssignment.update({
                 where: { id: existingAssignment.id },
@@ -671,13 +688,29 @@ export class EmployeeRequestsService {
                 },
               });
             } else {
-              await tx.shiftAssignment.create({
+              const newAssignment = await tx.shiftAssignment.create({
                 data: {
                   userId: request.userId,
                   departmentId: deptId,
                   shiftId,
                   workDate,
                   assignedByUserId: actor.userId,
+                },
+              });
+              assignedId = newAssignment.id;
+            }
+
+            // Hồi tố: nếu nhân viên đã check-in ngày hôm đó rồi (trường hợp làm bù trước, duyệt sau)
+            // thì cập nhật lại bản ghi chấm công gắn với ca vừa cấp, hủy cờ isUnplannedOt
+            if (assignedId) {
+              await tx.attendanceRecord.updateMany({
+                where: {
+                  userId: request.userId,
+                  workDate,
+                },
+                data: {
+                  shiftAssignmentId: assignedId,
+                  isUnplannedOt: false,
                 },
               });
             }
