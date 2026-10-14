@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Newspaper, MessageSquare, Home, ClipboardCheck } from 'lucide-react-native';
+import { TabBarUserAvatar } from '../../../src/components/navigation/TabBarUserAvatar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMyTasks } from '../../../src/hooks/useTasks';
 import { useUnreadChatCount } from '../../../src/hooks/useNotifications';
@@ -24,7 +25,7 @@ export default function HRTabsLayout() {
         options={{
           title: 'Bảng tin',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "newspaper-variant" : "newspaper-variant-outline"} size={24} color={color} />
+            <Newspaper size={23} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -34,7 +35,7 @@ export default function HRTabsLayout() {
           title: 'Nhóm chat',
           tabBarBadge: unreadChat > 0 ? (unreadChat > 99 ? '99+' : unreadChat) : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "message-text" : "message-text-outline"} size={24} color={color} />
+            <MessageSquare size={23} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -43,7 +44,7 @@ export default function HRTabsLayout() {
         options={{
           title: 'Trang chủ',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={26} color={color} />
+            <Home size={25} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -53,7 +54,7 @@ export default function HRTabsLayout() {
           title: 'Việc của tôi',
           tabBarBadge: uncompletedTasksCount > 0 ? (uncompletedTasksCount > 99 ? '99+' : uncompletedTasksCount) : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "clipboard-check" : "clipboard-check-outline"} size={24} color={color} />
+            <ClipboardCheck size={23} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -68,7 +69,7 @@ export default function HRTabsLayout() {
         options={{
           title: 'Hồ sơ',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "account" : "account-outline"} size={26} color={color} />
+            <TabBarUserAvatar focused={focused} color={color} size={28} />
           ),
         }}
       />

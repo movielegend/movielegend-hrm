@@ -95,13 +95,16 @@ export class AttendanceService {
     let latePenaltyWorkDays: number | null = null;
     let assignment: any = null;
 
-    // 1. Kiểm tra xem có ca/lượt nào đang mở (chưa checkout) không (áp dụng cho TẤT CẢ các phòng ban và loại ca)
+    // 1. Kiểm tra xem có ca/lượt nào đang mở (chưa checkout) không
     const openRecord = await this.prisma.attendanceRecord.findFirst({
       where: { userId: actor.userId, checkOutAt: null },
       orderBy: { checkInAt: 'desc' }
     });
     if (openRecord) {
-      throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước rồi mới được check-in ca mới!');
+      const isSameWorkDate = openRecord.workDate.toISOString().slice(0, 10) === workDate.toISOString().slice(0, 10);
+      if (isLiveDepartment || isSameWorkDate) {
+        throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước rồi mới được check-in ca mới!');
+      }
     }
 
     if (isLiveDepartment) {
@@ -257,8 +260,12 @@ export class AttendanceService {
           throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước rồi mới được check-in ca mới!');
         } else {
           // Đối với phòng ban thường: Ca mở của ngày hôm trước bị quên check-out -> Tự động đóng ca cũ thành MISSING (Thiếu check-out) để nhân viên vào ca hôm nay bình thường
-          await tx.attendanceRecord.update({
-            where: { id: concurrentOpen.id },
+          await tx.attendanceRecord.updateMany({
+            where: {
+              userId: actor.userId,
+              checkOutAt: null,
+              workDate: { lt: workDate },
+            },
             data: {
               status: AttendanceStatus.MISSING,
               notes: 'Tự động đóng ca ngày trước do nhân viên quên check-out khi vào ca mới hôm nay',
@@ -1171,13 +1178,32 @@ export class AttendanceService {
   async handleMissingCheckOuts() {
     const now = new Date();
 
+    const today = this.businessTime.startOfBusinessDate(this.businessTime.businessDateString());
+
     // Tìm các bản ghi đang ở trạng thái CHECKED_IN
     const activeRecords = await this.prisma.attendanceRecord.findMany({
       where: { status: AttendanceStatus.CHECKED_IN, checkOutAt: null },
-      include: { shiftAssignment: { include: { shift: true } } }
+      include: { shiftAssignment: { include: { shift: true } }, department: true }
     });
 
     for (const record of activeRecords) {
+      const isLive = Boolean(
+        (record.department?.name && record.department.name.toLowerCase().includes('live')) ||
+        (record.department?.code && record.department.code.toLowerCase().includes('live'))
+      );
+
+      // Phòng ban thường: Quá 0:00 (12h đêm) của ngày làm việc mà chưa check-out -> Tự động đóng ca thành MISSING
+      if (!isLive && record.workDate.getTime() < today.getTime()) {
+        await this.prisma.attendanceRecord.update({
+          where: { id: record.id },
+          data: {
+            status: AttendanceStatus.MISSING,
+            notes: 'Hệ thống tự động đóng ca (Quên check-out qua 12h đêm), 0 công',
+          },
+        });
+        continue;
+      }
+
       // Tùy chọn 1: Nếu thời gian hiện tại đã quá 24h kể từ lúc check-in, force MISSING luôn
       if (now.getTime() - record.checkInAt.getTime() > 24 * 60 * 60 * 1000) {
         await this.prisma.attendanceRecord.update({
