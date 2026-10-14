@@ -205,6 +205,42 @@ export class AttendanceReportService {
       }),
     ];
 
+    // Thu thập tất cả các đơn làm bù (COMPENSATORY_WORK) hợp lệ
+    const allCompRequests = lateRequestsRaw.filter(r => {
+      const meta: any = r.attachmentMetadata;
+      const isComp = (r.type as string) === 'COMPENSATORY_WORK' || r.title?.includes('[LÀM BÙ]') || meta?.requestType === 'COMPENSATORY_WORK';
+      return isComp && meta && meta.compensationStatus !== 'CANCELLED';
+    });
+
+    const externalCompDates: Date[] = [];
+    for (const r of allCompRequests) {
+      const meta: any = r.attachmentMetadata;
+      if (meta?.compensatoryDate) {
+        const d = new Date(meta.compensatoryDate);
+        if (d < start || d > end) {
+          externalCompDates.push(d);
+        }
+      }
+    }
+
+    const externalCompRecords = externalCompDates.length > 0
+      ? await this.prisma.attendanceRecord.findMany({
+          where: {
+            userId: { in: userIds },
+            workDate: { in: externalCompDates },
+          },
+          include: {
+            shiftAssignment: { include: { shift: true } },
+          },
+        }).catch(() => [])
+      : [];
+
+    const allAttendanceRecords = [...records, ...externalCompRecords];
+    const userDateRecordMap = new Map<string, any>();
+    for (const rec of allAttendanceRecords) {
+      const dStr = moment.tz(rec.workDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+      userDateRecordMap.set(`${rec.userId}_${dStr}`, rec);
+    }
 
     const configs = await this.prisma.departmentOvertimeConfig.findMany();
     const configMap = new Map(configs.map(c => [c.departmentId, c]));
@@ -542,7 +578,7 @@ export class AttendanceReportService {
           }
         }
 
-        const isDailyLeave = isLeaveForDay && !isHourlyLeave;
+        let isDailyLeave = isLeaveForDay && !isHourlyLeave;
 
         if (isDailyLeave) {
           // Nghỉ theo ngày (Cả ngày / Nửa ngày / Nhiều ngày) đã được duyệt:
@@ -584,20 +620,75 @@ export class AttendanceReportService {
           noteParts.push(`Nghỉ theo giờ: ${leaveTypeName}${leaveReason ? ` (${leaveReason})` : ''}`);
         }
 
-        // Kiểm tra đơn làm bù (COMPENSATORY_WORK)
-        const approvedCompensatoryReq = lateRequestsRaw.find(r => {
+        // 1. Kiểm tra ngày hiện tại có phải là Ngày nghỉ được bù (targetLeaveDate - Ngày A) không
+        const approvedCompForTarget = allCompRequests.find(r => {
           if (r.userId !== user.id) return false;
           const meta: any = r.attachmentMetadata;
-          const isComp = (r.type as string) === 'COMPENSATORY_WORK' || r.title.includes('[LÀM BÙ]') || meta?.requestType === 'COMPENSATORY_WORK';
-          if (!isComp || !meta) return false;
-          const compDate = meta.compensatoryDate ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
-          return compDate === dateStr;
+          if (!meta || meta.compensationStatus === 'CANCELLED') return false;
+          const target = meta.targetLeaveDate ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          return target === dateStr;
         });
 
-        if (approvedCompensatoryReq) {
-          const meta: any = approvedCompensatoryReq.attachmentMetadata || {};
-          const targetDateStr = meta.targetLeaveDate ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY') : '';
-          noteParts.push(`Đi làm bù${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`);
+        if (approvedCompForTarget) {
+          const metaTarget: any = approvedCompForTarget.attachmentMetadata || {};
+          const compDateStr = metaTarget.compensatoryDate ? moment.tz(metaTarget.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          const compDateDisplay = metaTarget.compensatoryDate ? moment.tz(metaTarget.compensatoryDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY') : '';
+          const shiftName = metaTarget.compensatoryShiftName || 'Ca làm việc';
+
+          // Đối soát chéo: Kiểm tra xem tại ngày làm bù B nhân viên có đi làm và chấm công đủ ca không
+          const dayBRec = compDateStr ? userDateRecordMap.get(`${user.id}_${compDateStr}`) : null;
+          const hasWorkedDayB = Boolean(
+            dayBRec && dayBRec.checkInAt && (isLiveDepartment || dayBRec.checkOutAt || dayBRec.status === 'ADJUSTED')
+          );
+
+          if (hasWorkedDayB) {
+            // Có dữ liệu check-in/out làm bù đủ ca: Ghi nhận ngày nghỉ A là 1 CÔNG
+            attendance = 1;
+            isDailyLeave = true;
+            checkInDisplay = '';
+            checkOutDisplay = '';
+            totalMinutes = 0;
+            lateDeduction = 0;
+            lateMins = 0;
+            earlyMins = 0;
+            noteParts.push(`Nghỉ làm bù (Đã làm bù ca ${shiftName} ngày ${compDateDisplay})`);
+          } else {
+            // Không có dữ liệu làm bù ngày B: Ngày nghỉ A KHÔNG có công (0 công)
+            attendance = 0;
+            isDailyLeave = true;
+            checkInDisplay = '';
+            checkOutDisplay = '';
+            totalMinutes = 0;
+            lateDeduction = 0;
+            noteParts.push(`Nghỉ làm bù (Chưa/Không làm bù ca ${shiftName} ngày ${compDateDisplay} - Không tính công)`);
+          }
+        }
+
+        // 2. Kiểm tra ngày hiện tại có phải là Ngày làm bù (compensatoryDate - Ngày B) không
+        const approvedCompForCompDate = allCompRequests.find(r => {
+          if (r.userId !== user.id) return false;
+          const meta: any = r.attachmentMetadata;
+          if (!meta || meta.compensationStatus === 'CANCELLED') return false;
+          const cDate = meta.compensatoryDate ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          return cDate === dateStr;
+        });
+
+        if (approvedCompForCompDate) {
+          const metaB: any = approvedCompForCompDate.attachmentMetadata || {};
+          const targetDateStr = metaB.targetLeaveDate ? moment.tz(metaB.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY') : '';
+          const hasWorkedCurrent = Boolean(
+            record && record.checkInAt && (isLiveDepartment || record.checkOutAt || record.status === 'ADJUSTED')
+          );
+
+          if (hasWorkedCurrent) {
+            noteParts.push(`Đi làm bù cho ngày ${targetDateStr} (Công đã tính chuyển về ngày ${targetDateStr})`);
+            // Chuyển 1 công về ngày nghỉ A nên ngày bù B ghi nhận 0 công để tránh nhân đôi công trong tháng
+            attendance = 0;
+          } else {
+            noteParts.push(`Ca làm bù cho ngày ${targetDateStr} (Vắng mặt / Không chấm công)`);
+            attendance = 0;
+          }
+
           // Khóa OT cho ca làm bù (không tính vào OT x150%/x200%)
           ot100 = 0;
           ot150 = 0;
