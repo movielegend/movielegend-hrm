@@ -9,8 +9,9 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -42,18 +43,19 @@ function UserInitialAvatar({ name, size = 48 }: { name: string; size?: number })
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: '#E7F0F7',
+        backgroundColor: '#E0F2FE',
         justifyContent: 'center',
         alignItems: 'center',
       }}
     >
-      <Text style={{ color: '#102739', fontSize: 16, fontWeight: '800' }}>{initials}</Text>
+      <Text style={{ color: '#0F172A', fontSize: 16, fontWeight: '800' }}>{initials}</Text>
     </View>
   );
 }
 
 export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const basePath = scope === 'leader' ? '/leader' : '/admin';
   const { user } = useAuth();
   const { departmentId, branchId } = useLocalSearchParams<{ departmentId?: string; branchId?: string }>();
@@ -136,9 +138,11 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+
       {/* Screen Header: Title + Subtitle + "+ Thêm" button */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Nhân viên</Text>
           <Text style={styles.subtitle}>Quản lý hồ sơ đội ngũ</Text>
@@ -156,174 +160,181 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
         )}
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={adminUsers.isRefetching} onRefresh={() => void adminUsers.refetch()} />}
-      >
-        {/* Search Input Row with Filter Icon */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
-            <TextInput
-              placeholder="Tìm tên hoặc mã nhân viên"
-              placeholderTextColor="#94A3B8"
-              value={search}
-              onChangeText={setSearch}
-              style={styles.searchInput}
-              clearButtonMode="while-editing"
+      {/* Curved Sheet Body */}
+      <View style={styles.curvedSheet}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 24) + 24 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={adminUsers.isRefetching} onRefresh={() => void adminUsers.refetch()} />}
+        >
+          {/* Search Input Row with Filter Icon */}
+          <View style={styles.searchRow}>
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+              <TextInput
+                placeholder="Tìm tên hoặc mã nhân viên"
+                placeholderTextColor="#94A3B8"
+                value={search}
+                onChangeText={setSearch}
+                style={styles.searchInput}
+                clearButtonMode="while-editing"
+              />
+            </View>
+            <Pressable style={styles.filterBtn} onPress={() => setDeptModalVisible(true)}>
+              <Ionicons name="options-outline" size={20} color="#0F172A" />
+            </Pressable>
+          </View>
+
+          {/* Status Segmented Buttons: [ Tất cả ] [ Hoạt động ] [ Tạm khóa ] */}
+          <View style={styles.statusSegmentRow}>
+            <Pressable
+              onPress={() => setStatusFilter('ALL')}
+              style={[styles.statusSegmentBtn, statusFilter === 'ALL' && styles.statusSegmentBtnActive]}
+            >
+              <Text style={[styles.statusSegmentText, statusFilter === 'ALL' && styles.statusSegmentTextActive]}>
+                Tất cả
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setStatusFilter('ACTIVE')}
+              style={[styles.statusSegmentBtn, statusFilter === 'ACTIVE' && styles.statusSegmentBtnActive]}
+            >
+              <Text style={[styles.statusSegmentText, statusFilter === 'ACTIVE' && styles.statusSegmentTextActive]}>
+                Hoạt động
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setStatusFilter('SUSPENDED')}
+              style={[styles.statusSegmentBtn, statusFilter === 'SUSPENDED' && styles.statusSegmentBtnActive]}
+            >
+              <Text style={[styles.statusSegmentText, statusFilter === 'SUSPENDED' && styles.statusSegmentTextActive]}>
+                Tạm khóa
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Department Filter Dropdown Pill */}
+          <Pressable style={styles.deptFilterPill} onPress={() => setDeptModalVisible(true)}>
+            <Text style={styles.deptFilterText}>{selectedDeptLabel}</Text>
+            <Ionicons name="chevron-down" size={18} color="#64748B" />
+          </Pressable>
+
+          {/* Employee Cards List */}
+          {adminUsers.isLoading ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <ActivityIndicator color="#102739" size="small" />
+              <Text style={{ marginTop: 8, fontSize: 13, color: '#64748B' }}>Đang tải danh sách nhân viên...</Text>
+            </View>
+          ) : employees.length === 0 ? (
+            <EmptyState
+              title="Chưa có nhân viên phù hợp"
+              message="Không tìm thấy nhân viên nào khớp với bộ lọc."
+              icon="account-search-outline"
             />
-          </View>
-          <Pressable style={styles.filterBtn} onPress={() => setDeptModalVisible(true)}>
-            <Ionicons name="options-outline" size={20} color="#0F172A" />
-          </Pressable>
-        </View>
+          ) : (
+            <View style={styles.employeeList}>
+              {employees.map(employee => {
+                const name = employee.profile?.fullName || employee.userCode || 'Chưa đặt tên';
+                const userCode = employee.userCode || 'NV00000';
+                const deptName =
+                  employee.departmentLinks?.map(link => link.department?.name).filter(Boolean).join(', ') ||
+                  (employee as any).department?.name ||
+                  'Chưa xếp phòng';
+                const branchName =
+                  employee.departmentLinks?.[0]?.department?.branch?.name ||
+                  (employee as any).department?.branch?.name ||
+                  'Hà Nội';
+                
+                const rawRoles = employee.roles || [];
+                const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+                const roleCodes = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.role?.code || r?.name || '').toUpperCase());
 
-        {/* Status Segmented Buttons: [ Tất cả ] [ Hoạt động ] [ Tạm khóa ] */}
-        <View style={styles.statusSegmentRow}>
-          <Pressable
-            onPress={() => setStatusFilter('ALL')}
-            style={[styles.statusSegmentBtn, statusFilter === 'ALL' && styles.statusSegmentBtnActive]}
-          >
-            <Text style={[styles.statusSegmentText, statusFilter === 'ALL' && styles.statusSegmentTextActive]}>
-              Tất cả
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setStatusFilter('ACTIVE')}
-            style={[styles.statusSegmentBtn, statusFilter === 'ACTIVE' && styles.statusSegmentBtnActive]}
-          >
-            <Text style={[styles.statusSegmentText, statusFilter === 'ACTIVE' && styles.statusSegmentTextActive]}>
-              Hoạt động
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setStatusFilter('SUSPENDED')}
-            style={[styles.statusSegmentBtn, statusFilter === 'SUSPENDED' && styles.statusSegmentBtnActive]}
-          >
-            <Text style={[styles.statusSegmentText, statusFilter === 'SUSPENDED' && styles.statusSegmentTextActive]}>
-              Tạm khóa
-            </Text>
-          </Pressable>
-        </View>
+                const deptNameLower = deptName.toLowerCase();
+                const isAccDept = deptNameLower.includes('kế toán') || deptNameLower.includes('tài chính') || deptNameLower.includes('accountant') || deptNameLower.includes('accounting') || deptNameLower.includes('kt');
+                let displayRole = employee.profile?.position?.name || employee.position?.name;
+                if (roleCodes.includes('ADMIN') || roleCodes.includes('SUPER_ADMIN')) displayRole = 'Admin Tổng';
+                else if (roleCodes.includes('ACCOUNTANT_LEAD')) displayRole = 'Kế toán trưởng';
+                else if (roleCodes.includes('LEADER') || roleCodes.includes('DEPARTMENT_HEAD')) displayRole = isAccDept ? 'Kế toán trưởng' : 'Trưởng phòng (Leader)';
+                else if (roleCodes.includes('ACCOUNTANT_PAYROLL')) displayRole = 'Kế toán lương';
+                else if (roleCodes.includes('ACCOUNTANT_TAX')) displayRole = 'Kế toán thuế';
+                else if (roleCodes.includes('ACCOUNTANT_GENERAL')) displayRole = 'Kế toán viên';
+                else if (isAccDept) displayRole = 'Kế toán viên';
+                else if (roleCodes.includes('HR') || roleCodes.includes('HUMAN_RESOURCE')) displayRole = 'Nhân sự HR';
+                else if (!displayRole) displayRole = 'Nhân viên';
 
-        {/* Department Filter Dropdown Pill */}
-        <Pressable style={styles.deptFilterPill} onPress={() => setDeptModalVisible(true)}>
-          <Text style={styles.deptFilterText}>{selectedDeptLabel}</Text>
-          <Ionicons name="chevron-down" size={16} color="#64748B" />
-        </Pressable>
+                const isActive = employee.accountStatus === 'ACTIVE';
 
-        {/* Employee Cards List */}
-        {adminUsers.isLoading ? (
-          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-            <ActivityIndicator color="#102739" size="small" />
-            <Text style={{ marginTop: 8, fontSize: 13, color: '#64748B' }}>Đang tải danh sách nhân viên...</Text>
-          </View>
-        ) : employees.length === 0 ? (
-          <EmptyState title="Chưa có nhân viên phù hợp" />
-        ) : (
-          <View style={styles.employeeList}>
-            {employees.map(employee => {
-              const name = employee.profile?.fullName || employee.userCode || 'Chưa đặt tên';
-              const userCode = employee.userCode || 'NV00000';
-              const deptName =
-                employee.departmentLinks?.map(link => link.department?.name).filter(Boolean).join(', ') ||
-                (employee as any).department?.name ||
-                'Chưa xếp phòng';
-              const branchName =
-                employee.departmentLinks?.[0]?.department?.branch?.name ||
-                (employee as any).department?.branch?.name ||
-                'Hà Nội';
-              
-              const rawRoles = employee.roles || [];
-              const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
-              const roleCodes = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.role?.code || r?.name || '').toUpperCase());
-
-              const deptNameLower = deptName.toLowerCase();
-              const isAccDept = deptNameLower.includes('kế toán') || deptNameLower.includes('tài chính') || deptNameLower.includes('accountant') || deptNameLower.includes('accounting') || deptNameLower.includes('kt');
-              let displayRole = employee.profile?.position?.name || employee.position?.name;
-              if (roleCodes.includes('ADMIN') || roleCodes.includes('SUPER_ADMIN')) displayRole = 'Admin Tổng';
-              else if (roleCodes.includes('ACCOUNTANT_LEAD')) displayRole = 'Kế toán trưởng';
-              else if (roleCodes.includes('LEADER') || roleCodes.includes('DEPARTMENT_HEAD')) displayRole = isAccDept ? 'Kế toán trưởng' : 'Trưởng phòng (Leader)';
-              else if (roleCodes.includes('ACCOUNTANT_PAYROLL')) displayRole = 'Kế toán lương';
-              else if (roleCodes.includes('ACCOUNTANT_TAX')) displayRole = 'Kế toán thuế';
-              else if (roleCodes.includes('ACCOUNTANT_GENERAL')) displayRole = 'Kế toán viên';
-              else if (isAccDept) displayRole = 'Kế toán viên';
-              else if (roleCodes.includes('HR') || roleCodes.includes('HUMAN_RESOURCE')) displayRole = 'Nhân sự HR';
-              else if (!displayRole) displayRole = 'Nhân viên';
-
-              const isActive = employee.accountStatus === 'ACTIVE';
-
-              return (
-                <View key={employee.id} style={styles.card}>
-                  {/* Card Top: Avatar + Name/Code/Dept + Status Badge (Clickable) */}
-                  <Pressable
-                    onPress={() => router.push(`${basePath}/employees/${employee.id}` as any)}
-                    style={styles.cardTopRow}
-                  >
-                    <UserInitialAvatar name={name} size={48} />
-
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.employeeName} numberOfLines={1}>{name}</Text>
-                      <Text style={styles.employeeCode}>{userCode}</Text>
-                      <Text style={styles.employeeDeptBranch} numberOfLines={1}>
-                        {deptName} • {branchName}
-                      </Text>
-                      <Text style={styles.employeePosition}>
-                        Vị trí: {displayRole}
-                      </Text>
-                    </View>
-
-                    <View style={[styles.statusBadge, isActive ? styles.statusBadgeActive : styles.statusBadgeInactive]}>
-                      <Text style={[styles.statusBadgeText, isActive ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive]}>
-                        {isActive ? 'Hoạt động' : 'Tạm khóa'}
-                      </Text>
-                    </View>
-                  </Pressable>
-
-                  <View style={styles.cardDivider} />
-
-                  {/* Card Bottom: "Xem hồ sơ →" on left + Edit/More icons on right */}
-                  <View style={styles.cardBottomRow}>
+                return (
+                  <View key={employee.id} style={styles.card}>
+                    {/* Card Top: Avatar + Name/Code/Dept + Status Badge (Clickable) */}
                     <Pressable
                       onPress={() => router.push(`${basePath}/employees/${employee.id}` as any)}
-                      style={styles.viewProfileBtn}
-                      hitSlop={6}
+                      style={styles.cardTopRow}
                     >
-                      <Text style={styles.viewProfileText}>Xem hồ sơ  →</Text>
+                      <UserInitialAvatar name={name} size={48} />
+
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.employeeName} numberOfLines={1}>{name}</Text>
+                        <Text style={styles.employeeCode}>{userCode}</Text>
+                        <Text style={styles.employeeDeptBranch} numberOfLines={1}>
+                          {deptName} • {branchName}
+                        </Text>
+                        <Text style={styles.employeePosition}>
+                          Vị trí: {displayRole}
+                        </Text>
+                      </View>
+
+                      <View style={[styles.statusBadge, isActive ? styles.statusBadgeActive : styles.statusBadgeInactive]}>
+                        <Text style={[styles.statusBadgeText, isActive ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive]}>
+                          {isActive ? 'Hoạt động' : 'Tạm khóa'}
+                        </Text>
+                      </View>
                     </Pressable>
 
-                    <View style={styles.cardActionsRight}>
-                      {scope === 'admin' && (
+                    <View style={styles.cardDivider} />
+
+                    {/* Card Bottom: "Xem hồ sơ →" on left + Edit/More icons on right */}
+                    <View style={styles.cardBottomRow}>
+                      <Pressable
+                        onPress={() => router.push(`${basePath}/employees/${employee.id}` as any)}
+                        style={styles.viewProfileBtn}
+                        hitSlop={6}
+                      >
+                        <Text style={styles.viewProfileText}>Xem hồ sơ  →</Text>
+                      </Pressable>
+
+                      <View style={styles.cardActionsRight}>
+                        {scope === 'admin' && (
+                          <Pressable
+                            onPress={() => router.push({ pathname: `${basePath}/employees/[id]` as any, params: { id: employee.id, edit: '1' } })}
+                            style={styles.iconActionBtn}
+                            hitSlop={8}
+                          >
+                            <Ionicons name="pencil-outline" size={18} color="#0F172A" />
+                          </Pressable>
+                        )}
                         <Pressable
-                          onPress={() => router.push({ pathname: `${basePath}/employees/[id]` as any, params: { id: employee.id, edit: '1' } })}
+                          onPress={() => handleActionMenu(employee)}
                           style={styles.iconActionBtn}
                           hitSlop={8}
                         >
-                          <Ionicons name="pencil-outline" size={18} color="#0F172A" />
+                          <Ionicons name="ellipsis-vertical" size={18} color="#0F172A" />
                         </Pressable>
-                      )}
-                      <Pressable
-                        onPress={() => handleActionMenu(employee)}
-                        style={styles.iconActionBtn}
-                        hitSlop={8}
-                      >
-                        <Ionicons name="ellipsis-vertical" size={18} color="#0F172A" />
-                      </Pressable>
+                      </View>
                     </View>
                   </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
+                );
+              })}
+            </View>
+          )}
 
-        {/* Footer info note */}
-        <View style={styles.footerNoteRow}>
-          <Ionicons name="information-circle-outline" size={16} color="#64748B" />
-          <Text style={styles.footerNoteText}>Chạm vào nhân viên để xem hồ sơ</Text>
-        </View>
-      </ScrollView>
+          {/* Footer info note */}
+          <View style={styles.footerNoteRow}>
+            <Ionicons name="information-circle-outline" size={16} color="#64748B" />
+            <Text style={styles.footerNoteText}>Chạm vào nhân viên để xem hồ sơ</Text>
+          </View>
+        </ScrollView>
+      </View>
 
       {/* Select Department Modal */}
       <SelectModal
@@ -781,49 +792,52 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
           }
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#102739',
   },
-
+  curvedSheet: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingBottom: 20,
+    backgroundColor: '#102739',
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '900',
-    color: '#0F172A',
+    color: '#FFFFFF',
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.72)',
     fontWeight: '500',
-    marginTop: 2,
+    marginTop: 4,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#102739',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 12,
-    shadowColor: '#102739',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
   },
   addBtnText: {
     fontSize: 14,
@@ -832,8 +846,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 60,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
   searchRow: {
     flexDirection: 'row',
@@ -847,8 +861,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    height: 48,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -859,8 +873,8 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   filterBtn: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 14,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -870,14 +884,14 @@ const styles = StyleSheet.create({
   },
   statusSegmentRow: {
     flexDirection: 'row',
-    backgroundColor: '#E7F0F7',
+    backgroundColor: '#EEF2F6',
     borderRadius: 14,
     padding: 4,
     marginBottom: 12,
   },
   statusSegmentBtn: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -888,7 +902,7 @@ const styles = StyleSheet.create({
   statusSegmentText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#4B5563',
+    color: '#475569',
   },
   statusSegmentTextActive: {
     color: '#FFFFFF',
@@ -900,15 +914,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     marginBottom: 14,
   },
   deptFilterText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#0F172A',
   },
   employeeList: {
@@ -916,7 +930,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -937,24 +951,24 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   employeeCode: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '500',
     color: '#64748B',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   employeeDeptBranch: {
-    fontSize: 12,
-    color: '#475569',
+    fontSize: 13,
+    color: '#64748B',
     marginBottom: 2,
   },
   employeePosition: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#94A3B8',
   },
   statusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   statusBadgeActive: {
     backgroundColor: '#DCFCE7',
@@ -963,11 +977,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
   },
   statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
   },
   statusBadgeTextActive: {
-    color: '#166534',
+    color: '#15803D',
   },
   statusBadgeTextInactive: {
     color: '#DC2626',
@@ -975,7 +989,7 @@ const styles = StyleSheet.create({
   cardDivider: {
     height: 1,
     backgroundColor: '#F1F5F9',
-    marginVertical: 12,
+    marginVertical: 14,
   },
   cardBottomRow: {
     flexDirection: 'row',
@@ -987,9 +1001,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   viewProfileText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#102739',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   cardActionsRight: {
     flexDirection: 'row',

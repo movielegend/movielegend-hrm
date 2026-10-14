@@ -498,6 +498,23 @@ export class AttendanceReportService {
           checkOutDisplay = 'Miss checkout';
         }
 
+        const noteParts: string[] = [];
+        if (record?.notes) noteParts.push(record.notes);
+        if (businessTrip) {
+          const loc = (businessTrip.attachmentMetadata as any)?.location;
+          noteParts.push(`Công tác${loc ? `: ${loc}` : ''}`);
+        }
+        if (isStandardMissCheckout) {
+          noteParts.push('Quên check-out');
+        }
+        const approvedLeave = leavesDb.find(l => l.userId === user.id && (
+          currDate.isSameOrAfter(moment(l.startDate), 'day') && currDate.isSameOrBefore(moment(l.endDate), 'day')
+        ));
+        if (approvedLeave) {
+          noteParts.push(`Nghỉ phép${approvedLeave.reason ? `: ${approvedLeave.reason}` : ''}`);
+        }
+        const rowNotes = noteParts.join(' | ');
+
         const row = {
           employeeCode: user.userCode || '',
           employeeName: user.profile?.fullName || user.email || user.phone || user.userCode,
@@ -519,6 +536,7 @@ export class AttendanceReportService {
           totalLateAndEarly: formatHrs(lateMins + earlyMins),
           lateDeduction,
           nightAllowance,
+          notes: rowNotes,
           
           // Raw values for summary
           _rawTotalHours: totalMinutes,
