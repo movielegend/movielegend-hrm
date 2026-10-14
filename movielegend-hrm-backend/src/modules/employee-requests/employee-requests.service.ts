@@ -120,6 +120,29 @@ export class EmployeeRequestsService {
       }
     }
 
+    // Kiểm tra quy định cho Đơn Làm bù (COMPENSATORY_WORK)
+    if (isCompensatoryWork) {
+      if (!dto.referenceId) {
+        throw badRequest(
+          'MISSING_LEAVE_REFERENCE',
+          'Vui lòng chọn đơn nghỉ phép đã được phê duyệt để thực hiện làm bù.',
+        );
+      }
+
+      const referencedLeave = await this.prisma.employeeRequest.findUnique({
+        where: { id: dto.referenceId },
+      });
+      if (!referencedLeave || referencedLeave.userId !== actor.userId) {
+        throw badRequest('INVALID_LEAVE_REFERENCE', 'Đơn nghỉ phép tham chiếu không hợp lệ hoặc không thuộc về bạn.');
+      }
+      if (referencedLeave.status !== EmployeeRequestStatus.APPROVED) {
+        throw badRequest(
+          'LEAVE_NOT_APPROVED',
+          'Đơn nghỉ phép tham chiếu chưa được phê duyệt. Chỉ đơn đã duyệt mới được làm bù.',
+        );
+      }
+    }
+
     // Xử lý riêng cho Đơn Tạm ứng Lương (ADVANCE) - Leader sẽ trực tiếp xét duyệt
     if (isAdvance) {
       if (amountVal <= 0) {
