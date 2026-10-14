@@ -406,11 +406,19 @@ export function LeaderApprovalScreen() {
     }
   };
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/leader/employee-requests');
+    }
+  };
+
   const handleApproveCancelComp = async () => {
     try {
       await approveCancelMutation.mutateAsync({ id, note: comment.trim() || undefined });
       showAlert('Thành công', 'Đã duyệt hủy ca làm bù thành công. Ca làm việc đã được gỡ bỏ khỏi lịch.');
-      router.back();
+      handleGoBack();
     } catch (err: any) {
       showAlert('Lỗi', err.response?.data?.message || err.message || 'Không thể duyệt hủy ca làm bù.');
     }
@@ -420,7 +428,7 @@ export function LeaderApprovalScreen() {
     try {
       await rejectCancelMutation.mutateAsync({ id, note: comment.trim() || undefined });
       showAlert('Thông báo', 'Đã từ chối yêu cầu hủy ca làm bù. Ca làm việc vẫn được giữ nguyên.');
-      router.back();
+      handleGoBack();
     } catch (err: any) {
       showAlert('Lỗi', err.response?.data?.message || err.message || 'Không thể từ chối hủy ca làm bù.');
     }
@@ -446,7 +454,9 @@ export function LeaderApprovalScreen() {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
         <Text>Không tìm thấy yêu cầu</Text>
-        <Pressable onPress={() => router.back()} style={{ marginTop: 20 }}><Text style={{ color: '#3B82F6' }}>Quay lại</Text></Pressable>
+        <Pressable onPress={handleGoBack} style={{ marginTop: 20, padding: 8 }}>
+          <Text style={{ color: '#3B82F6', fontWeight: '600' }}>Quay lại</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -543,12 +553,14 @@ export function LeaderApprovalScreen() {
   const isDeptLeader = reqDept?.leaderUserId === currentUser?.id ||
     (roleCodes.includes('LEADER') && (currentUser?.department?.id === request.departmentId || currentUser?.department?.id === reqDept?.id));
 
+  const isLeaderOrAdmin = isAdmin || isHr || roleCodes.includes('LEADER') || roleCodes.includes('MANAGER') || roleCodes.includes('DIRECTOR') || isDeptLeader;
+
   // Determine if current user can perform an approval/reject action at the current stage
   let canActOnCurrentStage = false;
   let waitingStageDescription = '';
 
   if (isCancellationRequested) {
-    if (isAdmin || isHr || isDeptLeader) {
+    if (isLeaderOrAdmin) {
       canActOnCurrentStage = true;
     } else {
       waitingStageDescription = 'Đang chờ Trưởng bộ phận hoặc Quản trị viên phê duyệt hủy ca làm bù.';
@@ -789,6 +801,9 @@ export function LeaderApprovalScreen() {
 
   // Screen Title based on status and type
   const getScreenTitle = () => {
+    if (isCancellationRequested) {
+      return 'Duyệt hủy ca làm bù';
+    }
     if (request.status === 'PENDING') {
       switch (request.type) {
         case 'EXPENSE': return 'Duyệt thanh toán';
@@ -829,11 +844,16 @@ export function LeaderApprovalScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#102739" />
       <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
         <View style={styles.topHeader}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+          <TouchableOpacity 
+            onPress={handleGoBack} 
+            style={styles.backBtn} 
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.7}
+          >
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{screenTitle}</Text>
-          <View style={{ width: 32 }} />
+          <View style={{ width: 40 }} />
         </View>
       </View>
 
@@ -1525,7 +1545,7 @@ export function LeaderApprovalScreen() {
     </View>
 
       {/* 6. Bottom Sticky Action Area */}
-      {request.status === 'PENDING' ? (
+      {(request.status === 'PENDING' || isCancellationRequested) ? (
         canActOnCurrentStage ? (
           <View style={[styles.bottomActionBar, shadows.lg, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             {/* Upload proof if accountant disbursement */}
@@ -2546,6 +2566,8 @@ export function LeaderApprovalScreen() {
 const styles = StyleSheet.create({
   topSafeArea: {
     backgroundColor: '#102739',
+    zIndex: 10,
+    elevation: 10,
   },
   topHeader: {
     flexDirection: 'row',
@@ -2554,13 +2576,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     backgroundColor: '#102739',
+    zIndex: 10,
+    elevation: 10,
   },
   backBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'flex-start',
+    width: 40,
+    height: 40,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: -4,
+    marginLeft: -8,
   },
   headerTitle: {
     fontSize: 20,

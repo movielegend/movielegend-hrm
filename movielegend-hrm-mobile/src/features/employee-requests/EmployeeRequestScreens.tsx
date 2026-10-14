@@ -149,22 +149,28 @@ export function EmployeeRequestDetailScreen() {
   // Compensatory Work Cancellation State
   const [isCancelCompModalOpen, setIsCancelCompModalOpen] = useState(false);
   const [cancelCompReason, setCancelCompReason] = useState('');
+  const [cancelCompError, setCancelCompError] = useState('');
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
   const cancelCompMutation = useRequestCancelCompensatory();
 
   const handleRequestCancel = async () => {
     if (!cancelCompReason.trim()) {
-      showAlert('Lỗi', 'Vui lòng nhập lý do xin hủy ca làm bù.');
+      setCancelCompError('Vui lòng nhập lý do xin hủy ca làm bù.');
       return;
     }
+    setCancelCompError('');
     setIsSubmittingCancel(true);
     try {
       await cancelCompMutation.mutateAsync({ id, reason: cancelCompReason.trim() });
-      showAlert('Thành công', 'Đã gửi yêu cầu xin hủy ca làm bù đến Leader phê duyệt.');
       setIsCancelCompModalOpen(false);
       setCancelCompReason('');
+      setCancelCompError('');
+      setTimeout(() => {
+        showAlert('Thành công', 'Đã gửi yêu cầu xin hủy ca làm bù đến Leader phê duyệt.');
+      }, 350);
     } catch (err: any) {
-      showAlert('Lỗi', err.response?.data?.message || err.message || 'Không thể gửi yêu cầu hủy ca làm bù.');
+      const errMsg = err.response?.data?.message || err.message || 'Không thể gửi yêu cầu hủy ca làm bù.';
+      setCancelCompError(errMsg);
     } finally {
       setIsSubmittingCancel(false);
     }
@@ -249,11 +255,19 @@ export function EmployeeRequestDetailScreen() {
     );
   }
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/employee/requests');
+    }
+  };
+
   if (!request) {
     return (
       <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
         <Text style={{ fontSize: 16, color: '#374151' }}>Không tìm thấy yêu cầu</Text>
-        <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
+        <Pressable onPress={handleGoBack} style={{ marginTop: 16, padding: 8 }}>
           <Text style={{ color: '#3B82F6', fontWeight: '600' }}>Quay lại</Text>
         </Pressable>
       </SafeAreaView>
@@ -366,7 +380,12 @@ export function EmployeeRequestDetailScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#102739" />
       <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
         <View style={styles.topHeader}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={10}>
+          <TouchableOpacity 
+            onPress={handleGoBack} 
+            style={styles.backBtn} 
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.7}
+          >
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Chi tiết yêu cầu</Text>
@@ -616,7 +635,10 @@ export function EmployeeRequestDetailScreen() {
             {isCompensatory && request.status === 'APPROVED' && !meta.cancellationRequested && (
               <View style={{ marginBottom: 16 }}>
                 <TouchableOpacity
-                  onPress={() => setIsCancelCompModalOpen(true)}
+                  onPress={() => {
+                    setCancelCompError('');
+                    setIsCancelCompModalOpen(true);
+                  }}
                   style={{
                     borderWidth: 1.5,
                     borderColor: '#EA580C',
@@ -1351,7 +1373,10 @@ export function EmployeeRequestDetailScreen() {
                 <Text style={{ fontSize: 17, fontWeight: '800', color: '#0F172A' }}>Xin hủy ca làm bù</Text>
               </View>
               <TouchableOpacity
-                onPress={() => setIsCancelCompModalOpen(false)}
+                onPress={() => {
+                  setIsCancelCompModalOpen(false);
+                  setCancelCompError('');
+                }}
                 disabled={isSubmittingCancel}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
@@ -1369,6 +1394,12 @@ export function EmployeeRequestDetailScreen() {
               </Text>
             </View>
 
+            {cancelCompError ? (
+              <View style={{ backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FCA5A5', borderRadius: 8, padding: 10, marginBottom: 12 }}>
+                <Text style={{ color: '#B91C1C', fontSize: 13, fontWeight: '600' }}>{cancelCompError}</Text>
+              </View>
+            ) : null}
+
             <View style={{ marginBottom: 16 }}>
               <Text style={{ fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 6 }}>
                 Lý do xin hủy ca làm bù <Text style={{ color: '#DC2626' }}>*</Text>
@@ -1377,7 +1408,7 @@ export function EmployeeRequestDetailScreen() {
                 style={{
                   backgroundColor: '#F8FAFC',
                   borderWidth: 1,
-                  borderColor: '#CBD5E1',
+                  borderColor: cancelCompError ? '#EF4444' : '#CBD5E1',
                   borderRadius: 10,
                   padding: 12,
                   fontSize: 14,
@@ -1389,13 +1420,19 @@ export function EmployeeRequestDetailScreen() {
                 placeholderTextColor="#94A3B8"
                 multiline
                 value={cancelCompReason}
-                onChangeText={setCancelCompReason}
+                onChangeText={(text) => {
+                  setCancelCompReason(text);
+                  if (cancelCompError) setCancelCompError('');
+                }}
               />
             </View>
 
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <TouchableOpacity
-                onPress={() => setIsCancelCompModalOpen(false)}
+                onPress={() => {
+                  setIsCancelCompModalOpen(false);
+                  setCancelCompError('');
+                }}
                 disabled={isSubmittingCancel}
                 style={{
                   flex: 1,
@@ -1448,6 +1485,8 @@ export function EmployeeRequestDetailScreen() {
 const styles = StyleSheet.create({
   topSafeArea: {
     backgroundColor: '#102739',
+    zIndex: 10,
+    elevation: 10,
   },
   topHeader: {
     flexDirection: 'row',
@@ -1456,13 +1495,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     backgroundColor: '#102739',
+    zIndex: 10,
+    elevation: 10,
   },
   backBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'flex-start',
+    width: 40,
+    height: 40,
+    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: -4,
+    marginLeft: -8,
   },
   headerTitle: {
     fontSize: 20,
