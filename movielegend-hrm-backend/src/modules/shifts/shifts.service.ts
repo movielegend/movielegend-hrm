@@ -130,8 +130,8 @@ export class ShiftsService {
     }
 
     // Tự động tính breakMinutes nếu sửa giờ nghỉ
-    const finalBreakStart = dto.breakStartTime !== undefined ? dto.breakStartTime : shift.breakStartTime;
-    const finalBreakEnd = dto.breakEndTime !== undefined ? dto.breakEndTime : shift.breakEndTime;
+    const finalBreakStart = dto.breakStartTime !== undefined ? dto.breakStartTime : (shift as any).breakStartTime;
+    const finalBreakEnd = dto.breakEndTime !== undefined ? dto.breakEndTime : (shift as any).breakEndTime;
     if (finalBreakStart && finalBreakEnd) {
       const [bsh, bsm] = finalBreakStart.split(':').map(Number);
       const [beh, bem] = finalBreakEnd.split(':').map(Number);

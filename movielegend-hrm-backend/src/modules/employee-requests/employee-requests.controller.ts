@@ -11,6 +11,8 @@ import {
   ApproveEmployeeRequestDto,
   RejectEmployeeRequestDto,
   ExportTransactionsQueryDto,
+  ResubmitPurchaseByHrDto,
+  FulfillPurchaseByHrDto,
 } from './dto/employee-request.dto';
 import { EmployeeRequestsService } from './employee-requests.service';
 
@@ -97,6 +99,26 @@ export class EmployeeRequestsController {
     @Body() body?: RejectEmployeeRequestDto,
   ) {
     return this.employeeRequestsService.reject(id, actor, body);
+  }
+
+  @Permissions('employee.request')
+  @Post(':id/resubmit-by-hr')
+  resubmitByHr(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() body: ResubmitPurchaseByHrDto,
+  ) {
+    return this.employeeRequestsService.resubmitPurchaseByHr(id, body, actor);
+  }
+
+  @Permissions('employee.request')
+  @Post(':id/fulfill-purchase')
+  fulfillPurchase(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() body: FulfillPurchaseByHrDto,
+  ) {
+    return this.employeeRequestsService.fulfillPurchaseByHr(id, body, actor);
   }
 
   @Permissions('employee.request')

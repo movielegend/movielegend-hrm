@@ -177,6 +177,9 @@ export class UsersService {
       // Clear old cached face descriptor so next check-in reads the new face image
       this.faceVerification.clearUserCache(actor.userId);
 
+      // Pre-warm the cache immediately in the background so check-in is instant (<0.4s)
+      void this.faceVerification.warmUserCache(actor.userId, dto.faceImages);
+
       return { success: true, message: 'Cap nhat hinh anh thanh cong' };
     });
   }

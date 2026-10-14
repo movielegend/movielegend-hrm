@@ -142,9 +142,6 @@ export function CheckOutScreen() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.attendanceCurrent() });
       await queryClient.invalidateQueries({ queryKey: ['attendance'] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      CustomAlert.alert('Thành công', 'Ra ca thành công!', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
     } catch (e: any) {
       // If error is timeout, double check if checkout was actually recorded
       const isTimeout = e.code === 'ECONNABORTED' || (e.message && e.message.toLowerCase().includes('timeout'));
@@ -156,20 +153,15 @@ export function CheckOutScreen() {
             new Date(r.workDate).toISOString().substring(0, 10) === todayStr && !!r.checkOutAt
           );
           if (hasTodayCheckout) {
-            CustomAlert.alert('Thành công', 'Ra ca thành công!', [
-              { text: 'OK', onPress: () => router.back() }
-            ]);
             return;
           }
         } catch {
           // ignore verification error
         }
       }
-      const msg = e.response?.data?.message || e.response?.data?.error?.message || e.message || 'Có lỗi xảy ra khi chấm công.';
-      CustomAlert.alert('Lỗi chấm công', msg);
+      throw e;
     } finally {
       setLoading(false);
-      setCameraVisible(false);
     }
   };
 
@@ -297,7 +289,13 @@ export function CheckOutScreen() {
         <AttendanceCamera 
           photoUri={null} 
           onCapture={handleCaptureAndSubmit} 
-          onClose={() => setCameraVisible(false)} 
+          onClose={() => setCameraVisible(false)}
+          onSuccess={() => {
+            setCameraVisible(false);
+            router.back();
+          }}
+          title="Xác thực khuôn mặt ra ca"
+          mode="out"
         />
       </Modal>
 

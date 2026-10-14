@@ -17,6 +17,8 @@ import {
   ImportPaymentBatchDto,
   ImportPaymentItemDto,
   CreateExpenseFromPurchaseDto,
+  ResubmitPurchaseByHrDto,
+  FulfillPurchaseByHrDto,
 } from './dto/employee-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -64,15 +66,23 @@ export class EmployeeRequestsService {
       requestTitle = `[ACCOUNT_DELETION] ${dto.title}`;
     } else if (isCompensatoryWork && (!dto.title || dto.title.trim() === '' || !dto.title.includes('[LÀM BÙ]'))) {
       const meta: any = dto.attachmentMetadata || {};
-      const targetDate = meta.targetLeaveDate ? String(meta.targetLeaveDate).split('T')[0] : '';
-      const compDate = meta.compensatoryDate ? String(meta.compensatoryDate).split('T')[0] : '';
+      const targetDate = meta.targetLeaveDate
+        ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : '';
+      const compDate = meta.compensatoryDate
+        ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : '';
       const shiftName = meta.compensatoryShiftName || (meta.missedHours ? `${meta.missedHours}h` : 'ca làm');
       requestTitle = `[LÀM BÙ] Làm bù ${shiftName}${compDate ? ` ngày ${compDate}` : ''}${targetDate ? ` cho ngày ${targetDate}` : ''}`;
     } else if (dto.type === EmployeeRequestType.BUSINESS_TRIP && (!dto.title || dto.title.trim() === '' || dto.title === 'Công tác' || dto.title === 'Yêu cầu')) {
       const meta: any = dto.attachmentMetadata || {};
       const loc = meta.location || 'Ngoài công ty';
-      const fromD = meta.fromDate ? String(meta.fromDate).split('T')[0] : '';
-      const toD = meta.toDate ? String(meta.toDate).split('T')[0] : fromD;
+      const fromD = meta.fromDate
+        ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : '';
+      const toD = meta.toDate
+        ? moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : fromD;
       requestTitle = `Công tác: ${loc}${fromD ? ` (${fromD}${toD && toD !== fromD ? ` -> ${toD}` : ''})` : ''}`;
     }
 
@@ -98,14 +108,15 @@ export class EmployeeRequestsService {
     // Kiểm tra quy định cho Đơn Nghỉ Phép (LEAVE)
     if (dto.type === EmployeeRequestType.LEAVE) {
       const meta: any = dto.attachmentMetadata || {};
+      const dateStr = meta.fromDate
+        ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+        : moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+
       if (meta.leaveDurationType === 'Theo giờ') {
         if (!meta.startTime) {
           throw badRequest('MISSING_START_TIME', 'Vui lòng chọn thời gian bắt đầu nghỉ');
         }
 
-        const dateStr = meta.fromDate
-          ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
-          : moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
         const timeStr = moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm:ss');
         const startMoment = moment.tz(`${dateStr} ${timeStr}`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Ho_Chi_Minh');
         const nowMoment = moment.tz('Asia/Ho_Chi_Minh');
@@ -116,6 +127,38 @@ export class EmployeeRequestsService {
             'LEAVE_HOURLY_ADVANCE_NOTICE_REQUIRED',
             'Đơn nghỉ theo giờ phải được tạo trước thời điểm bắt đầu nghỉ ít nhất 3 tiếng.',
           );
+        }
+      } else {
+        // Nghỉ theo ngày: "Trong ngày", "1/2 ngày", "Nửa ngày", "Nhiều ngày"
+        let totalDays = 1;
+        if (meta.leaveDurationType === 'Nhiều ngày' && meta.toDate) {
+          const toDateStr = moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+          const startDay = moment.tz(dateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').startOf('day');
+          const endDay = moment.tz(toDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').startOf('day');
+          totalDays = Math.max(1, endDay.diff(startDay, 'days') + 1);
+        }
+
+        const timeStr = meta.startTime
+          ? moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm:ss')
+          : '08:00:00';
+        const startMoment = moment.tz(`${dateStr} ${timeStr}`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Ho_Chi_Minh');
+        const nowMoment = moment.tz('Asia/Ho_Chi_Minh');
+        const diffHours = startMoment.diff(nowMoment, 'hours', true);
+
+        if (totalDays >= 2) {
+          if (diffHours < 72) {
+            throw badRequest(
+              'LEAVE_MULTI_DAY_ADVANCE_NOTICE_REQUIRED',
+              'Đơn xin nghỉ từ 2 ngày trở lên phải được tạo trước ngày bắt đầu nghỉ ít nhất 3 ngày (72 tiếng).',
+            );
+          }
+        } else {
+          if (diffHours < 24) {
+            throw badRequest(
+              'LEAVE_SINGLE_DAY_ADVANCE_NOTICE_REQUIRED',
+              'Đơn xin nghỉ 1 ngày (hoặc nửa ngày) phải được tạo trước thời điểm bắt đầu nghỉ ít nhất 24 tiếng (1 ngày).',
+            );
+          }
         }
       }
     }
@@ -155,12 +198,17 @@ export class EmployeeRequestsService {
       }
     }
 
+    const isPurchase = requestType === EmployeeRequestType.PURCHASE;
     let initialStage = 'PENDING';
     if (isFinancial) {
       if (isAdvance) {
         // Tạm ứng lương: Nhân viên -> Leader duyệt -> Kế toán trưởng duyệt & đi lương
         // Nếu chính Leader đề xuất -> Chuyển thẳng Kế toán trưởng
         initialStage = isCreatorLeader ? 'PENDING_ACCOUNTANT' : 'PENDING_LEADER';
+      } else if (isPurchase) {
+        // Đề xuất mua sắm: Nhân viên -> Leader duyệt -> HR đối chứng & cấp STK -> Kế toán/Admin chi tiền -> HR mua hàng
+        // Nếu chính Leader đề xuất -> Chuyển thẳng HR tiếp nhận & cấp STK
+        initialStage = isCreatorLeader ? 'PENDING_HR' : 'PENDING_LEADER';
       } else if (isCreatorLeader) {
         if (hasVat) {
           initialStage = 'PENDING_ACCOUNTANT';
@@ -286,6 +334,7 @@ export class EmployeeRequestsService {
         EmployeeRequestType.OVERTIME,
         EmployeeRequestType.EQUIPMENT,
         EmployeeRequestType.OTHER,
+        EmployeeRequestType.PURCHASE, // HR quản lý và duyệt thẩm định / cấp STK cho đề xuất mua sắm
       ];
 
       if (departmentId) {
@@ -508,7 +557,16 @@ export class EmployeeRequestsService {
     const isGlobalAdmin = (actor.roles.includes('ADMIN') && !isRegionAdmin) || this.scope.isGlobalAdmin(actor);
     const canDeptAccess = request.departmentId ? await this.scope.canAccessDepartmentAsync(actor, request.departmentId) : false;
 
-    const actorProfile = await this.prisma.employeeProfile.findUnique({ where: { userId: actor.userId } });
+    const actorProfile = await this.prisma.employeeProfile.findUnique({
+      where: { userId: actor.userId },
+      include: {
+        bankAccounts: {
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }],
+          take: 1,
+        },
+      },
+    });
+    const primaryBank = actorProfile?.bankAccounts?.[0];
     const actorName = actorProfile?.fullName || (actor.roles.includes('ADMIN') ? 'Ban Giám Đốc' : isHr ? 'Trưởng phòng HR' : isAccountant ? 'Kế toán' : 'Trưởng bộ phận');
     const existingSteps = Array.isArray(currentMeta.approvalSteps) ? currentMeta.approvalSteps : [];
 
@@ -546,8 +604,12 @@ export class EmployeeRequestsService {
 
         if (request.type === EmployeeRequestType.BUSINESS_TRIP) {
           const meta: any = request.attachmentMetadata || {};
-          const fromDateStr = meta.fromDate ? String(meta.fromDate).split('T')[0] : null;
-          const toDateStr = meta.toDate ? String(meta.toDate).split('T')[0] : fromDateStr;
+          const fromDateStr = meta.fromDate
+            ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+            : null;
+          const toDateStr = meta.toDate
+            ? moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+            : fromDateStr;
           const location = meta.location || '';
           const startTime = meta.startTime || '08:00';
           const endTime = meta.endTime || '17:30';
@@ -559,7 +621,7 @@ export class EmployeeRequestsService {
 
             while (curr.isSameOrBefore(end, 'day')) {
               const workDateStr = curr.format('YYYY-MM-DD');
-              const workDate = new Date(`${workDateStr}T00:00:00.000Z`);
+              const workDate = this.businessTime.startOfBusinessDate(workDateStr);
 
               let sh = 8;
               let sm = 0;
@@ -632,19 +694,24 @@ export class EmployeeRequestsService {
 
         if (isCompensatory) {
           const meta: any = request.attachmentMetadata || {};
-          const compDateStr = meta.compensatoryDate ? String(meta.compensatoryDate).split('T')[0] : null;
+          const compDateStr = meta.compensatoryDate
+            ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+            : null;
           const shiftId = meta.compensatoryShiftId;
           const deptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId));
 
           if (compDateStr && shiftId && deptId) {
-            const workDate = new Date(`${compDateStr}T00:00:00.000Z`);
+            const workDate = this.businessTime.startOfBusinessDate(compDateStr);
             const existingAssignment = await tx.shiftAssignment.findFirst({
               where: { userId: request.userId, workDate },
             });
 
-            const targetDateStr = meta.targetLeaveDate ? String(meta.targetLeaveDate).split('T')[0] : '';
+            const targetDateStr = meta.targetLeaveDate
+              ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+              : '';
             const noteText = `Ca làm bù${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`;
 
+            let assignedId = existingAssignment?.id;
             if (existingAssignment) {
               await tx.shiftAssignment.update({
                 where: { id: existingAssignment.id },
@@ -654,13 +721,29 @@ export class EmployeeRequestsService {
                 },
               });
             } else {
-              await tx.shiftAssignment.create({
+              const newAssignment = await tx.shiftAssignment.create({
                 data: {
                   userId: request.userId,
                   departmentId: deptId,
                   shiftId,
                   workDate,
                   assignedByUserId: actor.userId,
+                },
+              });
+              assignedId = newAssignment.id;
+            }
+
+            // Hồi tố: nếu nhân viên đã check-in ngày hôm đó rồi (trường hợp làm bù trước, duyệt sau)
+            // thì cập nhật lại bản ghi chấm công gắn với ca vừa cấp, hủy cờ isUnplannedOt
+            if (assignedId) {
+              await tx.attendanceRecord.updateMany({
+                where: {
+                  userId: request.userId,
+                  workDate,
+                },
+                data: {
+                  shiftAssignmentId: assignedId,
+                  isUnplannedOt: false,
                 },
               });
             }
@@ -731,9 +814,9 @@ export class EmployeeRequestsService {
           throw forbidden('FORBIDDEN', 'Chỉ Trưởng bộ phận hoặc Quản trị viên quản lý phòng ban mới có quyền duyệt bước này.');
         }
 
-        const nextStage = 'PENDING_ACCOUNTANT';
+        const nextStage = isPurchase ? 'PENDING_HR' : 'PENDING_ACCOUNTANT';
         const defaultNote = isPurchase
-          ? 'Leader đã duyệt đề xuất mua hàng, chuyển Kế toán xem xét'
+          ? 'Leader đã duyệt đề xuất mua hàng, chuyển HR đối chứng & xác nhận'
           : 'Leader đã duyệt - Chuyển Kế toán xem xét xử lý';
 
         const newStep = {
@@ -758,25 +841,101 @@ export class EmployeeRequestsService {
           },
         });
 
-        // Thông báo đến toàn bộ Kế toán
-        const accountantUserIds = await this.findAccountantUserIds(tx);
-        if (accountantUserIds.length > 0) {
-          const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
-            type: NotificationType.SYSTEM,
-            title: isPurchase ? 'Đề xuất mua hàng chuyển Kế toán' : 'Đơn thanh toán chuyển Kế toán',
-            body: `Leader đã duyệt đơn "${request.title}". Chuyển Kế toán xem xét xử lý.`,
-            metadata: { requestId: id },
-          });
-          this.notifications.emitCreated(notif);
+        if (isPurchase) {
+          // Thông báo đến toàn bộ HR
+          const hrUserIds = await this.findHrUserIds(tx);
+          if (hrUserIds.length > 0) {
+            const notif = await this.notifications.createForUsers(tx, hrUserIds, {
+              type: NotificationType.SYSTEM,
+              title: 'Đề xuất mua sắm cần HR xử lý 🛒',
+              body: `Leader đã duyệt đề xuất "${request.title}" của ${request.user?.profile?.fullName || 'nhân viên'}. Chuyển HR đối chứng và cung cấp STK nhận tiền mua sắm.`,
+              metadata: { requestId: id },
+            });
+            this.notifications.emitCreated(notif);
+          }
+        } else {
+          // Thông báo đến toàn bộ Kế toán
+          const accountantUserIds = await this.findAccountantUserIds(tx);
+          if (accountantUserIds.length > 0) {
+            const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
+              type: NotificationType.SYSTEM,
+              title: 'Đơn thanh toán chuyển Kế toán',
+              body: `Leader đã duyệt đơn "${request.title}". Chuyển Kế toán xem xét xử lý.`,
+              metadata: { requestId: id },
+            });
+            this.notifications.emitCreated(notif);
+          }
         }
 
         return updated;
       }
 
-      // 2. Backward compatibility: PENDING_HR
+      // 2. Backward compatibility & Purchase HR Review: PENDING_HR
       if (currentStage === 'PENDING_HR') {
         if (!isHr && !actor.roles.includes('ADMIN')) {
           throw forbidden('FORBIDDEN', 'Chỉ Leader HR hoặc Quản trị viên mới có quyền đối chứng và duyệt bước này.');
+        }
+
+        if (isPurchase) {
+          const bankAccount = payload?.bankAccount?.trim() || primaryBank?.accountNumber?.trim();
+          const bankName = payload?.bankName?.trim() || primaryBank?.bankName?.trim();
+          const accountHolder = payload?.accountHolder?.trim() || primaryBank?.accountName?.trim() || actorProfile?.fullName?.trim();
+
+          if (!bankAccount || !bankName) {
+            throw badRequest('HR_BANK_INFO_REQUIRED', 'Vui lòng cung cấp Số tài khoản và Tên ngân hàng của HR để Kế toán chuyển tiền mua hàng.');
+          }
+
+          const hrBank = {
+            bankAccount,
+            bankName,
+            accountHolder: accountHolder || 'HR Phụ trách mua sắm',
+          };
+
+          const newAmount = (payload?.adjustedAmount && Number(payload.adjustedAmount) > 0)
+            ? Number(payload.adjustedAmount)
+            : amount;
+
+          const nextStage = 'PENDING_ACCOUNTANT';
+          const newStep = {
+            stage: 'PENDING_HR',
+            action: 'APPROVED',
+            actorId: actor.userId,
+            actorName,
+            note: payload?.note || 'HR đã đối chứng báo giá và xác nhận thông tin tài khoản nhận tiền',
+            hrBank,
+            adjustedAmount: (payload?.adjustedAmount && Number(payload.adjustedAmount) > 0) ? newAmount : undefined,
+            at: new Date().toISOString(),
+          };
+
+          const updatedMeta = {
+            ...currentMeta,
+            hrBank,
+            stage: nextStage,
+            hrApprovedAt: new Date().toISOString(),
+            hrApprovedBy: actor.userId,
+            approvalSteps: [...existingSteps, newStep],
+          };
+
+          const updated = await tx.employeeRequest.update({
+            where: { id },
+            data: {
+              ...(newAmount !== amount ? { amount: newAmount } : {}),
+              attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
+            },
+          });
+
+          const accountantUserIds = await this.findAccountantUserIds(tx);
+          if (accountantUserIds.length > 0) {
+            const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
+              type: NotificationType.SYSTEM,
+              title: 'Đề xuất mua sắm chờ Kế toán chuyển tiền 💳',
+              body: `HR đã duyệt đề xuất "${request.title}" (${newAmount.toLocaleString('vi-VN')} VNĐ) và cung cấp STK nhận tiền. Chuyển Kế toán giải ngân.`,
+              metadata: { requestId: id },
+            });
+            this.notifications.emitCreated(notif);
+          }
+
+          return updated;
         }
 
         const nextStage = (hasVat || amount <= NON_VAT_ADMIN_THRESHOLD) ? 'PENDING_ACCOUNTANT' : 'PENDING_ADMIN';
@@ -835,6 +994,60 @@ export class EmployeeRequestsService {
           throw forbidden('FORBIDDEN', 'Chỉ Ban Giám Đốc hoặc Quản trị viên quản lý đơn từ thuộc miền của mình mới có quyền phê duyệt.');
         }
 
+        if (isPurchase) {
+          const nextStage = 'PENDING_HR_PURCHASE';
+          const newStep = {
+            stage: 'PENDING_ADMIN',
+            action: 'DISBURSED_TO_HR',
+            actorId: actor.userId,
+            actorName: actorName || 'Ban Giám Đốc',
+            note: payload?.note || 'Ban Giám Đốc đã duyệt và giải ngân tiền mua hàng cho HR',
+            bankRefCode: payload?.bankRefCode,
+            disbursementProofUrl: payload?.disbursementProofUrl,
+            at: new Date().toISOString(),
+          };
+
+          const updatedMeta = {
+            ...currentMeta,
+            stage: nextStage,
+            purchaseApproved: true,
+            bankRefCode: payload?.bankRefCode || currentMeta.bankRefCode,
+            disbursementProofUrl: payload?.disbursementProofUrl || currentMeta.disbursementProofUrl,
+            adminApprovedAt: new Date().toISOString(),
+            approvalSteps: [...existingSteps, newStep],
+          };
+
+          const updated = await tx.employeeRequest.update({
+            where: { id },
+            data: {
+              attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
+            },
+          });
+
+          // Thông báo cho HR tiến hành mua sắm
+          const hrUserIds = await this.findHrUserIds(tx);
+          if (hrUserIds.length > 0) {
+            const notif = await this.notifications.createForUsers(tx, hrUserIds, {
+              type: NotificationType.SYSTEM,
+              title: 'Ban Giám Đốc đã duyệt mua sắm 💰',
+              body: `Ban Giám Đốc đã duyệt đơn "${request.title}". Tiền đã chuyển vào tài khoản HR. Mời HR tiến hành mua hàng.`,
+              metadata: { requestId: id, disbursementProofUrl: payload?.disbursementProofUrl },
+            });
+            this.notifications.emitCreated(notif);
+          }
+
+          // Thông báo cho người tạo
+          const notif = await this.notifications.createForUsers(tx, [request.userId], {
+            type: NotificationType.SYSTEM,
+            title: 'Đề xuất mua sắm đã được duyệt 📦',
+            body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) đã được Ban Giám Đốc duyệt cấp kinh phí. HR đang tiến hành mua hàng.`,
+            metadata: { requestId: id },
+          });
+          this.notifications.emitCreated(notif);
+
+          return updated;
+        }
+
         const nextStage = 'DISBURSED';
 
         const newStep = {
@@ -885,14 +1098,52 @@ export class EmployeeRequestsService {
           throw forbidden('FORBIDDEN', 'Chỉ Kế toán trưởng (Trưởng phòng Kế toán) hoặc Ban Giám Đốc mới có quyền phê duyệt bước này.');
         }
 
-        // Nếu là đơn MUA HÀNG (PURCHASE) -> Kế toán duyệt thông qua chuyển sang PENDING_HR_PURCHASE để HR mua hàng!
+        // Nếu là đơn MUA HÀNG (PURCHASE)
         if (isPurchase) {
+          if (payload?.forwardToAdmin) {
+            const newStep = {
+              stage: currentStage,
+              action: 'FORWARD_ADMIN',
+              actorId: actor.userId,
+              actorName: actorName || 'Kế toán trưởng',
+              note: payload?.note || 'Kế toán đã duyệt đề xuất mua hàng, chuyển Ban Giám Đốc phê duyệt',
+              at: new Date().toISOString(),
+            };
+
+            const updatedMeta = {
+              ...currentMeta,
+              stage: 'PENDING_ADMIN',
+              approvalSteps: [...existingSteps, newStep],
+            };
+
+            const updated = await tx.employeeRequest.update({
+              where: { id },
+              data: { attachmentMetadata: updatedMeta as Prisma.InputJsonValue },
+            });
+
+            const adminUserIds = await this.findRelevantAdminUserIds(request.departmentId, tx);
+            if (adminUserIds.length > 0) {
+              const notif = await this.notifications.createForUsers(tx, adminUserIds, {
+                type: NotificationType.SYSTEM,
+                title: 'Đề xuất mua sắm cần Ban Giám Đốc duyệt 🛒',
+                body: `Kế toán đã chuyển Ban Giám Đốc duyệt đơn mua sắm "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ).`,
+                metadata: { requestId: id },
+              });
+              this.notifications.emitCreated(notif);
+            }
+
+            return updated;
+          }
+
+          // Ngược lại: Kế toán duyệt & Giải ngân tiền mua sắm cho HR
           const newStep = {
             stage: currentStage,
-            action: 'APPROVED',
+            action: 'DISBURSED_TO_HR',
             actorId: actor.userId,
             actorName: actorName || 'Kế toán trưởng',
-            note: payload?.note || 'Kế toán đã duyệt thông qua đề xuất mua hàng. Chuyển HR tiến hành mua sắm.',
+            note: payload?.note || 'Kế toán trưởng đã duyệt và giải ngân tiền mua hàng vào tài khoản HR',
+            bankRefCode: payload?.bankRefCode,
+            disbursementProofUrl: payload?.disbursementProofUrl,
             at: new Date().toISOString(),
           };
 
@@ -900,6 +1151,9 @@ export class EmployeeRequestsService {
             ...currentMeta,
             stage: 'PENDING_HR_PURCHASE',
             purchaseApproved: true,
+            bankRefCode: payload?.bankRefCode || currentMeta.bankRefCode,
+            disbursementProofUrl: payload?.disbursementProofUrl || currentMeta.disbursementProofUrl,
+            accountantDisbursedAt: new Date().toISOString(),
             approvalSteps: [...existingSteps, newStep],
           };
 
@@ -912,21 +1166,29 @@ export class EmployeeRequestsService {
 
           // Tìm danh sách nhân sự HR để thông báo
           const hrUserIds = await this.findHrUserIds(tx);
-
           if (hrUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, hrUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Đơn đề xuất mua hàng đã được duyệt 🛒',
-              body: `Đề xuất mua hàng "${request.title}" của ${request.user?.profile?.fullName || 'nhân viên'} đã được duyệt. Mời HR xem đơn và tiến hành mua hàng.`,
-              metadata: { requestId: id },
+              title: 'Tiền mua sắm đã được giải ngân 💰',
+              body: `Kế toán đã chuyển tiền cho đề xuất "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ). Mời HR kiểm tra tài khoản và tiến hành mua hàng.`,
+              metadata: { requestId: id, disbursementProofUrl: payload?.disbursementProofUrl },
             });
             this.notifications.emitCreated(notif);
           }
 
+          // Thông báo cho người đề xuất
+          const notif = await this.notifications.createForUsers(tx, [request.userId], {
+            type: NotificationType.SYSTEM,
+            title: 'Đề xuất mua sắm đã được cấp ngân sách 📦',
+            body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) đã được Kế toán duyệt cấp kinh phí. HR đang tiến hành mua hàng.`,
+            metadata: { requestId: id },
+          });
+          this.notifications.emitCreated(notif);
+
           return updated;
         }
 
-        // Nếu Kế toán chọn "Duyệt chờ thanh toán" -> Đẩy lên Ban Giám Đốc
+        // Nếu Kế toán chọn "Duyệt chờ thanh toán" -> Đẩy lên Ban Giám Đốc (cho ADVANCE / EXPENSE)
         if (payload?.forwardToAdmin) {
           const newStep = {
             stage: currentStage,
@@ -1072,6 +1334,62 @@ export class EmployeeRequestsService {
     const actorProfile = await this.prisma.employeeProfile.findUnique({ where: { userId: actor.userId } });
     const actorName = actorProfile?.fullName || (actor.roles.includes('ADMIN') ? 'Ban Giám Đốc' : isHr ? 'Trưởng phòng HR' : isAccountant ? 'Kế toán' : 'Trưởng bộ phận');
 
+    const isPurchase = request.type === EmployeeRequestType.PURCHASE;
+    const isAccountantOrAdmin = currentStage === 'PENDING_ACCOUNTANT' || currentStage === 'PENDING_DISBURSEMENT' || currentStage === 'PENDING_ADMIN';
+
+    // Đề xuất mua sắm khi Kế toán hoặc Ban Giám Đốc từ chối (mặc định trả về HR để điều chỉnh/báo giá lại trừ khi chọn permanentReject)
+    if (isPurchase && isAccountantOrAdmin && !payload.permanentReject) {
+      const newStep = {
+        stage: currentStage,
+        action: 'REJECTED_TO_HR',
+        actorId: actor.userId,
+        actorName,
+        reason: payload.reason.trim(),
+        at: new Date().toISOString(),
+      };
+
+      const updatedMeta = {
+        ...currentMeta,
+        stage: 'REJECTED_TO_HR',
+        rejectReason: payload.reason.trim(),
+        rejectedAt: new Date().toISOString(),
+        rejectedBy: actor.userId,
+        approvalSteps: [...existingSteps, newStep],
+      };
+
+      return this.prisma.$transaction(async (tx) => {
+        const updated = await tx.employeeRequest.update({
+          where: { id },
+          data: {
+            attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
+          },
+        });
+
+        // Thông báo cho HR xem xét và điều chỉnh lại
+        const hrUserIds = await this.findHrUserIds(tx);
+        if (hrUserIds.length > 0) {
+          const notif = await this.notifications.createForUsers(tx, hrUserIds, {
+            type: NotificationType.SYSTEM,
+            title: 'Đề xuất mua hàng bị trả về HR ⚠️',
+            body: `${actorName} đã từ chối duyệt đơn "${request.title}" và trả về HR điều chỉnh. Lý do: ${payload.reason.trim()}`,
+            metadata: { requestId: id, reason: payload.reason.trim() },
+          });
+          this.notifications.emitCreated(notif);
+        }
+
+        // Thông báo cho người đề xuất
+        const notif = await this.notifications.createForUsers(tx, [request.userId], {
+          type: NotificationType.SYSTEM,
+          title: 'Đề xuất mua sắm đang được HR xem xét lại',
+          body: `Đơn "${request.title}" của bạn đang được Kế toán/BGĐ trả về HR để đối chứng hoặc điều chỉnh lại báo giá.`,
+          metadata: { requestId: id },
+        });
+        this.notifications.emitCreated(notif);
+
+        return updated;
+      });
+    }
+
     const newStep = {
       stage: currentStage,
       action: 'REJECTED',
@@ -1101,11 +1419,231 @@ export class EmployeeRequestsService {
 
       const notif = await this.notifications.createForUsers(tx, [request.userId], {
         type: NotificationType.SYSTEM,
-        title: 'Yêu cầu thanh toán bị từ chối ❌',
+        title: isPurchase ? 'Đề xuất mua sắm bị từ chối ❌' : 'Yêu cầu thanh toán bị từ chối ❌',
         body: `Đơn "${request.title}" của bạn đã bị từ chối bởi ${actorName}. Lý do: ${payload.reason.trim()}`,
         metadata: { requestId: id, reason: payload.reason.trim() },
       });
       this.notifications.emitCreated(notif);
+
+      return updated;
+    });
+  }
+
+  async resubmitPurchaseByHr(id: string, payload: ResubmitPurchaseByHrDto, actor: AuthenticatedUser) {
+    const isHr = await this.isHrActor(actor);
+    const isRegionAdmin = this.scope.isRegionAdmin(actor);
+    const isGlobalAdmin = (actor.roles.includes('ADMIN') && !isRegionAdmin) || this.scope.isGlobalAdmin(actor);
+    if (!isHr && !isGlobalAdmin) {
+      throw forbidden('HR_ONLY', 'Chỉ nhân sự HR hoặc Quản trị viên mới có quyền điều chỉnh và trình lại đề xuất mua sắm.');
+    }
+
+    const request = await this.prisma.employeeRequest.findUnique({
+      where: { id },
+      include: {
+        user: { select: { profile: { select: { fullName: true } } } },
+        department: true,
+      },
+    });
+    if (!request) throw notFound('EMPLOYEE_REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu nhân viên');
+    if (request.type !== EmployeeRequestType.PURCHASE) {
+      throw badRequest('INVALID_TYPE', 'Chức năng này chỉ áp dụng cho Đề xuất mua sắm (PURCHASE).');
+    }
+
+    const currentMeta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
+      ? { ...(request.attachmentMetadata as Record<string, any>) }
+      : {};
+    const currentStage = currentMeta.stage || 'PENDING';
+
+    if (currentStage !== 'REJECTED_TO_HR' && currentStage !== 'PENDING_HR') {
+      throw badRequest('INVALID_STAGE', `Đơn đang ở giai đoạn ${currentStage}, không thể trình lại.`);
+    }
+
+    const actorProfile = await this.prisma.employeeProfile.findUnique({
+      where: { userId: actor.userId },
+      include: {
+        bankAccounts: {
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }],
+          take: 1,
+        },
+      },
+    });
+    const primaryBank = actorProfile?.bankAccounts?.[0];
+    const actorName = actorProfile?.fullName || 'HR Phụ trách';
+    const existingSteps = Array.isArray(currentMeta.approvalSteps) ? currentMeta.approvalSteps : [];
+
+    const bankAccount = payload.bankAccount?.trim() || currentMeta.hrBank?.bankAccount || primaryBank?.accountNumber?.trim();
+    const bankName = payload.bankName?.trim() || currentMeta.hrBank?.bankName || primaryBank?.bankName?.trim();
+    const accountHolder = payload.accountHolder?.trim() || currentMeta.hrBank?.accountHolder || primaryBank?.accountName?.trim() || actorProfile?.fullName?.trim();
+
+    if (!bankAccount || !bankName) {
+      throw badRequest('HR_BANK_INFO_REQUIRED', 'Vui lòng cung cấp Số tài khoản và Tên ngân hàng nhận tiền.');
+    }
+
+    const hrBank = {
+      bankAccount,
+      bankName,
+      accountHolder: accountHolder || 'HR Phụ trách',
+    };
+
+    const newAmount = payload.amount !== undefined && Number(payload.amount) > 0 ? Number(payload.amount) : Number(request.amount || 0);
+    const explanationText = payload.explanation?.trim() || payload.note?.trim() || 'HR đã cập nhật báo giá / thông tin và trình lại Kế toán';
+    const quoteList = payload.quoteUrls || payload.images;
+
+    const newStep = {
+      stage: currentStage,
+      action: 'RESUBMITTED_BY_HR',
+      actorId: actor.userId,
+      actorName,
+      note: explanationText,
+      hrBank,
+      amount: newAmount,
+      quoteUrls: quoteList,
+      at: new Date().toISOString(),
+    };
+
+    const updatedMeta = {
+      ...currentMeta,
+      stage: 'PENDING_ACCOUNTANT',
+      hrBank,
+      ...(quoteList ? { quoteUrls: quoteList } : {}),
+      hrResubmittedAt: new Date().toISOString(),
+      hrResubmittedBy: actor.userId,
+      hrExplanation: explanationText,
+      approvalSteps: [...existingSteps, newStep],
+    };
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.employeeRequest.update({
+        where: { id },
+        data: {
+          amount: newAmount,
+          attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
+        },
+      });
+
+      const accountantUserIds = await this.findAccountantUserIds(tx);
+      if (accountantUserIds.length > 0) {
+        const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
+          type: NotificationType.SYSTEM,
+          title: 'Đề xuất mua sắm đã được HR trình lại 🛒',
+          body: `HR đã điều chỉnh và trình lại đề xuất "${request.title}" (${newAmount.toLocaleString('vi-VN')} VNĐ). Mời Kế toán xem xét giải ngân.`,
+          metadata: { requestId: id },
+        });
+        this.notifications.emitCreated(notif);
+      }
+
+      const reqNotif = await this.notifications.createForUsers(tx, [request.userId], {
+        type: NotificationType.SYSTEM,
+        title: 'Đề xuất mua sắm đã được trình lại 📄',
+        body: `Đề xuất "${request.title}" đã được HR cập nhật thông tin và trình lại cho Kế toán giải ngân.`,
+        metadata: { requestId: id },
+      });
+      this.notifications.emitCreated(reqNotif);
+
+      return updated;
+    });
+  }
+
+  async fulfillPurchaseByHr(id: string, payload: FulfillPurchaseByHrDto, actor: AuthenticatedUser) {
+    const isHr = await this.isHrActor(actor);
+    const isRegionAdmin = this.scope.isRegionAdmin(actor);
+    const isGlobalAdmin = (actor.roles.includes('ADMIN') && !isRegionAdmin) || this.scope.isGlobalAdmin(actor);
+    if (!isHr && !isGlobalAdmin) {
+      throw forbidden('HR_ONLY', 'Chỉ nhân sự HR hoặc Quản trị viên mới có quyền hoàn tất mua hàng và bàn giao.');
+    }
+
+    const request = await this.prisma.employeeRequest.findUnique({
+      where: { id },
+      include: {
+        user: { select: { profile: { select: { fullName: true } } } },
+        department: true,
+      },
+    });
+    if (!request) throw notFound('EMPLOYEE_REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu nhân viên');
+    if (request.type !== EmployeeRequestType.PURCHASE) {
+      throw badRequest('INVALID_TYPE', 'Chức năng này chỉ áp dụng cho Đề xuất mua sắm (PURCHASE).');
+    }
+
+    const currentMeta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
+      ? { ...(request.attachmentMetadata as Record<string, any>) }
+      : {};
+    const currentStage = currentMeta.stage || 'PENDING';
+
+    if (currentStage !== 'PENDING_HR_PURCHASE') {
+      throw badRequest('INVALID_STAGE', `Đơn đang ở giai đoạn ${currentStage}, chưa thể hoàn tất mua sắm.`);
+    }
+
+    const actorProfile = await this.prisma.employeeProfile.findUnique({ where: { userId: actor.userId } });
+    const actorName = actorProfile?.fullName || 'HR Phụ trách';
+    const existingSteps = Array.isArray(currentMeta.approvalSteps) ? currentMeta.approvalSteps : [];
+
+    const receiptUrls = payload.receiptUrls && payload.receiptUrls.length > 0
+      ? payload.receiptUrls
+      : (payload.receiptUrl ? [payload.receiptUrl] : (payload.images || []));
+    const deliveryProofUrls = payload.deliveryProofUrls || [];
+
+    const fulfillment = {
+      receiptUrls,
+      deliveryProofUrls,
+      actualAmount: payload.actualAmount !== undefined ? Number(payload.actualAmount) : Number(request.amount || 0),
+      note: payload.note?.trim() || 'HR đã mua hàng và bàn giao thành công',
+      fulfilledAt: new Date().toISOString(),
+      fulfilledBy: actor.userId,
+      fulfilledByName: actorName,
+    };
+
+    const newStep = {
+      stage: 'PENDING_HR_PURCHASE',
+      action: 'PURCHASE_FULFILLED',
+      actorId: actor.userId,
+      actorName,
+      note: fulfillment.note,
+      fulfillment,
+      at: new Date().toISOString(),
+    };
+
+    const updatedMeta = {
+      ...currentMeta,
+      stage: 'PURCHASE_FULFILLED',
+      fulfillment,
+      approvalSteps: [...existingSteps, newStep],
+    };
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.employeeRequest.update({
+        where: { id },
+        data: {
+          status: EmployeeRequestStatus.APPROVED,
+          decidedByUserId: actor.userId,
+          decidedAt: new Date(),
+          attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
+        },
+      });
+
+      // Thông báo cho người đề xuất (kèm thông báo bàn giao thành công)
+      const reqNotif = await this.notifications.createForUsers(tx, [request.userId], {
+        type: NotificationType.SYSTEM,
+        title: 'Mua sắm & Bàn giao thành công 🎉',
+        body: `Đề xuất mua sắm "${request.title}" đã được HR mua hàng và hoàn tất bàn giao. Vui lòng kiểm tra và tiếp nhận sản phẩm!`,
+        metadata: {
+          requestId: id,
+          receiptUrls,
+          deliveryProofUrls,
+        },
+      });
+      this.notifications.emitCreated(reqNotif);
+
+      // Thông báo cho Kế toán biết việc mua sắm đã hoàn tất (kèm hóa đơn chứng từ)
+      const accountantUserIds = await this.findAccountantUserIds(tx);
+      if (accountantUserIds.length > 0) {
+        const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
+          type: NotificationType.SYSTEM,
+          title: 'Đề xuất mua sắm đã hoàn tất mua hàng 🧾',
+          body: `HR đã hoàn tất mua hàng cho đơn "${request.title}" và tải lên chứng từ/hóa đơn.`,
+          metadata: { requestId: id },
+        });
+        this.notifications.emitCreated(notif);
+      }
 
       return updated;
     });

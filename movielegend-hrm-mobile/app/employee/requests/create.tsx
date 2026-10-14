@@ -480,12 +480,12 @@ export default function CreateRequestScreen() {
   };
 
   const handleSelectDay = (day: number) => {
-    const chosen = new Date(calendarYear, calendarMonth, day, 0, 0, 0, 0);
+    const chosen = new Date(calendarYear, calendarMonth, day, 12, 0, 0, 0);
     if (showDatePicker === 'from' || showDatePicker === 'single') {
       setFromDate(chosen);
       if (showDatePicker === 'from' && toDate) {
         const toNormalized = new Date(toDate);
-        toNormalized.setHours(0, 0, 0, 0);
+        toNormalized.setHours(12, 0, 0, 0);
         if (chosen.getTime() > toNormalized.getTime()) {
           setToDate(null);
         }
@@ -503,7 +503,7 @@ export default function CreateRequestScreen() {
   const handleQuickDateSelect = (daysOffset: number) => {
     const target = new Date();
     target.setDate(target.getDate() + daysOffset);
-    target.setHours(0, 0, 0, 0);
+    target.setHours(12, 0, 0, 0);
     if (showDatePicker === 'from' || showDatePicker === 'single') {
       setFromDate(target);
       if (showDatePicker === 'from' && toDate) {
@@ -745,6 +745,44 @@ export default function CreateRequestScreen() {
         if (leaveEnd.getTime() <= leaveStart.getTime()) {
           showAlert('Lỗi', 'Giờ kết thúc nghỉ phải sau giờ bắt đầu nghỉ.');
           return;
+        }
+      } else {
+        // Nghỉ theo ngày: "Trong ngày", "1/2 ngày", "Nửa ngày", "Nhiều ngày"
+        let totalDays = 1;
+        if (leaveDurationType === 'Nhiều ngày' && toDate) {
+          const fromD = new Date(fromDate);
+          fromD.setHours(0, 0, 0, 0);
+          const toD = new Date(toDate);
+          toD.setHours(0, 0, 0, 0);
+          totalDays = Math.max(1, Math.round((toD.getTime() - fromD.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+        }
+
+        const leaveStart = new Date(fromDate);
+        if (startTime) {
+          leaveStart.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+        } else {
+          leaveStart.setHours(8, 0, 0, 0);
+        }
+
+        const now = new Date();
+        const diffHours = (leaveStart.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+        if (totalDays >= 2) {
+          if (diffHours < 72) {
+            showAlert(
+              'Chưa đủ điều kiện',
+              'Đối với đơn xin nghỉ từ 2 ngày trở lên, bạn phải tạo đơn trước ngày bắt đầu nghỉ ít nhất 3 ngày (72 tiếng).'
+            );
+            return;
+          }
+        } else {
+          if (diffHours < 24) {
+            showAlert(
+              'Chưa đủ điều kiện',
+              'Đối với đơn xin nghỉ 1 ngày (hoặc nửa ngày), bạn phải tạo đơn trước thời điểm bắt đầu nghỉ ít nhất 24 tiếng (1 ngày).'
+            );
+            return;
+          }
         }
       }
     }
@@ -1344,6 +1382,26 @@ export default function CreateRequestScreen() {
                       <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
                     </Pressable>
                   </View>
+
+                  {leaveDurationType === 'Nhiều ngày' && (
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#EFF6FF',
+                      borderWidth: 1,
+                      borderColor: '#BFDBFE',
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 9,
+                      marginBottom: 14,
+                      gap: 8,
+                    }}>
+                      <MaterialCommunityIcons name="information-outline" size={18} color="#2563EB" />
+                      <Text style={{ flex: 1, fontSize: 12, color: '#1E40AF', lineHeight: 17 }}>
+                        Lưu ý: Đơn xin nghỉ từ 2 ngày trở lên cần được tạo trước ngày bắt đầu nghỉ tối thiểu <Text style={{ fontWeight: '700' }}>3 ngày (72 tiếng)</Text>.
+                      </Text>
+                    </View>
+                  )}
                 </>
               ) : ['Theo giờ', '1/2 ngày', 'Nửa ngày'].includes(leaveDurationType) ? (
                 <>
@@ -1402,19 +1460,61 @@ export default function CreateRequestScreen() {
                       </Text>
                     </View>
                   )}
+
+                  {['1/2 ngày', 'Nửa ngày'].includes(leaveDurationType) && (
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#EFF6FF',
+                      borderWidth: 1,
+                      borderColor: '#BFDBFE',
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 9,
+                      marginBottom: 14,
+                      gap: 8,
+                    }}>
+                      <MaterialCommunityIcons name="information-outline" size={18} color="#2563EB" />
+                      <Text style={{ flex: 1, fontSize: 12, color: '#1E40AF', lineHeight: 17 }}>
+                        Lưu ý: Đơn xin nghỉ nửa ngày cần được tạo trước thời điểm bắt đầu nghỉ tối thiểu <Text style={{ fontWeight: '700' }}>24 tiếng (1 ngày)</Text>.
+                      </Text>
+                    </View>
+                  )}
                 </>
               ) : (
-                <View style={styles.formItem}>
-                  <Text style={styles.formLabel}>
-                    Ngày áp dụng <Text style={styles.required}>*</Text>
-                  </Text>
-                  <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
-                    <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
-                      {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
+                <>
+                  <View style={styles.formItem}>
+                    <Text style={styles.formLabel}>
+                      Ngày áp dụng <Text style={styles.required}>*</Text>
                     </Text>
-                    <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
-                  </Pressable>
-                </View>
+                    <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
+                      <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
+                        {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
+                      </Text>
+                      <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                    </Pressable>
+                  </View>
+
+                  {leaveDurationType === 'Trong ngày' && (
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#EFF6FF',
+                      borderWidth: 1,
+                      borderColor: '#BFDBFE',
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 9,
+                      marginBottom: 14,
+                      gap: 8,
+                    }}>
+                      <MaterialCommunityIcons name="information-outline" size={18} color="#2563EB" />
+                      <Text style={{ flex: 1, fontSize: 12, color: '#1E40AF', lineHeight: 17 }}>
+                        Lưu ý: Đơn xin nghỉ 1 ngày cần được tạo trước ngày bắt đầu nghỉ tối thiểu <Text style={{ fontWeight: '700' }}>24 tiếng (1 ngày)</Text>.
+                      </Text>
+                    </View>
+                  )}
+                </>
               )}
 
               {/* Người bàn giao */}
@@ -1484,7 +1584,7 @@ export default function CreateRequestScreen() {
               ) : (
                 <View style={styles.formItem}>
                   <Text style={styles.formLabel}>
-                    Đơn nghỉ phép cần làm bù <Text style={styles.required}>*</Text>
+                    Làm bù cho ngày nghỉ <Text style={styles.required}>*</Text>
                   </Text>
                   <Pressable 
                     style={[styles.inputBox, { height: 'auto', minHeight: 48, paddingVertical: 10 }]} 
@@ -1493,7 +1593,7 @@ export default function CreateRequestScreen() {
                     <View style={{ flex: 1, paddingRight: 8 }}>
                       <Text style={[styles.inputText, !selectedLeaveRequest && styles.inputPlaceholder]}>
                         {selectedLeaveRequest 
-                          ? (selectedLeaveRequest.title || 'Đơn nghỉ phép')
+                          ? (selectedLeaveRequest.title || (targetLeaveDate ? `Nghỉ phép ngày ${formatDate(targetLeaveDate)}` : 'Đơn nghỉ phép'))
                           : 'Chọn đơn nghỉ đã được duyệt'}
                       </Text>
                       {selectedLeaveRequest && (
@@ -1512,24 +1612,11 @@ export default function CreateRequestScreen() {
                   </Pressable>
                   {selectedLeaveRequest && (
                     <Text style={{ fontSize: 11, color: '#059669', marginTop: 4, marginLeft: 2 }}>
-                      ✓ Đã tự động điền ngày nghỉ & số giờ nghỉ tương ứng
+                      ✓ Đã tự động chọn đơn nghỉ gần nhất & điền số giờ nghỉ tương ứng
                     </Text>
                   )}
                 </View>
               )}
-
-              {/* Làm bù cho ngày nghỉ */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>
-                  Làm bù cho ngày nghỉ <Text style={styles.required}>*</Text>
-                </Text>
-                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('target_leave')}>
-                  <Text style={[styles.inputText, !targetLeaveDate && styles.inputPlaceholder]}>
-                    {targetLeaveDate ? formatDate(targetLeaveDate) : 'Chọn ngày đã nghỉ'}
-                  </Text>
-                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
-                </Pressable>
-              </View>
 
               {/* Ngày thực hiện làm bù */}
               <View style={styles.formItem}>
