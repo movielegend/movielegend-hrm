@@ -1493,7 +1493,7 @@ export default function CreateRequestScreen() {
                     <View style={{ flex: 1, paddingRight: 8 }}>
                       <Text style={[styles.inputText, !selectedLeaveRequest && styles.inputPlaceholder]}>
                         {selectedLeaveRequest 
-                          ? `${targetLeaveDate ? formatDate(targetLeaveDate) : ''} · ${selectedLeaveRequest.title || 'Đơn nghỉ phép'}`
+                          ? (selectedLeaveRequest.title || (targetLeaveDate ? `Nghỉ phép ngày ${formatDate(targetLeaveDate)}` : 'Đơn nghỉ phép'))
                           : 'Chọn đơn nghỉ đã được duyệt'}
                       </Text>
                       {selectedLeaveRequest && (
