@@ -93,6 +93,26 @@ export class ApproveEmployeeRequestDto {
   @IsOptional()
   @IsBoolean()
   forwardToAdmin?: boolean;
+
+  @ApiPropertyOptional({ description: 'Số tài khoản ngân hàng nhận giải ngân của HR' })
+  @IsOptional()
+  @IsString()
+  bankAccount?: string;
+
+  @ApiPropertyOptional({ description: 'Tên ngân hàng' })
+  @IsOptional()
+  @IsString()
+  bankName?: string;
+
+  @ApiPropertyOptional({ description: 'Tên chủ tài khoản ngân hàng' })
+  @IsOptional()
+  @IsString()
+  accountHolder?: string;
+
+  @ApiPropertyOptional({ description: 'Số tiền chốt mua thực tế do HR điều chỉnh' })
+  @IsOptional()
+  @IsNumber()
+  adjustedAmount?: number;
 }
 
 export class CreateExpenseFromPurchaseDto {
@@ -141,6 +161,85 @@ export class RejectEmployeeRequestDto {
   @IsString({ message: 'Lý do từ chối phải là chuỗi ký tự' })
   @MinLength(3, { message: 'Vui lòng nhập lý do từ chối cụ thể (tối thiểu 3 ký tự)' })
   reason!: string;
+
+  @ApiPropertyOptional({ description: 'Từ chối vĩnh viễn (hủy đơn, không trả về HR)' })
+  @IsOptional()
+  @IsBoolean()
+  permanentReject?: boolean;
+}
+
+export class ResubmitPurchaseByHrDto {
+  @ApiPropertyOptional({ description: 'Số tiền điều chỉnh sau khi sửa' })
+  @IsOptional()
+  @IsNumber()
+  amount?: number;
+
+  @ApiPropertyOptional({ description: 'Số tài khoản ngân hàng' })
+  @IsOptional()
+  @IsString()
+  bankAccount?: string;
+
+  @ApiPropertyOptional({ description: 'Tên ngân hàng' })
+  @IsOptional()
+  @IsString()
+  bankName?: string;
+
+  @ApiPropertyOptional({ description: 'Tên chủ tài khoản' })
+  @IsOptional()
+  @IsString()
+  accountHolder?: string;
+
+  @ApiPropertyOptional({ description: 'Ghi chú giải trình lại' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @ApiPropertyOptional({ description: 'Giải trình bổ sung của HR' })
+  @IsOptional()
+  @IsString()
+  explanation?: string;
+
+  @ApiPropertyOptional({ description: 'Danh sách ảnh báo giá / chứng từ đính kèm mới' })
+  @IsOptional()
+  @IsArray()
+  images?: string[];
+
+  @ApiPropertyOptional({ description: 'Danh sách link báo giá đính kèm mới' })
+  @IsOptional()
+  @IsArray()
+  quoteUrls?: string[];
+}
+
+export class FulfillPurchaseByHrDto {
+  @ApiPropertyOptional({ description: 'Số tiền thực tế đã mua sắm' })
+  @IsOptional()
+  @IsNumber()
+  actualAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Ghi chú hoàn tất mua sắm và bàn giao' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @ApiPropertyOptional({ description: 'Ảnh hàng hóa hoặc biên lai mua sắm' })
+  @IsOptional()
+  @IsString()
+  receiptUrl?: string;
+
+  @ApiPropertyOptional({ description: 'Danh sách ảnh sản phẩm / hóa đơn' })
+  @IsOptional()
+  @IsArray()
+  images?: string[];
+
+  @ApiPropertyOptional({ description: 'Danh sách URL hóa đơn, chứng từ' })
+  @IsOptional()
+  @IsArray()
+  receiptUrls?: string[];
+
+  @ApiPropertyOptional({ description: 'Danh sách URL ảnh nghiệm thu / bàn giao hàng hóa' })
+  @IsOptional()
+  @IsArray()
+  deliveryProofUrls?: string[];
 }
 
 export class ExportTransactionsQueryDto {

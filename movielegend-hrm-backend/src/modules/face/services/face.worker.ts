@@ -114,8 +114,31 @@ async function getFaceDescriptor(buffer: Uint8Array): Promise<Float32Array | und
 }
 
 parentPort?.on('message', async (message) => {
+  if (message.type === 'WARM_DESCRIPTORS') {
+    const { jobId, candidates } = message;
+    if (!modelsLoaded) {
+      return parentPort?.postMessage({ jobId, error: 'Models not loaded yet' });
+    }
+    try {
+      const descriptors: Array<{ pose: string; descriptor: Float32Array }> = [];
+      if (Array.isArray(candidates)) {
+        for (const item of candidates) {
+          if (item.buffer) {
+            const desc = await getFaceDescriptor(item.buffer);
+            if (desc) {
+              descriptors.push({ pose: item.pose, descriptor: desc });
+            }
+          }
+        }
+      }
+      return parentPort?.postMessage({ jobId, type: 'WARM_DESCRIPTORS_DONE', descriptors });
+    } catch (err: any) {
+      return parentPort?.postMessage({ jobId, error: err?.message });
+    }
+  }
+
   if (message.type === 'VERIFY') {
-    const { jobId, sourceDescriptor: providedSourceDescriptor, sourceBuffer, targetBuffer } = message;
+    const { jobId, sourceDescriptor: providedSourceDescriptor, sourceBuffer, targetBuffer, candidates } = message;
     
     if (!modelsLoaded) {
       return parentPort?.postMessage({
@@ -127,6 +150,64 @@ parentPort?.on('message', async (message) => {
     }
 
     try {
+      const targetDescriptor = await getFaceDescriptor(targetBuffer);
+      if (!targetDescriptor) {
+        return parentPort?.postMessage({
+          jobId,
+          matched: false,
+          provider: 'local-face-api-worker',
+          reason: 'Không phát hiện rõ khuôn mặt hoặc khuôn mặt bị che khuất (khẩu trang/tay che). Vui lòng chụp thẳng và rõ nét.',
+        });
+      }
+
+      // Strict Security Golden Threshold (0.55) - Standard for FaceNet
+      const MATCH_THRESHOLD = 0.55;
+
+      // Multi-candidate mode (support multiple poses: FRONT, LEFT, RIGHT)
+      if (Array.isArray(candidates) && candidates.length > 0) {
+        let bestDistance = Infinity;
+        let bestPose: string | undefined;
+        const newDescriptors: Array<{ id: string; pose: string; descriptor: Float32Array }> = [];
+
+        for (const candidate of candidates) {
+          let desc = candidate.descriptor;
+          if (!desc && candidate.buffer) {
+            desc = await getFaceDescriptor(candidate.buffer);
+            if (desc) {
+              newDescriptors.push({ id: candidate.id, pose: candidate.pose, descriptor: desc });
+            }
+          }
+          if (desc) {
+            const distance = faceapi.euclideanDistance(desc, targetDescriptor);
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              bestPose = candidate.pose;
+            }
+          }
+        }
+
+        if (bestDistance < MATCH_THRESHOLD) {
+          return parentPort?.postMessage({
+            jobId,
+            matched: true,
+            confidence: Number((1 - bestDistance).toFixed(2)),
+            bestPose,
+            provider: 'local-face-api-worker',
+            newDescriptors,
+          });
+        } else {
+          return parentPort?.postMessage({
+            jobId,
+            matched: false,
+            confidence: bestDistance !== Infinity ? Number((1 - bestDistance).toFixed(2)) : 0,
+            provider: 'local-face-api-worker',
+            reason: `Khuôn mặt không khớp với hồ sơ nhân viên đã đăng ký (Độ lệch nhỏ nhất: ${bestDistance !== Infinity ? bestDistance.toFixed(2) : 'N/A'} / Ngưỡng cho phép: ${MATCH_THRESHOLD}). Vui lòng không chấm công hộ hoặc che mặt.`,
+            newDescriptors,
+          });
+        }
+      }
+
+      // Single source fallback for backward compatibility
       let sourceDescriptor = providedSourceDescriptor;
       
       if (!sourceDescriptor) {
@@ -140,20 +221,7 @@ parentPort?.on('message', async (message) => {
         sourceDescriptor = desc;
       }
 
-      const targetDescriptor = await getFaceDescriptor(targetBuffer);
-      if (!targetDescriptor) {
-        return parentPort?.postMessage({
-          jobId,
-          matched: false,
-          provider: 'local-face-api-worker',
-          reason: 'Không phát hiện rõ khuôn mặt hoặc khuôn mặt bị che khuất (khẩu trang/tay che). Vui lòng chụp thẳng và rõ nét.',
-        });
-      }
-
       const distance = faceapi.euclideanDistance(sourceDescriptor, targetDescriptor);
-      
-      // Strict Security Golden Threshold (0.55) - Standard for FaceNet
-      const MATCH_THRESHOLD = 0.55;
 
       if (distance < MATCH_THRESHOLD) {
         parentPort?.postMessage({
