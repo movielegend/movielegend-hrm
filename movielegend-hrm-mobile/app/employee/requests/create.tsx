@@ -11,8 +11,8 @@ import { Screen } from '../../../src/components/Screen';
 import { colors } from '../../../src/theme/colors';
 import { spacing } from '../../../src/theme/spacing';
 import { shadows } from '../../../src/theme/shadows';
-import { createEmployeeRequest } from '../../../src/api/employee-requests.api';
-import type { EmployeeRequestType } from '../../../src/types/request.types';
+import { createEmployeeRequest, getMyEmployeeRequests } from '../../../src/api/employee-requests.api';
+import type { EmployeeRequestType, EmployeeRequest } from '../../../src/types/request.types';
 import { useAuth } from '../../../src/providers/AuthProvider';
 import { getShifts } from '../../../src/api/shifts.api';
 import type { Shift } from '../../../src/types/shift.types';
@@ -120,6 +120,43 @@ export default function CreateRequestScreen() {
   const [compensatoryHours, setCompensatoryHours] = useState<string>('8');
   const [showCompensatoryTypeModal, setShowCompensatoryTypeModal] = useState(false);
   const compensatoryTypes = ['Cả ca', 'Theo giờ', 'Ca đôi'];
+  const [approvedLeaves, setApprovedLeaves] = useState<EmployeeRequest[]>([]);
+  const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<EmployeeRequest | null>(null);
+  const [isLoadingApprovedLeaves, setIsLoadingApprovedLeaves] = useState(false);
+  const [showApprovedLeavesModal, setShowApprovedLeavesModal] = useState(false);
+
+  const applyLeaveRequest = (leaveReq: EmployeeRequest) => {
+    setSelectedLeaveRequest(leaveReq);
+    const meta: any = leaveReq.attachmentMetadata || {};
+
+    // 1. Tự fill ngày nghỉ (targetLeaveDate)
+    const rawDate = meta.fromDate || leaveReq.createdAt;
+    if (rawDate) {
+      const d = new Date(rawDate);
+      d.setHours(0, 0, 0, 0);
+      setTargetLeaveDate(d);
+    }
+
+    // 2. Tự tính và fill số giờ nếu là nghỉ theo giờ
+    if (meta.leaveDurationType === 'Theo giờ') {
+      setCompensatoryType('Theo giờ');
+      if (meta.startTime && meta.endTime) {
+        const start = new Date(meta.startTime);
+        const end = new Date(meta.endTime);
+        const diffMs = end.getTime() - start.getTime();
+        const diffHours = Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
+        if (diffHours > 0) {
+          setCompensatoryHours(String(diffHours));
+        }
+      }
+    } else if (['1/2 ngày', 'Nửa ngày'].includes(meta.leaveDurationType)) {
+      setCompensatoryType('Theo giờ');
+      setCompensatoryHours('4');
+    } else {
+      setCompensatoryType('Cả ca');
+      setCompensatoryHours('8');
+    }
+  };
 
   // Specific fields for Leave & Explanation
   const [leaveDurationType, setLeaveDurationType] = useState('');
@@ -288,6 +325,50 @@ export default function CreateRequestScreen() {
     }
     void fetchEmployeesList();
   }, [isLateOrEarly, isLeave, isExplanation, isOvertime, isCompensatory, fetchEmployeesList]);
+
+  // Tự động tìm nạp các đơn nghỉ phép đã duyệt trong 14 ngày gần nhất khi tạo đơn Làm bù
+  React.useEffect(() => {
+    if (selectedType === 'COMPENSATORY_WORK') {
+      setIsLoadingApprovedLeaves(true);
+      getMyEmployeeRequests({
+        type: 'LEAVE',
+        status: 'APPROVED',
+        limit: 20,
+      })
+        .then((res) => {
+          const items = res.items || [];
+          const fourteenDaysAgo = new Date();
+          fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+          fourteenDaysAgo.setHours(0, 0, 0, 0);
+
+          const eligible = items.filter((item) => {
+            const meta: any = item.attachmentMetadata || {};
+            const itemDate = new Date(meta.fromDate || item.createdAt || new Date());
+            return itemDate.getTime() >= fourteenDaysAgo.getTime();
+          });
+
+          eligible.sort((a, b) => {
+            const dateA = new Date((a.attachmentMetadata as any)?.fromDate || a.createdAt || 0).getTime();
+            const dateB = new Date((b.attachmentMetadata as any)?.fromDate || b.createdAt || 0).getTime();
+            return dateB - dateA;
+          });
+
+          setApprovedLeaves(eligible);
+
+          if (eligible.length > 0) {
+            applyLeaveRequest(eligible[0]);
+          } else {
+            setSelectedLeaveRequest(null);
+          }
+        })
+        .catch((err) => {
+          console.log('Error fetching approved leaves:', err);
+        })
+        .finally(() => {
+          setIsLoadingApprovedLeaves(false);
+        });
+    }
+  }, [selectedType]);
 
 
 
@@ -668,6 +749,10 @@ export default function CreateRequestScreen() {
       }
     }
     if (isCompensatory) {
+      if (approvedLeaves.length === 0 && !selectedLeaveRequest) {
+        showAlert('Chưa đủ điều kiện', 'Bạn không có đơn nghỉ phép nào đã được duyệt trong 14 ngày qua để thực hiện làm bù.');
+        return;
+      }
       if (!targetLeaveDate) {
         showAlert('Lỗi', 'Vui lòng chọn Ngày nghỉ cần làm bù.');
         return;
@@ -809,6 +894,8 @@ export default function CreateRequestScreen() {
           compensatoryShiftName: compensatoryShift?.name,
           compensatoryType,
           missedHours: compensatoryType === 'Theo giờ' ? Number(compensatoryHours) : undefined,
+          leaveRequestId: selectedLeaveRequest?.id,
+          leaveRequestTitle: selectedLeaveRequest?.title,
         } : {}),
         ...(handoverEmployee ? {
           handoverEmployee: (handoverEmployee as any).fullName || (handoverEmployee as any).profile?.fullName || (handoverEmployee as any).userCode || 'Nhân sự',
@@ -820,6 +907,7 @@ export default function CreateRequestScreen() {
         type: selectedType,
         title: generatedTitle,
         content: content.trim(),
+        referenceId: selectedLeaveRequest?.id,
         ...(isFinancial && amount ? { amount: Number(amount) } : {}),
         ...(Object.keys(attachmentMetadata).length > 0 ? { attachmentMetadata } : {})
       });
@@ -1371,6 +1459,65 @@ export default function CreateRequestScreen() {
             </>
           ) : isCompensatory ? (
             <>
+              {isLoadingApprovedLeaves ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, marginBottom: 12 }}>
+                  <ActivityIndicator size="small" color="#102739" style={{ marginRight: 8 }} />
+                  <Text style={{ fontSize: 13, color: '#64748B' }}>Đang tìm nạp đơn nghỉ đã duyệt gần nhất...</Text>
+                </View>
+              ) : approvedLeaves.length === 0 ? (
+                <View style={{
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FECACA',
+                  borderRadius: 10,
+                  padding: 12,
+                  marginBottom: 16,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#B91C1C' }}>Chưa có đơn nghỉ hợp lệ</Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: '#991B1B', lineHeight: 18 }}>
+                    Bạn chưa có đơn nghỉ phép nào được duyệt trong 14 ngày qua. Đơn làm bù chỉ được tạo khi đơn nghỉ phép tương ứng đã được Leader phê duyệt.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.formItem}>
+                  <Text style={styles.formLabel}>
+                    Đơn nghỉ phép cần làm bù <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable 
+                    style={[styles.inputBox, { height: 'auto', minHeight: 48, paddingVertical: 10 }]} 
+                    onPress={() => setShowApprovedLeavesModal(true)}
+                  >
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={[styles.inputText, !selectedLeaveRequest && styles.inputPlaceholder]}>
+                        {selectedLeaveRequest 
+                          ? (selectedLeaveRequest.title || 'Đơn nghỉ phép')
+                          : 'Chọn đơn nghỉ đã được duyệt'}
+                      </Text>
+                      {selectedLeaveRequest && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                          <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 6 }}>
+                            <Text style={{ fontSize: 10, color: '#166534', fontWeight: '700' }}>✓ Đã duyệt</Text>
+                          </View>
+                          <Text style={{ fontSize: 11, color: '#64748B' }}>
+                            {((selectedLeaveRequest.attachmentMetadata as any)?.leaveDurationType) || 'Nghỉ phép'}
+                            {((selectedLeaveRequest.attachmentMetadata as any)?.leaveDurationType === 'Theo giờ' && compensatoryHours) ? ` · ${compensatoryHours} giờ` : ''}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+                  {selectedLeaveRequest && (
+                    <Text style={{ fontSize: 11, color: '#059669', marginTop: 4, marginLeft: 2 }}>
+                      ✓ Đã tự động điền ngày nghỉ & số giờ nghỉ tương ứng
+                    </Text>
+                  )}
+                </View>
+              )}
+
               {/* Làm bù cho ngày nghỉ */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
@@ -2544,6 +2691,81 @@ export default function CreateRequestScreen() {
                   <Text style={styles.fullScreenModalItemText}>{item}</Text>
                 </TouchableOpacity>
               )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Approved Leaves Modal */}
+      <Modal visible={showApprovedLeavesModal} transparent animationType="slide">
+        <View style={styles.fullScreenModalOverlay}>
+          <View style={styles.fullScreenModalContent}>
+            <View style={styles.fullScreenModalHeader}>
+              <Pressable onPress={() => setShowApprovedLeavesModal(false)} style={{ padding: 8, marginRight: 8 }}>
+                <MaterialCommunityIcons name="close" size={24} color="#111827" />
+              </Pressable>
+              <Text style={styles.fullScreenModalTitle}>Chọn đơn nghỉ đã duyệt</Text>
+            </View>
+            <FlatList
+              data={approvedLeaves}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8 }}
+              ListEmptyComponent={
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center' }}>
+                    Không có đơn nghỉ phép nào đã được duyệt trong 14 ngày qua.
+                  </Text>
+                </View>
+              }
+              renderItem={({ item }) => {
+                const meta: any = item.attachmentMetadata || {};
+                const isSelected = selectedLeaveRequest?.id === item.id;
+                const dateStr = meta.fromDate 
+                  ? new Date(meta.fromDate).toLocaleDateString('vi-VN') 
+                  : (item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '');
+                const durationType = meta.leaveDurationType || 'Nghỉ phép';
+                let timeRange = '';
+                if (meta.startTime && meta.endTime) {
+                  const s = new Date(meta.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                  const e = new Date(meta.endTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                  timeRange = `${s} - ${e}`;
+                }
+
+                return (
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      backgroundColor: isSelected ? '#F0FDF4' : '#FFFFFF',
+                      borderWidth: 1,
+                      borderColor: isSelected ? '#86EFAC' : '#E2E8F0',
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: 10,
+                    }}
+                    onPress={() => {
+                      applyLeaveRequest(item);
+                      setShowApprovedLeavesModal(false);
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 4 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A', flex: 1, marginRight: 8 }} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ fontSize: 11, color: '#166534', fontWeight: '700' }}>✓ Đã duyệt</Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#475569', marginBottom: 2 }}>
+                      Ngày nghỉ: <Text style={{ fontWeight: '600', color: '#0F172A' }}>{dateStr}</Text>
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#64748B' }}>
+                      Hình thức: <Text style={{ color: '#0284C7', fontWeight: '600' }}>{durationType}</Text>
+                      {timeRange ? ` (${timeRange})` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
             />
           </View>
         </View>
