@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useCallback } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, Switch, TextInput, RefreshControl, Image, StatusBar } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator, Switch, TextInput, RefreshControl, Image, StatusBar, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
@@ -48,137 +48,194 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
     setRefreshing(false);
   }, [queryClient]);
 
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)), Platform.OS === 'android' ? 24 : 16) + 6;
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" />
-      {/* Top Forest Green Header */}
+    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
+      {/* Top Deep Navy Banner */}
       <View style={{
         backgroundColor: '#102739',
-        paddingTop: Math.max(insets.top, 16),
-        paddingBottom: 20,
+        paddingTop: safeTopInset,
+        paddingBottom: 22,
         paddingHorizontal: 16,
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/leader')} style={{ paddingRight: 10, paddingVertical: 4 }}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable
+            onPress={() => router.canGoBack() ? router.back() : router.replace('/leader')}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: 'rgba(255, 255, 255, 0.14)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.22)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            hitSlop={12}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
           </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+
+          <View style={{ flex: 1, marginHorizontal: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{
+              fontSize: 10.5,
+              fontWeight: '700',
+              letterSpacing: 1.4,
+              color: 'rgba(255, 255, 255, 0.72)',
+              textTransform: 'uppercase',
+              marginBottom: 2,
+            }}>
               MOVIE LEGEND
             </Text>
-            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 20,
+              fontWeight: '800',
+              color: '#FFFFFF',
+              letterSpacing: -0.3,
+              textAlign: 'center',
+            }}>
               Góp ý
             </Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 12,
+              color: 'rgba(255, 255, 255, 0.82)',
+              marginTop: 2,
+              textAlign: 'center',
+            }} numberOfLines={1}>
               Lịch sử góp ý và phản hồi của bạn
             </Text>
           </View>
+
+          <View style={{ width: 38 }} />
         </View>
       </View>
 
-      <ScrollView 
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: Math.max(insets.bottom + 80, 90),
-        }} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-      >
-        {/* Action Button: Tạo góp ý mới */}
-        <Pressable
-          onPress={() => router.push(`${basePath}/feedbacks/create` as any)}
-          style={{
-            backgroundColor: '#102739',
-            height: 48,
-            borderRadius: 12,
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'row',
-            gap: 8,
-            marginBottom: 16,
-          }}
+      {/* Main Curved White Sheet */}
+      <View style={{
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        marginTop: -10,
+        overflow: 'hidden',
+      }}>
+        <ScrollView 
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: Math.max(insets.bottom + 80, 90),
+          }} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
         >
-          <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Tạo góp ý mới</Text>
-        </Pressable>
+          {/* Action Button: Tạo góp ý mới */}
+          <Pressable
+            onPress={() => router.push(`${basePath}/feedbacks/create` as any)}
+            style={{
+              backgroundColor: '#102739',
+              height: 48,
+              borderRadius: 14,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              gap: 8,
+              marginBottom: 14,
+              shadowColor: '#102739',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.18,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+          >
+            <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
+            <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '700' }}>Tạo góp ý mới</Text>
+          </Pressable>
 
-        {/* Filter Tabs (Wrapped Pills) */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-          {filterOptions.map((opt, i) => {
-            const isActive = statusFilter === opt.value;
-            return (
-              <Pressable
-                key={i}
-                onPress={() => setStatusFilter(opt.value)}
-                style={{
-                  paddingHorizontal: 18,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: isActive ? '#102739' : '#FFFFFF',
-                  borderWidth: 1,
-                  borderColor: isActive ? '#102739' : '#E2E8F0',
-                }}
-              >
-                <Text style={{
-                  color: isActive ? '#FFFFFF' : '#334155',
-                  fontWeight: '600',
-                  fontSize: 13,
+          {/* Filter Tabs (Horizontal Scroll) */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8, paddingBottom: 16 }}
+          >
+            {filterOptions.map((opt, i) => {
+              const isActive = statusFilter === opt.value;
+              return (
+                <Pressable
+                  key={i}
+                  onPress={() => setStatusFilter(opt.value)}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    backgroundColor: isActive ? '#102739' : '#FFFFFF',
+                    borderWidth: 1,
+                    borderColor: isActive ? '#102739' : '#E2E8F0',
+                  }}
+                >
+                  <Text style={{
+                    color: isActive ? '#FFFFFF' : '#475569',
+                    fontWeight: '600',
+                    fontSize: 13,
+                  }}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* List Content or Empty State */}
+          <View style={{ gap: 12 }}>
+            {feedbacksQuery.isLoading ? (
+              <ActivityIndicator style={{ marginVertical: 30 }} color="#102739" />
+            ) : !feedbacksQuery.data || !feedbacksQuery.data.items || feedbacksQuery.data.items.length === 0 ? (
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+                {/* Illustrated brand circle */}
+                <View style={{
+                  width: 88,
+                  height: 88,
+                  borderRadius: 44,
+                  backgroundColor: '#E7F0F7',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 16,
                 }}>
-                  {opt.label}
+                  <MaterialCommunityIcons name="comment-text-multiple-outline" size={44} color="#0284C7" />
+                </View>
+
+                <Text style={{
+                  fontSize: 17,
+                  fontWeight: '800',
+                  color: '#0F172A',
+                  marginBottom: 6,
+                  textAlign: 'center',
+                }}>
+                  Chưa có góp ý nào
                 </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* List Content or Empty State */}
-        <View style={{ gap: 12 }}>
-          {feedbacksQuery.isLoading ? (
-            <ActivityIndicator style={{ marginVertical: 30 }} color="#102739" />
-          ) : !feedbacksQuery.data || !feedbacksQuery.data.items || feedbacksQuery.data.items.length === 0 ? (
-            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}>
-              {/* Illustrated mint circle */}
-              <View style={{
-                width: 140,
-                height: 140,
-                borderRadius: 70,
-                backgroundColor: '#E6F4EA',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <MaterialCommunityIcons name="comment-text-multiple-outline" size={60} color="#166534" />
+                <Text style={{
+                  fontSize: 13.5,
+                  color: '#64748B',
+                  textAlign: 'center',
+                  lineHeight: 19,
+                }}>
+                  Gửi góp ý để chia sẻ ý kiến của bạn với ban quản lý.
+                </Text>
               </View>
-
-              <Text style={{
-                fontSize: 17,
-                fontWeight: '700',
-                color: '#0F172A',
-                marginTop: 24,
-                textAlign: 'center',
-              }}>
-                Chưa có góp ý nào
-              </Text>
-              <Text style={{
-                fontSize: 14,
-                color: '#64748B',
-                marginTop: 8,
-                textAlign: 'center',
-              }}>
-                Gửi góp ý để chia sẻ ý kiến của bạn.
-              </Text>
-            </View>
-          ) : (
-            feedbacksQuery.data.items?.map((fb) => (
-              <FeedbackCard
-                key={fb.id}
-                feedback={fb}
-                onPress={() => router.push(`${basePath}/feedbacks/${fb.id}` as any)}
-              />
-            ))
-          )}
-        </View>
-      </ScrollView>
+            ) : (
+              feedbacksQuery.data.items?.map((fb) => (
+                <FeedbackCard
+                  key={fb.id}
+                  feedback={fb}
+                  onPress={() => router.push(`${basePath}/feedbacks/${fb.id}` as any)}
+                />
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -188,7 +245,7 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
 const createFeedbackSchema = z.object({
   title: z.string().min(1, 'Vui lòng nhập tiêu đề').max(100, 'Tiêu đề quá dài'),
   content: z.string().min(1, 'Vui lòng nhập nội dung').max(2000, 'Nội dung quá dài'),
-  isAnonymous: z.boolean().default(false),
+  isAnonymous: z.boolean(),
   img: z.string().optional(),
 });
 type CreateFeedbackForm = z.infer<typeof createFeedbackSchema>;
@@ -243,40 +300,86 @@ export function CreateFeedbackScreen() {
       allowsEditing: false,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
       setImageUri(result.assets[0].uri);
     }
   };
 
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)), Platform.OS === 'android' ? 24 : 16) + 6;
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" />
-      {/* Top Forest Green Header */}
+    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
+      {/* Top Deep Navy Banner */}
       <View style={{
         backgroundColor: '#102739',
-        paddingTop: Math.max(insets.top, 16),
-        paddingBottom: 20,
+        paddingTop: safeTopInset,
+        paddingBottom: 22,
         paddingHorizontal: 16,
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: 'rgba(255, 255, 255, 0.14)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.22)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            hitSlop={12}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
           </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+
+          <View style={{ flex: 1, marginHorizontal: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{
+              fontSize: 10.5,
+              fontWeight: '700',
+              letterSpacing: 1.4,
+              color: 'rgba(255, 255, 255, 0.72)',
+              textTransform: 'uppercase',
+              marginBottom: 2,
+            }}>
               MOVIE LEGEND
             </Text>
-            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 20,
+              fontWeight: '800',
+              color: '#FFFFFF',
+              letterSpacing: -0.3,
+              textAlign: 'center',
+            }}>
               Gửi góp ý mới
             </Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 12,
+              color: 'rgba(255, 255, 255, 0.82)',
+              marginTop: 2,
+              textAlign: 'center',
+            }} numberOfLines={1}>
               Đóng góp ý kiến để xây dựng môi trường tốt hơn
             </Text>
           </View>
+
+          <View style={{ width: 38 }} />
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: Math.max(insets.bottom + 40, 50) }} showsVerticalScrollIndicator={false}>
+      {/* Main Curved White Sheet */}
+      <View style={{
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        marginTop: -10,
+        overflow: 'hidden',
+      }}>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: Math.max(insets.bottom + 40, 50) }} showsVerticalScrollIndicator={false}>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Tiêu đề <Text style={{ color: colors.danger }}>*</Text></Text>
           <Controller
@@ -377,14 +480,15 @@ export function CreateFeedbackScreen() {
         </View>
       </ScrollView>
 
-      {imageUri ? (
-        <ImageView
-          images={[{ uri: imageUri }]}
-          imageIndex={0}
-          visible={viewerVisible}
-          onRequestClose={() => setViewerVisible(false)}
-        />
-      ) : null}
+        {imageUri ? (
+          <ImageView
+            images={[{ uri: imageUri }]}
+            imageIndex={0}
+            visible={viewerVisible}
+            onRequestClose={() => setViewerVisible(false)}
+          />
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -438,83 +542,130 @@ export function FeedbackDetailScreen() {
       : `${apiUrl.replace(/\/api\/v1\/?$/, '')}${feedback.img.startsWith('/') ? '' : '/'}${feedback.img}`
     : null;
 
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)), Platform.OS === 'android' ? 24 : 16) + 6;
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" />
-      {/* Top Forest Green Header */}
+    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
+      {/* Top Deep Navy Banner */}
       <View style={{
         backgroundColor: '#102739',
-        paddingTop: Math.max(insets.top, 16),
-        paddingBottom: 20,
+        paddingTop: safeTopInset,
+        paddingBottom: 22,
         paddingHorizontal: 16,
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: 'rgba(255, 255, 255, 0.14)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.22)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            hitSlop={12}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
           </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+
+          <View style={{ flex: 1, marginHorizontal: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{
+              fontSize: 10.5,
+              fontWeight: '700',
+              letterSpacing: 1.4,
+              color: 'rgba(255, 255, 255, 0.72)',
+              textTransform: 'uppercase',
+              marginBottom: 2,
+            }}>
               MOVIE LEGEND
             </Text>
-            <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 20,
+              fontWeight: '800',
+              color: '#FFFFFF',
+              letterSpacing: -0.3,
+              textAlign: 'center',
+            }}>
               Chi tiết góp ý
             </Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 12,
+              color: 'rgba(255, 255, 255, 0.82)',
+              marginTop: 2,
+              textAlign: 'center',
+            }} numberOfLines={1}>
               Thông tin và phản hồi từ quản lý
             </Text>
           </View>
+
+          <View style={{ width: 38 }} />
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom + 40, 50) }} showsVerticalScrollIndicator={false}>
-        <View style={styles.detailCard}>
-          <Text style={styles.detailTitle}>{feedback.title}</Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 12 }}>
-            <Text style={{ fontSize: 13, color: colors.muted }}>{dateStr}</Text>
-            <FeedbackStatusBadge status={feedback.status} />
-          </View>
+      {/* Main Curved White Sheet */}
+      <View style={{
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        marginTop: -10,
+        overflow: 'hidden',
+      }}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom + 40, 50) }} showsVerticalScrollIndicator={false}>
+          <View style={styles.detailCard}>
+            <Text style={styles.detailTitle}>{feedback.title}</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 12 }}>
+              <Text style={{ fontSize: 13, color: colors.muted }}>{dateStr}</Text>
+              <FeedbackStatusBadge status={feedback.status} />
+            </View>
 
-          <View style={styles.divider} />
+            <View style={styles.divider} />
 
-          <Text style={styles.label}>Nội dung:</Text>
-          <Text style={styles.detailContent}>{feedback.content}</Text>
+            <Text style={styles.label}>Nội dung:</Text>
+            <Text style={styles.detailContent}>{feedback.content}</Text>
 
-          {fullImageUrl && (
+            {fullImageUrl && (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.label}>Ảnh đính kèm:</Text>
+                <Pressable onPress={() => setViewerVisible(true)} style={{ borderRadius: 12, overflow: 'hidden', marginTop: 6 }}>
+                  <Image 
+                    source={{ uri: fullImageUrl }} 
+                    style={{ width: '100%', height: 220, borderRadius: 12, resizeMode: 'cover' }} 
+                  />
+                </Pressable>
+              </View>
+            )}
+
             <View style={{ marginTop: 12 }}>
-              <Text style={styles.label}>Ảnh đính kèm:</Text>
-              <Pressable onPress={() => setViewerVisible(true)} style={{ borderRadius: 12, overflow: 'hidden', marginTop: 6 }}>
-                <Image 
-                  source={{ uri: fullImageUrl }} 
-                  style={{ width: '100%', height: 220, borderRadius: 12, resizeMode: 'cover' }} 
-                />
-              </Pressable>
+              <Text style={styles.label}>Chế độ:</Text>
+              <Text style={{ fontSize: 14, color: feedback.isAnonymous ? colors.warning : colors.text }}>
+                {feedback.isAnonymous ? 'Gửi ẩn danh' : 'Hiển thị danh tính'}
+              </Text>
             </View>
-          )}
 
-          <View style={{ marginTop: 12 }}>
-            <Text style={styles.label}>Chế độ:</Text>
-            <Text style={{ fontSize: 14, color: feedback.isAnonymous ? colors.warning : colors.text }}>
-              {feedback.isAnonymous ? 'Gửi ẩn danh' : 'Hiển thị danh tính'}
-            </Text>
+            {feedback.reason && (
+              <View style={styles.reasonBox}>
+                <Text style={{ fontWeight: '700', color: colors.primaryDark, marginBottom: 4 }}>Phản hồi từ quản lý:</Text>
+                <Text style={{ color: colors.text, lineHeight: 20 }}>{feedback.reason}</Text>
+              </View>
+            )}
           </View>
+        </ScrollView>
 
-          {feedback.reason && (
-            <View style={styles.reasonBox}>
-              <Text style={{ fontWeight: '700', color: colors.primaryDark, marginBottom: 4 }}>Phản hồi từ quản lý:</Text>
-              <Text style={{ color: colors.text, lineHeight: 20 }}>{feedback.reason}</Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
-
-      {fullImageUrl && (
-        <ImageView
-          images={[{ uri: fullImageUrl }]}
-          imageIndex={0}
-          visible={viewerVisible}
-          onRequestClose={() => setViewerVisible(false)}
-        />
-      )}
+        {fullImageUrl && (
+          <ImageView
+            images={[{ uri: fullImageUrl }]}
+            imageIndex={0}
+            visible={viewerVisible}
+            onRequestClose={() => setViewerVisible(false)}
+          />
+        )}
+      </View>
     </View>
   );
 }

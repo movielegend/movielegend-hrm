@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Newspaper, MessageSquare, Home, ClipboardCheck } from 'lucide-react-native';
+import { TabBarUserAvatar } from '../../../src/components/navigation/TabBarUserAvatar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../../src/theme/colors';
 
@@ -26,7 +27,7 @@ export default function EmployeeLayout() {
         options={{
           title: 'Bảng tin',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "newspaper-variant" : "newspaper-variant-outline"} size={24} color={color} />
+            <Newspaper size={23} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -36,7 +37,7 @@ export default function EmployeeLayout() {
           title: 'Nhóm chat',
           tabBarBadge: unreadChat > 0 ? (unreadChat > 99 ? '99+' : unreadChat) : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "message-text" : "message-text-outline"} size={24} color={color} />
+            <MessageSquare size={23} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -45,7 +46,7 @@ export default function EmployeeLayout() {
         options={{
           title: 'Trang chủ',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={26} color={color} />
+            <Home size={25} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -55,7 +56,7 @@ export default function EmployeeLayout() {
           title: 'Công việc',
           tabBarBadge: uncompletedTasksCount > 0 ? (uncompletedTasksCount > 99 ? '99+' : uncompletedTasksCount) : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "clipboard-check" : "clipboard-check-outline"} size={24} color={color} />
+            <ClipboardCheck size={23} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -70,7 +71,7 @@ export default function EmployeeLayout() {
         options={{
           title: 'Hồ sơ',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "account" : "account-outline"} size={26} color={color} />
+            <TabBarUserAvatar focused={focused} color={color} size={28} />
           ),
         }}
       />

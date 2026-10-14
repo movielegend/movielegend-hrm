@@ -407,15 +407,15 @@ export function HRDashboard() {
                   {isOnlyAccountant ? (
                     <>
                       <Crown size={13} color="#059669" strokeWidth={2.2} />
-                      <Text style={[styles.adminRoleTagText, { color: '#059669' }]}>
-                        Lv.{currentLevelNumber} • Kế toán & Tài chính
+                      <Text style={[styles.adminRoleTagText, { color: '#059669' }]} numberOfLines={1} ellipsizeMode="tail">
+                        Lv.{currentLevelNumber} • Kế toán
                       </Text>
                     </>
                   ) : (
                     <>
                       <Crown size={13} color="#475569" strokeWidth={2.2} />
-                      <Text style={[styles.adminRoleTagText, { color: '#334155' }]}>
-                        Lv.{currentLevelNumber} • Quản trị Nhân sự
+                      <Text style={[styles.adminRoleTagText, { color: '#334155' }]} numberOfLines={1} ellipsizeMode="tail">
+                        Lv.{currentLevelNumber} • Nhân sự
                       </Text>
                     </>
                   )}
@@ -1228,10 +1228,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     gap: 4,
+    maxWidth: 165,
   },
   adminRoleTagText: {
     fontSize: 12,
     fontWeight: '700',
+    flexShrink: 1,
   },
   attendanceHeaderTag: {
     flexDirection: 'row',

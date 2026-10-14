@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Newspaper, MessageSquare, Home, Bell } from 'lucide-react-native';
+import { TabBarUserAvatar } from '../../../src/components/navigation/TabBarUserAvatar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../../src/hooks/useNotifications';
 import { MagicTabBar } from '../../../src/components/navigation/MagicTabBar';
@@ -22,7 +23,7 @@ export default function AdminTabsLayout() {
         options={{
           title: 'Bảng tin',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "newspaper-variant" : "newspaper-variant-outline"} size={24} color={color} />
+            <Newspaper size={23} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -32,7 +33,7 @@ export default function AdminTabsLayout() {
           title: 'Nhóm chat',
           tabBarBadge: unreadChat > 0 ? (unreadChat > 99 ? '99+' : unreadChat) : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "message-text" : "message-text-outline"} size={24} color={color} />
+            <MessageSquare size={23} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -41,7 +42,7 @@ export default function AdminTabsLayout() {
         options={{
           title: 'Trang chủ',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={26} color={color} />
+            <Home size={25} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -51,7 +52,7 @@ export default function AdminTabsLayout() {
           title: 'Thông báo',
           tabBarBadge: unreadNotifications > 0 ? (unreadNotifications > 99 ? '99+' : unreadNotifications) : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} size={24} color={color} />
+            <Bell size={23} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
@@ -60,7 +61,7 @@ export default function AdminTabsLayout() {
         options={{
           title: 'Hồ sơ',
           tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons name={focused ? "account" : "account-outline"} size={26} color={color} />
+            <TabBarUserAvatar focused={focused} color={color} size={28} />
           ),
         }}
       />

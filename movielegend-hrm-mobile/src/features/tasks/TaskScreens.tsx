@@ -195,31 +195,33 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   };
 
   if (area === 'employee') {
+    const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)), Platform.OS === 'android' ? 24 : 16) + 6;
     return (
-      <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#102739" />
+      <View style={{ flex: 1, backgroundColor: '#102739' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
         {/* Screen 1: Top Deep Navy Banner */}
         <View style={{
           backgroundColor: '#102739',
-          paddingTop: Math.max(insets.top, 16),
+          paddingTop: safeTopInset,
           paddingBottom: 22,
           paddingHorizontal: 16,
         }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={{
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: '700',
-                letterSpacing: 1.5,
-                color: 'rgba(255,255,255,0.7)',
+                letterSpacing: 1.4,
+                color: 'rgba(255,255,255,0.72)',
                 textTransform: 'uppercase',
+                marginBottom: 2,
               }}>
                 MOVIE LEGEND
               </Text>
-              <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF', marginTop: 4 }}>
+              <Text style={{ fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 }}>
                 Công việc của tôi
               </Text>
-              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+              <Text style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.82)', marginTop: 2 }}>
                 Các công việc được phân công cho bạn
               </Text>
             </View>
@@ -233,9 +235,8 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
                 paddingVertical: 7,
                 borderRadius: 20,
                 borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.35)',
-                backgroundColor: 'rgba(255,255,255,0.12)',
-                marginTop: 6,
+                borderColor: 'rgba(255,255,255,0.25)',
+                backgroundColor: 'rgba(255,255,255,0.15)',
               }}
               onPress={handleDailyReportPress}
             >
@@ -245,16 +246,21 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
           </View>
         </View>
 
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{
-            backgroundColor: '#F8FAFC',
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            marginTop: -10,
-            paddingTop: 16,
-            paddingBottom: Math.max(insets.bottom + 16, 24) + 80,
-          }}
+        {/* Main Body with Curved Container */}
+        <View style={{
+          flex: 1,
+          backgroundColor: '#F8FAFC',
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          marginTop: -10,
+          overflow: 'hidden',
+        }}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingTop: 16,
+              paddingBottom: Math.max(insets.bottom + 16, 24) + 80,
+            }}
           refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}
           showsVerticalScrollIndicator={false}
         >
@@ -349,6 +355,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
             ))}
           </View>
         </ScrollView>
+        </View>
       </View>
     );
   }
@@ -362,65 +369,103 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     { label: 'Hoàn thành', value: 'COMPLETED' },
   ];
 
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)), Platform.OS === 'android' ? 24 : 16) + 6;
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" />
+    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
       {/* Screen 1: Top Deep Navy Banner */}
       <View style={{
         backgroundColor: '#102739',
-        paddingTop: Math.max(insets.top, 16),
-        paddingBottom: 20,
+        paddingTop: safeTopInset,
+        paddingBottom: 22,
         paddingHorizontal: 16,
       }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 }}>
-            <Pressable onPress={() => router.back()} style={{ paddingRight: 8, paddingVertical: 4 }}>
-              <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
-            </Pressable>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8 }}>
-                MOVIE LEGEND
-              </Text>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
-                {title || 'Công việc đã giao'}
-              </Text>
-              <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
-                {subtitle || 'Theo dõi tiến độ công việc'}
-              </Text>
-            </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: 'rgba(255, 255, 255, 0.14)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.22)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            hitSlop={12}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+          </Pressable>
+
+          <View style={{ flex: 1, marginHorizontal: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{
+              fontSize: 10.5,
+              fontWeight: '700',
+              letterSpacing: 1.4,
+              color: 'rgba(255, 255, 255, 0.72)',
+              textTransform: 'uppercase',
+              marginBottom: 2,
+            }}>
+              MOVIE LEGEND
+            </Text>
+            <Text style={{
+              fontSize: 19,
+              fontWeight: '800',
+              color: '#FFFFFF',
+              letterSpacing: -0.3,
+              textAlign: 'center',
+            }} numberOfLines={1}>
+              {title || 'Công việc đã giao'}
+            </Text>
+            <Text style={{
+              fontSize: 12,
+              color: 'rgba(255, 255, 255, 0.82)',
+              marginTop: 2,
+              textAlign: 'center',
+            }} numberOfLines={1}>
+              {subtitle || 'Theo dõi tiến độ công việc'}
+            </Text>
           </View>
+
           <Pressable
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              gap: 6,
+              gap: 5,
               backgroundColor: 'rgba(255,255,255,0.15)',
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.25)',
               paddingHorizontal: 12,
-              paddingVertical: 6,
+              paddingVertical: 7,
               borderRadius: 20,
             }}
             onPress={handleDailyReportPress}
           >
-            <MaterialCommunityIcons name="file-document-edit-outline" size={16} color="#FFFFFF" />
+            <MaterialCommunityIcons name="file-document-edit-outline" size={15} color="#FFFFFF" />
             <Text style={{ fontSize: 13, fontWeight: '600', color: '#FFFFFF' }}>Báo cáo</Text>
           </Pressable>
         </View>
       </View>
 
       {/* Main Body with Curved Container */}
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          backgroundColor: '#F8FAFC',
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          marginTop: -10,
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: Math.max(insets.bottom + 16, 24) + 80,
-        }}
+      <View style={{
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        marginTop: -10,
+        overflow: 'hidden',
+      }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: Math.max(insets.bottom + 16, 24) + 80,
+          }}
         onScroll={tabBarScroll.onScroll}
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={tasks.isRefetching} onRefresh={() => void tasks.refetch()} />}
@@ -538,6 +583,7 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
           <TaskCard key={task.id} task={task} onPress={() => handleTaskPress(task.id)} />
         ))}
       </ScrollView>
+      </View>
     </View>
   );
 }
@@ -869,52 +915,97 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
     );
   }
 
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)), Platform.OS === 'android' ? 24 : 16) + 6;
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" />
+    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
       {/* Top Deep Navy Banner */}
       <View style={{
         backgroundColor: '#102739',
-        paddingTop: Math.max(insets.top, 16),
-        paddingBottom: 20,
+        paddingTop: safeTopInset,
+        paddingBottom: 22,
         paddingHorizontal: 16,
-        position: 'relative',
-        overflow: 'hidden',
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: 'rgba(255, 255, 255, 0.14)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.22)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            hitSlop={12}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
           </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8 }}>
+
+          <View style={{ flex: 1, marginHorizontal: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{
+              fontSize: 10.5,
+              fontWeight: '700',
+              letterSpacing: 1.4,
+              color: 'rgba(255, 255, 255, 0.72)',
+              textTransform: 'uppercase',
+              marginBottom: 2,
+            }}>
               MOVIE LEGEND
             </Text>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 19,
+              fontWeight: '800',
+              color: '#FFFFFF',
+              letterSpacing: -0.3,
+              textAlign: 'center',
+            }} numberOfLines={1}>
               Chi tiết công việc
             </Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 12,
+              color: 'rgba(255, 255, 255, 0.82)',
+              marginTop: 2,
+              textAlign: 'center',
+            }} numberOfLines={1}>
               {item.taskCode ?? item.type}
             </Text>
           </View>
-          {item.chatGroup?.id && (
+
+          {item.chatGroup?.id ? (
             <Pressable style={styles.chatButton} onPress={() => router.push(`/employee/chat/${item.chatGroup!.id}?taskId=${item.id}`)}>
-              <MaterialCommunityIcons name="chat-processing-outline" size={20} color={colors.primary} />
+              <MaterialCommunityIcons name="chat-processing-outline" size={18} color={colors.primary} />
               <Text style={styles.chatButtonText}>Chat</Text>
             </Pressable>
+          ) : (
+            <View style={{ width: 38 }} />
           )}
         </View>
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: Math.max(insets.bottom + 24, 24),
-          gap: 14,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
+      {/* Main Body with Curved Container */}
+      <View style={{
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        marginTop: -10,
+        overflow: 'hidden',
+      }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: Math.max(insets.bottom + 24, 24),
+            gap: 14,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
         {/* Card 1: Main Task Information */}
         <View style={{
           backgroundColor: '#FFFFFF',
@@ -1369,6 +1460,7 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
         ) : null}
 
       </ScrollView>
+      </View>
     </View>
   );
 }
@@ -3212,46 +3304,90 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
     ? `Thuộc dự án: ${parentTaskQuery.data.title}`
     : (user?.department?.name ? `${user.department.name} (MOVIELEGEND-HÀ NỘI)` : 'DEV (MOVIELEGEND-HÀ NỘI)');
 
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)), Platform.OS === 'android' ? 24 : 16) + 6;
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" />
+    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
       {/* Top Deep Navy Banner */}
       <View style={{
         backgroundColor: '#102739',
-        paddingTop: Math.max(insets.top, 16),
-        paddingBottom: 20,
+        paddingTop: safeTopInset,
+        paddingBottom: 22,
         paddingHorizontal: 16,
-        position: 'relative',
-        overflow: 'hidden',
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Pressable onPress={() => router.back()} style={{ paddingRight: 10, paddingVertical: 4 }}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: 'rgba(255, 255, 255, 0.14)',
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.22)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            hitSlop={12}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
           </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8 }}>
+
+          <View style={{ flex: 1, marginHorizontal: 10, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{
+              fontSize: 10.5,
+              fontWeight: '700',
+              letterSpacing: 1.4,
+              color: 'rgba(255, 255, 255, 0.72)',
+              textTransform: 'uppercase',
+              marginBottom: 2,
+            }}>
               MOVIE LEGEND
             </Text>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 19,
+              fontWeight: '800',
+              color: '#FFFFFF',
+              letterSpacing: -0.3,
+              textAlign: 'center',
+            }} numberOfLines={1}>
               {parentTaskId ? 'Chia nhỏ việc con (Subtask)' : (area as any) === 'admin' ? 'Giao việc (Admin)' : 'Giao việc cho nhân sự'}
             </Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 12,
+              color: 'rgba(255, 255, 255, 0.82)',
+              marginTop: 2,
+              textAlign: 'center',
+            }} numberOfLines={1}>
               {headerSubtitle}
             </Text>
           </View>
+
+          <View style={{ width: 38 }} />
         </View>
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          paddingBottom: Math.max(insets.bottom + 90, 100),
-          gap: 14,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
+      {/* Main Body with Curved Container */}
+      <View style={{
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        marginTop: -10,
+        overflow: 'hidden',
+      }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 16,
+            paddingBottom: Math.max(insets.bottom + 90, 100),
+            gap: 14,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
         {parentTaskId && parentTaskQuery.data ? (
           <View style={styles.parentTaskBanner}>
             <View style={styles.parentTaskTagRow}>
@@ -3954,6 +4090,7 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
         onClose={() => setMemberModalVisible(false)}
         isLoading={usersQuery.isLoading}
       />
+      </View>
     </View>
   );
 }
