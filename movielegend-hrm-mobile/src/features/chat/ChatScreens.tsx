@@ -1067,10 +1067,29 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const allList = Array.isArray(allGroups.data) ? allGroups.data : [];
   const currentGroup = myList.find((g: any) => g.id === groupId) || allList.find((g: any) => g.id === groupId);
 
-  const employees = useScopedEmployees({
-    limit: 100,
-    departmentId: currentGroup?.departmentId || undefined
-  });
+  const isGlobalAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+    (!user?.scopes || user?.scopes.length === 0 || user?.scopes?.some((s: any) => s.role === 'ADMIN' && (s.scopeType === 'GLOBAL' || !s.scopeType)))
+  );
+  const isRegionAdmin = Boolean(
+    user?.roles?.includes('ADMIN') &&
+    user?.scopes?.some((s: any) => s.role === 'ADMIN' && s.scopeType === 'REGION')
+  );
+  const isAdmin = isGlobalAdmin || isRegionAdmin || user?.roles?.includes('ADMIN') || user?.roles?.includes('SUPER_ADMIN');
+
+  const canFetchScopedDept = Boolean(
+    isAdmin ||
+    user?.roles?.includes('HR') ||
+    (currentGroup?.departmentId && (user?.departmentId === currentGroup.departmentId || (user as any)?.ledDepartmentIds?.includes(currentGroup.departmentId)))
+  );
+
+  const employees = useScopedEmployees(
+    {
+      limit: 100,
+      departmentId: canFetchScopedDept ? currentGroup?.departmentId : undefined
+    },
+    canFetchScopedDept
+  );
   const groupMembersQuery = useGroupMembers(groupId);
 
   const availableMembers = useMemo(() => {

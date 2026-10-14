@@ -337,7 +337,9 @@ export function EmployeeDashboardScreen() {
               <View style={styles.cardHeaderLeftGroup}>
                 <View style={styles.adminRoleTag}>
                   <Crown size={14} color="#1D4ED8" strokeWidth={2.5} />
-                  <Text style={styles.adminRoleTagText}>Lv.{currentLevelNumber} • {levelTitle}</Text>
+                  <Text style={styles.adminRoleTagText} numberOfLines={1} ellipsizeMode="tail">
+                    Lv.{currentLevelNumber} • {levelTitle}
+                  </Text>
                 </View>
 
                 {/* Chữ ra ca / vào ca - nhẹ nhàng cạnh lv1 thực tập, không viền, chữ màu đen */}
@@ -1197,11 +1199,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     gap: 4,
+    maxWidth: 165,
   },
   adminRoleTagText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#102739',
+    flexShrink: 1,
   },
   attendanceHeaderTag: {
     flexDirection: 'row',
