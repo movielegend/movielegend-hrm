@@ -197,7 +197,7 @@ export default function CreateRequestScreen() {
     setTimePickerTab('minute');
   };
 
-  const leaveDurationTypes = ["1/4 ngày", "1/2 ngày", "3/4 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
+  const leaveDurationTypes = ["1/2 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
   const leaveTypes = ["Nghỉ phép năm", "Nghỉ ốm", "Nghỉ không lương", "Thai sản", "Khác"];
   const explanationTypes = ["Quên Check-in", "Quên Check-out", "Quên cả In & Out", "Lỗi hệ thống/máy chấm công", "Đi công tác/Làm việc bên ngoài"];
 
@@ -1152,7 +1152,7 @@ export default function CreateRequestScreen() {
                     </Pressable>
                   </View>
                 </>
-              ) : ['Theo giờ', '1/4 ngày', '1/2 ngày', '3/4 ngày'].includes(leaveDurationType) ? (
+              ) : ['Theo giờ', '1/2 ngày', 'Nửa ngày'].includes(leaveDurationType) ? (
                 <>
                   <View style={styles.formItem}>
                     <Text style={styles.formLabel}>
