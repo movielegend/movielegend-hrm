@@ -101,6 +101,7 @@ export default function CreateRequestScreen() {
   const [shift, setShift] = useState<Shift | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [hasVat, setHasVat] = useState(false);
+  const [showVatModal, setShowVatModal] = useState(false);
 
   // Specific fields for Business Trip
   const [tripLocation, setTripLocation] = useState('');
@@ -347,10 +348,10 @@ export default function CreateRequestScreen() {
         setAdvanceBankAccount(userMeta.bankAccountNumber || userMeta.bankAccount);
       }
     }
-    if (isAdvance && !fromDate) {
+    if ((isAdvance || isExpense) && !fromDate) {
       setFromDate(new Date());
     }
-  }, [user, isAdvance]);
+  }, [user, isAdvance, isExpense]);
 
   const userDeptId = user?.department?.id || (user as any)?.departmentId;
   const userDeptName = user?.department?.name || (user as any)?.departmentName || '';
@@ -2633,25 +2634,25 @@ export default function CreateRequestScreen() {
             </>
           ) : isExpense ? (
             <>
-              {/* Số tiền */}
+              {/* Số tiền thanh toán (VNĐ) */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
                   Số tiền thanh toán (VNĐ) <Text style={styles.required}>*</Text>
                 </Text>
-                <View style={styles.inputBox}>
+                <View style={styles.advanceAmountInputWrap}>
                   <TextInput
-                    style={[styles.inputText, { flex: 1, fontWeight: '600' }]}
+                    style={styles.advanceAmountInput}
                     placeholder="Nhập số tiền..."
                     placeholderTextColor="#94A3B8"
                     keyboardType="numeric"
                     value={amount ? parseInt(amount, 10).toLocaleString('vi-VN') : ''}
                     onChangeText={(text) => setAmount(text.replace(/[^0-9]/g, ''))}
                   />
-                  <Text style={{ color: '#0F172A', fontWeight: '700', fontSize: 13, marginLeft: 6 }}>VNĐ</Text>
+                  <Text style={styles.advanceAmountUnit}>VNĐ</Text>
                 </View>
               </View>
 
-              {/* Ngày áp dụng */}
+              {/* Ngày phát sinh chi phí */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
                   Ngày phát sinh chi phí <Text style={styles.required}>*</Text>
@@ -2687,83 +2688,71 @@ export default function CreateRequestScreen() {
                 </View>
               </View>
 
-              {/* Phân loại Hóa đơn VAT (chỉ dành cho EXPENSE) */}
-              <View style={[styles.formItem, { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text style={[styles.formLabel, { marginBottom: 2 }]}>Hóa đơn VAT</Text>
-                    <Text style={{ fontSize: 12, color: '#64748B' }}>
-                      {hasVat 
-                        ? 'Đơn có VAT (Duyệt: Leader ➔ Kế toán giải ngân)' 
-                        : 'Đơn K° VAT (≤ 2tr: Kế toán | > 2tr: Ban Giám Đốc ➔ Kế toán)'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => setHasVat(!hasVat)}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 16,
-                      backgroundColor: hasVat ? '#10B981' : '#E2E8F0'
-                    }}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: hasVat ? '#FFFFFF' : '#475569' }}>
-                      {hasVat ? 'CÓ VAT' : 'K° VAT'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Quy trình duyệt thông minh Movie Legend */}
-              <View style={styles.approvalWorkflowBanner}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                  <MaterialCommunityIcons 
-                    name="transit-connection-variant" 
-                    size={16} 
-                    color={hasVat || Number(amount || 0) <= 2000000 ? '#16A34A' : '#2563EB'} 
-                  />
-                  <Text style={[styles.approvalWorkflowTitle, { color: hasVat || Number(amount || 0) <= 2000000 ? '#15803D' : '#1E40AF' }]}>
-                    {hasVat 
-                      ? 'Quy trình: Có hóa đơn VAT' 
-                      : Number(amount || 0) > 2000000 
-                        ? 'Quy trình: Không VAT trên 2tr (Ban Giám Đốc duyệt)' 
-                        : 'Quy trình: Không VAT dưới 2tr (Kế toán chi)'}
+              {/* Hóa đơn VAT Card */}
+              <View style={styles.expenseVatCard}>
+                <Text style={styles.expenseVatCardTitle}>Hóa đơn VAT</Text>
+                <Pressable 
+                  style={styles.expenseVatDropdown}
+                  onPress={() => setShowVatModal(true)}
+                >
+                  <Text style={styles.expenseVatDropdownText}>
+                    {hasVat ? 'Có VAT' : 'Không VAT'}
                   </Text>
-                </View>
-                <Text style={styles.approvalWorkflowSubtitle}>
-                  {hasVat
-                    ? '1. Leader PB duyệt ➔ 2. Kế toán giải ngân'
-                    : Number(amount || 0) > 2000000
-                      ? '1. Leader PB duyệt ➔ 2. Ban Giám Đốc duyệt ➔ 3. Kế toán chi'
-                      : '1. Leader PB duyệt ➔ 2. Kế toán giải ngân'}
+                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                </Pressable>
+                <Text style={styles.expenseVatCardNote}>
+                  {hasVat 
+                    ? 'Có VAT: Leader phòng ban duyệt ➔ Kế toán giải ngân.' 
+                    : 'Không VAT: ≤ 2 triệu: Kế toán; > 2 triệu: Ban Giám đốc ➔ Kế toán.'}
                 </Text>
               </View>
 
-              {/* Đính kèm minh chứng / hóa đơn */}
+              {/* Quy trình đang hiển thị Banner */}
+              <View style={styles.expenseWorkflowBanner}>
+                <View style={styles.expenseWorkflowIconCircle}>
+                  <MaterialCommunityIcons name="information-variant" size={16} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.expenseWorkflowTitle}>Quy trình đang hiển thị</Text>
+                  <Text style={styles.expenseWorkflowSubtitle}>
+                    {hasVat
+                      ? 'Leader phòng ban duyệt ➔ Kế toán giải ngân'
+                      : Number(amount || 0) > 2000000
+                        ? 'Leader phòng ban duyệt ➔ Ban Giám đốc duyệt ➔ Kế toán giải ngân'
+                        : 'Leader phòng ban duyệt ➔ Kế toán giải ngân'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Ảnh / Tệp minh chứng */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
                   Ảnh / Tệp minh chứng <Text style={styles.required}>*</Text>
                 </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handlePickPhoto}>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Pressable 
+                    style={[styles.expenseProofBtn, photoUri && styles.expenseProofBtnActive]} 
+                    onPress={handlePickPhoto}
+                  >
                     <MaterialCommunityIcons 
-                      name={photoUri ? "check-circle" : "image-plus"} 
+                      name={photoUri ? "check-circle" : "file-image-outline"} 
                       size={20} 
-                      color={photoUri ? "#10B981" : "#475569"} 
+                      color={photoUri ? "#059669" : "#475569"} 
                     />
-                    <Text style={[styles.photoButtonText, photoUri && styles.photoButtonTextSuccess]}>
-                      {photoUri ? 'Đã chọn ảnh' : 'Chọn từ máy'}
+                    <Text style={[styles.expenseProofBtnText, photoUri && styles.expenseProofBtnTextActive]}>
+                      Chọn từ máy
                     </Text>
                   </Pressable>
-                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handleTakePhoto}>
+                  <Pressable style={styles.expenseProofBtn} onPress={handleTakePhoto}>
                     <MaterialCommunityIcons 
                       name="camera-outline" 
                       size={20} 
                       color="#475569" 
                     />
-                    <Text style={styles.photoButtonText}>Chụp ảnh</Text>
+                    <Text style={styles.expenseProofBtnText}>Chụp ảnh</Text>
                   </Pressable>
                 </View>
+
                 {photoUri && (
                   <View style={styles.photoPreviewWrap}>
                     <TouchableOpacity onPress={() => setIsFullScreenPhoto(true)} style={{ width: '100%', height: '100%' }}>
@@ -2858,6 +2847,54 @@ export default function CreateRequestScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* VAT Type Picker Modal */}
+      <Modal visible={showVatModal} transparent animationType="slide" onRequestClose={() => setShowVatModal(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowVatModal(false)} />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ width: 28 }} />
+              <Text style={styles.modalTitle}>Hóa đơn VAT</Text>
+              <Pressable onPress={() => setShowVatModal(false)} style={styles.modalCloseBtn}>
+                <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
+              </Pressable>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalItem, !hasVat && styles.modalItemSelected]}
+              onPress={() => {
+                setHasVat(false);
+                setShowVatModal(false);
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalItemText, !hasVat && styles.modalItemTextSelected]}>Không VAT</Text>
+                <Text style={[styles.modalItemSubtext, !hasVat && styles.modalItemSubtextSelected]}>
+                  ≤ 2 triệu: Kế toán; &gt; 2 triệu: Ban Giám đốc ➔ Kế toán
+                </Text>
+              </View>
+              {!hasVat && <MaterialCommunityIcons name="check-circle" size={20} color="#059669" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalItem, hasVat && styles.modalItemSelected]}
+              onPress={() => {
+                setHasVat(true);
+                setShowVatModal(false);
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalItemText, hasVat && styles.modalItemTextSelected]}>Có VAT</Text>
+                <Text style={[styles.modalItemSubtext, hasVat && styles.modalItemSubtextSelected]}>
+                  Có hóa đơn VAT (Leader ➔ Kế toán giải ngân)
+                </Text>
+              </View>
+              {hasVat && <MaterialCommunityIcons name="check-circle" size={20} color="#059669" />}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Shift Picker Modal */}
       <Modal visible={showShiftModal} transparent animationType="slide" onRequestClose={() => setShowShiftModal(false)}>
@@ -4662,5 +4699,97 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
+  },
+  // Specific Styles for Đơn Thanh Toán (EXPENSE)
+  expenseVatCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 14,
+  },
+  expenseVatCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  expenseVatDropdown: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    height: 44,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  expenseVatDropdownText: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  expenseVatCardNote: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 8,
+    lineHeight: 16,
+  },
+  expenseWorkflowBanner: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  expenseWorkflowIconCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#0284C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expenseWorkflowTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  expenseWorkflowSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  expenseProofBtn: {
+    flex: 1,
+    height: 46,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  expenseProofBtnActive: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  expenseProofBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  expenseProofBtnTextActive: {
+    color: '#059669',
+    fontWeight: '700',
   },
 });
