@@ -13,15 +13,20 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { colors } from '../../theme/colors';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CIRCLE_SIZE = Math.min(SCREEN_WIDTH * 0.72, 260);
-const RING_SIZE = CIRCLE_SIZE + 24;
-const STROKE_WIDTH = 4.5;
-const RADIUS = (RING_SIZE - STROKE_WIDTH) / 2;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+// Portrait Oval proportions (Apple Face ID & Banking standard)
+const OVAL_WIDTH = Math.min(SCREEN_WIDTH * 0.72, 270);
+const OVAL_HEIGHT = Math.round(OVAL_WIDTH * 1.34); // ~362px for natural portrait face fitting
+const OVAL_RADIUS = OVAL_WIDTH / 2;
+
+// Exact stadium perimeter: 2 vertical straight lines + 2 semicircles
+const STRAIGHT_LINE_LEN = OVAL_HEIGHT - OVAL_WIDTH;
+const OVAL_PERIMETER = 2 * STRAIGHT_LINE_LEN + 2 * Math.PI * OVAL_RADIUS;
 
 interface AttendanceCameraProps {
   photoUri: string | null;
@@ -52,32 +57,8 @@ export function AttendanceCamera({
 
   // Animated values
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
   const successScale = useRef(new Animated.Value(0.7)).current;
   const scanTimerRef = useRef<any>(null);
-
-  // Subtle pulsing animation around the ring
-  useEffect(() => {
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.03,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulseLoop.start();
-
-    return () => {
-      pulseLoop.stop();
-    };
-  }, []);
 
   // Sync animated progress value to state for SVG strokeDashoffset and percentage text
   useEffect(() => {
@@ -112,7 +93,7 @@ export function AttendanceCamera({
       if (!photo?.uri) throw new Error('Không thể chụp được ảnh từ camera');
 
       try {
-        Vibration.vibrate(50);
+        Vibration.vibrate(40);
       } catch {}
 
       // Hand over to parent onCapture (compress, upload, verify on backend)
@@ -121,12 +102,12 @@ export function AttendanceCamera({
       // Backend confirmed success!
       setVerifiedSuccess(true);
       try {
-        Vibration.vibrate([0, 80, 50, 80]);
+        Vibration.vibrate([0, 60, 40, 60]);
       } catch {}
 
       Animated.spring(successScale, {
         toValue: 1,
-        friction: 5,
+        friction: 6,
         tension: 80,
         useNativeDriver: true,
       }).start();
@@ -137,29 +118,29 @@ export function AttendanceCamera({
         } else {
           onClose?.();
         }
-      }, 1300);
+      }, 1200);
     } catch (e: any) {
       const errorMsg =
         e?.response?.data?.message ||
         e?.response?.data?.error?.message ||
         e?.message ||
-        'Khuôn mặt chưa khớp hoặc không hợp lệ. Vui lòng căn chỉnh lại!';
+        'Khuôn mặt chưa khớp. Vui lòng căn chỉnh lại!';
       setError(errorMsg);
       setCapturing(false);
       setVerifiedSuccess(false);
 
       try {
-        Vibration.vibrate([0, 100, 50, 100]);
+        Vibration.vibrate([0, 80, 40, 80]);
       } catch {}
 
-      // Auto-restart scanning after 2.5 seconds so user can adjust face without touching screen
+      // Auto-restart scanning after 2.5s so user can re-align without touching the screen
       scanTimerRef.current = setTimeout(() => {
         startScanSequence();
       }, 2500);
     }
   }, [capturing, verifiedSuccess, onCapture, onClose]);
 
-  // Start the circular progress sequence (0% -> 100% over 1.9s)
+  // Start the progress sequence (0% -> 100% over 1.8s)
   const startScanSequence = useCallback(() => {
     if (capturing || verifiedSuccess) return;
     if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
@@ -170,7 +151,7 @@ export function AttendanceCamera({
 
     Animated.timing(progressAnim, {
       toValue: 100,
-      duration: 1900,
+      duration: 1800,
       useNativeDriver: false,
     }).start(({ finished }) => {
       if (finished) {
@@ -182,10 +163,10 @@ export function AttendanceCamera({
   // Trigger scanning sequence once camera is ready
   const handleCameraReady = () => {
     setCameraReady(true);
-    // Give camera 400ms to stabilize auto-exposure/focus before starting progress
+    // Give camera 400ms to stabilize auto-exposure/focus before starting scan
     scanTimerRef.current = setTimeout(() => {
       startScanSequence();
-    }, 450);
+    }, 400);
   };
 
   if (!permission) {
@@ -203,7 +184,7 @@ export function AttendanceCamera({
           <MaterialCommunityIcons name="camera-off" size={48} color="#6B7280" style={{ marginBottom: 16 }} />
           <Text style={styles.permissionTitle}>Cần quyền truy cập Camera</Text>
           <Text style={styles.permissionDesc}>
-            Ứng dụng cần camera để quét khuôn mặt và điểm danh an toàn.
+            Ứng dụng cần camera để nhận diện khuôn mặt và chấm công an toàn.
           </Text>
           <Pressable style={styles.primaryBtn} onPress={requestPermission}>
             <Text style={styles.primaryBtnText}>Cho phép truy cập</Text>
@@ -218,13 +199,19 @@ export function AttendanceCamera({
     );
   }
 
-  const strokeDashoffset = CIRCUMFERENCE * (1 - progressPercent / 100);
-  // Center the circular frame at 48% of available vertical height (perfect eye and face level)
-  const centerTop = insets.top + (SCREEN_HEIGHT - insets.top - insets.bottom) * 0.48 - CIRCLE_SIZE / 2;
+  const strokeDashoffset = OVAL_PERIMETER * (1 - progressPercent / 100);
+
+  // Vertical placement: eye-level center (44% of available safe screen height)
+  const availableHeight = SCREEN_HEIGHT - insets.top - insets.bottom;
+  const ovalCenterY = insets.top + availableHeight * 0.44;
+  const ovalTop = Math.round(ovalCenterY - OVAL_HEIGHT / 2);
+  const ovalLeft = Math.round((SCREEN_WIDTH - OVAL_WIDTH) / 2);
+
+  const ringColor = verifiedSuccess ? '#22C55E' : error ? '#EF4444' : '#22C55E';
 
   return (
     <View style={styles.container}>
-      {/* Live Camera View full screen */}
+      {/* 1. Fullscreen Live Camera */}
       <CameraView
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
@@ -233,120 +220,192 @@ export function AttendanceCamera({
         onCameraReady={handleCameraReady}
       />
 
-      {/* Unified Center Anchor: Cutout, SVG Ring, Aura, Top Capsule, Bottom Status */}
-      <View style={[styles.circleCenterAnchor, { top: centerTop }]}>
-        {/* 1. Dark vignette surround cutout - creates circular camera window */}
-        <View style={styles.cutoutHole} pointerEvents="none" />
-
-        {/* 2. Top Capsule - floats directly above the circle */}
-        <View style={styles.topCapsule}>
-          <Text style={styles.topCapsuleTitle}>{title}</Text>
-          <Text style={styles.topCapsuleSubtitle}>
-            {capturing ? 'Đang gửi dữ liệu xác thực...' : 'Giữ yên khi đang xác minh...'}
-          </Text>
-        </View>
-
-        {/* 3. Outer SVG Progress Ring */}
-        <View style={[styles.svgWrapper, { width: RING_SIZE, height: RING_SIZE }]} pointerEvents="none">
-          <Svg width={RING_SIZE} height={RING_SIZE}>
-            {/* Dark dashed circular track */}
-            <Circle
-              cx={RING_SIZE / 2}
-              cy={RING_SIZE / 2}
-              r={RADIUS}
-              stroke="rgba(255, 255, 255, 0.28)"
-              strokeDasharray="6 6"
-              strokeWidth={2}
-              fill="none"
+      {/* 2. Soft Dark Vignette Mask (Cutout Oval) */}
+      <Svg
+        width={SCREEN_WIDTH}
+        height={SCREEN_HEIGHT}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      >
+        <Defs>
+          <Mask id="faceCutoutMask">
+            <Rect width={SCREEN_WIDTH} height={SCREEN_HEIGHT} fill="#FFFFFF" />
+            <Rect
+              x={ovalLeft}
+              y={ovalTop}
+              width={OVAL_WIDTH}
+              height={OVAL_HEIGHT}
+              rx={OVAL_RADIUS}
+              ry={OVAL_RADIUS}
+              fill="#000000"
             />
-            {/* Animated Progress Ring (Green / Red) */}
-            <Circle
-              cx={RING_SIZE / 2}
-              cy={RING_SIZE / 2}
-              r={RADIUS}
-              stroke={verifiedSuccess ? '#22C55E' : error ? '#EF4444' : '#22C55E'}
-              strokeWidth={STROKE_WIDTH}
-              strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              fill="none"
-              rotation="-90"
-              origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-            />
-          </Svg>
-        </View>
-
-        {/* 4. Pulsing Aura Border */}
-        <Animated.View
-          style={[
-            styles.innerAura,
-            {
-              borderColor: verifiedSuccess
-                ? '#22C55E'
-                : error
-                ? '#EF4444'
-                : capturing
-                ? '#38BDF8'
-                : 'rgba(34, 197, 94, 0.45)',
-              transform: [{ scale: pulseAnim }],
-            },
-          ]}
-          pointerEvents="none"
+          </Mask>
+        </Defs>
+        <Rect
+          width={SCREEN_WIDTH}
+          height={SCREEN_HEIGHT}
+          fill="rgba(0, 0, 0, 0.58)"
+          mask="url(#faceCutoutMask)"
         />
+      </Svg>
 
-        {/* 5. Bottom Status Text - floats directly below the circle */}
-        <View style={styles.bottomStatusWrap}>
-          {verifiedSuccess ? (
-            <View style={styles.successPill}>
-              <MaterialCommunityIcons name="check-circle" size={20} color="#22C55E" style={{ marginRight: 6 }} />
-              <Text style={styles.successPillText}>Nhận diện thành công!</Text>
-            </View>
-          ) : capturing ? (
-            <View style={styles.processingRow}>
-              <ActivityIndicator size="small" color="#22C55E" style={{ marginRight: 8 }} />
-              <Text style={styles.processingText}>Đang xử lý xác minh khuôn mặt... Vui lòng chờ...</Text>
-            </View>
-          ) : error ? (
-            <View style={styles.errorBox}>
-              <View style={styles.errorPill}>
-                <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#F87171" style={{ marginRight: 6 }} />
-                <Text style={styles.errorText} numberOfLines={2}>
-                  {error}
-                </Text>
-              </View>
-              <Pressable style={styles.retryBtn} onPress={startScanSequence}>
-                <MaterialCommunityIcons name="reload" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.retryBtnText}>Thử lại ngay</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <Text style={styles.bottomPercentText}>
-              Đang xác minh khuôn mặt... {progressPercent}%
-            </Text>
-          )}
-        </View>
+      {/* 3. Outer Smooth SVG Progress Ring (Face ID Style) */}
+      <View
+        style={[
+          styles.svgRingWrapper,
+          {
+            left: ovalLeft - 5,
+            top: ovalTop - 5,
+            width: OVAL_WIDTH + 10,
+            height: OVAL_HEIGHT + 10,
+          },
+        ]}
+        pointerEvents="none"
+      >
+        <Svg width={OVAL_WIDTH + 10} height={OVAL_HEIGHT + 10}>
+          {/* Subtle dashed/faint background track */}
+          <Rect
+            x={5}
+            y={5}
+            width={OVAL_WIDTH}
+            height={OVAL_HEIGHT}
+            rx={OVAL_RADIUS}
+            ry={OVAL_RADIUS}
+            stroke="rgba(255, 255, 255, 0.2)"
+            strokeWidth={2.5}
+            fill="none"
+          />
+          {/* Active Progress Ring */}
+          <Rect
+            x={5}
+            y={5}
+            width={OVAL_WIDTH}
+            height={OVAL_HEIGHT}
+            rx={OVAL_RADIUS}
+            ry={OVAL_RADIUS}
+            stroke={ringColor}
+            strokeWidth={4}
+            strokeDasharray={`${OVAL_PERIMETER} ${OVAL_PERIMETER}`}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            fill="none"
+          />
+        </Svg>
       </View>
 
-      {/* Close Button in top right corner */}
-      {onClose && (
-        <Pressable
-          style={[styles.closeBtn, { top: insets.top + (Platform.OS === 'ios' ? 12 : 20) }]}
-          onPress={onClose}
-          disabled={capturing || verifiedSuccess}
-        >
-          <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
-        </Pressable>
-      )}
+      {/* 4. Minimalist Oval Guide with Soft Rounded Face ID Corners */}
+      <View
+        style={[
+          styles.ovalFrame,
+          {
+            left: ovalLeft,
+            top: ovalTop,
+            width: OVAL_WIDTH,
+            height: OVAL_HEIGHT,
+            borderRadius: OVAL_RADIUS,
+            borderColor: verifiedSuccess
+              ? '#22C55E'
+              : error
+              ? '#EF4444'
+              : 'rgba(255, 255, 255, 0.4)',
+          },
+        ]}
+        pointerEvents="none"
+      >
+        {/* Apple Face ID Style Corner Brackets */}
+        <View style={[styles.cornerBracket, styles.bracketTL, { borderColor: ringColor }]} />
+        <View style={[styles.cornerBracket, styles.bracketTR, { borderColor: ringColor }]} />
+        <View style={[styles.cornerBracket, styles.bracketBL, { borderColor: ringColor }]} />
+        <View style={[styles.cornerBracket, styles.bracketBR, { borderColor: ringColor }]} />
+      </View>
 
-      {/* Success Dialog Modal - Exactly like videoplayback.mp4 (00:52) */}
+      {/* 5. Top Header with Scrim Gradient (Anti-glare on ceiling lights) */}
+      <LinearGradient
+        colors={['rgba(0, 0, 0, 0.85)', 'rgba(0, 0, 0, 0.45)', 'transparent']}
+        style={[styles.topScrim, { paddingTop: insets.top + (Platform.OS === 'ios' ? 12 : 16) }]}
+        pointerEvents="box-none"
+      >
+        <View style={styles.topHeaderRow}>
+          <View style={styles.topTitleBox}>
+            <Text style={styles.topHeaderTitle}>{title}</Text>
+            <Text style={styles.topHeaderSubtitle}>
+              {capturing
+                ? 'Đang đối soát khuôn mặt...'
+                : 'Căn chỉnh khuôn mặt vào giữa khung hình'}
+            </Text>
+          </View>
+
+          {onClose && (
+            <Pressable
+              style={styles.closeBtn}
+              onPress={onClose}
+              disabled={capturing || verifiedSuccess}
+              hitSlop={12}
+            >
+              <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
+            </Pressable>
+          )}
+        </View>
+      </LinearGradient>
+
+      {/* 6. Bottom Status Guidance Card (Frosted Glassmorphism, Human Language) */}
+      <View
+        style={[
+          styles.bottomStatusWrap,
+          {
+            top: ovalTop + OVAL_HEIGHT + 28,
+            paddingBottom: Math.max(insets.bottom, 24),
+          },
+        ]}
+      >
+        {verifiedSuccess ? (
+          <View style={styles.statusPillSuccess}>
+            <MaterialCommunityIcons name="check-circle" size={22} color="#22C55E" style={{ marginRight: 8 }} />
+            <Text style={styles.statusPillSuccessText}>Nhận diện thành công!</Text>
+          </View>
+        ) : capturing ? (
+          <View style={styles.statusPillCapturing}>
+            <ActivityIndicator size="small" color="#22C55E" style={{ marginRight: 10 }} />
+            <View>
+              <Text style={styles.statusPillTitle}>Đang đối soát dữ liệu...</Text>
+              <Text style={styles.statusPillSubtitle}>Vui lòng giữ yên điện thoại</Text>
+            </View>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <View style={styles.statusPillError}>
+              <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#F87171" style={{ marginRight: 8 }} />
+              <Text style={styles.statusPillErrorText} numberOfLines={2}>
+                {error}
+              </Text>
+            </View>
+            <Pressable style={styles.retryBtn} onPress={startScanSequence}>
+              <MaterialCommunityIcons name="reload" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.retryBtnText}>Thử lại ngay</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.statusPillDefault}>
+            <MaterialCommunityIcons name="face-recognition" size={20} color="rgba(255, 255, 255, 0.85)" style={{ marginRight: 8 }} />
+            <Text style={styles.statusPillDefaultText}>
+              Giữ yên khuôn mặt... {progressPercent}%
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* 7. Success Dialog Modal (Clean Apple / Banking standard) */}
       {verifiedSuccess && (
         <View style={styles.successModalBackdrop}>
           <Animated.View style={[styles.successModalCard, { transform: [{ scale: successScale }] }]}>
             <View style={styles.successIconCircle}>
-              <MaterialCommunityIcons name="check" size={48} color="#22C55E" />
+              <MaterialCommunityIcons name="check" size={44} color="#16A34A" />
             </View>
             <Text style={styles.successModalTitle}>
-              {mode === 'out' ? 'Bạn đã check out thành công!' : 'Bạn đã check in thành công!'}
+              {mode === 'out' ? 'Điểm danh ra ca thành công' : 'Điểm danh vào ca thành công'}
+            </Text>
+            <Text style={styles.successModalSubtitle}>
+              Dữ liệu chấm công đã được ghi nhận vào hệ thống
             </Text>
           </Animated.View>
         </View>
@@ -419,126 +478,196 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  circleCenterAnchor: {
+  // Oval Frame & Brackets
+  ovalFrame: {
     position: 'absolute',
-    left: (SCREEN_WIDTH - CIRCLE_SIZE) / 2,
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
+    borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cutoutHole: {
-    position: 'absolute',
-    width: CIRCLE_SIZE + 4000,
-    height: CIRCLE_SIZE + 4000,
-    borderRadius: (CIRCLE_SIZE + 4000) / 2,
-    borderWidth: 2000,
-    borderColor: 'rgba(0, 0, 0, 0.85)',
-  },
-  svgWrapper: {
+  svgRingWrapper: {
     position: 'absolute',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  innerAura: {
+
+  // Apple Face ID Corner Brackets
+  cornerBracket: {
     position: 'absolute',
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
-    borderWidth: 2.5,
-    opacity: 0.9,
+    width: 26,
+    height: 26,
   },
-  topCapsule: {
+  bracketTL: {
+    top: 14,
+    left: 14,
+    borderTopWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderTopLeftRadius: 16,
+  },
+  bracketTR: {
+    top: 14,
+    right: 14,
+    borderTopWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderTopRightRadius: 16,
+  },
+  bracketBL: {
+    bottom: 14,
+    left: 14,
+    borderBottomWidth: 3.5,
+    borderLeftWidth: 3.5,
+    borderBottomLeftRadius: 16,
+  },
+  bracketBR: {
+    bottom: 14,
+    right: 14,
+    borderBottomWidth: 3.5,
+    borderRightWidth: 3.5,
+    borderBottomRightRadius: 16,
+  },
+
+  // Top Scrim Header
+  topScrim: {
     position: 'absolute',
-    bottom: CIRCLE_SIZE + 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderRadius: 24,
-    paddingVertical: 10,
-    paddingHorizontal: 22,
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
+    zIndex: 20,
+  },
+  topHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    minWidth: 240,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
+    justifyContent: 'space-between',
   },
-  topCapsuleTitle: {
+  topTitleBox: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  topHeaderTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  topCapsuleSubtitle: {
-    color: '#CBD5E1',
+  topHeaderSubtitle: {
+    color: 'rgba(255, 255, 255, 0.78)',
     fontSize: 13,
     fontWeight: '500',
     marginTop: 4,
+    letterSpacing: 0.2,
   },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  // Bottom Status Pills
   bottomStatusWrap: {
     position: 'absolute',
-    top: CIRCLE_SIZE + 24,
+    left: 20,
+    right: 20,
     alignItems: 'center',
-    minHeight: 52,
     justifyContent: 'center',
-    width: SCREEN_WIDTH - 40,
+    zIndex: 20,
   },
-  bottomPercentText: {
-    color: '#22C55E',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+  statusPillDefault: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  processingRow: {
+  statusPillDefaultText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  statusPillCapturing: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.3)',
+    borderColor: 'rgba(34, 197, 94, 0.35)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  processingText: {
+  statusPillTitle: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
-  successPill: {
+  statusPillSubtitle: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  statusPillSuccess: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(6, 78, 59, 0.92)',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 22,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#22C55E',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  successPillText: {
+  statusPillSuccessText: {
     color: '#22C55E',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
+    letterSpacing: 0.2,
   },
-  errorBox: {
+  errorContainer: {
     alignItems: 'center',
+    width: '100%',
   },
-  errorPill: {
+  statusPillError: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(127, 29, 29, 0.92)',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#EF4444',
     marginBottom: 10,
     maxWidth: SCREEN_WIDTH - 60,
   },
-  errorText: {
+  statusPillErrorText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     flexShrink: 1,
   },
@@ -556,22 +685,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Close button in top right
-  closeBtn: {
-    position: 'absolute',
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    zIndex: 30,
-  },
-
-  // Modal dialog when check-in succeeds (like videoplayback.mp4 00:52)
+  // Success Modal Dialog
   successModalBackdrop: {
     position: 'absolute',
     top: 0,
@@ -594,26 +708,33 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 12,
   },
   successIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(34, 197, 94, 0.14)',
-    borderWidth: 3,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    borderWidth: 2.5,
     borderColor: '#22C55E',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   successModalTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
-    lineHeight: 26,
+    lineHeight: 25,
+  },
+  successModalSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
   },
 });
