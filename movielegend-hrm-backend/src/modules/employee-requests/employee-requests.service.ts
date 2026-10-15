@@ -199,6 +199,19 @@ export class EmployeeRequestsService {
           'Đơn nghỉ phép này đã có đơn làm bù đang chờ duyệt hoặc đã được phê duyệt.',
         );
       }
+
+      // Nghiêm cấm làm bù chéo tháng: Ngày làm bù và Ngày nghỉ phải trong cùng một tháng
+      const meta: any = dto.attachmentMetadata || {};
+      if (meta.targetLeaveDate && meta.compensatoryDate) {
+        const targetM = moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh');
+        const compM = moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh');
+        if (targetM.month() !== compM.month() || targetM.year() !== compM.year()) {
+          throw badRequest(
+            'CROSS_MONTH_COMPENSATORY_NOT_ALLOWED',
+            `Ngày làm bù (${compM.format('DD/MM/YYYY')}) và ngày nghỉ (${targetM.format('DD/MM/YYYY')}) phải nằm trong cùng một tháng. Hệ thống công ty không cho phép làm bù chéo tháng.`,
+          );
+        }
+      }
     }
 
     // Xử lý riêng cho Đơn Tạm ứng Lương (ADVANCE) - Leader sẽ trực tiếp xét duyệt
@@ -495,9 +508,14 @@ export class EmployeeRequestsService {
   }
 
   async findMine(actor: AuthenticatedUser, query: EmployeeRequestQueryDto) {
+    const isCompensatoryFilter = (query.type as string) === 'COMPENSATORY_WORK';
     const where: Prisma.EmployeeRequestWhereInput = {
       userId: actor.userId,
-      ...(query.type ? { type: query.type } : {}),
+      ...(query.type
+        ? isCompensatoryFilter
+          ? { type: EmployeeRequestType.OTHER, title: { contains: '[LÀM BÙ]' } }
+          : { type: query.type as EmployeeRequestType }
+        : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(this.businessTime.inclusiveDateRange(query.fromDate, query.toDate)
         ? { createdAt: this.businessTime.inclusiveDateRange(query.fromDate, query.toDate) }
