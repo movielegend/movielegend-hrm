@@ -181,6 +181,12 @@ export class ContractsService {
     if (!version || version.contractTemplateId !== dto.contractTemplateId) throw notFound('CONTRACT_TEMPLATE_VERSION_NOT_FOUND', 'Contract template version not found');
     if (dto.endDate && new Date(dto.endDate) < new Date(dto.startDate)) throw badRequest('INVALID_CONTRACT_DATES', 'Contract end date must be after start date');
     
+    // Kế toán lương chỉ có quyền ký hợp đồng, không được giao hoặc tạo hợp đồng cho nhân sự khác
+    const isAccountantPayroll = actor.roles?.includes('ACCOUNTANT_PAYROLL') && !actor.roles.some((r) => ['ADMIN', 'SUPER_ADMIN', 'HR', 'HR_MANAGER'].includes(r));
+    if (isAccountantPayroll) {
+      throw forbidden('FORBIDDEN', 'Kế toán lương chỉ có quyền ký duyệt hợp đồng, không có quyền giao hoặc tạo hợp đồng cho nhân sự khác');
+    }
+
     // Scope check: nếu actor bị giới hạn theo miền/phòng ban, nhân viên nhận hợp đồng phải thuộc phạm vi đó
     const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
     if (visibleDepts !== null) {

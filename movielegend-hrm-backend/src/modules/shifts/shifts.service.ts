@@ -118,6 +118,18 @@ export class ShiftsService {
       }
     }
 
+    // Tự động tính breakMinutes nếu sửa giờ nghỉ
+    const finalBreakStart = dto.breakStartTime !== undefined ? dto.breakStartTime : (shift as any).breakStartTime;
+    const finalBreakEnd = dto.breakEndTime !== undefined ? dto.breakEndTime : (shift as any).breakEndTime;
+    if (finalBreakStart && finalBreakEnd) {
+      const [bsh, bsm] = finalBreakStart.split(':').map(Number);
+      const [beh, bem] = finalBreakEnd.split(':').map(Number);
+      let bDiff = (beh * 60 + bem) - (bsh * 60 + bsm);
+      if (bDiff < 0) bDiff += 24 * 60;
+      dto.breakMinutes = bDiff;
+    } else if (dto.breakStartTime === null || dto.breakEndTime === null) {
+      dto.breakMinutes = 0;
+    }
     const updatedShift = await this.prisma.shift.update({
       where: { id },
       data: dto,
