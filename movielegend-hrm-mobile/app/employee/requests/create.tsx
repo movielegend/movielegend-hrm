@@ -2419,9 +2419,9 @@ export default function CreateRequestScreen() {
               {/* Estimated OT Duration Banner */}
               {otDuration && (
                 <View style={styles.otDurationBanner}>
-                  <MaterialCommunityIcons name="timer-sand" size={18} color="#059669" />
+                  <MaterialCommunityIcons name="timer-sand" size={18} color="#102739" />
                   <Text style={styles.otDurationBannerText}>
-                    Tổng thời gian làm thêm dự kiến: <Text style={{ fontWeight: '800', color: '#047857' }}>{otDuration.durationText}</Text>
+                    Tổng thời gian làm thêm dự kiến: <Text style={{ fontWeight: '800', color: '#102739' }}>{otDuration.durationText}</Text>
                   </Text>
                 </View>
               )}
@@ -2460,7 +2460,7 @@ export default function CreateRequestScreen() {
                     <MaterialCommunityIcons 
                       name={photoUri ? "check-circle" : "file-image-outline"} 
                       size={20} 
-                      color={photoUri ? "#059669" : "#475569"} 
+                      color={photoUri ? "#102739" : "#475569"} 
                     />
                     <Text style={[styles.expenseProofBtnText, photoUri && styles.expenseProofBtnTextActive]}>
                       Chọn từ máy
@@ -2718,7 +2718,7 @@ export default function CreateRequestScreen() {
 
               {/* Bank Info Header */}
               <View style={styles.advanceSectionHeaderRow}>
-                <MaterialCommunityIcons name="bank" size={18} color="#059669" />
+                <MaterialCommunityIcons name="bank" size={18} color="#102739" />
                 <Text style={styles.advanceSectionHeaderTitle}>Tài khoản nhận tiền (Kế toán chi lương)</Text>
               </View>
 
@@ -2882,7 +2882,7 @@ export default function CreateRequestScreen() {
                     <MaterialCommunityIcons 
                       name={photoUri ? "check-circle" : "file-image-outline"} 
                       size={20} 
-                      color={photoUri ? "#059669" : "#475569"} 
+                      color={photoUri ? "#102739" : "#475569"} 
                     />
                     <Text style={[styles.expenseProofBtnText, photoUri && styles.expenseProofBtnTextActive]}>
                       Chọn từ máy
@@ -4688,12 +4688,12 @@ const styles = StyleSheet.create({
     color: '#0284C7',
   },
   advanceWorkflowBox: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#F0F4F8',
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#DCFCE7',
+    borderColor: '#D8E2EC',
     marginBottom: 16,
   },
   advanceStepsContainer: {
@@ -4715,7 +4715,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   advanceStepCircleActive: {
-    backgroundColor: '#059669',
+    backgroundColor: '#102739',
   },
   advanceStepNum: {
     fontSize: 12,
@@ -4725,7 +4725,7 @@ const styles = StyleSheet.create({
   advanceStepName: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#102739',
     marginBottom: 2,
     textAlign: 'center',
   },
@@ -4778,8 +4778,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   advanceChipActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#059669',
+    backgroundColor: '#E7F0F7',
+    borderColor: '#102739',
   },
   advanceChipText: {
     fontSize: 12,
@@ -4787,7 +4787,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   advanceChipTextActive: {
-    color: '#059669',
+    color: '#102739',
     fontWeight: '700',
   },
   advanceSectionHeaderRow: {
@@ -4828,8 +4828,8 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   advanceBankChipActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#059669',
+    backgroundColor: '#E7F0F7',
+    borderColor: '#102739',
   },
   advanceBankChipText: {
     fontSize: 11,
@@ -4837,7 +4837,7 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   advanceBankChipTextActive: {
-    color: '#059669',
+    color: '#102739',
     fontWeight: '700',
   },
   advanceInputRow: {
@@ -4925,8 +4925,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   expenseProofBtnActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: '#E7F0F7',
+    borderColor: '#CBD5E1',
   },
   expenseProofBtnText: {
     fontSize: 13,
@@ -4934,15 +4934,15 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   expenseProofBtnTextActive: {
-    color: '#059669',
+    color: '#102739',
     fontWeight: '700',
   },
   otDurationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#F0F4F8',
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#D8E2EC',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -4951,7 +4951,7 @@ const styles = StyleSheet.create({
   },
   otDurationBannerText: {
     fontSize: 13,
-    color: '#065F46',
+    color: '#102739',
     flex: 1,
     fontWeight: '600',
   },
