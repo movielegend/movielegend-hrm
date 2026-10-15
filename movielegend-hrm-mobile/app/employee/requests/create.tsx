@@ -494,7 +494,16 @@ export default function CreateRequestScreen() {
       setToDate(chosen);
     } else if (showDatePicker === 'target_leave') {
       setTargetLeaveDate(chosen);
+      if (compensatoryDate && (chosen.getMonth() !== compensatoryDate.getMonth() || chosen.getFullYear() !== compensatoryDate.getFullYear())) {
+        showAlert('Lưu ý', `Ngày nghỉ (${chosen.getDate()}/${chosen.getMonth() + 1}) khác tháng với ngày làm bù. Vui lòng chọn lại ngày làm bù trong cùng tháng ${chosen.getMonth() + 1}/${chosen.getFullYear()}.`);
+        setCompensatoryDate(null);
+      }
     } else if (showDatePicker === 'compensatory') {
+      if (targetLeaveDate && (chosen.getMonth() !== targetLeaveDate.getMonth() || chosen.getFullYear() !== targetLeaveDate.getFullYear())) {
+        showAlert('Không hợp lệ', `Ngày làm bù (${chosen.getDate()}/${chosen.getMonth() + 1}) phải nằm trong cùng tháng ${targetLeaveDate.getMonth() + 1}/${targetLeaveDate.getFullYear()} với ngày nghỉ. Không cho phép làm bù chéo tháng.`);
+        setShowDatePicker(null);
+        return;
+      }
       setCompensatoryDate(chosen);
     }
     setShowDatePicker(null);
@@ -798,6 +807,18 @@ export default function CreateRequestScreen() {
       if (!compensatoryDate) {
         showAlert('Lỗi', 'Vui lòng chọn Ngày thực hiện làm bù.');
         return;
+      }
+      if (targetLeaveDate && compensatoryDate) {
+        if (
+          targetLeaveDate.getMonth() !== compensatoryDate.getMonth() ||
+          targetLeaveDate.getFullYear() !== compensatoryDate.getFullYear()
+        ) {
+          showAlert(
+            'Không hợp lệ',
+            `Ngày làm bù (${compensatoryDate.getDate()}/${compensatoryDate.getMonth() + 1}/${compensatoryDate.getFullYear()}) và ngày nghỉ (${targetLeaveDate.getDate()}/${targetLeaveDate.getMonth() + 1}/${targetLeaveDate.getFullYear()}) phải nằm trong cùng một tháng. Hệ thống không cho phép làm bù chéo tháng.`,
+          );
+          return;
+        }
       }
       if (!compensatoryShift) {
         showAlert('Lỗi', 'Vui lòng chọn Ca làm bù.');
