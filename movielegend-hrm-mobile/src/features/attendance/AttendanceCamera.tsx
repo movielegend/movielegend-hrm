@@ -86,7 +86,7 @@ export function AttendanceCamera({
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.65,
+        quality: 0.85,
         skipProcessing: false,
       });
 
