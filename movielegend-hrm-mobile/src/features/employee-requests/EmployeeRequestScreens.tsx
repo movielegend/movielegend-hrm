@@ -1004,18 +1004,31 @@ export function EmployeeRequestDetailScreen() {
               </View>
             ) : null}
 
-            {meta.disbursementProofUrl && (
-              <View style={[styles.attachmentBox, { marginTop: 16, backgroundColor: '#F0FDF4', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#BBF7D0' }]}>
-                <Text style={[styles.attachmentLabel, { color: '#15803D' }]}>Biên lai / Chứng từ giải ngân từ Kế toán:</Text>
-                <TouchableOpacity onPress={() => setSelectedImage(resolveFileUrl(meta.disbursementProofUrl) || meta.disbursementProofUrl)}>
-                  <Image 
-                    source={{ uri: resolveFileUrl(meta.disbursementProofUrl) || meta.disbursementProofUrl }} 
-                    style={styles.evidenceImage} 
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
-              </View>
-            )}
+            {(() => {
+              const disburseStep = Array.isArray(meta.approvalSteps) ? meta.approvalSteps.find((s: any) => s.action === 'DISBURSED' || s.action === 'DISBURSED_TO_HR') : undefined;
+              const proofUrl = meta.disbursementProofUrl || disburseStep?.disbursementProofUrl;
+              const bankRef = meta.bankRefCode || disburseStep?.bankRefCode;
+              if (!proofUrl && !bankRef) return null;
+              return (
+                <View style={[styles.attachmentBox, { marginTop: 16, backgroundColor: '#F0FDF4', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#BBF7D0' }]}>
+                  <Text style={[styles.attachmentLabel, { color: '#15803D' }]}>Biên lai / Chứng từ giải ngân:</Text>
+                  {bankRef ? (
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#166534', marginBottom: 6 }}>
+                      Mã giao dịch ngân hàng / UNC: {bankRef}
+                    </Text>
+                  ) : null}
+                  {proofUrl ? (
+                    <TouchableOpacity onPress={() => setSelectedImage(resolveFileUrl(proofUrl) || proofUrl)}>
+                      <Image 
+                        source={{ uri: resolveFileUrl(proofUrl) || proofUrl }} 
+                        style={styles.evidenceImage} 
+                        resizeMode="contain"
+                      />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              );
+            })()}
           </View>
         </View>
 

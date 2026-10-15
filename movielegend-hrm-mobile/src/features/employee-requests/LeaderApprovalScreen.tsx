@@ -158,7 +158,7 @@ export function LeaderApprovalScreen() {
   };
 
   const handleConfirmDisburse = async () => {
-    if (!disbursementProofUri && !isAdmin) {
+    if (!disbursementProofUri) {
       showAlert('Yêu cầu ảnh bill', 'Vui lòng tải lên hoặc chụp ảnh bill chuyển khoản / ủy nhiệm chi để hoàn tất giải ngân.');
       return;
     }
@@ -520,6 +520,10 @@ export function LeaderApprovalScreen() {
     : {};
   const stage = meta.stage || 'PENDING';
   const approvalSteps = Array.isArray(meta.approvalSteps) ? meta.approvalSteps : [];
+  const disburseStep = approvalSteps.find((s: any) => s.action === 'DISBURSED' || s.action === 'DISBURSED_TO_HR');
+  const disbursementProofUrl = meta.disbursementProofUrl || disburseStep?.disbursementProofUrl;
+  const bankRefCode = meta.bankRefCode || disburseStep?.bankRefCode;
+  const isDisbursedOrPurchasing = stage === 'PENDING_HR_PURCHASE' || stage === 'DISBURSED' || Boolean(disburseStep) || Boolean(disbursementProofUrl);
   const isNonVatOver2M = isFinancial && request.type === 'EXPENSE' && !meta.hasVat && amount > 2000000;
   const isCompensatory = (request.type as string) === 'COMPENSATORY_WORK' ||
     Boolean(request.title?.includes('[LÀM BÙ]')) ||
@@ -1463,31 +1467,117 @@ export function LeaderApprovalScreen() {
           </View>
         )}
 
-        {/* Disbursement receipt if any */}
-        {meta.disbursementProofUrl && (
-          <View style={[styles.card, shadows.sm]}>
+        {/* 4.5. Thông tin & Chứng từ giải ngân */}
+        {isDisbursedOrPurchasing && (
+          <View style={[styles.card, shadows.sm, { borderColor: '#86EFAC', borderWidth: 1 }]}>
             <View style={styles.cardHeaderWithCount}>
-              <Text style={styles.metaSectionTitle}>Biên lai giải ngân</Text>
-              <Text style={styles.attachmentCountBadge}>1 ảnh</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="cash-check" size={20} color="#059669" style={{ marginRight: 6 }} />
+                <Text style={[styles.metaSectionTitle, { color: '#059669', marginBottom: 0 }]}>
+                  {request.type === 'PURCHASE' ? 'Chứng từ giải ngân cho HR mua sắm' : 'Chứng từ giải ngân / Thanh toán'}
+                </Text>
+              </View>
+              <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534' }}>
+                  {request.type === 'PURCHASE' ? 'Đã cấp ngân sách cho HR' : 'Đã giải ngân'}
+                </Text>
+              </View>
             </View>
 
-            <TouchableOpacity 
-              activeOpacity={0.9}
-              onPress={() => setSelectedImage(meta.disbursementProofUrl)}
-              style={styles.imageCardContainer}
-            >
-              <Image 
-                source={{ uri: meta.disbursementProofUrl }} 
-                style={styles.imageCardDisplay} 
-                resizeMode="cover"
-              />
-              <View style={styles.imageCardOverlay}>
-                <View style={styles.imageCardBadge}>
-                  <MaterialCommunityIcons name="magnify-plus-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-                  <Text style={styles.imageCardBadgeText}>Chạm để xem chi tiết</Text>
-                </View>
+            {/* Details summary */}
+            <View style={{ marginTop: 10, backgroundColor: '#F0FDF4', padding: 12, borderRadius: 10, gap: 6 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, color: '#4B5563', fontWeight: '500' }}>Số tiền đã giải ngân:</Text>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: '#059669' }}>
+                  {((request.type === 'PURCHASE' && meta.adjustedAmount ? Number(meta.adjustedAmount) : amount) || 0).toLocaleString('vi-VN')} VNĐ
+                </Text>
               </View>
-            </TouchableOpacity>
+
+              {disburseStep?.actorName ? (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: '#4B5563', fontWeight: '500' }}>Cấp duyệt giải ngân:</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#1F2937' }}>
+                    {disburseStep.actorName} {disburseStep.at ? `(${new Date(disburseStep.at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})` : ''}
+                  </Text>
+                </View>
+              ) : null}
+
+              {request.type === 'PURCHASE' && meta.hrBank ? (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Text style={{ fontSize: 13, color: '#4B5563', fontWeight: '500' }}>Tài khoản HR nhận:</Text>
+                  <View style={{ alignItems: 'flex-end', flex: 1, marginLeft: 8 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>
+                      {meta.hrBank.accountHolder || 'HR tiếp nhận'}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#4B5563' }}>
+                      STK: {meta.hrBank.bankAccount} · {meta.hrBank.bankName}
+                    </Text>
+                  </View>
+                </View>
+              ) : (meta.beneficiaryName || meta.beneficiaryAccount || meta.beneficiaryBank) ? (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Text style={{ fontSize: 13, color: '#4B5563', fontWeight: '500' }}>Tài khoản thụ hưởng:</Text>
+                  <View style={{ alignItems: 'flex-end', flex: 1, marginLeft: 8 }}>
+                    {meta.beneficiaryName ? (
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1F2937' }}>
+                        {meta.beneficiaryName}
+                      </Text>
+                    ) : null}
+                    <Text style={{ fontSize: 12, color: '#4B5563' }}>
+                      {meta.beneficiaryAccount ? `STK: ${meta.beneficiaryAccount}` : ''}
+                      {meta.beneficiaryBank ? ` · ${meta.beneficiaryBank}` : ''}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {bankRefCode ? (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 13, color: '#4B5563', fontWeight: '500' }}>Mã GD ngân hàng / UNC:</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>
+                    {bankRefCode}
+                  </Text>
+                </View>
+              ) : null}
+
+              {disburseStep?.note ? (
+                <View style={{ marginTop: 2, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#DCFCE7' }}>
+                  <Text style={{ fontSize: 12, color: '#4B5563', fontStyle: 'italic' }}>
+                    " {disburseStep.note} "
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {/* Bill Image View */}
+            <View style={{ marginTop: 12 }}>
+              {disbursementProofUrl ? (
+                <TouchableOpacity 
+                  activeOpacity={0.9}
+                  onPress={() => setSelectedImage(resolveFileUrl(disbursementProofUrl) || disbursementProofUrl)}
+                  style={styles.imageCardContainer}
+                >
+                  <Image 
+                    source={{ uri: resolveFileUrl(disbursementProofUrl) || disbursementProofUrl }} 
+                    style={styles.imageCardDisplay} 
+                    resizeMode="cover"
+                  />
+                  <View style={styles.imageCardOverlay}>
+                    <View style={styles.imageCardBadge}>
+                      <MaterialCommunityIcons name="magnify-plus-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.imageCardBadgeText}>Chạm để xem ảnh bill phóng to</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <View style={{ backgroundColor: '#FEF3C7', padding: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
+                  <MaterialCommunityIcons name="information-outline" size={18} color="#B45309" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 12, color: '#92400E', flex: 1 }}>
+                    Admin/Kế toán đã duyệt giải ngân trực tiếp (chưa đính kèm ảnh chụp biên lai). Vui lòng kiểm tra biến động số dư tài khoản nhận tiền.
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
         )}
 
@@ -1498,7 +1588,8 @@ export function LeaderApprovalScreen() {
 
             {approvalSteps.map((step: any, idx: number) => {
               const isRejected = step.action === 'REJECTED';
-              const isDisbursed = step.action === 'DISBURSED';
+              const isDisbursed = step.action === 'DISBURSED' || step.action === 'DISBURSED_TO_HR';
+              const stepProof = step.disbursementProofUrl;
               return (
                 <View key={idx} style={{ marginTop: idx === 0 ? 4 : 12 }}>
                   <View style={styles.historyStepRow}>
@@ -1513,7 +1604,7 @@ export function LeaderApprovalScreen() {
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Text style={styles.historyActorName}>{step.actorName || 'Cấp duyệt'}</Text>
                         <Text style={[styles.historyStatusText, { color: isRejected ? '#DC2626' : '#166534' }]}>
-                          {isRejected ? 'Từ chối' : isDisbursed ? 'Đã giải ngân' : 'Đã duyệt'}
+                          {isRejected ? 'Từ chối' : step.action === 'DISBURSED_TO_HR' ? 'Đã chi HR mua hàng' : isDisbursed ? 'Đã giải ngân' : 'Đã duyệt'}
                         </Text>
                       </View>
                       <Text style={styles.historyTimeText}>
@@ -1535,6 +1626,25 @@ export function LeaderApprovalScreen() {
                       <Text style={styles.noteBoxLabel}>Ghi chú:</Text>
                       <Text style={styles.noteBoxContent}>{step.note}</Text>
                     </View>
+                  ) : null}
+
+                  {step.bankRefCode ? (
+                    <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="bank-transfer" size={14} color="#2563EB" style={{ marginRight: 4 }} />
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#2563EB' }}>
+                        Mã GD: {step.bankRefCode}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {stepProof ? (
+                    <TouchableOpacity 
+                      onPress={() => setSelectedImage(resolveFileUrl(stepProof) || stepProof)}
+                      style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0FDF4', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6, alignSelf: 'flex-start', borderWidth: 1, borderColor: '#BBF7D0' }}
+                    >
+                      <MaterialCommunityIcons name="file-document-outline" size={14} color="#166534" style={{ marginRight: 4 }} />
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534' }}>Xem bill đính kèm bước này</Text>
+                    </TouchableOpacity>
                   ) : null}
                 </View>
               );
