@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import sharp from 'sharp';
+import { MOVIELEGEND_LOGO_WHITE_BASE64 } from './movielegend-logo.constant';
 
 export interface WatermarkData {
   employeeName: string;
@@ -23,7 +24,7 @@ export class ImageProcessingService {
 
       // 2. Tỉ lệ scale co giãn linh hoạt theo độ phân giải ảnh (chuẩn 720px)
       const scale = Math.max(0.65, Math.min(width / 720, 1.8));
-      const margin = Math.round(16 * scale);
+      const margin = Math.round(18 * scale);
 
       // Thoát ký tự đặc biệt XML
       const escapeXml = (unsafe: string) =>
@@ -39,15 +40,25 @@ export class ImageProcessingService {
       const safeEmployeeName = escapeXml(data.employeeName);
       const safeUserCode = escapeXml(data.userCode);
 
-      // Logo Top-Left: Tự động co giãn theo chiều dài tên công ty
+      // Logo Top-Left: Tự động co giãn theo tỉ lệ ảnh, dùng logo chính thức
+      const isMovieLegend = !data.companyName || data.companyName.toLowerCase().includes('movielegend') || data.companyName.toLowerCase().includes('movie legend');
+      const logoHeight = Math.round(20 * scale);
+      const logoWidth = Math.round(logoHeight * 10.244); // Tỷ lệ chuẩn của logo MovieLegend (840x82)
+      const logoPadX = Math.round(14 * scale);
+      const logoPadY = Math.round(9 * scale);
+      const logoBoxWidth = isMovieLegend 
+        ? (logoWidth + logoPadX * 2) 
+        : Math.round(Math.max(companyName.length * 11.5 + 28, 140) * scale);
+      const logoBoxHeight = isMovieLegend 
+        ? (logoHeight + logoPadY * 2) 
+        : Math.round(38 * scale);
+      const logoBoxRx = Math.round(8 * scale);
       const logoFontSize = Math.round(18 * scale);
-      const logoBoxWidth = Math.round(Math.max(companyName.length * 11.5 + 28, 140) * scale);
-      const logoBoxHeight = Math.round(38 * scale);
 
       // Info Card Bottom: Tự động ôm vừa vặn chiều ngang ảnh, không bao giờ bị tràn lề
       const cardMargin = margin;
       const cardWidth = width - cardMargin * 2;
-      const cardHeight = Math.round(108 * scale);
+      const cardHeight = Math.round(112 * scale);
       const cardY = height - cardHeight - cardMargin;
       const cardRx = Math.round(10 * scale);
 
@@ -71,7 +82,7 @@ export class ImageProcessingService {
 
       // SVG banner phủ lên ảnh
       const svgImage = `
-        <svg width="${width}" height="${height}">
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
           <defs>
             <linearGradient id="cardGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stop-color="rgba(15, 23, 42, 0.78)" />
@@ -80,13 +91,17 @@ export class ImageProcessingService {
           </defs>
           <style>
             .title { fill: #FFFFFF; font-size: ${titleFontSize}px; font-weight: bold; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-            .subtitle { fill: #E2E8F0; font-size: ${subFontSize}px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+            .subtitle { fill: #CBD5E1; font-size: ${subFontSize}px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
             .brand { fill: #FFFFFF; font-size: ${logoFontSize}px; font-weight: 800; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; letter-spacing: 0.5px; }
           </style>
           
           <!-- Logo area (Top Left) -->
-          <rect x="${margin}" y="${margin}" width="${logoBoxWidth}" height="${logoBoxHeight}" rx="${6 * scale}" fill="rgba(15, 23, 42, 0.78)" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
-          <text x="${margin + 14 * scale}" y="${margin + 25 * scale}" class="brand">${safeCompanyName}</text>
+          <rect x="${margin}" y="${margin}" width="${logoBoxWidth}" height="${logoBoxHeight}" rx="${logoBoxRx}" fill="rgba(15, 23, 42, 0.82)" stroke="rgba(255,255,255,0.22)" stroke-width="1" />
+          ${
+            isMovieLegend
+              ? `<image x="${margin + logoPadX}" y="${margin + logoPadY}" width="${logoWidth}" height="${logoHeight}" href="data:image/png;base64,${MOVIELEGEND_LOGO_WHITE_BASE64}" />`
+              : `<text x="${margin + 14 * scale}" y="${margin + 25 * scale}" class="brand">${safeCompanyName}</text>`
+          }
 
           <!-- Info card (Bottom) -->
           <rect x="${cardMargin}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="${cardRx}" fill="url(#cardGrad)" stroke="rgba(255,255,255,0.18)" stroke-width="1" />
@@ -95,9 +110,9 @@ export class ImageProcessingService {
           <rect x="${cardMargin}" y="${cardY}" width="${4 * scale}" height="${cardHeight}" rx="${2 * scale}" fill="#0284C7" />
 
           <!-- Thông tin nhân sự, tọa độ, thời gian -->
-          <text x="${cardMargin + 16 * scale}" y="${cardY + 30 * scale}" class="title">${safeEmployeeName} (${safeUserCode})</text>
-          <text x="${cardMargin + 16 * scale}" y="${cardY + 30 * scale + lineSpacing}" class="subtitle">Lat: ${latString}, Lng: ${lonString}</text>
-          <text x="${cardMargin + 16 * scale}" y="${cardY + 30 * scale + lineSpacing * 2}" class="subtitle">Time: ${timeStr}</text>
+          <text x="${cardMargin + 16 * scale}" y="${cardY + 32 * scale}" class="title">${safeEmployeeName} (${safeUserCode})</text>
+          <text x="${cardMargin + 16 * scale}" y="${cardY + 32 * scale + lineSpacing}" class="subtitle">Lat: ${latString}, Lng: ${lonString}</text>
+          <text x="${cardMargin + 16 * scale}" y="${cardY + 32 * scale + lineSpacing * 2}" class="subtitle">Time: ${timeStr}</text>
         </svg>
       `;
 
