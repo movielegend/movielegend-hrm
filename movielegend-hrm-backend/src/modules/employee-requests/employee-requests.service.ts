@@ -1370,7 +1370,7 @@ export class EmployeeRequestsService {
         : {};
       const currentStage = currentMeta.stage || 'PENDING';
 
-      if (currentStage === 'PENDING_LEADER') {
+      if (currentStage === 'PENDING_LEADER' || currentStage === 'PENDING') {
         const isLeader = request.department?.leaderUserId === actor.userId || canDeptAccess;
         if (!isLeader && !isGlobalAdmin) {
           throw forbidden('FORBIDDEN', 'Chỉ Trưởng bộ phận hoặc Quản trị viên quản lý mới có quyền từ chối bước này.');
@@ -1388,6 +1388,13 @@ export class EmployeeRequestsService {
         if (!isAccLead) {
           throw forbidden('FORBIDDEN', 'Chỉ Kế toán trưởng (Trưởng phòng Kế toán) hoặc Ban Giám Đốc mới có quyền từ chối bước này.');
         }
+      } else if (currentStage === 'PENDING_HR_PURCHASE') {
+        throw badRequest(
+          'CANNOT_REJECT_DISBURSED_PURCHASE',
+          'Đề xuất mua sắm này đã được Ban Giám Đốc/Kế toán giải ngân kinh phí cho HR mua hàng. Không thể từ chối đơn ở giai đoạn này.',
+        );
+      } else {
+        throw badRequest('INVALID_STAGE', `Giai đoạn ${currentStage} không hỗ trợ từ chối.`);
       }
     }
 
