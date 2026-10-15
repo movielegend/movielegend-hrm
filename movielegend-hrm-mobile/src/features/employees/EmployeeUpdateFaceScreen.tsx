@@ -520,8 +520,8 @@ export function EmployeeUpdateFaceScreen() {
 
       {/* 4. Top Header with Scrim Gradient & Stepper */}
       <LinearGradient
-        colors={['rgba(0, 0, 0, 0.88)', 'rgba(0, 0, 0, 0.45)', 'transparent']}
-        style={[styles.topScrim, { paddingTop: insets.top + (Platform.OS === 'ios' ? 10 : 16) }]}
+        colors={['rgba(0, 0, 0, 0.90)', 'rgba(0, 0, 0, 0.55)', 'rgba(0, 0, 0, 0.15)', 'transparent']}
+        style={[styles.topScrim, { paddingTop: insets.top + (Platform.OS === 'ios' ? 8 : 12) }]}
         pointerEvents="box-none"
       >
         <View style={styles.topHeaderBar}>
@@ -943,7 +943,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   backBtn: {
     width: 40,
@@ -966,24 +966,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   stepperCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingTop: 12,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
+    backgroundColor: 'transparent',
+    paddingTop: 4,
+    paddingBottom: 4,
+    paddingHorizontal: 8,
     marginHorizontal: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 5,
   },
   stepCounterText: {
-    color: '#64748B',
-    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   stepperRow: {
     flexDirection: 'row',
@@ -996,52 +994,63 @@ const styles = StyleSheet.create({
     minWidth: 70,
   },
   stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCircleActive: {
-    backgroundColor: '#0A2540',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   stepCircleDone: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#22C55E',
   },
   stepCircleInactive: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   stepCircleText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   stepCircleTextActive: {
-    color: '#FFFFFF',
+    color: '#0F172A',
+    fontWeight: '800',
   },
   stepCircleTextInactive: {
-    color: '#64748B',
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   stepLine: {
     flex: 1,
     height: 2,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     marginBottom: 20,
-    marginHorizontal: 4,
+    marginHorizontal: 6,
   },
   stepLineActive: {
-    backgroundColor: '#94A3B8',
+    backgroundColor: '#22C55E',
   },
   stepLabelText: {
     fontSize: 12,
     marginTop: 6,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   stepLabelTextActive: {
-    color: '#0A2540',
-    fontWeight: '800',
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   stepLabelTextInactive: {
-    color: '#64748B',
+    color: 'rgba(255, 255, 255, 0.55)',
     fontWeight: '500',
   },
 
