@@ -302,6 +302,7 @@ export default function CreateRequestScreen() {
   };
 
   const leaveDurationTypes = ["1/2 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
+  const leaveTypes = ["Nghỉ phép năm", "Nghỉ ốm", "Nghỉ không lương", "Thai sản", "Khác"];
   const explanationTypes = [
     "Quên Check-in",
     "Quên Check-out",
