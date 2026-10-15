@@ -205,39 +205,15 @@ export class AttendanceReportService {
       }),
     ];
 
-    // Thu thập tất cả các đơn làm bù (COMPENSATORY_WORK) hợp lệ
+    // Thu thập tất cả các đơn làm bù (COMPENSATORY_WORK) hợp lệ (trong cùng tháng)
     const allCompRequests = lateRequestsRaw.filter(r => {
       const meta: any = r.attachmentMetadata;
       const isComp = (r.type as string) === 'COMPENSATORY_WORK' || r.title?.includes('[LÀM BÙ]') || meta?.requestType === 'COMPENSATORY_WORK';
       return isComp && meta && meta.compensationStatus !== 'CANCELLED';
     });
 
-    const externalCompDates: Date[] = [];
-    for (const r of allCompRequests) {
-      const meta: any = r.attachmentMetadata;
-      if (meta?.compensatoryDate) {
-        const d = new Date(meta.compensatoryDate);
-        if (d < start || d > end) {
-          externalCompDates.push(d);
-        }
-      }
-    }
-
-    const externalCompRecords = externalCompDates.length > 0
-      ? await this.prisma.attendanceRecord.findMany({
-          where: {
-            userId: { in: userIds },
-            workDate: { in: externalCompDates },
-          },
-          include: {
-            shiftAssignment: { include: { shift: true } },
-          },
-        }).catch(() => [])
-      : [];
-
-    const allAttendanceRecords = [...records, ...externalCompRecords];
     const userDateRecordMap = new Map<string, any>();
-    for (const rec of allAttendanceRecords) {
+    for (const rec of records) {
       const dStr = moment.tz(rec.workDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
       userDateRecordMap.set(`${rec.userId}_${dStr}`, rec);
     }
