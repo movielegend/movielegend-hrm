@@ -378,7 +378,7 @@ export function EmployeeUpdateFaceScreen() {
 
   // Eye-level vertical position
   const availableHeight = SCREEN_HEIGHT - insets.top - insets.bottom;
-  const ovalCenterY = insets.top + availableHeight * 0.44;
+  const ovalCenterY = insets.top + availableHeight * 0.47;
   const ovalTop = Math.round(ovalCenterY - OVAL_HEIGHT / 2);
   const ovalLeft = Math.round((SCREEN_WIDTH - OVAL_WIDTH) / 2);
 
@@ -518,9 +518,9 @@ export function EmployeeUpdateFaceScreen() {
         ) : null}
       </View>
 
-      {/* 4. Top Header with Scrim Gradient & 3 Step Indicators */}
+      {/* 4. Top Header with Scrim Gradient & Stepper */}
       <LinearGradient
-        colors={['rgba(0, 0, 0, 0.88)', 'rgba(0, 0, 0, 0.5)', 'transparent']}
+        colors={['rgba(0, 0, 0, 0.88)', 'rgba(0, 0, 0, 0.45)', 'transparent']}
         style={[styles.topScrim, { paddingTop: insets.top + (Platform.OS === 'ios' ? 10 : 16) }]}
         pointerEvents="box-none"
       >
@@ -531,49 +531,143 @@ export function EmployeeUpdateFaceScreen() {
 
           <View style={styles.headerTitleBox}>
             <Text style={styles.headerMainTitle}>Đăng ký khuôn mặt</Text>
-            <Text style={styles.headerSubTitle}>
-              Bước {activePoseIndex + 1}/3: {POSE_INFO[activePose].shortLabel}
-            </Text>
           </View>
 
           <View style={{ width: 40 }} />
         </View>
 
-        {/* 3-Step Pose Pills (Face ID Style) */}
-        <View style={styles.stepPillRow}>
-          {POSES.map((pose, index) => {
-            const isCaptured = Boolean(capturedPhotos[pose]);
-            const isActive = index === activePoseIndex;
-            return (
+        {/* Stepper Card matching user design */}
+        <View style={styles.stepperCard}>
+          <Text style={styles.stepCounterText}>Bước {activePoseIndex + 1} / 3</Text>
+
+          <View style={styles.stepperRow}>
+            {/* Step 1: Nhìn thẳng */}
+            <View style={styles.stepCol}>
               <View
-                key={pose}
                 style={[
-                  styles.stepPillItem,
-                  isActive && styles.stepPillActive,
-                  isCaptured && styles.stepPillCaptured,
+                  styles.stepCircle,
+                  activePoseIndex === 0
+                    ? styles.stepCircleActive
+                    : capturedPhotos.FRONT
+                    ? styles.stepCircleDone
+                    : styles.stepCircleInactive,
                 ]}
               >
-                {isCaptured ? (
-                  <Ionicons name="checkmark-circle" size={16} color="#22C55E" style={{ marginRight: 6 }} />
+                {capturedPhotos.FRONT && activePoseIndex !== 0 ? (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
                 ) : (
-                  <View style={[styles.stepNumDot, isActive && styles.stepNumDotActive]}>
-                    <Text style={[styles.stepNumText, isActive && styles.stepNumTextActive]}>
-                      {index + 1}
-                    </Text>
-                  </View>
+                  <Text
+                    style={[
+                      styles.stepCircleText,
+                      activePoseIndex === 0 || capturedPhotos.FRONT
+                        ? styles.stepCircleTextActive
+                        : styles.stepCircleTextInactive,
+                    ]}
+                  >
+                    1
+                  </Text>
                 )}
-                <Text
-                  style={[
-                    styles.stepPillLabel,
-                    isActive && styles.stepPillLabelActive,
-                    isCaptured && styles.stepPillLabelCaptured,
-                  ]}
-                >
-                  {POSE_INFO[pose].shortLabel}
-                </Text>
               </View>
-            );
-          })}
+              <Text
+                style={[
+                  styles.stepLabelText,
+                  activePoseIndex === 0 ? styles.stepLabelTextActive : styles.stepLabelTextInactive,
+                ]}
+              >
+                Nhìn thẳng
+              </Text>
+            </View>
+
+            {/* Connecting line 1 -> 2 */}
+            <View
+              style={[
+                styles.stepLine,
+                (activePoseIndex >= 1 || capturedPhotos.FRONT) && styles.stepLineActive,
+              ]}
+            />
+
+            {/* Step 2: Nghiêng trái */}
+            <View style={styles.stepCol}>
+              <View
+                style={[
+                  styles.stepCircle,
+                  activePoseIndex === 1
+                    ? styles.stepCircleActive
+                    : capturedPhotos.LEFT
+                    ? styles.stepCircleDone
+                    : styles.stepCircleInactive,
+                ]}
+              >
+                {capturedPhotos.LEFT && activePoseIndex !== 1 ? (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                ) : (
+                  <Text
+                    style={[
+                      styles.stepCircleText,
+                      activePoseIndex === 1 || capturedPhotos.LEFT
+                        ? styles.stepCircleTextActive
+                        : styles.stepCircleTextInactive,
+                    ]}
+                  >
+                    2
+                  </Text>
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.stepLabelText,
+                  activePoseIndex === 1 ? styles.stepLabelTextActive : styles.stepLabelTextInactive,
+                ]}
+              >
+                Nghiêng trái
+              </Text>
+            </View>
+
+            {/* Connecting line 2 -> 3 */}
+            <View
+              style={[
+                styles.stepLine,
+                (activePoseIndex >= 2 || capturedPhotos.LEFT) && styles.stepLineActive,
+              ]}
+            />
+
+            {/* Step 3: Nghiêng phải */}
+            <View style={styles.stepCol}>
+              <View
+                style={[
+                  styles.stepCircle,
+                  activePoseIndex === 2
+                    ? styles.stepCircleActive
+                    : capturedPhotos.RIGHT
+                    ? styles.stepCircleDone
+                    : styles.stepCircleInactive,
+                ]}
+              >
+                {capturedPhotos.RIGHT && activePoseIndex !== 2 ? (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                ) : (
+                  <Text
+                    style={[
+                      styles.stepCircleText,
+                      activePoseIndex === 2 || capturedPhotos.RIGHT
+                        ? styles.stepCircleTextActive
+                        : styles.stepCircleTextInactive,
+                    ]}
+                  >
+                    3
+                  </Text>
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.stepLabelText,
+                  activePoseIndex === 2 ? styles.stepLabelTextActive : styles.stepLabelTextInactive,
+                ]}
+              >
+                Nghiêng phải
+              </Text>
+            </View>
+          </View>
         </View>
       </LinearGradient>
 
@@ -871,68 +965,84 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.2,
   },
-  headerSubTitle: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-
-  stepPillRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  stepPillItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+  stepperCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingTop: 12,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    marginHorizontal: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  stepPillActive: {
-    backgroundColor: 'rgba(22, 163, 74, 0.2)',
-    borderColor: '#22C55E',
+  stepCounterText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 12,
   },
-  stepPillCaptured: {
-    backgroundColor: 'rgba(6, 78, 59, 0.6)',
-    borderColor: '#22C55E',
-  },
-  stepNumDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
+  stepperRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 6,
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
-  stepNumDotActive: {
-    backgroundColor: '#22C55E',
+  stepCol: {
+    alignItems: 'center',
+    minWidth: 70,
   },
-  stepNumText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+  stepCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepCircleActive: {
+    backgroundColor: '#0A2540',
+  },
+  stepCircleDone: {
+    backgroundColor: '#1E3A8A',
+  },
+  stepCircleInactive: {
+    backgroundColor: '#E2E8F0',
+  },
+  stepCircleText: {
+    fontSize: 14,
     fontWeight: '700',
   },
-  stepNumTextActive: {
+  stepCircleTextActive: {
     color: '#FFFFFF',
   },
-  stepPillLabel: {
-    color: 'rgba(255, 255, 255, 0.6)',
+  stepCircleTextInactive: {
+    color: '#64748B',
+  },
+  stepLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#CBD5E1',
+    marginBottom: 20,
+    marginHorizontal: 4,
+  },
+  stepLineActive: {
+    backgroundColor: '#94A3B8',
+  },
+  stepLabelText: {
     fontSize: 12,
-    fontWeight: '600',
+    marginTop: 6,
+    textAlign: 'center',
   },
-  stepPillLabelActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+  stepLabelTextActive: {
+    color: '#0A2540',
+    fontWeight: '800',
   },
-  stepPillLabelCaptured: {
-    color: '#22C55E',
-    fontWeight: '700',
+  stepLabelTextInactive: {
+    color: '#64748B',
+    fontWeight: '500',
   },
 
   // Bottom Controls
