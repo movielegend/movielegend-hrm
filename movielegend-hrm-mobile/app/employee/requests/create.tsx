@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useAppAlert } from '../../../src/contexts/AlertContext';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity, StatusBar } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -2441,7 +2441,7 @@ export default function CreateRequestScreen() {
                 <TouchableOpacity
                   style={styles.advanceNoticeCardLink}
                   onPress={() => {
-                    Alert.alert(
+                    showAlert(
                       'Quy định tạm ứng lương',
                       '• Mức tạm ứng tối đa khuyến nghị: Không quá 50% mức lương thực nhận hàng tháng.\n\n• Quy trình thẩm định:\n1. Nhân viên gửi đơn đề xuất.\n2. Trưởng bộ phận (Leader) xem xét tính hợp lý và phê duyệt.\n3. Kế toán trưởng đối soát và tiến hành chuyển khoản giải ngân.\n\n• Thời gian nhận tiền: Căn cứ vào ngày mong muốn và lịch chi trả của bộ phận Kế toán.'
                     );
