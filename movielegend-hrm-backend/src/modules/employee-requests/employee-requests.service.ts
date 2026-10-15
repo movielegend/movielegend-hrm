@@ -200,16 +200,45 @@ export class EmployeeRequestsService {
         );
       }
 
-      // Nghiêm cấm làm bù chéo tháng: Ngày làm bù và Ngày nghỉ phải trong cùng một tháng
+      // Nghiêm cấm làm bù chéo tháng: Ngày làm bù và Ngày nghỉ phải trong cùng một tháng (theo múi giờ Việt Nam Asia/Ho_Chi_Minh)
       const meta: any = dto.attachmentMetadata || {};
-      if (meta.targetLeaveDate && meta.compensatoryDate) {
-        const targetM = moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh');
-        const compM = moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh');
-        if (targetM.month() !== compM.month() || targetM.year() !== compM.year()) {
-          throw badRequest(
-            'CROSS_MONTH_COMPENSATORY_NOT_ALLOWED',
-            `Ngày làm bù (${compM.format('DD/MM/YYYY')}) và ngày nghỉ (${targetM.format('DD/MM/YYYY')}) phải nằm trong cùng một tháng. Hệ thống công ty không cho phép làm bù chéo tháng.`,
-          );
+      const targetM = meta.targetLeaveDate
+        ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh')
+        : null;
+
+      const compShifts: Array<{ date: string; shiftId: string; shiftName?: string; rate?: number }> =
+        Array.isArray(meta.compensationShifts) && meta.compensationShifts.length > 0
+          ? meta.compensationShifts
+          : (meta.compensatoryDate
+            ? [{ date: meta.compensatoryDate, shiftId: meta.compensatoryShiftId, shiftName: meta.compensatoryShiftName }]
+            : []);
+
+      if (compShifts.length === 0) {
+        throw badRequest('MISSING_COMPENSATORY_DATE', 'Vui lòng chọn ngày và ca làm bù.');
+      }
+
+      if (compShifts.length > 2) {
+        throw badRequest('EXCEEDED_MAX_COMPENSATORY_DAYS', 'Hệ thống chỉ cho phép chia lịch làm bù tối đa 2 ngày.');
+      }
+
+      if (targetM) {
+        for (const s of compShifts) {
+          if (!s.date) continue;
+          const compM = moment.tz(s.date, 'Asia/Ho_Chi_Minh');
+          if (targetM.month() !== compM.month() || targetM.year() !== compM.year()) {
+            throw badRequest(
+              'CROSS_MONTH_COMPENSATORY_NOT_ALLOWED',
+              `Ngày làm bù (${compM.format('DD/MM/YYYY')}) và ngày nghỉ (${targetM.format('DD/MM/YYYY')}) phải nằm trong cùng một tháng. Hệ thống công ty không cho phép làm bù chéo tháng.`,
+            );
+          }
+        }
+      }
+
+      if (compShifts.length === 2) {
+        const d1 = moment.tz(compShifts[0].date, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+        const d2 = moment.tz(compShifts[1].date, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+        if (d1 === d2) {
+          throw badRequest('DUPLICATE_COMP_DATE', 'Hai ca làm bù phải được chọn vào 2 ngày khác nhau (do mỗi ngày chỉ được phân công 1 ca).');
         }
       }
     }
@@ -727,29 +756,33 @@ export class EmployeeRequestsService {
 
         if (isCompensatory) {
           const meta: any = request.attachmentMetadata || {};
-          const compDateStr = meta.compensatoryDate
-            ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
-            : null;
-          const shiftId = meta.compensatoryShiftId;
-          const deptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId));
+          const compShifts: Array<{ date: string; shiftId: string; shiftName?: string; rate?: number }> =
+            Array.isArray(meta.compensationShifts) && meta.compensationShifts.length > 0
+              ? meta.compensationShifts
+              : (meta.compensatoryDate && meta.compensatoryShiftId
+                ? [{ date: meta.compensatoryDate, shiftId: meta.compensatoryShiftId, shiftName: meta.compensatoryShiftName }]
+                : []);
 
-          if (compDateStr && shiftId && deptId) {
+          const deptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId));
+          const targetDateStr = meta.targetLeaveDate
+            ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+            : '';
+
+          for (const s of compShifts) {
+            if (!s.date || !s.shiftId || !deptId) continue;
+            const compDateStr = moment.tz(s.date, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
             const workDate = this.businessTime.startOfBusinessDate(compDateStr);
+
             const existingAssignment = await tx.shiftAssignment.findFirst({
               where: { userId: request.userId, workDate },
             });
-
-            const targetDateStr = meta.targetLeaveDate
-              ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
-              : '';
-            const noteText = `Ca làm bù${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`;
 
             let assignedId = existingAssignment?.id;
             if (existingAssignment) {
               await tx.shiftAssignment.update({
                 where: { id: existingAssignment.id },
                 data: {
-                  shiftId,
+                  shiftId: s.shiftId,
                   assignedByUserId: actor.userId,
                 },
               });
@@ -758,7 +791,7 @@ export class EmployeeRequestsService {
                 data: {
                   userId: request.userId,
                   departmentId: deptId,
-                  shiftId,
+                  shiftId: s.shiftId,
                   workDate,
                   assignedByUserId: actor.userId,
                 },
@@ -1498,28 +1531,37 @@ export class EmployeeRequestsService {
       throw badRequest('ALREADY_REQUESTED', 'Yêu cầu hủy ca làm bù này đang chờ Leader xem xét.');
     }
 
-    const compDateStr = meta.compensatoryDate
-      ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
-      : null;
+    const compShifts: Array<{ date: string; shiftId?: string }> =
+      Array.isArray(meta.compensationShifts) && meta.compensationShifts.length > 0
+        ? meta.compensationShifts
+        : (meta.compensatoryDate ? [{ date: meta.compensatoryDate, shiftId: meta.compensatoryShiftId }] : []);
 
-    if (!compDateStr) {
+    const compDates = compShifts.map((s) => moment.tz(s.date, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')).filter(Boolean);
+
+    if (compDates.length === 0) {
       throw badRequest('MISSING_COMPENSATORY_DATE', 'Không tìm thấy ngày làm bù trong đơn.');
     }
 
     const todayStr = moment().tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
-    if (moment(compDateStr).isBefore(todayStr, 'day')) {
-      throw badRequest('DATE_PASSED', 'Ngày làm bù đã trôi qua, không thể xin hủy.');
+    const allPast = compDates.every((d) => moment(d).isBefore(todayStr, 'day'));
+    if (allPast) {
+      throw badRequest('DATE_PASSED', 'Tất cả các ngày làm bù đã trôi qua, không thể xin hủy.');
     }
 
-    const workDate = this.businessTime.startOfBusinessDate(compDateStr);
-    const attendance = await this.prisma.attendanceRecord.findFirst({
-      where: {
-        userId: request.userId,
-        workDate,
-      },
-    });
-    if (attendance) {
-      throw badRequest('ALREADY_CHECKED_IN', 'Bạn đã vào ca chấm công ngày làm bù này, không thể xin hủy đơn làm bù.');
+    for (const compDateStr of compDates) {
+      const workDate = this.businessTime.startOfBusinessDate(compDateStr);
+      const attendance = await this.prisma.attendanceRecord.findFirst({
+        where: {
+          userId: request.userId,
+          workDate,
+        },
+      });
+      if (attendance && attendance.checkInAt) {
+        throw badRequest(
+          'ALREADY_CHECKED_IN',
+          `Bạn đã vào ca chấm công ngày làm bù (${moment.tz(compDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')}), không thể xin hủy đơn làm bù.`,
+        );
+      }
     }
 
     const updatedMeta = {
@@ -1546,12 +1588,14 @@ export class EmployeeRequestsService {
       targetUserIds.push(...adminUserIds.filter((uid) => uid !== actor.userId));
     }
 
+    const compDatesDisplay = compDates.map((d) => moment.tz(d, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')).join(', ');
+
     if (targetUserIds.length > 0) {
       await this.prisma.$transaction(async (tx) => {
         const notif = await this.notifications.createForUsers(tx as any, targetUserIds, {
           type: NotificationType.SYSTEM,
           title: 'Yêu cầu hủy ca làm bù ⚠️',
-          body: `${request.user?.profile?.fullName || 'Nhân viên'} xin hủy ca làm bù ngày ${moment.tz(compDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')}. Lý do: ${payload.reason.trim()}`,
+          body: `${request.user?.profile?.fullName || 'Nhân viên'} xin hủy ca làm bù ngày ${compDatesDisplay}. Lý do: ${payload.reason.trim()}`,
           metadata: { requestId: id, isCompensatoryCancel: true },
         });
         if (notif) this.notifications.emitCreated(notif);
@@ -1588,9 +1632,12 @@ export class EmployeeRequestsService {
       throw badRequest('NOT_REQUESTED', 'Yêu cầu này không có đề xuất xin hủy.');
     }
 
-    const compDateStr = meta.compensatoryDate
-      ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
-      : null;
+    const compShifts: Array<{ date: string; shiftId?: string }> =
+      Array.isArray(meta.compensationShifts) && meta.compensationShifts.length > 0
+        ? meta.compensationShifts
+        : (meta.compensatoryDate ? [{ date: meta.compensatoryDate, shiftId: meta.compensatoryShiftId }] : []);
+
+    const compDates = compShifts.map((s) => moment.tz(s.date, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')).filter(Boolean);
 
     const actorProfile = await this.prisma.employeeProfile.findUnique({
       where: { userId: actor.userId },
@@ -1599,13 +1646,13 @@ export class EmployeeRequestsService {
     const actorName = actorProfile?.fullName || 'Leader';
 
     return this.prisma.$transaction(async (tx) => {
-      if (compDateStr) {
+      for (const compDateStr of compDates) {
         const workDate = this.businessTime.startOfBusinessDate(compDateStr);
         const attendance = await tx.attendanceRecord.findFirst({
           where: { userId: request.userId, workDate },
         });
-        if (attendance) {
-          throw badRequest('ALREADY_CHECKED_IN', 'Nhân viên đã chấm công ngày làm bù này, không thể duyệt hủy.');
+        if (attendance && attendance.checkInAt) {
+          throw badRequest('ALREADY_CHECKED_IN', `Nhân viên đã chấm công ngày làm bù ${moment.tz(compDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')}, không thể duyệt hủy.`);
         }
 
         await tx.shiftAssignment.deleteMany({
@@ -1636,7 +1683,7 @@ export class EmployeeRequestsService {
       const notif = await this.notifications.createForUsers(tx as any, [request.userId], {
         type: NotificationType.SYSTEM,
         title: 'Đã duyệt hủy ca làm bù ✅',
-        body: `Leader ${actorName} đã đồng ý hủy ca làm bù${compDateStr ? ` ngày ${moment.tz(compDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')}` : ''}. Ca làm bù đã được gỡ bỏ khỏi lịch và bạn có thể tạo lại lịch làm bù khác.`,
+        body: `Leader ${actorName} đã đồng ý hủy ca làm bù${compDates.length > 0 ? ` ngày ${compDates.map((d) => moment.tz(d, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')).join(', ')}` : ''}. Ca làm bù đã được gỡ bỏ khỏi lịch và bạn có thể tạo lại lịch làm bù khác.`,
         metadata: { requestId: id, status: 'CANCELLED' },
       });
       if (notif) this.notifications.emitCreated(notif);

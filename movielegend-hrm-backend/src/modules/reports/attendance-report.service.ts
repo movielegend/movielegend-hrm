@@ -209,7 +209,7 @@ export class AttendanceReportService {
     const allCompRequests = lateRequestsRaw.filter(r => {
       const meta: any = r.attachmentMetadata;
       const isComp = (r.type as string) === 'COMPENSATORY_WORK' || r.title?.includes('[LÀM BÙ]') || meta?.requestType === 'COMPENSATORY_WORK';
-      return isComp && meta && meta.compensationStatus !== 'CANCELLED';
+      return isComp && r.status === 'APPROVED' && meta && meta.compensationStatus !== 'CANCELLED' && !meta.cancellationApproved;
     });
 
     const userDateRecordMap = new Map<string, any>();
@@ -600,51 +600,83 @@ export class AttendanceReportService {
         const approvedCompForTarget = allCompRequests.find(r => {
           if (r.userId !== user.id) return false;
           const meta: any = r.attachmentMetadata;
-          if (!meta || meta.compensationStatus === 'CANCELLED') return false;
+          if (!meta || meta.compensationStatus === 'CANCELLED' || meta.cancellationApproved) return false;
           const target = meta.targetLeaveDate ? moment.tz(meta.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
           return target === dateStr;
         });
 
         if (approvedCompForTarget) {
           const metaTarget: any = approvedCompForTarget.attachmentMetadata || {};
-          const compDateStr = metaTarget.compensatoryDate ? moment.tz(metaTarget.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
-          const compDateDisplay = metaTarget.compensatoryDate ? moment.tz(metaTarget.compensatoryDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY') : '';
-          const shiftName = metaTarget.compensatoryShiftName || 'Ca làm việc';
+          const compShifts: Array<{ date: string; shiftId?: string; shiftName?: string; rate?: number; hours?: number }> =
+            Array.isArray(metaTarget.compensationShifts) && metaTarget.compensationShifts.length > 0
+              ? metaTarget.compensationShifts
+              : (metaTarget.compensatoryDate
+                ? [{
+                    date: moment.tz(metaTarget.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD'),
+                    shiftName: metaTarget.compensatoryShiftName || 'Ca làm việc',
+                    rate: metaTarget.compensatoryRate || (metaTarget.compensatoryType === 'Theo giờ' && metaTarget.missedHours ? Math.min(1, metaTarget.missedHours / 8) : 1),
+                    hours: metaTarget.missedHours || 8,
+                  }]
+                : []);
 
-          // Đối soát chéo: Kiểm tra xem tại ngày làm bù B nhân viên có đi làm và chấm công đủ ca không
-          const dayBRec = compDateStr ? userDateRecordMap.get(`${user.id}_${compDateStr}`) : null;
-          const hasWorkedDayB = Boolean(
-            dayBRec && dayBRec.checkInAt && (isLiveDepartment || dayBRec.checkOutAt || dayBRec.status === 'ADJUSTED')
-          );
+          const targetExpectedRate = Number(metaTarget.targetLeaveRate) ||
+            (metaTarget.leaveDurationType === '1/2 ngày' || metaTarget.leaveDurationType === 'Nửa ngày'
+              ? 0.5
+              : (metaTarget.leaveDurationType === 'Theo giờ' && metaTarget.missedHours
+                ? Math.min(1, metaTarget.missedHours / 8)
+                : 1.0));
 
-          if (hasWorkedDayB) {
-            // Có dữ liệu check-in/out làm bù đủ ca: Ghi nhận ngày nghỉ A là 1 CÔNG
-            attendance = 1;
-            isDailyLeave = true;
-            checkInDisplay = '';
-            checkOutDisplay = '';
-            totalMinutes = 0;
-            lateDeduction = 0;
-            lateMins = 0;
-            earlyMins = 0;
-            noteParts.push(`Nghỉ làm bù (Đã làm bù ca ${shiftName} ngày ${compDateDisplay})`);
+          let totalEarnedRate = 0;
+          const completedNotes: string[] = [];
+          const missedNotes: string[] = [];
+
+          for (const s of compShifts) {
+            if (!s.date) continue;
+            const sDateStr = moment.tz(s.date, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+            const sDateDisplay = moment.tz(s.date, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY');
+            const shiftName = s.shiftName || 'Ca làm';
+            const sRate = Number(s.rate) || (s.hours ? s.hours / 8 : 1.0);
+
+            const dayRec = userDateRecordMap.get(`${user.id}_${sDateStr}`);
+            const hasWorked = Boolean(
+              dayRec && dayRec.checkInAt && (isLiveDepartment || dayRec.checkOutAt || dayRec.status === 'ADJUSTED')
+            );
+
+            if (hasWorked) {
+              totalEarnedRate += sRate;
+              completedNotes.push(`${shiftName} (${sDateDisplay}) [+${sRate} công]`);
+            } else {
+              missedNotes.push(`${shiftName} (${sDateDisplay})`);
+            }
+          }
+
+          const finalRate = Math.min(targetExpectedRate, Math.round(totalEarnedRate * 100) / 100);
+          attendance = finalRate;
+          isDailyLeave = true;
+          checkInDisplay = '';
+          checkOutDisplay = '';
+          totalMinutes = 0;
+          lateDeduction = 0;
+          lateMins = 0;
+          earlyMins = 0;
+
+          if (finalRate >= targetExpectedRate) {
+            noteParts.push(`Nghỉ làm bù (Đã bù đủ ${finalRate} công: ${completedNotes.join('; ')})`);
+          } else if (finalRate > 0) {
+            noteParts.push(`Nghỉ làm bù (Đã bù ${finalRate}/${targetExpectedRate} công: ${completedNotes.join('; ')} | Vắng/Chưa làm: ${missedNotes.join('; ')})`);
           } else {
-            // Không có dữ liệu làm bù ngày B: Ngày nghỉ A KHÔNG có công (0 công)
-            attendance = 0;
-            isDailyLeave = true;
-            checkInDisplay = '';
-            checkOutDisplay = '';
-            totalMinutes = 0;
-            lateDeduction = 0;
-            noteParts.push(`Nghỉ làm bù (Chưa/Không làm bù ca ${shiftName} ngày ${compDateDisplay} - Không tính công)`);
+            noteParts.push(`Nghỉ làm bù (Chưa/Không làm bù: ${missedNotes.join('; ')} - Không tính công)`);
           }
         }
 
-        // 2. Kiểm tra ngày hiện tại có phải là Ngày làm bù (compensatoryDate - Ngày B) không
+        // 2. Kiểm tra ngày hiện tại có phải là Ngày làm bù (trong compensationShifts hoặc compensatoryDate) không
         const approvedCompForCompDate = allCompRequests.find(r => {
           if (r.userId !== user.id) return false;
           const meta: any = r.attachmentMetadata;
-          if (!meta || meta.compensationStatus === 'CANCELLED') return false;
+          if (!meta || meta.compensationStatus === 'CANCELLED' || meta.cancellationApproved) return false;
+          if (Array.isArray(meta.compensationShifts) && meta.compensationShifts.length > 0) {
+            return meta.compensationShifts.some((s: any) => moment.tz(s.date, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') === dateStr);
+          }
           const cDate = meta.compensatoryDate ? moment.tz(meta.compensatoryDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
           return cDate === dateStr;
         });
@@ -652,16 +684,21 @@ export class AttendanceReportService {
         if (approvedCompForCompDate) {
           const metaB: any = approvedCompForCompDate.attachmentMetadata || {};
           const targetDateStr = metaB.targetLeaveDate ? moment.tz(metaB.targetLeaveDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY') : '';
+          const matchedShift = Array.isArray(metaB.compensationShifts)
+            ? metaB.compensationShifts.find((s: any) => moment.tz(s.date, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') === dateStr)
+            : null;
+          const shiftRate = matchedShift ? Number(matchedShift.rate) : (Number(metaB.compensatoryRate) || 1.0);
+
           const hasWorkedCurrent = Boolean(
             record && record.checkInAt && (isLiveDepartment || record.checkOutAt || record.status === 'ADJUSTED')
           );
 
           if (hasWorkedCurrent) {
-            noteParts.push(`Đi làm bù cho ngày ${targetDateStr} (Công đã tính chuyển về ngày ${targetDateStr})`);
-            // Chuyển 1 công về ngày nghỉ A nên ngày bù B ghi nhận 0 công để tránh nhân đôi công trong tháng
+            noteParts.push(`Đi làm bù cho ngày ${targetDateStr} (+${shiftRate} công đã chuyển về ngày ${targetDateStr})`);
+            // Chuyển công về ngày nghỉ A nên ngày bù ghi nhận 0 công để tránh nhân đôi công trong tháng
             attendance = 0;
           } else {
-            noteParts.push(`Ca làm bù cho ngày ${targetDateStr} (Vắng mặt / Không chấm công)`);
+            noteParts.push(`Ca làm bù cho ngày ${targetDateStr} (${shiftRate} công - Vắng mặt / Không chấm công)`);
             attendance = 0;
           }
 

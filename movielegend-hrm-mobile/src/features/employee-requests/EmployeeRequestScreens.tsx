@@ -543,28 +543,46 @@ export function EmployeeRequestDetailScreen() {
                   </View>
                 ) : null}
 
-                {meta.compensatoryDate ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Ngày làm bù:</Text>
-                    <Text style={[styles.metaValueBold, { color: '#0284C7' }]}>{formatDateStr(meta.compensatoryDate)}</Text>
-                  </View>
-                ) : null}
+                {Array.isArray(meta.compensationShifts) && meta.compensationShifts.length > 0 ? (
+                  meta.compensationShifts.map((s: any, idx: number) => (
+                    <View key={idx} style={[styles.metaRow, { alignItems: 'flex-start' }]}>
+                      <Text style={styles.metaLabel}>Ca làm bù {meta.compensationShifts.length > 1 ? `${idx + 1}` : ''}:</Text>
+                      <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                        <Text style={[styles.metaValueBold, { color: '#0284C7' }]}>
+                          {formatDateStr(s.date)} · {s.shiftName || 'Ca làm'}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                          +{s.rate || 1.0} công {s.hours ? `(${s.hours}h)` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <>
+                    {meta.compensatoryDate ? (
+                      <View style={styles.metaRow}>
+                        <Text style={styles.metaLabel}>Ngày làm bù:</Text>
+                        <Text style={[styles.metaValueBold, { color: '#0284C7' }]}>{formatDateStr(meta.compensatoryDate)}</Text>
+                      </View>
+                    ) : null}
 
-                {meta.compensatoryShiftName ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Ca làm bù:</Text>
-                    <Text style={styles.metaValueBold}>{meta.compensatoryShiftName}</Text>
-                  </View>
-                ) : null}
+                    {meta.compensatoryShiftName ? (
+                      <View style={styles.metaRow}>
+                        <Text style={styles.metaLabel}>Ca làm bù:</Text>
+                        <Text style={styles.metaValueBold}>{meta.compensatoryShiftName}</Text>
+                      </View>
+                    ) : null}
 
-                {meta.compensatoryType ? (
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>Hình thức:</Text>
-                    <Text style={styles.metaValueBold}>
-                      {meta.compensatoryType} {meta.missedHours ? `(${meta.missedHours} giờ)` : ''}
-                    </Text>
-                  </View>
-                ) : null}
+                    {meta.compensatoryType ? (
+                      <View style={styles.metaRow}>
+                        <Text style={styles.metaLabel}>Hình thức:</Text>
+                        <Text style={styles.metaValueBold}>
+                          {meta.compensatoryType} {meta.missedHours ? `(${meta.missedHours} giờ)` : ''}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </>
+                )}
               </View>
             )}
 
@@ -1387,7 +1405,9 @@ export function EmployeeRequestDetailScreen() {
             <View style={{ backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0' }}>
               <Text style={{ fontSize: 13, color: '#64748B', marginBottom: 2 }}>Ca làm bù hiện tại:</Text>
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
-                {meta.compensatoryDate ? formatDateStr(meta.compensatoryDate) : ''} · {meta.compensatoryShiftName || 'Ca làm việc'}
+                {Array.isArray(meta.compensationShifts) && meta.compensationShifts.length > 0
+                  ? meta.compensationShifts.map((s: any) => `${formatDateStr(s.date)} (${s.shiftName || 'Ca làm'})`).join(' · ')
+                  : `${meta.compensatoryDate ? formatDateStr(meta.compensatoryDate) : ''} · ${meta.compensatoryShiftName || 'Ca làm việc'}`}
               </Text>
               <Text style={{ fontSize: 12, color: '#D97706', marginTop: 4 }}>
                 Khi được Leader duyệt hủy, ca làm việc sẽ được gỡ khỏi lịch và bạn có thể tạo lại đơn làm bù cho ngày khác.

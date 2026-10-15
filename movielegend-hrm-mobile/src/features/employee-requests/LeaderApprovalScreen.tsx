@@ -943,30 +943,48 @@ export function LeaderApprovalScreen() {
               </View>
             ) : null}
 
-            {meta.compensatoryDate ? (
-              <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>Ngày làm bù</Text>
-                <Text style={[styles.metaValue, { color: '#0284C7', fontWeight: '700' }]}>
-                  {formatDateStr(meta.compensatoryDate)}
-                </Text>
-              </View>
-            ) : null}
+            {Array.isArray(meta.compensationShifts) && meta.compensationShifts.length > 0 ? (
+              meta.compensationShifts.map((s: any, idx: number) => (
+                <View key={idx} style={[styles.metaRow, { alignItems: 'flex-start' }]}>
+                  <Text style={styles.metaLabel}>Ca làm bù {meta.compensationShifts.length > 1 ? `${idx + 1}` : ''}</Text>
+                  <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                    <Text style={[styles.metaValue, { color: '#0284C7', fontWeight: '700' }]}>
+                      {formatDateStr(s.date)} · {s.shiftName || 'Ca làm'}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                      +{s.rate || 1.0} công {s.hours ? `(${s.hours}h)` : ''}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <>
+                {meta.compensatoryDate ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ngày làm bù</Text>
+                    <Text style={[styles.metaValue, { color: '#0284C7', fontWeight: '700' }]}>
+                      {formatDateStr(meta.compensatoryDate)}
+                    </Text>
+                  </View>
+                ) : null}
 
-            {meta.compensatoryShiftName ? (
-              <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>Ca làm bù</Text>
-                <Text style={[styles.metaValue, { fontWeight: '700' }]}>{meta.compensatoryShiftName}</Text>
-              </View>
-            ) : null}
+                {meta.compensatoryShiftName ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Ca làm bù</Text>
+                    <Text style={[styles.metaValue, { fontWeight: '700' }]}>{meta.compensatoryShiftName}</Text>
+                  </View>
+                ) : null}
 
-            {meta.compensatoryType ? (
-              <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-                <Text style={styles.metaLabel}>Hình thức</Text>
-                <Text style={styles.metaValue}>
-                  {meta.compensatoryType} {meta.missedHours ? `(${meta.missedHours} giờ)` : ''}
-                </Text>
-              </View>
-            ) : null}
+                {meta.compensatoryType ? (
+                  <View style={[styles.metaRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                    <Text style={styles.metaLabel}>Hình thức</Text>
+                    <Text style={styles.metaValue}>
+                      {meta.compensatoryType} {meta.missedHours ? `(${meta.missedHours} giờ)` : ''}
+                    </Text>
+                  </View>
+                ) : null}
+              </>
+            )}
           </View>
         )}
 
