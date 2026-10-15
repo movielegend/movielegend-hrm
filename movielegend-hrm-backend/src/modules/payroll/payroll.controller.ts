@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -13,7 +13,11 @@ import {
   UploadDepartmentPayslipBatchDto,
   AssignDepartmentPayslipImageDto,
   UnassignDepartmentPayslipImageDto,
+  DeleteDepartmentPayslipImageDto,
+  DeleteOfficialPayslipImageDto,
+  DeleteDepartmentPayslipImagesDto,
   GetDepartmentBatchQueryDto,
+  PayslipFeedbackDto,
 } from './dto/payroll.dto';
 import { PayrollService } from './payroll.service';
 
@@ -221,10 +225,119 @@ export class PayrollsController {
     return this.payroll.unassignDepartmentPayslipImage(actor, dto);
   }
 
+  @Post('department-batch/delete-images')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.review',
+    'payroll.approve',
+    'payroll.manage',
+    'payroll.read_all',
+    'payroll.read',
+    'payroll.read_own',
+    'salary_profile.read',
+    'salary_component.read',
+    'report.payroll.summary',
+    'attendance.read',
+    'dashboard.department.read',
+    'dashboard.admin.read',
+  )
+  deleteDepartmentImages(@Body() dto: DeleteDepartmentPayslipImagesDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payroll.deleteDepartmentPayslipImages(actor, dto);
+  }
+
+  @Delete('department-batch/image')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.review',
+    'payroll.approve',
+    'payroll.manage',
+    'payroll.read_all',
+    'payroll.read',
+    'payroll.read_own',
+    'dashboard.department.read',
+    'dashboard.admin.read',
+  )
+  deleteDepartmentBatchImage(
+    @Body() bodyDto: DeleteDepartmentPayslipImageDto,
+    @Query() queryDto: DeleteDepartmentPayslipImageDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    const dto: DeleteDepartmentPayslipImageDto = {
+      departmentId: bodyDto?.departmentId || queryDto?.departmentId,
+      month: bodyDto?.month ? Number(bodyDto.month) : Number(queryDto?.month),
+      year: bodyDto?.year ? Number(bodyDto.year) : Number(queryDto?.year),
+      imageId: bodyDto?.imageId || queryDto?.imageId,
+    };
+    return this.payroll.deleteDepartmentPayslipImage(actor, dto);
+  }
+
+  @Post('department-batch/delete-image')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.review',
+    'payroll.approve',
+    'payroll.manage',
+    'payroll.read_all',
+    'payroll.read',
+    'payroll.read_own',
+    'dashboard.department.read',
+    'dashboard.admin.read',
+  )
+  deleteDepartmentBatchImagePost(
+    @Body() dto: DeleteDepartmentPayslipImageDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.payroll.deleteDepartmentPayslipImage(actor, dto);
+  }
+
+  @Delete('official-image')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.manage',
+    'payroll.read_all',
+    'dashboard.admin.read',
+  )
+  deleteOfficialImage(
+    @Body() bodyDto: DeleteOfficialPayslipImageDto,
+    @Query() queryDto: DeleteOfficialPayslipImageDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    const dto: DeleteOfficialPayslipImageDto = {
+      userId: bodyDto?.userId || queryDto?.userId,
+      month: bodyDto?.month ? Number(bodyDto.month) : Number(queryDto?.month),
+      year: bodyDto?.year ? Number(bodyDto.year) : Number(queryDto?.year),
+    };
+    return this.payroll.deleteOfficialImage(actor, dto);
+  }
+
+  @Post('delete-image')
+  @AnyPermissions(
+    'payroll.calculate',
+    'payroll.manage',
+    'payroll.read_all',
+    'dashboard.admin.read',
+  )
+  deleteOfficialImagePost(
+    @Body() dto: DeleteOfficialPayslipImageDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.payroll.deleteOfficialImage(actor, dto);
+  }
+
+  @Post('my/feedback')
+  @AnyPermissions('payroll.read_own', 'payroll.read_all')
+  submitPayslipFeedback(@Body() dto: PayslipFeedbackDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payroll.submitPayslipFeedback(dto, actor);
+  }
+
   @Post('my/:id/acknowledge')
   @AnyPermissions('payroll.read_own', 'payroll.read_all')
-  acknowledgePayslip(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.payroll.acknowledgePayslip(id, actor);
+  acknowledgePayslip(
+    @Param('id') id: string,
+    @Body() dto: PayslipFeedbackDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.payroll.acknowledgePayslip(id, actor, dto);
   }
 
   @Get('my/:id')

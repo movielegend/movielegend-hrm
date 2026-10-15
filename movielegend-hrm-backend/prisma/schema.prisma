@@ -2539,6 +2539,9 @@ model Payroll {
   calculatedAt           DateTime
   status                 PayrollStatus               @default(CALCULATED)
   employeeAcknowledgedAt DateTime?
+  employeeFeedbackStatus String?                     @default("PENDING")
+  employeeFeedbackNote   String?                     @db.Text
+  employeeFeedbackAt     DateTime?
   createdAt              DateTime                    @default(now())
   updatedAt              DateTime                    @updatedAt
   period                 PayrollPeriod               @relation(fields: [payrollPeriodId], references: [id])
