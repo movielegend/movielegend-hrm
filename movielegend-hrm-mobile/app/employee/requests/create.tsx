@@ -307,7 +307,16 @@ export default function CreateRequestScreen() {
 
   const leaveDurationTypes = ["1/2 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
   const leaveTypes = ["Nghỉ phép năm", "Nghỉ ốm", "Nghỉ không lương", "Thai sản", "Khác"];
-  const explanationTypes = ["Quên Check-in", "Quên Check-out", "Quên cả In & Out", "Lỗi hệ thống/máy chấm công", "Đi công tác/Làm việc bên ngoài"];
+  const explanationTypes = [
+    "Quên Check-in",
+    "Quên Check-out",
+    "Quên cả In & Out",
+    "Check-in muộn",
+    "Check-out sớm",
+    "Check-in muộn & Check-out sớm",
+    "Lỗi hệ thống/máy chấm công",
+    "Đi công tác/Làm việc bên ngoài",
+  ];
 
   const reasonRef = React.useRef<TextInput>(null);
 
@@ -984,6 +993,35 @@ export default function CreateRequestScreen() {
         return;
       }
     }
+    if (isExplanation) {
+      if (!explanationType) {
+        showAlert('Lỗi', 'Vui lòng chọn Loại giải trình.');
+        return;
+      }
+      if (!fromDate) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày áp dụng.');
+        return;
+      }
+      if (!shift) {
+        showAlert('Lỗi', 'Vui lòng chọn Ca làm việc.');
+        return;
+      }
+      if (['Quên Check-in', 'Quên cả In & Out', 'Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) && !startTime) {
+        showAlert('Lỗi', 'Vui lòng chọn Giờ vào thực tế.');
+        return;
+      }
+      if (['Quên Check-out', 'Quên cả In & Out', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && !endTime) {
+        showAlert('Lỗi', 'Vui lòng chọn Giờ ra thực tế.');
+        return;
+      }
+      if (['Quên cả In & Out', 'Check-in muộn & Check-out sớm'].includes(explanationType) && startTime && endTime) {
+        if (endTime.getTime() <= startTime.getTime()) {
+          showAlert('Lỗi', 'Giờ ra thực tế phải sau giờ vào thực tế.');
+          return;
+        }
+      }
+    }
+
     if (selectedType === 'EXPENSE') {
       if (!photoUri) {
         showAlert('Lỗi', 'Vui lòng đính kèm ảnh minh chứng (Hóa đơn/Chứng từ).');
@@ -1050,6 +1088,18 @@ export default function CreateRequestScreen() {
         } : (endTime ? { endTime: endTime.toISOString() } : {})),
         ...(shift ? { shiftName: shift.name, shiftId: shift.id } : {}),
         ...(explanationType ? { explanationType } : {}),
+        ...(isExplanation ? {
+          requestedCheckInAt: fromDate && startTime ? (() => {
+            const d = new Date(fromDate);
+            d.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+            return d.toISOString();
+          })() : undefined,
+          requestedCheckOutAt: fromDate && endTime ? (() => {
+            const d = new Date(fromDate);
+            d.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+            return d.toISOString();
+          })() : undefined,
+        } : {}),
         ...(leaveType ? { leaveType } : {}),
         ...(leaveDurationType ? { leaveDurationType } : {}),
         ...(isCompensatory ? {
@@ -1702,10 +1752,10 @@ export default function CreateRequestScreen() {
               </View>
 
               {/* Giờ vào thực tế */}
-              {['Quên Check-in', 'Quên cả In & Out'].includes(explanationType) && (
+              {['Quên Check-in', 'Quên cả In & Out', 'Check-in muộn', 'Check-in muộn & Check-out sớm', 'Lỗi hệ thống/máy chấm công', 'Đi công tác/Làm việc bên ngoài'].includes(explanationType) && (
                 <View style={styles.formItem}>
                   <Text style={styles.formLabel}>
-                    Giờ vào thực tế <Text style={styles.required}>*</Text>
+                    Giờ vào thực tế {['Quên Check-in', 'Quên cả In & Out', 'Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) ? <Text style={styles.required}>*</Text> : null}
                   </Text>
                   <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
                     <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
@@ -1717,10 +1767,10 @@ export default function CreateRequestScreen() {
               )}
 
               {/* Giờ ra thực tế */}
-              {['Quên Check-out', 'Quên cả In & Out'].includes(explanationType) && (
+              {['Quên Check-out', 'Quên cả In & Out', 'Check-out sớm', 'Check-in muộn & Check-out sớm', 'Lỗi hệ thống/máy chấm công', 'Đi công tác/Làm việc bên ngoài'].includes(explanationType) && (
                 <View style={styles.formItem}>
                   <Text style={styles.formLabel}>
-                    Giờ ra thực tế <Text style={styles.required}>*</Text>
+                    Giờ ra thực tế {['Quên Check-out', 'Quên cả In & Out', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) ? <Text style={styles.required}>*</Text> : null}
                   </Text>
                   <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
                     <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
