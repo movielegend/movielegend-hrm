@@ -348,10 +348,10 @@ export default function CreateRequestScreen() {
         setAdvanceBankAccount(userMeta.bankAccountNumber || userMeta.bankAccount);
       }
     }
-    if ((isAdvance || isExpense) && !fromDate) {
+    if ((isAdvance || isExpense || isOvertime) && !fromDate) {
       setFromDate(new Date());
     }
-  }, [user, isAdvance, isExpense]);
+  }, [user, isAdvance, isExpense, isOvertime]);
 
   const userDeptId = user?.department?.id || (user as any)?.departmentId;
   const userDeptName = user?.department?.name || (user as any)?.departmentName || '';
@@ -434,7 +434,24 @@ export default function CreateRequestScreen() {
     }
   }, [selectedType]);
 
-
+  const otDuration = useMemo(() => {
+    if (!startTime || !endTime) return null;
+    let diffMs = endTime.getTime() - startTime.getTime();
+    if (diffMs < 0) {
+      diffMs += 24 * 60 * 60 * 1000;
+    }
+    const totalMinutes = Math.floor(diffMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    const hourStr = hours > 0 ? `${hours} giờ` : '';
+    const minStr = mins > 0 ? `${mins} phút` : '';
+    const durationText = [hourStr, minStr].filter(Boolean).join(' ') || '0 phút';
+    return {
+      totalMinutes,
+      durationText,
+      hoursDecimal: Number((totalMinutes / 60).toFixed(1)),
+    };
+  }, [startTime, endTime]);
 
   const handleTakePhoto = async () => {
     const hasPermission = await requestCameraPermissionWithFallback();
@@ -743,6 +760,10 @@ export default function CreateRequestScreen() {
         generatedTitle = `[TẠM ỨNG LƯƠNG] Đề xuất tạm ứng lương tháng ${now.getMonth() + 1}/${now.getFullYear()}`;
       } else if (isExpense) {
         generatedTitle = `${typeLabel} - ${amount ? Number(amount).toLocaleString('vi-VN') + ' VNĐ' : ''}`;
+      } else if (isOvertime) {
+        const datePart = fromDate ? formatDate(fromDate) : '';
+        const timePart = startTime && endTime ? ` (${formatTime(startTime)} - ${formatTime(endTime)})` : '';
+        generatedTitle = `[LÀM THÊM GIỜ]${datePart ? ` Ngày ${datePart}` : ''}${timePart}`;
       } else {
         generatedTitle = `${typeLabel} - ${dateStr}`;
       }
@@ -1090,10 +1111,21 @@ export default function CreateRequestScreen() {
         ...(fromDate && endTime ? {
           endTime: (() => {
             const d = new Date(fromDate);
+            if (startTime) {
+              const startMins = startTime.getHours() * 60 + startTime.getMinutes();
+              const endMins = endTime.getHours() * 60 + endTime.getMinutes();
+              if (endMins <= startMins) {
+                d.setDate(d.getDate() + 1);
+              }
+            }
             d.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
             return d.toISOString();
           })(),
         } : (endTime ? { endTime: endTime.toISOString() } : {})),
+        ...(isOvertime && otDuration ? {
+          estimatedOtMinutes: otDuration.totalMinutes,
+          estimatedOtHours: otDuration.hoursDecimal,
+        } : {}),
         ...(shift ? { shiftName: shift.name, shiftId: shift.id } : {}),
         ...(explanationType ? { explanationType } : {}),
         ...(isExplanation ? {
@@ -2270,65 +2302,139 @@ export default function CreateRequestScreen() {
             </>
           ) : isOvertime ? (
             <>
+              {/* Policy & Notice Banner Card */}
+              <View style={styles.advanceNoticeCard}>
+                <View style={styles.advanceNoticeCardHeader}>
+                  <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#D97706" />
+                  <Text style={styles.advanceNoticeCardTitle}>Quy định làm thêm giờ (OT)</Text>
+                </View>
+                <Text style={styles.advanceNoticeCardText}>
+                  Đơn làm thêm cần tạo trong vòng 3 ngày kể từ ngày OT. Giờ làm thêm hợp lệ được hệ thống đối soát tự động giữa đơn duyệt và dữ liệu chấm công thực tế.
+                </Text>
+                <TouchableOpacity
+                  style={styles.advanceNoticeCardLink}
+                  onPress={() => {
+                    showAlert(
+                      'Quy định làm thêm giờ (OT)',
+                      '• Hạn nộp đơn: Tạo đơn trong vòng tối đa 3 ngày kể từ ngày phát sinh làm thêm giờ.\n\n• Điều kiện ghi nhận công OT:\n1. Có đơn làm thêm giờ được Leader phòng ban phê duyệt.\n2. Nhân viên có quẹt vân tay / check-out thực tế tại công ty trong khung giờ OT.\n\n• Hệ số tính lương OT:\n- Ngày làm việc thường: 150%\n- Ngày nghỉ hàng tuần (Chủ nhật): 200%\n- Ngày Lễ, Tết chính thức: 300%\n\n• Giờ OT được đối soát và tổng hợp tự động vào bảng lương cuối tháng.'
+                    );
+                  }}
+                >
+                  <Text style={styles.advanceNoticeCardLinkText}>Xem chi tiết</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={14} color="#0284C7" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Workflow 3-Steps Visual */}
+              <View style={styles.advanceWorkflowBox}>
+                <View style={styles.advanceStepsContainer}>
+                  <View style={styles.advanceStepCol}>
+                    <View style={[styles.advanceStepCircle, styles.advanceStepCircleActive]}>
+                      <Text style={styles.advanceStepNum}>1</Text>
+                    </View>
+                    <Text style={styles.advanceStepName}>Đề xuất</Text>
+                    <Text style={styles.advanceStepSub}>Nhân viên</Text>
+                  </View>
+
+                  <View style={styles.advanceStepLine} />
+
+                  <View style={styles.advanceStepCol}>
+                    <View style={styles.advanceStepCircle}>
+                      <Text style={styles.advanceStepNum}>2</Text>
+                    </View>
+                    <Text style={styles.advanceStepName}>Duyệt OT</Text>
+                    <Text style={styles.advanceStepSub}>Leader</Text>
+                  </View>
+
+                  <View style={styles.advanceStepLine} />
+
+                  <View style={styles.advanceStepCol}>
+                    <View style={styles.advanceStepCircle}>
+                      <Text style={styles.advanceStepNum}>3</Text>
+                    </View>
+                    <Text style={styles.advanceStepName}>Tính lương</Text>
+                    <Text style={styles.advanceStepSub}>Hệ thống / Kế toán</Text>
+                  </View>
+                </View>
+              </View>
+
               {/* Ngày làm thêm */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
-                  Ngày áp dụng <Text style={styles.required}>*</Text>
+                  Ngày làm thêm <Text style={styles.required}>*</Text>
                 </Text>
                 <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
                   <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
-                    {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
+                    {fromDate ? formatDate(fromDate) : 'Chọn ngày làm thêm'}
                   </Text>
                   <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
                 </Pressable>
               </View>
 
-              {/* Ca làm việc (Nếu có) */}
+              {/* Ca làm việc liên quan (Không bắt buộc) */}
               <View style={styles.formItem}>
-                <Text style={styles.formLabel}>Ca làm việc (Không bắt buộc)</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={[styles.formLabel, { marginBottom: 0 }]}>Ca làm việc liên quan (Không bắt buộc)</Text>
+                  {shift && (
+                    <TouchableOpacity onPress={() => setShift(null)}>
+                      <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '600' }}>Bỏ chọn</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <Pressable style={styles.inputBox} onPress={() => setShowShiftModal(true)}>
                   <Text style={[styles.inputText, !shift && styles.inputPlaceholder]}>
-                    {shift ? shift.name : 'Chọn ca làm việc'}
+                    {shift ? `${shift.name} (${shift.startTime} - ${shift.endTime})` : 'Chọn ca làm việc (Nếu làm thêm gắn với ca)'}
                   </Text>
                   <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
                 </Pressable>
               </View>
 
-              {/* Từ giờ */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>
-                  Từ giờ <Text style={styles.required}>*</Text>
-                </Text>
-                <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
-                  <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
-                    {startTime ? formatTime(startTime) : 'Chọn từ giờ'}
+              {/* Khung giờ làm thêm: Từ giờ -> Đến giờ */}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={[styles.formItem, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>
+                    Từ giờ <Text style={styles.required}>*</Text>
                   </Text>
-                  <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
-                </Pressable>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
+                    <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
+                      {startTime ? formatTime(startTime) : 'Chọn từ giờ'}
+                    </Text>
+                    <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
+                  </Pressable>
+                </View>
+
+                <View style={[styles.formItem, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>
+                    Đến giờ <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
+                    <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
+                      {endTime ? formatTime(endTime) : 'Chọn đến giờ'}
+                    </Text>
+                    <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
+                  </Pressable>
+                </View>
               </View>
 
-              {/* Đến giờ */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>
-                  Đến giờ <Text style={styles.required}>*</Text>
-                </Text>
-                <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
-                  <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
-                    {endTime ? formatTime(endTime) : 'Chọn đến giờ'}
+              {/* Estimated OT Duration Banner */}
+              {otDuration && (
+                <View style={styles.otDurationBanner}>
+                  <MaterialCommunityIcons name="timer-sand" size={18} color="#059669" />
+                  <Text style={styles.otDurationBannerText}>
+                    Tổng thời gian làm thêm dự kiến: <Text style={{ fontWeight: '800', color: '#047857' }}>{otDuration.durationText}</Text>
                   </Text>
-                  <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
-                </Pressable>
-              </View>
+                </View>
+              )}
 
               {/* Lý do chi tiết */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
-                  Lý do chi tiết <Text style={styles.required}>*</Text>
+                  Nội dung công việc / Lý do làm thêm <Text style={styles.required}>*</Text>
                 </Text>
                 <View style={styles.textAreaBox}>
                   <TextInput
                     style={styles.textAreaInput}
-                    placeholder="Nhập nội dung công việc / lý do làm thêm giờ..."
+                    placeholder="Nhập nội dung công việc cụ thể, dự án hoặc lý do làm thêm giờ..."
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
@@ -2341,6 +2447,45 @@ export default function CreateRequestScreen() {
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
+              </View>
+
+              {/* Ảnh / Tệp minh chứng (Tùy chọn) */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>Ảnh minh chứng (Tùy chọn)</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Pressable 
+                    style={[styles.expenseProofBtn, photoUri && styles.expenseProofBtnActive]} 
+                    onPress={handlePickPhoto}
+                  >
+                    <MaterialCommunityIcons 
+                      name={photoUri ? "check-circle" : "file-image-outline"} 
+                      size={20} 
+                      color={photoUri ? "#059669" : "#475569"} 
+                    />
+                    <Text style={[styles.expenseProofBtnText, photoUri && styles.expenseProofBtnTextActive]}>
+                      Chọn từ máy
+                    </Text>
+                  </Pressable>
+                  <Pressable style={styles.expenseProofBtn} onPress={handleTakePhoto}>
+                    <MaterialCommunityIcons 
+                      name="camera-outline" 
+                      size={20} 
+                      color="#475569" 
+                    />
+                    <Text style={styles.expenseProofBtnText}>Chụp ảnh</Text>
+                  </Pressable>
+                </View>
+
+                {photoUri && (
+                  <View style={styles.photoPreviewWrap}>
+                    <TouchableOpacity onPress={() => setIsFullScreenPhoto(true)} style={{ width: '100%', height: '100%' }}>
+                      <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
+                      <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </>
           ) : isPurchase ? (
@@ -4791,5 +4936,23 @@ const styles = StyleSheet.create({
   expenseProofBtnTextActive: {
     color: '#059669',
     fontWeight: '700',
+  },
+  otDurationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+    gap: 8,
+  },
+  otDurationBannerText: {
+    fontSize: 13,
+    color: '#065F46',
+    flex: 1,
+    fontWeight: '600',
   },
 });

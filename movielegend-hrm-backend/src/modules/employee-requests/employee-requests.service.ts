@@ -86,6 +86,18 @@ export class EmployeeRequestsService {
         ? moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
         : fromD;
       requestTitle = `Công tác: ${loc}${fromD ? ` (${fromD}${toD && toD !== fromD ? ` -> ${toD}` : ''})` : ''}`;
+    } else if (dto.type === EmployeeRequestType.OVERTIME && (!dto.title || dto.title.trim() === '' || dto.title === 'Làm thêm giờ' || dto.title === 'Yêu cầu')) {
+      const meta: any = dto.attachmentMetadata || {};
+      const dateStr = meta.fromDate
+        ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : '';
+      const startStr = meta.startTime
+        ? moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm')
+        : '';
+      const endStr = meta.endTime
+        ? moment.tz(meta.endTime, 'Asia/Ho_Chi_Minh').format('HH:mm')
+        : '';
+      requestTitle = `[LÀM THÊM GIỜ]${dateStr ? ` Ngày ${dateStr}` : ''}${startStr && endStr ? ` (${startStr} - ${endStr})` : ''}`;
     }
 
     const isFinancial = dto.type === EmployeeRequestType.ADVANCE || dto.type === EmployeeRequestType.EXPENSE || dto.type === EmployeeRequestType.PURCHASE;
@@ -810,6 +822,54 @@ export class EmployeeRequestsService {
                 data: {
                   shiftAssignmentId: assignedId,
                   isUnplannedOt: false,
+                },
+              });
+            }
+          }
+        }
+
+        const isOvertime = request.type === EmployeeRequestType.OVERTIME || (request.type as string) === 'OVERTIME';
+        if (isOvertime) {
+          const meta: any = request.attachmentMetadata || {};
+          const workDateRaw = meta.fromDate || request.createdAt;
+          const deptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId));
+
+          if (deptId && workDateRaw && meta.startTime && meta.endTime) {
+            const dateStr = moment.tz(workDateRaw, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+            const workDate = this.businessTime.startOfBusinessDate(dateStr);
+            const startAt = new Date(meta.startTime);
+            const endAt = new Date(meta.endTime);
+
+            const existingOt = await tx.overtimeRequest.findFirst({
+              where: {
+                userId: request.userId,
+                workDate,
+                startAt,
+                endAt,
+              },
+            });
+
+            if (!existingOt) {
+              await tx.overtimeRequest.create({
+                data: {
+                  userId: request.userId,
+                  departmentId: deptId,
+                  workDate,
+                  startAt,
+                  endAt,
+                  reason: request.content || request.title,
+                  status: 'APPROVED',
+                  decidedByUserId: actor.userId,
+                  decidedAt: new Date(),
+                },
+              });
+            } else if (existingOt.status !== 'APPROVED') {
+              await tx.overtimeRequest.update({
+                where: { id: existingOt.id },
+                data: {
+                  status: 'APPROVED',
+                  decidedByUserId: actor.userId,
+                  decidedAt: new Date(),
                 },
               });
             }
