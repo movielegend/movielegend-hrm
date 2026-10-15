@@ -347,6 +347,9 @@ export default function CreateRequestScreen() {
         setAdvanceBankAccount(userMeta.bankAccountNumber || userMeta.bankAccount);
       }
     }
+    if (isAdvance && !fromDate) {
+      setFromDate(new Date());
+    }
   }, [user, isAdvance]);
 
   const userDeptId = user?.department?.id || (user as any)?.departmentId;
@@ -789,6 +792,10 @@ export default function CreateRequestScreen() {
     if (isAdvance) {
       if (!amount.trim() || Number(amount) <= 0) {
         showAlert('Lỗi', 'Vui lòng nhập số tiền muốn tạm ứng.');
+        return;
+      }
+      if (!fromDate) {
+        showAlert('Thiếu thông tin', 'Vui lòng chọn ngày mong muốn nhận lương tạm ứng.');
         return;
       }
       if (!content.trim()) {
@@ -2429,36 +2436,51 @@ export default function CreateRequestScreen() {
                   <Text style={styles.advanceNoticeCardTitle}>Quy định tạm ứng lương (Tối đa 50%)</Text>
                 </View>
                 <Text style={styles.advanceNoticeCardText}>
-                  Theo quy định công ty, số tiền tạm ứng khuyến nghị không quá 50% mức lương. Đề xuất của bạn sẽ được gửi tới Trưởng bộ phận (Leader) xem xét tính hợp lý và phê duyệt trước khi Kế toán trưởng tiến hành giải ngân.
+                  Khuyến nghị không quá 50% mức lương. Leader xem xét, phê duyệt trước khi Kế toán trưởng giải ngân.
                 </Text>
+                <TouchableOpacity
+                  style={styles.advanceNoticeCardLink}
+                  onPress={() => {
+                    Alert.alert(
+                      'Quy định tạm ứng lương',
+                      '• Mức tạm ứng tối đa khuyến nghị: Không quá 50% mức lương thực nhận hàng tháng.\n\n• Quy trình thẩm định:\n1. Nhân viên gửi đơn đề xuất.\n2. Trưởng bộ phận (Leader) xem xét tính hợp lý và phê duyệt.\n3. Kế toán trưởng đối soát và tiến hành chuyển khoản giải ngân.\n\n• Thời gian nhận tiền: Căn cứ vào ngày mong muốn và lịch chi trả của bộ phận Kế toán.'
+                    );
+                  }}
+                >
+                  <Text style={styles.advanceNoticeCardLinkText}>Xem chi tiết</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={14} color="#0284C7" />
+                </TouchableOpacity>
               </View>
 
               {/* Workflow 3-Steps Visual */}
               <View style={styles.advanceWorkflowBox}>
-                <Text style={styles.advanceWorkflowBoxTitle}>Quy trình xét duyệt tạm ứng 3 bước:</Text>
-                <View style={styles.advanceStepsRow}>
+                <View style={styles.advanceStepsContainer}>
                   <View style={styles.advanceStepCol}>
                     <View style={[styles.advanceStepCircle, styles.advanceStepCircleActive]}>
                       <Text style={styles.advanceStepNum}>1</Text>
                     </View>
                     <Text style={styles.advanceStepName}>Đề xuất</Text>
-                    <Text style={styles.advanceStepSub}>Nhân viên (Max 50%)</Text>
+                    <Text style={styles.advanceStepSub}>Nhân viên</Text>
                   </View>
+
                   <View style={styles.advanceStepLine} />
+
                   <View style={styles.advanceStepCol}>
                     <View style={styles.advanceStepCircle}>
                       <Text style={styles.advanceStepNum}>2</Text>
                     </View>
                     <Text style={styles.advanceStepName}>Duyệt</Text>
-                    <Text style={styles.advanceStepSub}>Leader bộ phận</Text>
+                    <Text style={styles.advanceStepSub}>Leader</Text>
                   </View>
+
                   <View style={styles.advanceStepLine} />
+
                   <View style={styles.advanceStepCol}>
-                    <View style={[styles.advanceStepCircle, { backgroundColor: '#ECFDF5', borderColor: '#059669' }]}>
-                      <Text style={[styles.advanceStepNum, { color: '#059669' }]}>3</Text>
+                    <View style={styles.advanceStepCircle}>
+                      <Text style={styles.advanceStepNum}>3</Text>
                     </View>
-                    <Text style={styles.advanceStepName}>Đi lương</Text>
-                    <Text style={styles.advanceStepSub}>Kế toán trưởng chi</Text>
+                    <Text style={styles.advanceStepName}>Giải ngân</Text>
+                    <Text style={styles.advanceStepSub}>Kế toán trưởng</Text>
                   </View>
                 </View>
               </View>
@@ -2482,29 +2504,37 @@ export default function CreateRequestScreen() {
 
                 {/* Quick Pick Chips */}
                 <View style={styles.advanceChipsRow}>
-                  {[1000000, 2000000, 3000000, 5000000].map((quickVal) => (
-                    <Pressable
-                      key={quickVal}
-                      style={[
-                        styles.advanceChip,
-                        amount === String(quickVal) && styles.advanceChipActive
-                      ]}
-                      onPress={() => setAmount(String(quickVal))}
-                    >
-                      <Text
+                  {[
+                    { label: '1 triệu', value: 1000000 },
+                    { label: '2 triệu', value: 2000000 },
+                    { label: '3 triệu', value: 3000000 },
+                    { label: '5 triệu', value: 5000000 }
+                  ].map((chip) => {
+                    const isSelected = amount === String(chip.value);
+                    return (
+                      <Pressable
+                        key={chip.value}
                         style={[
-                          styles.advanceChipText,
-                          amount === String(quickVal) && styles.advanceChipTextActive
+                          styles.advanceChip,
+                          isSelected && styles.advanceChipActive
                         ]}
+                        onPress={() => setAmount(String(chip.value))}
                       >
-                        {quickVal.toLocaleString('vi-VN')}đ
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <Text
+                          style={[
+                            styles.advanceChipText,
+                            isSelected && styles.advanceChipTextActive
+                          ]}
+                        >
+                          {chip.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
 
-              {/* Tháng tạm ứng / Ngày mong muốn nhận */}
+              {/* Ngày mong muốn nhận lương tạm ứng */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
                   Ngày mong muốn nhận lương tạm ứng <Text style={styles.required}>*</Text>
@@ -2525,7 +2555,7 @@ export default function CreateRequestScreen() {
                 <View style={styles.textAreaBox}>
                   <TextInput
                     style={styles.textAreaInput}
-                    placeholder="Ví dụ: Tạm ứng giải quyết việc gia đình, khám sức khỏe..."
+                    placeholder="Ví dụ: Giải quyết việc gia đình, khám sức khỏe..."
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
@@ -2542,7 +2572,7 @@ export default function CreateRequestScreen() {
 
               {/* Bank Info Header */}
               <View style={styles.advanceSectionHeaderRow}>
-                <MaterialCommunityIcons name="bank-transfer" size={20} color="#059669" />
+                <MaterialCommunityIcons name="bank" size={18} color="#059669" />
                 <Text style={styles.advanceSectionHeaderTitle}>Tài khoản nhận tiền (Kế toán chi lương)</Text>
               </View>
 
@@ -2553,13 +2583,13 @@ export default function CreateRequestScreen() {
                   style={styles.advanceTextInput}
                   value={advanceBankName}
                   onChangeText={setAdvanceBankName}
-                  placeholder="Ví dụ: Vietcombank, MBBank, Techcombank..."
+                  placeholder="Ví dụ: Vietcombank, MBBank..."
                   placeholderTextColor="#94A3B8"
                 />
 
                 {/* Bank quick chips */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.advanceBankChipsScroll}>
-                  {COMMON_BANKS.map((b) => (
+                  {COMMON_BANKS.slice(0, 5).map((b) => (
                     <Pressable
                       key={b}
                       style={[styles.advanceBankChip, advanceBankName === b && styles.advanceBankChipActive]}
@@ -2573,33 +2603,32 @@ export default function CreateRequestScreen() {
                 </ScrollView>
               </View>
 
-              {/* Số tài khoản & Chủ tài khoản */}
-              <View style={styles.advanceInputRow}>
-                <View style={[styles.formItem, { flex: 1, marginRight: 8, marginBottom: 0 }]}>
-                  <Text style={styles.formLabel}>
-                    Số tài khoản <Text style={styles.required}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={styles.advanceTextInput}
-                    value={advanceBankAccount}
-                    onChangeText={setAdvanceBankAccount}
-                    placeholder="0123456789"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="numeric"
-                  />
-                </View>
+              {/* Số tài khoản */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Số tài khoản <Text style={styles.required}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.advanceTextInput}
+                  value={advanceBankAccount}
+                  onChangeText={setAdvanceBankAccount}
+                  placeholder="0123456789"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                />
+              </View>
 
-                <View style={[styles.formItem, { flex: 1.2, marginBottom: 0 }]}>
-                  <Text style={styles.formLabel}>Tên chủ tài khoản</Text>
-                  <TextInput
-                    style={styles.advanceTextInput}
-                    value={advanceAccountHolder}
-                    onChangeText={(t) => setAdvanceAccountHolder(t.toUpperCase())}
-                    placeholder="NGUYEN VAN A"
-                    placeholderTextColor="#94A3B8"
-                    autoCapitalize="characters"
-                  />
-                </View>
+              {/* Tên chủ tài khoản */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>Tên chủ tài khoản</Text>
+                <TextInput
+                  style={styles.advanceTextInput}
+                  value={advanceAccountHolder}
+                  onChangeText={(t) => setAdvanceAccountHolder(t.toUpperCase())}
+                  placeholder={userFullName ? userFullName.toUpperCase() : 'NGUYEN VAN A'}
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="characters"
+                />
               </View>
             </>
           ) : isExpense ? (
@@ -4440,20 +4469,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 20,
   },
-  // Specific Styles for Tạm Ứng Lương (Matching SalaryAdvanceModal)
+  // Specific Styles for Tạm Ứng Lương (Matching User Mockup)
   advanceNoticeCard: {
     backgroundColor: '#FFFBEB',
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
+    borderColor: '#FDE68A',
     marginBottom: 14,
   },
   advanceNoticeCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   advanceNoticeCardTitle: {
     fontSize: 13,
@@ -4465,23 +4494,29 @@ const styles = StyleSheet.create({
     color: '#78350F',
     lineHeight: 18,
   },
+  advanceNoticeCardLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 2,
+  },
+  advanceNoticeCardLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
   advanceWorkflowBox: {
     backgroundColor: '#F0FDF4',
     borderRadius: 14,
-    padding: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: '#DCFCE7',
-    marginBottom: 14,
+    marginBottom: 16,
   },
-  advanceWorkflowBoxTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#166534',
-    marginBottom: 8,
-  },
-  advanceStepsRow: {
+  advanceStepsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
   advanceStepCol: {
@@ -4489,73 +4524,72 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   advanceStepCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#E2E8F0',
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#CBD5E1',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   advanceStepCircleActive: {
     backgroundColor: '#059669',
-    borderColor: '#059669',
   },
   advanceStepNum: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#fff',
+    color: '#FFFFFF',
   },
   advanceStepName: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#0F172A',
+    marginBottom: 2,
+    textAlign: 'center',
   },
   advanceStepSub: {
-    fontSize: 9,
+    fontSize: 10,
     color: '#64748B',
     textAlign: 'center',
-    marginTop: 1,
   },
   advanceStepLine: {
-    width: 20,
+    flex: 0.6,
     height: 2,
     backgroundColor: '#CBD5E1',
-    marginBottom: 14,
+    marginTop: 13,
   },
   advanceAmountInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    borderWidth: 1.5,
+    borderRadius: 10,
+    borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 14,
-    height: 50,
+    height: 48,
   },
   advanceAmountInput: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#0F172A',
   },
   advanceAmountUnit: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#475569',
     marginLeft: 8,
   },
   advanceChipsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
-    marginTop: 10,
+    marginTop: 8,
   },
   advanceChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flex: 1,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 20,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
@@ -4563,12 +4597,12 @@ const styles = StyleSheet.create({
   },
   advanceChipActive: {
     backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    borderColor: '#059669',
   },
   advanceChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: '#334155',
   },
   advanceChipTextActive: {
     color: '#059669',
@@ -4578,14 +4612,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 6,
-    marginBottom: 10,
-    paddingTop: 10,
+    marginTop: 8,
+    marginBottom: 12,
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
   advanceSectionHeaderTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -4595,7 +4629,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 14,
-    height: 46,
+    height: 48,
     fontSize: 14,
     color: '#0F172A',
   },
@@ -4603,13 +4637,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   advanceBankChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     backgroundColor: '#F1F5F9',
-    marginRight: 6,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    marginRight: 6,
   },
   advanceBankChipActive: {
     backgroundColor: '#ECFDF5',
