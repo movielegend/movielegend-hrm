@@ -33,6 +33,34 @@ import {
   UploadTimesheetImageDto,
 } from './dto/attendance.dto';
 
+/**
+ * Bảng quy định xử phạt đi muộn (Ban hành nội bộ Movie Legend):
+ * - Từ 1 - 5 phút: Không bị phạt (Có sự xác nhận của trưởng bộ phận)
+ * - Từ 6 - 20 phút: 50.000 đồng
+ * - Từ 21 - 30 phút: 80.000 đồng
+ * - Từ 31 - 40 phút: 100.000 đồng
+ * - Từ 41 - 120 phút: 130.000 đồng
+ * - Trên 120 phút: 300.000 đồng (Lập biên bản)
+ */
+export function calculateCompanyLatePenalty(lateMinutes: number): { amount: number; level: number } {
+  if (!lateMinutes || lateMinutes <= 5) {
+    return { amount: 0, level: 0 };
+  }
+  if (lateMinutes <= 20) {
+    return { amount: 50000, level: 1 };
+  }
+  if (lateMinutes <= 30) {
+    return { amount: 80000, level: 2 };
+  }
+  if (lateMinutes <= 40) {
+    return { amount: 100000, level: 3 };
+  }
+  if (lateMinutes <= 120) {
+    return { amount: 130000, level: 4 };
+  }
+  return { amount: 300000, level: 5 };
+}
+
 @Injectable()
 export class AttendanceService {
   constructor(
@@ -107,8 +135,15 @@ export class AttendanceService {
       }
     }
 
-    if (isLiveDepartment) {
-      // ĐẶC THÙ PHÒNG LIVE: check-in tự do nhiều lượt, không áp dụng phạt đi muộn
+    // 1. Tìm ca làm việc trong ngày (ưu tiên assignment đã được phân công)
+    assignment = await this.prisma.shiftAssignment.findFirst({
+      where: { userId: actor.userId, workDate },
+      include: { shift: true },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (isLiveDepartment && !assignment) {
+      // ĐẶC THÙ PHÒNG LIVE KHI KHÔNG ĐƯỢC PHÂN CA CỤ THỂ: check-in tự do nhiều lượt, không áp dụng phạt đi muộn
       assignment = null;
       isUnplannedOt = false;
       lateMinutes = 0;
@@ -116,13 +151,6 @@ export class AttendanceService {
       latePenaltyAmount = null;
       latePenaltyWorkDays = null;
     } else {
-      // 1. Tìm ca làm việc trong ngày (các phòng ban tiêu chuẩn)
-      assignment = await this.prisma.shiftAssignment.findFirst({
-        where: { userId: actor.userId, workDate },
-        include: { shift: true },
-        orderBy: { createdAt: 'desc' }
-      });
-
       if (assignment) {
         if (!assignment.shift.isActive || assignment.shift.deletedAt) {
           throw badRequest('SHIFT_INACTIVE', 'Ca làm đã bị vô hiệu hóa');
@@ -152,27 +180,14 @@ export class AttendanceService {
           if (now > shiftStartDateTime) {
             lateMinutes = Math.floor((now.getTime() - shiftStartDateTime.getTime()) / 60000);
 
-            const shiftEndStr = assignment.shift.endTime;
-            const [eh, em] = shiftEndStr.split(':').map(Number);
-            const shiftEndDateTime = new Date(workDate);
-            shiftEndDateTime.setHours(eh || 0, em || 0, 0, 0);
-            if (shiftEndDateTime <= shiftStartDateTime) shiftEndDateTime.setDate(shiftEndDateTime.getDate() + 1); // qua dem
-
-            const durationMinutes = Math.floor((shiftEndDateTime.getTime() - shiftStartDateTime.getTime()) / 60000);
-            if (durationMinutes > 0 && lateMinutes > 0) {
-              const ratio = lateMinutes / durationMinutes;
-              if (ratio <= 0.105) {
-                latePenaltyLevel = 1; latePenaltyAmount = 50000; latePenaltyWorkDays = 1;
-              } else if (ratio <= 0.42) {
-                latePenaltyLevel = 2; latePenaltyAmount = 80000; latePenaltyWorkDays = 1;
-              } else if (ratio <= 0.63) {
-                latePenaltyLevel = 3; latePenaltyAmount = 50000; latePenaltyWorkDays = 0.5;
-              } else {
-                latePenaltyLevel = 4; latePenaltyAmount = 0; latePenaltyWorkDays = 0;
-              }
+            if (lateMinutes > 0) {
+              const penalty = calculateCompanyLatePenalty(lateMinutes);
+              latePenaltyLevel = penalty.level;
+              latePenaltyAmount = penalty.amount;
+              latePenaltyWorkDays = 1;
 
               // Nếu có đơn xin phép trễ (LeaveRequest) được APPROVED trong ngày:
-              if (latePenaltyLevel !== null) {
+              if (latePenaltyLevel > 0) {
                 const approvedLeave = await this.prisma.leaveRequest.findFirst({
                   where: {
                     userId: actor.userId,
@@ -182,15 +197,9 @@ export class AttendanceService {
                   },
                 });
                 if (approvedLeave) {
-                  if (latePenaltyLevel <= 3) {
-                    latePenaltyLevel = null;
-                    latePenaltyAmount = null;
-                    latePenaltyWorkDays = null;
-                  } else {
-                    latePenaltyLevel = 4;
-                    latePenaltyAmount = 50000;
-                    latePenaltyWorkDays = 1;
-                  }
+                  latePenaltyLevel = null;
+                  latePenaltyAmount = null;
+                  latePenaltyWorkDays = null;
                 }
               }
             }
@@ -305,6 +314,7 @@ export class AttendanceService {
           latePenaltyLevel,
           latePenaltyAmount,
           latePenaltyWorkDays,
+          notes: lateMinutes > 0 ? `Đi muộn ${lateMinutes} phút` : undefined,
           verifications: {
             create: [
               {

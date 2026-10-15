@@ -3,6 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import moment from 'moment-timezone';
+import { calculateCompanyLatePenalty } from '../attendance/attendance.service';
 
 @Injectable()
 export class AttendanceReportService {
@@ -341,10 +342,35 @@ export class AttendanceReportService {
               }
             }
 
-            // 3. Không áp dụng đi muộn theo ca cho phòng Live
-            lateMins = 0;
-            earlyMins = 0;
-            lateDeduction = 0;
+            // 3. Tính đi muộn và tiền phạt theo quy định công ty nếu có ca hoặc có ghi nhận đi muộn
+            for (const r of dayRecords) {
+              if (r.lateMinutes && r.lateMinutes > 0) {
+                lateMins += Number(r.lateMinutes);
+              }
+              if (r.latePenaltyAmount !== null && r.latePenaltyAmount !== undefined) {
+                lateDeduction += Number(r.latePenaltyAmount);
+              }
+            }
+
+            // Nếu có đi muộn mà tiền phạt chưa được lưu (bằng 0), tự động áp dụng bảng quy định phạt công ty
+            if (lateMins > 0 && lateDeduction === 0) {
+              lateDeduction = calculateCompanyLatePenalty(lateMins).amount;
+            }
+
+            // Nếu có đơn xin phép đi muộn (LATE_ARRIVAL) hoặc giải trình (ATTENDANCE_ADJUSTMENT) được duyệt -> miễn phạt
+            const hasApprovedLateAdj = Boolean(
+              lateRequest ||
+              lateRequestsRaw.some(
+                (lr) =>
+                  lr.userId === user.id &&
+                  (lr.type === 'ATTENDANCE_ADJUSTMENT' || lr.type === 'LATE_ARRIVAL') &&
+                  lr.status === 'APPROVED' &&
+                  ((lr.attachmentMetadata as any)?.workDate === dateStr || lr.referenceId === record?.id),
+              ),
+            );
+            if (hasApprovedLateAdj) {
+              lateDeduction = 0;
+            }
 
             // 4. OT phòng Live lấy từ OtReport đã duyệt (theo % leader duyệt)
             if (liveOt && liveOt.validOtMinutes > 0) {
@@ -413,6 +439,9 @@ export class AttendanceReportService {
             }
             lateDeduction = record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0;
             lateMins = record.lateMinutes !== null ? Number(record.lateMinutes) : 0;
+            if (lateMins > 0 && lateDeduction === 0) {
+              lateDeduction = calculateCompanyLatePenalty(lateMins).amount;
+            }
 
             if (!shift) {
               if (checkIn && checkOut && otRequest) {
@@ -433,13 +462,8 @@ export class AttendanceReportService {
                 }
               } else {
                 if (lateMins > 0 && lateRequest) {
-                  if (record.latePenaltyLevel === null || record.latePenaltyLevel <= 3) {
-                    lateDeduction = 0;
-                    attendance = 1;
-                  } else if (record.latePenaltyLevel === 4) {
-                    lateDeduction = 50000;
-                    attendance = 1;
-                  }
+                  lateDeduction = 0;
+                  attendance = 1;
                 }
 
                 if (checkOut && checkOut.isBefore(shiftEnd) && !otRequest) {
