@@ -288,6 +288,24 @@ export class AttendanceReportService {
           moment.utc(o.workDate).format('YYYY-MM-DD') === dateStr
         ));
 
+        const approvedLateAdjReq = lateRequestsRaw.find((lr) => {
+          if (lr.userId !== user.id || lr.status !== 'APPROVED') return false;
+          const meta: any = lr.attachmentMetadata;
+          const fromDateStr = meta?.fromDate ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          const checkInDateStr = meta?.requestedCheckInAt ? moment.tz(meta.requestedCheckInAt, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          const matchDate = fromDateStr === dateStr || checkInDateStr === dateStr || meta?.workDate === dateStr || (record && lr.referenceId === record.id);
+          if (!matchDate) return false;
+          return (
+            lr.type === 'LATE_ARRIVAL' ||
+            (lr.type === 'ATTENDANCE_ADJUSTMENT' && (
+              meta?.explanationType?.toLowerCase().includes('muộn') ||
+              lr.title?.toLowerCase().includes('muộn')
+            ))
+          );
+        });
+
+        const hasApprovedLateAdj = Boolean(lateRequest || approvedLateAdjReq);
+
         const liveOt = otReportsDb.find(o => o.userId === user.id && (
           moment(o.otDate).format('YYYY-MM-DD') === dateStr ||
           moment.utc(o.otDate).format('YYYY-MM-DD') === dateStr
@@ -353,21 +371,10 @@ export class AttendanceReportService {
             }
 
             // Nếu có đi muộn mà tiền phạt chưa được lưu (bằng 0), tự động áp dụng bảng quy định phạt công ty
-            if (lateMins > 0 && lateDeduction === 0) {
+            if (lateMins > 0 && lateDeduction === 0 && !hasApprovedLateAdj) {
               lateDeduction = calculateCompanyLatePenalty(lateMins).amount;
             }
 
-            // Nếu có đơn xin phép đi muộn (LATE_ARRIVAL) hoặc giải trình (ATTENDANCE_ADJUSTMENT) được duyệt -> miễn phạt
-            const hasApprovedLateAdj = Boolean(
-              lateRequest ||
-              lateRequestsRaw.some(
-                (lr) =>
-                  lr.userId === user.id &&
-                  (lr.type === 'ATTENDANCE_ADJUSTMENT' || lr.type === 'LATE_ARRIVAL') &&
-                  lr.status === 'APPROVED' &&
-                  ((lr.attachmentMetadata as any)?.workDate === dateStr || lr.referenceId === record?.id),
-              ),
-            );
             if (hasApprovedLateAdj) {
               lateDeduction = 0;
             }
@@ -439,8 +446,11 @@ export class AttendanceReportService {
             }
             lateDeduction = record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0;
             lateMins = record.lateMinutes !== null ? Number(record.lateMinutes) : 0;
-            if (lateMins > 0 && lateDeduction === 0) {
+            if (lateMins > 0 && lateDeduction === 0 && !hasApprovedLateAdj) {
               lateDeduction = calculateCompanyLatePenalty(lateMins).amount;
+            }
+            if (lateMins > 0 && hasApprovedLateAdj) {
+              lateDeduction = 0;
             }
 
             if (!shift) {
@@ -456,12 +466,12 @@ export class AttendanceReportService {
               const shiftEnd = moment.tz(`${dateStr} ${shift.endTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
 
               if (record.status === 'MISSING') {
-                if (lateRequest) {
+                if (lateRequest || hasApprovedLateAdj) {
                   attendance = 1;
                   lateDeduction = 0;
                 }
               } else {
-                if (lateMins > 0 && lateRequest) {
+                if (lateMins > 0 && hasApprovedLateAdj) {
                   lateDeduction = 0;
                   attendance = 1;
                 }
@@ -606,7 +616,14 @@ export class AttendanceReportService {
         }
 
         const noteParts: string[] = [];
-        if (record?.notes) noteParts.push(record.notes);
+        if (hasApprovedLateAdj) {
+          noteParts.push('Đi muộn được chấp thuận');
+          if (record?.notes && !record.notes.toLowerCase().includes('muộn')) {
+            noteParts.push(record.notes);
+          }
+        } else {
+          if (record?.notes) noteParts.push(record.notes);
+        }
         if (businessTrip) {
           const loc = (businessTrip.attachmentMetadata as any)?.location;
           noteParts.push(`Công tác${loc ? `: ${loc}` : ''}`);
