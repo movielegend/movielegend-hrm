@@ -110,16 +110,29 @@ export default function CreateRequestScreen() {
     d.setHours(0, 0, 0, 0);
     return d;
   });
+  const [targetLeaveRate, setTargetLeaveRate] = useState<number>(1.0);
+  const [compensationMode, setCompensationMode] = useState<'SINGLE' | 'SPLIT_2'>('SINGLE');
+
+  // Slot 1
   const [compensatoryDate, setCompensatoryDate] = useState<Date | null>(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
   });
   const [compensatoryShift, setCompensatoryShift] = useState<Shift | null>(null);
-  const [compensatoryType, setCompensatoryType] = useState<string>('Cả ca');
+  const [compensatoryRate, setCompensatoryRate] = useState<number>(1.0);
   const [compensatoryHours, setCompensatoryHours] = useState<string>('8');
+
+  // Slot 2 (khi chia làm bù 2 ngày)
+  const [compensatoryDate2, setCompensatoryDate2] = useState<Date | null>(null);
+  const [compensatoryShift2, setCompensatoryShift2] = useState<Shift | null>(null);
+  const [compensatoryRate2, setCompensatoryRate2] = useState<number>(0.5);
+  const [compensatoryHours2, setCompensatoryHours2] = useState<string>('4');
+
+  const [activeCompSlot, setActiveCompSlot] = useState<1 | 2>(1);
+  const [compensatoryType, setCompensatoryType] = useState<string>('Cả ca');
   const [showCompensatoryTypeModal, setShowCompensatoryTypeModal] = useState(false);
-  const compensatoryTypes = ['Cả ca', 'Theo giờ', 'Ca đôi'];
+  const compensatoryTypes = ['Cả ca', 'Nửa ngày', 'Theo giờ'];
   const [approvedLeaves, setApprovedLeaves] = useState<EmployeeRequest[]>([]);
   const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<EmployeeRequest | null>(null);
   const [isLoadingApprovedLeaves, setIsLoadingApprovedLeaves] = useState(false);
@@ -135,26 +148,52 @@ export default function CreateRequestScreen() {
       const d = new Date(rawDate);
       d.setHours(0, 0, 0, 0);
       setTargetLeaveDate(d);
+      setCompensatoryDate(new Date(d));
+      const d2 = new Date(d);
+      d2.setDate(d2.getDate() + 1);
+      setCompensatoryDate2(d2);
     }
 
-    // 2. Tự tính và fill số giờ nếu là nghỉ theo giờ
+    // 2. Tự tính tỷ lệ công và giờ theo hình thức nghỉ
     if (meta.leaveDurationType === 'Theo giờ') {
-      setCompensatoryType('Theo giờ');
+      let diffHours = 4;
       if (meta.startTime && meta.endTime) {
         const start = new Date(meta.startTime);
         const end = new Date(meta.endTime);
         const diffMs = end.getTime() - start.getTime();
-        const diffHours = Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
-        if (diffHours > 0) {
-          setCompensatoryHours(String(diffHours));
-        }
+        const calculated = Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
+        if (calculated > 0) diffHours = calculated;
       }
-    } else if (['1/2 ngày', 'Nửa ngày'].includes(meta.leaveDurationType)) {
+      const rate = Math.min(1.0, Math.round((diffHours / 8) * 100) / 100);
+      setTargetLeaveRate(rate);
       setCompensatoryType('Theo giờ');
+      setCompensatoryHours(String(diffHours));
+      setCompensatoryRate(rate);
+
+      const halfRate = Math.round((rate / 2) * 100) / 100;
+      const halfHours = Math.round((diffHours / 2) * 10) / 10;
+      setCompensatoryRate2(halfRate);
+      setCompensatoryHours2(String(halfHours));
+      setCompensationMode('SINGLE');
+    } else if (['1/2 ngày', 'Nửa ngày'].includes(meta.leaveDurationType)) {
+      setTargetLeaveRate(0.5);
+      setCompensatoryType('Nửa ngày');
       setCompensatoryHours('4');
+      setCompensatoryRate(0.5);
+      // Khi chia làm bù 2 ngày: mỗi ngày là 0.25 công (2 giờ)
+      setCompensatoryRate2(0.25);
+      setCompensatoryHours2('2');
+      setCompensationMode('SINGLE');
     } else {
+      // 1 ngày / trong ngày
+      setTargetLeaveRate(1.0);
       setCompensatoryType('Cả ca');
       setCompensatoryHours('8');
+      setCompensatoryRate(1.0);
+      // Khi chia làm bù 2 ngày: mỗi ngày là 0.5 công (4 giờ)
+      setCompensatoryRate2(0.5);
+      setCompensatoryHours2('4');
+      setCompensationMode('SINGLE');
     }
   };
 
@@ -178,7 +217,7 @@ export default function CreateRequestScreen() {
   const [timePickerTab, setTimePickerTab] = useState<'hour' | 'minute'>('hour');
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState<'start' | 'end' | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | 'single' | 'target_leave' | 'compensatory' | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | 'single' | 'target_leave' | 'compensatory' | 'compensatory2' | null>(null);
   const [showLeaveDurationModal, setShowLeaveDurationModal] = useState(false);
   const [showLeaveTypeModal, setShowLeaveTypeModal] = useState(false);
   const [showExplanationTypeModal, setShowExplanationTypeModal] = useState(false);
@@ -189,13 +228,21 @@ export default function CreateRequestScreen() {
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
 
-  const handleOpenDatePicker = (mode: 'from' | 'to' | 'single' | 'target_leave' | 'compensatory') => {
+  const handleOpenDatePicker = (mode: 'from' | 'to' | 'single' | 'target_leave' | 'compensatory' | 'compensatory2') => {
     let initialDate = new Date();
     if (mode === 'from' && fromDate) initialDate = new Date(fromDate);
     if (mode === 'to' && toDate) initialDate = new Date(toDate);
     if (mode === 'single' && fromDate) initialDate = new Date(fromDate);
     if (mode === 'target_leave' && targetLeaveDate) initialDate = new Date(targetLeaveDate);
     if (mode === 'compensatory' && compensatoryDate) initialDate = new Date(compensatoryDate);
+    if (mode === 'compensatory2') {
+      if (compensatoryDate2) initialDate = new Date(compensatoryDate2);
+      else if (compensatoryDate) {
+        const nextD = new Date(compensatoryDate);
+        nextD.setDate(nextD.getDate() + 1);
+        initialDate = nextD;
+      }
+    }
     setCalendarViewDate(initialDate);
     setShowDatePicker(mode);
   };
@@ -355,7 +402,7 @@ export default function CreateRequestScreen() {
 
           setApprovedLeaves(eligible);
 
-          if (eligible.length > 0) {
+          if (eligible.length > 0 && eligible[0]) {
             applyLeaveRequest(eligible[0]);
           } else {
             setSelectedLeaveRequest(null);
@@ -504,7 +551,28 @@ export default function CreateRequestScreen() {
         setShowDatePicker(null);
         return;
       }
+      if (compensationMode === 'SPLIT_2' && compensatoryDate2) {
+        if (chosen.getDate() === compensatoryDate2.getDate() && chosen.getMonth() === compensatoryDate2.getMonth() && chosen.getFullYear() === compensatoryDate2.getFullYear()) {
+          showAlert('Trùng ngày', 'Ngày làm bù ca 1 không được trùng với ca 2. Mỗi ngày chỉ được xếp 1 ca làm bù.');
+          setShowDatePicker(null);
+          return;
+        }
+      }
       setCompensatoryDate(chosen);
+    } else if (showDatePicker === 'compensatory2') {
+      if (targetLeaveDate && (chosen.getMonth() !== targetLeaveDate.getMonth() || chosen.getFullYear() !== targetLeaveDate.getFullYear())) {
+        showAlert('Không hợp lệ', `Ngày làm bù ca 2 (${chosen.getDate()}/${chosen.getMonth() + 1}) phải nằm trong cùng tháng ${targetLeaveDate.getMonth() + 1}/${targetLeaveDate.getFullYear()} với ngày nghỉ. Không cho phép làm bù chéo tháng.`);
+        setShowDatePicker(null);
+        return;
+      }
+      if (compensatoryDate) {
+        if (chosen.getDate() === compensatoryDate.getDate() && chosen.getMonth() === compensatoryDate.getMonth() && chosen.getFullYear() === compensatoryDate.getFullYear()) {
+          showAlert('Trùng ngày', 'Ngày làm bù ca 2 không được trùng với ca 1. Mỗi ngày chỉ được xếp 1 ca làm bù.');
+          setShowDatePicker(null);
+          return;
+        }
+      }
+      setCompensatoryDate2(chosen);
     }
     setShowDatePicker(null);
   };
@@ -528,6 +596,8 @@ export default function CreateRequestScreen() {
       setTargetLeaveDate(target);
     } else if (showDatePicker === 'compensatory') {
       setCompensatoryDate(target);
+    } else if (showDatePicker === 'compensatory2') {
+      setCompensatoryDate2(target);
     }
     setShowDatePicker(null);
   };
@@ -598,6 +668,13 @@ export default function CreateRequestScreen() {
     return `${h}:${m}`;
   };
 
+  const formatLocalDateYMD = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   const formatDate = (date: Date | null) => {
     if (!date) return '';
     return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -605,7 +682,11 @@ export default function CreateRequestScreen() {
 
   const handleSelectShift = (selectedShift: Shift) => {
     if (isCompensatory) {
-      setCompensatoryShift(selectedShift);
+      if (activeCompSlot === 2) {
+        setCompensatoryShift2(selectedShift);
+      } else {
+        setCompensatoryShift(selectedShift);
+      }
     } else {
       setShift(selectedShift);
     }
@@ -628,10 +709,16 @@ export default function CreateRequestScreen() {
       } else if (isLeave && leaveType) {
         generatedTitle = `Nghỉ phép: ${leaveType} - ${dateStr}`;
       } else if (isCompensatory) {
-        const compDateStr = compensatoryDate ? formatDate(compensatoryDate) : '';
         const targetDateStr = targetLeaveDate ? formatDate(targetLeaveDate) : '';
-        const shiftName = compensatoryShift?.name || (compensatoryType === 'Theo giờ' ? `${compensatoryHours}h` : 'ca làm');
-        generatedTitle = `[LÀM BÙ] Làm bù ${shiftName}${compDateStr ? ` ngày ${compDateStr}` : ''}${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`;
+        if (compensationMode === 'SPLIT_2') {
+          const compDate1Str = compensatoryDate ? formatDate(compensatoryDate) : '';
+          const compDate2Str = compensatoryDate2 ? formatDate(compensatoryDate2) : '';
+          generatedTitle = `[LÀM BÙ] Làm bù 2 ngày (${compDate1Str} & ${compDate2Str})${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`;
+        } else {
+          const compDateStr = compensatoryDate ? formatDate(compensatoryDate) : '';
+          const shiftName = compensatoryShift?.name || (compensatoryType === 'Theo giờ' ? `${compensatoryHours}h` : 'ca làm');
+          generatedTitle = `[LÀM BÙ] Làm bù ${shiftName}${compDateStr ? ` ngày ${compDateStr}` : ''}${targetDateStr ? ` cho ngày ${targetDateStr}` : ''}`;
+        }
       } else if (isPurchase) {
         generatedTitle = `[Mua sắm] ${purchaseItemName.trim() || 'Vật tư'} (SL: ${purchaseQuantity.trim() || '1'})`;
       } else if (isAdvance) {
@@ -804,8 +891,8 @@ export default function CreateRequestScreen() {
         showAlert('Lỗi', 'Vui lòng chọn Ngày nghỉ cần làm bù.');
         return;
       }
-      if (!compensatoryDate) {
-        showAlert('Lỗi', 'Vui lòng chọn Ngày thực hiện làm bù.');
+      if (!compensatoryDate || !compensatoryShift) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày và Ca làm bù thứ nhất.');
         return;
       }
       if (targetLeaveDate && compensatoryDate) {
@@ -820,13 +907,29 @@ export default function CreateRequestScreen() {
           return;
         }
       }
-      if (!compensatoryShift) {
-        showAlert('Lỗi', 'Vui lòng chọn Ca làm bù.');
-        return;
-      }
-      if (compensatoryType === 'Theo giờ' && (!compensatoryHours || Number(compensatoryHours) <= 0)) {
-        showAlert('Lỗi', 'Vui lòng nhập số giờ làm bù hợp lệ.');
-        return;
+      if (compensationMode === 'SPLIT_2') {
+        if (!compensatoryDate2 || !compensatoryShift2) {
+          showAlert('Lỗi', 'Vui lòng chọn Ngày và Ca làm bù thứ hai.');
+          return;
+        }
+        if (
+          targetLeaveDate.getMonth() !== compensatoryDate2.getMonth() ||
+          targetLeaveDate.getFullYear() !== compensatoryDate2.getFullYear()
+        ) {
+          showAlert(
+            'Không hợp lệ',
+            `Ngày làm bù thứ 2 (${compensatoryDate2.getDate()}/${compensatoryDate2.getMonth() + 1}/${compensatoryDate2.getFullYear()}) phải nằm trong cùng tháng với ngày nghỉ.`,
+          );
+          return;
+        }
+        if (
+          compensatoryDate.getDate() === compensatoryDate2.getDate() &&
+          compensatoryDate.getMonth() === compensatoryDate2.getMonth() &&
+          compensatoryDate.getFullYear() === compensatoryDate2.getFullYear()
+        ) {
+          showAlert('Không hợp lệ', 'Hai ca làm bù phải được chọn vào 2 ngày khác nhau (do mỗi ngày chỉ được xếp 1 ca làm bù).');
+          return;
+        }
       }
     }
     if (isLateOrEarly) {
@@ -947,12 +1050,39 @@ export default function CreateRequestScreen() {
         ...(leaveDurationType ? { leaveDurationType } : {}),
         ...(isCompensatory ? {
           requestType: 'COMPENSATORY_WORK',
-          targetLeaveDate: targetLeaveDate ? targetLeaveDate.toISOString() : undefined,
-          compensatoryDate: compensatoryDate ? compensatoryDate.toISOString() : undefined,
+          targetLeaveDate: formatLocalDateYMD(targetLeaveDate!),
+          targetLeaveRate,
+          compensationMode,
+          compensationShifts: compensationMode === 'SPLIT_2' ? [
+            {
+              date: formatLocalDateYMD(compensatoryDate!),
+              shiftId: compensatoryShift?.id,
+              shiftName: compensatoryShift?.name,
+              rate: compensatoryRate,
+              hours: Number(compensatoryHours) || (compensatoryRate * 8),
+            },
+            {
+              date: formatLocalDateYMD(compensatoryDate2!),
+              shiftId: compensatoryShift2?.id,
+              shiftName: compensatoryShift2?.name,
+              rate: compensatoryRate2,
+              hours: Number(compensatoryHours2) || (compensatoryRate2 * 8),
+            },
+          ] : [
+            {
+              date: formatLocalDateYMD(compensatoryDate!),
+              shiftId: compensatoryShift?.id,
+              shiftName: compensatoryShift?.name,
+              rate: compensatoryRate,
+              hours: Number(compensatoryHours) || (compensatoryRate * 8),
+            },
+          ],
+          compensatoryDate: formatLocalDateYMD(compensatoryDate!),
           compensatoryShiftId: compensatoryShift?.id,
           compensatoryShiftName: compensatoryShift?.name,
+          compensatoryRate,
           compensatoryType,
-          missedHours: compensatoryType === 'Theo giờ' ? Number(compensatoryHours) : undefined,
+          missedHours: Number(compensatoryHours) || (compensatoryRate * 8),
           leaveRequestId: selectedLeaveRequest?.id,
           leaveRequestTitle: selectedLeaveRequest?.title,
         } : {}),
@@ -1639,63 +1769,215 @@ export default function CreateRequestScreen() {
                 </View>
               )}
 
-              {/* Ngày thực hiện làm bù */}
+              {/* Hình thức phân bổ làm bù: Bù 1 lần vs Chia làm bù 2 ngày */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
-                  Ngày làm bù <Text style={styles.required}>*</Text>
+                  Phương án làm bù <Text style={styles.required}>*</Text>
                 </Text>
-                <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory')}>
-                  <Text style={[styles.inputText, !compensatoryDate && styles.inputPlaceholder]}>
-                    {compensatoryDate ? formatDate(compensatoryDate) : 'Chọn ngày làm bù (VD: Chủ nhật)'}
-                  </Text>
-                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
-                </Pressable>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Pressable
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      paddingHorizontal: 10,
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: compensationMode === 'SINGLE' ? '#0284C7' : '#E2E8F0',
+                      backgroundColor: compensationMode === 'SINGLE' ? '#F0F9FF' : '#FFFFFF',
+                      alignItems: 'center',
+                    }}
+                    onPress={() => {
+                      setCompensationMode('SINGLE');
+                      if (targetLeaveRate === 1.0) {
+                        setCompensatoryRate(1.0);
+                        setCompensatoryHours('8');
+                      } else if (targetLeaveRate === 0.5) {
+                        setCompensatoryRate(0.5);
+                        setCompensatoryHours('4');
+                      }
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: compensationMode === 'SINGLE' ? '#0369A1' : '#64748B' }}>
+                      Bù 1 lần (1 ngày)
+                    </Text>
+                    <Text style={{ fontSize: 11, color: compensationMode === 'SINGLE' ? '#0284C7' : '#94A3B8', marginTop: 2, textAlign: 'center' }}>
+                      {targetLeaveRate === 1.0 ? '1 ca (1.0 công / 8h)' : targetLeaveRate === 0.5 ? '1 ca (0.5 công / 4h)' : `${targetLeaveRate} công (${compensatoryHours}h)`}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      paddingHorizontal: 10,
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: compensationMode === 'SPLIT_2' ? '#0284C7' : '#E2E8F0',
+                      backgroundColor: compensationMode === 'SPLIT_2' ? '#F0F9FF' : '#FFFFFF',
+                      alignItems: 'center',
+                    }}
+                    onPress={() => {
+                      setCompensationMode('SPLIT_2');
+                      if (targetLeaveRate === 1.0) {
+                        setCompensatoryRate(0.5);
+                        setCompensatoryHours('4');
+                        setCompensatoryRate2(0.5);
+                        setCompensatoryHours2('4');
+                      } else if (targetLeaveRate === 0.5) {
+                        setCompensatoryRate(0.25);
+                        setCompensatoryHours('2');
+                        setCompensatoryRate2(0.25);
+                        setCompensatoryHours2('2');
+                      } else {
+                        const halfR = Math.round((targetLeaveRate / 2) * 100) / 100;
+                        setCompensatoryRate(halfR);
+                        setCompensatoryRate2(halfR);
+                      }
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: compensationMode === 'SPLIT_2' ? '#0369A1' : '#64748B' }}>
+                      Chia làm bù 2 ngày
+                    </Text>
+                    <Text style={{ fontSize: 11, color: compensationMode === 'SPLIT_2' ? '#0284C7' : '#94A3B8', marginTop: 2, textAlign: 'center' }}>
+                      {targetLeaveRate === 1.0 ? '2 ca (mỗi ca 0.5 công)' : targetLeaveRate === 0.5 ? '2 ca (mỗi ca 0.25 công)' : 'Chia 2 ca nhỏ'}
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
 
-              {/* Ca làm bù */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>
-                  Ca làm bù <Text style={styles.required}>*</Text>
-                </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowShiftModal(true)}>
-                  <Text style={[styles.inputText, !compensatoryShift && styles.inputPlaceholder]}>
-                    {compensatoryShift ? `${compensatoryShift.name} (${compensatoryShift.startTime} - ${compensatoryShift.endTime})` : 'Chọn ca làm bù'}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
-                </Pressable>
-              </View>
+              {/* Thẻ Ca làm bù 1 */}
+              <View style={{
+                backgroundColor: '#F8FAFC',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 14,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="calendar-clock" size={18} color="#0284C7" style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                      {compensationMode === 'SPLIT_2' ? 'Ca làm bù 1 (Ngày 1)' : 'Ca làm bù'}
+                    </Text>
+                  </View>
+                  <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
+                      +{compensatoryRate} công ({compensatoryHours}h)
+                    </Text>
+                  </View>
+                </View>
 
-              {/* Hình thức làm bù */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>
-                  Hình thức làm bù <Text style={styles.required}>*</Text>
-                </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowCompensatoryTypeModal(true)}>
-                  <Text style={styles.inputText}>
-                    {compensatoryType}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
-                </Pressable>
-              </View>
-
-              {compensatoryType === 'Theo giờ' && (
-                <View style={styles.formItem}>
+                {/* Ngày làm bù 1 */}
+                <View style={{ marginBottom: 10 }}>
                   <Text style={styles.formLabel}>
-                    Số giờ làm bù <Text style={styles.required}>*</Text>
+                    Ngày làm bù {compensationMode === 'SPLIT_2' ? '1' : ''} <Text style={styles.required}>*</Text>
                   </Text>
-                  <View style={styles.inputBox}>
-                    <TextInput
-                      style={[styles.inputText, { flex: 1 }]}
-                      placeholder="VD: 2, 4..."
-                      placeholderTextColor="#94A3B8"
-                      keyboardType="numeric"
-                      value={compensatoryHours}
-                      onChangeText={setCompensatoryHours}
-                    />
-                    <Text style={{ color: '#0F172A', fontWeight: '600', fontSize: 13, marginLeft: 6 }}>Giờ</Text>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory')}>
+                    <Text style={[styles.inputText, !compensatoryDate && styles.inputPlaceholder]}>
+                      {compensatoryDate ? formatDate(compensatoryDate) : 'Chọn ngày làm bù'}
+                    </Text>
+                    <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                  </Pressable>
+                </View>
+
+                {/* Ca làm bù 1 */}
+                <View>
+                  <Text style={styles.formLabel}>
+                    Ca làm bù {compensationMode === 'SPLIT_2' ? '1' : ''} <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable 
+                    style={styles.inputBox} 
+                    onPress={() => {
+                      setActiveCompSlot(1);
+                      setShowShiftModal(true);
+                    }}
+                  >
+                    <Text style={[styles.inputText, !compensatoryShift && styles.inputPlaceholder]}>
+                      {compensatoryShift ? `${compensatoryShift.name} (${compensatoryShift.startTime} - ${compensatoryShift.endTime})` : 'Chọn ca làm bù'}
+                    </Text>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Thẻ Ca làm bù 2 (khi chọn Chia làm bù 2 ngày) */}
+              {compensationMode === 'SPLIT_2' && (
+                <View style={{
+                  backgroundColor: '#F8FAFC',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 14,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="calendar-clock" size={18} color="#0284C7" style={{ marginRight: 6 }} />
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                        Ca làm bù 2 (Ngày 2)
+                      </Text>
+                    </View>
+                    <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
+                        +{compensatoryRate2} công ({compensatoryHours2}h)
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Ngày làm bù 2 */}
+                  <View style={{ marginBottom: 10 }}>
+                    <Text style={styles.formLabel}>
+                      Ngày làm bù 2 <Text style={styles.required}>*</Text>
+                    </Text>
+                    <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory2')}>
+                      <Text style={[styles.inputText, !compensatoryDate2 && styles.inputPlaceholder]}>
+                        {compensatoryDate2 ? formatDate(compensatoryDate2) : 'Chọn ngày làm bù 2'}
+                      </Text>
+                      <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                    </Pressable>
+                  </View>
+
+                  {/* Ca làm bù 2 */}
+                  <View>
+                    <Text style={styles.formLabel}>
+                      Ca làm bù 2 <Text style={styles.required}>*</Text>
+                    </Text>
+                    <Pressable 
+                      style={styles.inputBox} 
+                      onPress={() => {
+                        setActiveCompSlot(2);
+                        setShowShiftModal(true);
+                      }}
+                    >
+                      <Text style={[styles.inputText, !compensatoryShift2 && styles.inputPlaceholder]}>
+                        {compensatoryShift2 ? `${compensatoryShift2.name} (${compensatoryShift2.startTime} - ${compensatoryShift2.endTime})` : 'Chọn ca làm bù 2'}
+                      </Text>
+                      <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                    </Pressable>
                   </View>
                 </View>
               )}
+
+              {/* Thông tin tóm tắt quy định */}
+              <View style={{
+                backgroundColor: '#EFF6FF',
+                borderWidth: 1,
+                borderColor: '#BFDBFE',
+                borderRadius: 10,
+                padding: 12,
+                marginBottom: 16,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <MaterialCommunityIcons name="information-outline" size={18} color="#1D4ED8" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E40AF' }}>Quy định tính công làm bù</Text>
+                </View>
+                <Text style={{ fontSize: 11, color: '#1E40AF', lineHeight: 16 }}>
+                  • Tất cả ngày làm bù phải nằm trong cùng tháng với ngày nghỉ (theo múi giờ Việt Nam).{'\n'}
+                  • Làm bao nhiêu hưởng bấy nhiêu: mỗi ca hoàn thành sẽ chuyển công tương ứng về ngày nghỉ.{'\n'}
+                  • Ca vắng/không làm sẽ nhận 0 công và ngày nghỉ bị trừ phần công đó.
+                </Text>
+              </View>
 
               {/* Lý do chi tiết */}
               <View style={styles.formItem}>
