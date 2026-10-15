@@ -17,7 +17,7 @@ export interface AppRegistryItem {
   badgeKey?: 'pendingRequests' | 'dueTasks' | 'pendingVault' | 'pendingFinancial';
 }
 
-export const CORE_APP_KEYS = ['attendance', 'requests', 'tasks', 'ai_chat', 'feedbacks'] as const;
+export const CORE_APP_KEYS = ['attendance', 'attendance_history', 'requests', 'tasks', 'ai_chat', 'feedbacks'] as const;
 
 export const APP_CATEGORIES = [
   { id: 'operations', label: 'VẬN HÀNH & NHÂN SỰ' },
@@ -39,6 +39,23 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     leaderRoute: '/employee/attendance',
     employeeRoute: '/employee/attendance',
     hrRoute: '/employee/attendance',
+    isCore: true,
+  },
+  attendance_history: {
+    key: 'attendance_history',
+    title: 'Lịch sử chấm công',
+    adminTitle: 'Lịch sử chấm công',
+    leaderTitle: 'Lịch sử chấm công',
+    employeeTitle: 'Lịch sử chấm công',
+    hrTitle: 'Lịch sử chấm công',
+    category: 'operations',
+    icon: 'History',
+    color: '#0284C7',
+    bgColor: '#E0F2FE',
+    adminRoute: '/employee/attendance/history',
+    leaderRoute: '/employee/attendance/history',
+    employeeRoute: '/employee/attendance/history',
+    hrRoute: '/employee/attendance/history',
     isCore: true,
   },
   requests: {

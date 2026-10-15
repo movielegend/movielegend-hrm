@@ -52,9 +52,19 @@ export function usePinnedApps(roleOverride?: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | '
   // Toàn bộ các keys đã ghim (tối thiểu 4 app, tự động lọc theo vai trò)
   const pinnedKeys = useMemo(() => {
     const role = roleOverride || resolveUserRole(user);
-    const rawKeys = data?.pinnedApps && data.pinnedApps.length >= 4
+    let rawKeys = data?.pinnedApps && data.pinnedApps.length >= 4
       ? data.pinnedApps
       : [...CORE_APP_KEYS];
+
+    // Nếu chưa tùy chỉnh, đảm bảo có attendance_history
+    if (!data?.isCustomized && !rawKeys.includes('attendance_history')) {
+      const attIndex = rawKeys.indexOf('attendance');
+      if (attIndex !== -1) {
+        rawKeys = [...rawKeys.slice(0, attIndex + 1), 'attendance_history', ...rawKeys.slice(attIndex + 1)];
+      } else {
+        rawKeys = ['attendance_history', ...rawKeys];
+      }
+    }
 
     const valid = rawKeys.filter(k => {
       const item = APP_REGISTRY[k];

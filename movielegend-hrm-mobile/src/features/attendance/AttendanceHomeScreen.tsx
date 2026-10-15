@@ -9,11 +9,13 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
+import { Screen } from '../../components/Screen';
 import { Avatar } from '../../components/Avatar';
 import { useAuth } from '../../providers/AuthProvider';
 import {
@@ -23,6 +25,88 @@ import {
 } from '../../hooks/useAttendance';
 import { useMySchedule } from '../../hooks/useShifts';
 import { colors } from '../../theme/colors';
+
+interface RoleTheme {
+  primaryDark: string;
+  gradientColors: [string, string, ...string[]];
+  accentGlow: string;
+  secondaryGlow: string;
+  roleBadgeText: string;
+  roleBadgeColor: string;
+  roleBadgeBg: string;
+}
+
+function getRoleTheme(roles?: any[]): RoleTheme {
+  const roleList = (roles || []).map((r: any) =>
+    (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+  );
+
+  if (roleList.some((r: string) => r.includes('ADMIN'))) {
+    return {
+      primaryDark: '#0F172A',
+      gradientColors: ['#1E293B', '#0F172A', '#020617'],
+      accentGlow: 'rgba(59, 130, 246, 0.32)',
+      secondaryGlow: 'rgba(245, 158, 11, 0.18)',
+      roleBadgeText: 'Quản trị viên',
+      roleBadgeColor: '#93C5FD',
+      roleBadgeBg: 'rgba(59, 130, 246, 0.18)',
+    };
+  }
+  if (roleList.some((r: string) => r.includes('ACCOUNT') || r.includes('KETOAN'))) {
+    return {
+      primaryDark: '#042F2E',
+      gradientColors: ['#0A3B39', '#042F2E', '#021B1A'],
+      accentGlow: 'rgba(20, 184, 166, 0.34)',
+      secondaryGlow: 'rgba(13, 148, 136, 0.18)',
+      roleBadgeText: 'Kế toán',
+      roleBadgeColor: '#5EEAD4',
+      roleBadgeBg: 'rgba(20, 184, 166, 0.18)',
+    };
+  }
+  if (roleList.some((r: string) => r.includes('HR'))) {
+    return {
+      primaryDark: '#064E3B',
+      gradientColors: ['#065F46', '#064E3B', '#02241B'],
+      accentGlow: 'rgba(16, 185, 129, 0.34)',
+      secondaryGlow: 'rgba(5, 150, 105, 0.18)',
+      roleBadgeText: 'Nhân sự',
+      roleBadgeColor: '#6EE7B7',
+      roleBadgeBg: 'rgba(16, 185, 129, 0.18)',
+    };
+  }
+  if (roleList.some((r: string) => r.includes('LEADER'))) {
+    return {
+      primaryDark: '#1E1B4B',
+      gradientColors: ['#312E81', '#1E1B4B', '#0F0E28'],
+      accentGlow: 'rgba(129, 140, 248, 0.34)',
+      secondaryGlow: 'rgba(99, 102, 241, 0.18)',
+      roleBadgeText: 'Quản lý',
+      roleBadgeColor: '#C7D2FE',
+      roleBadgeBg: 'rgba(129, 140, 248, 0.18)',
+    };
+  }
+  if (roleList.some((r: string) => r.includes('WAREHOUSE'))) {
+    return {
+      primaryDark: '#2E1065',
+      gradientColors: ['#3B0764', '#2E1065', '#14032C'],
+      accentGlow: 'rgba(168, 85, 247, 0.34)',
+      secondaryGlow: 'rgba(147, 51, 234, 0.18)',
+      roleBadgeText: 'Thủ kho',
+      roleBadgeColor: '#E9D5FF',
+      roleBadgeBg: 'rgba(168, 85, 247, 0.18)',
+    };
+  }
+  // Default EMPLOYEE (Midnight Navy / Sky Blue loang)
+  return {
+    primaryDark: '#102739',
+    gradientColors: ['#102739', '#0C202F', '#071520'],
+    accentGlow: 'rgba(2, 132, 199, 0.34)',
+    secondaryGlow: 'rgba(14, 165, 233, 0.18)',
+    roleBadgeText: 'Nhân viên',
+    roleBadgeColor: '#7DD3FC',
+    roleBadgeBg: 'rgba(2, 132, 199, 0.18)',
+  };
+}
 
 const VN_DAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
 
@@ -68,8 +152,10 @@ function calculateWorkDuration(checkInAtStr?: string | null): string {
 export function AttendanceHomeScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const userName = user?.fullName || user?.userCode || 'Nhân viên';
+  const roleTheme = useMemo(() => getRoleTheme(user?.roles), [user?.roles]);
 
   // Live real-time clock
   const [now, setNow] = useState(new Date());
@@ -166,91 +252,131 @@ export function AttendanceHomeScreen() {
   }, [user?.roles]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <Screen
+      backgroundColor="#F8FAFC"
+      edges={['left', 'right']}
+      statusBarStyle="light"
+      statusBarTranslucent
+    >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="#0284C7" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor="#FFFFFF"
+          />
+        }
       >
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <Pressable onPress={() => router.back()} style={styles.iconButton} hitSlop={8}>
-              <Ionicons name="chevron-back" size={24} color="#0B3B61" />
-            </Pressable>
-            <View>
-              <Text style={styles.screenTitle}>Chấm công</Text>
-              <Text style={styles.screenSubtitle}>Điểm danh ca làm việc cá nhân</Text>
-            </View>
-          </View>
-          <Pressable onPress={() => void onRefresh()} style={styles.iconButton} hitSlop={8}>
-            <Ionicons name="refresh-outline" size={22} color="#0284C7" />
-          </Pressable>
-        </View>
+        {/* Top overscroll guard matching dark header top */}
+        <View pointerEvents="none" style={[styles.topOverscrollFill, { backgroundColor: roleTheme.primaryDark }]} />
 
-        {/* User Profile Card */}
-        <View style={styles.userCard}>
-          <View style={styles.userInfoRow}>
-            <Avatar name={userName} uri={user?.avatarUrl} size={48} />
-            <View style={styles.userDetails}>
-              <Text style={styles.userNameText}>{userName}</Text>
-              <Text style={styles.userMetaText}>
-                {user?.userCode ? `MNV: ${user.userCode} • ` : ''}
-                {user?.department?.name || 'Toàn công ty'}
+        {/* ================= 1. DARK ROLE GRADIENT HEADER ================= */}
+        <LinearGradient
+          colors={roleTheme.gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[
+            styles.glossyHeader,
+            { paddingTop: Math.max(insets.top, 16) + 8 },
+          ]}
+        >
+          {/* Subtle Decorative Wave Curve & Role Loang Glows */}
+          <View pointerEvents="none" style={styles.decorativeCurve} />
+          <View pointerEvents="none" style={[styles.roleLoangOrb, { backgroundColor: roleTheme.accentGlow }]} />
+          <View pointerEvents="none" style={[styles.roleLoangSecondary, { backgroundColor: roleTheme.secondaryGlow }]} />
+
+          {/* Header Row: Back button, Title, Subtitle, Refresh button */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
+              <Pressable onPress={() => router.back()} style={styles.iconButtonDark} hitSlop={8}>
+                <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+              </Pressable>
+              <View>
+                <Text style={styles.screenTitleDark}>Chấm công</Text>
+                <Text style={styles.screenSubtitleDark}>Điểm danh ca làm việc cá nhân</Text>
+              </View>
+            </View>
+            <Pressable onPress={() => void onRefresh()} style={styles.iconButtonDark} hitSlop={8}>
+              <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
+            </Pressable>
+          </View>
+
+          {/* User Profile Card on Dark Header */}
+          <View style={styles.userCardDark}>
+            <View style={styles.userInfoRow}>
+              <View style={styles.avatarWrapDark}>
+                <Avatar name={userName} uri={user?.avatarUrl} size={44} />
+              </View>
+              <View style={styles.userDetails}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.userNameTextDark} numberOfLines={1}>{userName}</Text>
+                  <View style={[styles.roleBadgeDark, { backgroundColor: roleTheme.roleBadgeBg }]}>
+                    <Text style={[styles.roleBadgeTextDark, { color: roleTheme.roleBadgeColor }]}>
+                      {roleTheme.roleBadgeText}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.userMetaTextDark} numberOfLines={1}>
+                  {user?.userCode ? `MNV: ${user.userCode} • ` : ''}
+                  {user?.department?.name || 'Toàn công ty'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Status Badge */}
+            <View
+              style={[
+                styles.statusPillDark,
+                isCheckedIn
+                  ? styles.statusPillDarkIn
+                  : isCheckedOut
+                  ? styles.statusPillDarkOut
+                  : styles.statusPillDarkIdle,
+              ]}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  isCheckedIn
+                    ? styles.statusDotIn
+                    : isCheckedOut
+                    ? styles.statusDotOut
+                    : styles.statusDotIdle,
+                ]}
+              />
+              <Text
+                style={[
+                  styles.statusPillTextDark,
+                  isCheckedIn
+                    ? styles.statusPillTextDarkIn
+                    : isCheckedOut
+                    ? styles.statusPillTextDarkOut
+                    : styles.statusPillTextDarkIdle,
+                ]}
+              >
+                {isCheckedIn
+                  ? 'Đang trong ca'
+                  : isCheckedOut
+                  ? 'Đã kết thúc ca'
+                  : 'Chưa vào ca'}
               </Text>
             </View>
           </View>
+        </LinearGradient>
 
-          {/* Status Badge */}
-          <View
-            style={[
-              styles.statusPill,
-              isCheckedIn
-                ? styles.statusPillIn
-                : isCheckedOut
-                ? styles.statusPillOut
-                : styles.statusPillIdle,
-            ]}
-          >
-            <View
-              style={[
-                styles.statusDot,
-                isCheckedIn
-                  ? styles.statusDotIn
-                  : isCheckedOut
-                  ? styles.statusDotOut
-                  : styles.statusDotIdle,
-              ]}
-            />
-            <Text
-              style={[
-                styles.statusPillText,
-                isCheckedIn
-                  ? styles.statusPillTextIn
-                  : isCheckedOut
-                  ? styles.statusPillTextOut
-                  : styles.statusPillTextIdle,
-              ]}
-            >
-              {isCheckedIn
-                ? 'Đang trong ca'
-                : isCheckedOut
-                ? 'Đã kết thúc ca'
-                : 'Chưa vào ca'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Hero Interactive Attendance Card (White Signature Design with Contour Ripples) */}
-        <View style={styles.heroCard}>
-          {/* Topographic contour ripples background */}
-          <View pointerEvents="none" style={styles.heroTopographicWrapper}>
-            <Image
-              source={require('../../../assets/topographic-contour-employee-v2.png')}
-              style={styles.heroTopographicBg}
-              resizeMode="cover"
-            />
-          </View>
+        {/* ================= 2. HERO CARD WRAPPER (Sliding Over Dark Header) ================= */}
+        <View style={styles.heroCardWrapper}>
+          <View style={styles.heroCard}>
+            {/* Topographic contour ripples background */}
+            <View pointerEvents="none" style={styles.heroTopographicWrapper}>
+              <Image
+                source={require('../../../assets/topographic-contour-employee-v2.png')}
+                style={styles.heroTopographicBg}
+                resizeMode="cover"
+              />
+            </View>
 
           {/* Top Row: Date Tag & Status Pill */}
           <View style={styles.cardHeaderRow}>
@@ -416,7 +542,10 @@ export function AttendanceHomeScreen() {
             </Text>
           </View>
         </View>
+      </View>
 
+      {/* ================= 3. REST OF PAGE CONTENT ================= */}
+      <View style={styles.pageBody}>
         {/* Admin/HR/Leader Shortcut Banner (if authorized) */}
         {isAdminOrLeaderOrHr && managementRoute && (
           <Pressable
@@ -612,8 +741,9 @@ export function AttendanceHomeScreen() {
             })}
           </View>
         )}
+        </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -623,56 +753,162 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: 0,
+    paddingTop: 0,
     paddingBottom: 110,
+  },
+  topOverscrollFill: {
+    position: 'absolute',
+    top: -500,
+    left: 0,
+    right: 0,
+    height: 500,
+  },
+  glossyHeader: {
+    paddingHorizontal: 16,
+    paddingBottom: 58,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  decorativeCurve: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  roleLoangOrb: {
+    position: 'absolute',
+    top: -60,
+    right: -30,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+  },
+  roleLoangSecondary: {
+    position: 'absolute',
+    bottom: -30,
+    left: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
-  iconButton: {
+  iconButtonDark: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255, 255, 255, 0.18)',
   },
-  screenTitle: {
+  screenTitleDark: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0B3B61',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
   },
-  screenSubtitle: {
+  screenSubtitleDark: {
     fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
+    color: 'rgba(255, 255, 255, 0.72)',
+    marginTop: 2,
   },
-  userCard: {
+  userCardDark: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.09)',
+    borderRadius: 18,
+    padding: 12,
+    marginTop: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  avatarWrapDark: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.40)',
+    borderRadius: 24,
+  },
+  userNameTextDark: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  userMetaTextDark: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.75)',
+    marginTop: 2,
+  },
+  roleBadgeDark: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  roleBadgeTextDark: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  statusPillDark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  statusPillDarkIn: {
+    backgroundColor: 'rgba(16, 185, 129, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.40)',
+  },
+  statusPillDarkOut: {
+    backgroundColor: 'rgba(2, 132, 199, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.40)',
+  },
+  statusPillDarkIdle: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  statusPillTextDark: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusPillTextDarkIn: {
+    color: '#34D399',
+  },
+  statusPillTextDarkOut: {
+    color: '#38BDF8',
+  },
+  statusPillTextDarkIdle: {
+    color: 'rgba(255, 255, 255, 0.80)',
+  },
+  heroCardWrapper: {
+    paddingHorizontal: 16,
+    marginTop: -42,
+    marginBottom: 16,
+  },
+  pageBody: {
+    paddingHorizontal: 16,
   },
   userInfoRow: {
     flexDirection: 'row',
