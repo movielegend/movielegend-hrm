@@ -1174,34 +1174,22 @@ export default function CreateRequestScreen() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#102739' }}>
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <Pressable 
-              onPress={() => {
-                if (isCompensatory && !params.type) {
-                  setSelectedType('ATTENDANCE_ADJUSTMENT');
-                } else {
-                  router.back();
-                }
-              }} 
-              style={styles.backBtn} 
-              hitSlop={12}
-            >
+            <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
               <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
             </Pressable>
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle}>Tạo đơn mới</Text>
-              <Text style={styles.headerSubtitle}>{isCompensatory ? 'Đăng ký lịch làm bù' : 'Gửi yêu cầu của bạn trong vài bước.'}</Text>
+              <Text style={styles.headerSubtitle}>Gửi yêu cầu của bạn trong vài bước.</Text>
             </View>
-            {!isCompensatory && (
-              <View style={styles.topAvatarCircle}>
-                <Text style={styles.topAvatarText}>{userInitials}</Text>
-              </View>
-            )}
+            <View style={styles.topAvatarCircle}>
+              <Text style={styles.topAvatarText}>{userInitials}</Text>
+            </View>
           </View>
         </View>
       </SafeAreaView>
 
       <KeyboardAvoidingView 
-        style={[styles.curvedSheet, isCompensatory && { backgroundColor: '#FFFFFF' }]} 
+        style={styles.curvedSheet} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
@@ -1212,449 +1200,7 @@ export default function CreateRequestScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {isCompensatory ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-            {isLoadingApprovedLeaves ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, marginBottom: 12 }}>
-                <ActivityIndicator size="small" color="#0284C7" style={{ marginRight: 8 }} />
-                <Text style={{ fontSize: 13, color: '#64748B' }}>Đang tìm nạp đơn nghỉ đã duyệt gần nhất...</Text>
-              </View>
-            ) : approvedLeaves.length === 0 ? (
-              <View style={{
-                backgroundColor: '#FEF2F2',
-                borderWidth: 1,
-                borderColor: '#FECACA',
-                borderRadius: 12,
-                padding: 14,
-                marginBottom: 16,
-              }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                  <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 6 }} />
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#B91C1C' }}>Chưa có đơn nghỉ hợp lệ</Text>
-                </View>
-                <Text style={{ fontSize: 12, color: '#991B1B', lineHeight: 18 }}>
-                  Bạn chưa có đơn nghỉ phép nào được duyệt trong 14 ngày qua. Đơn làm bù chỉ được tạo khi đơn nghỉ phép tương ứng đã được Leader phê duyệt.
-                </Text>
-              </View>
-            ) : approvedLeaves.length > 1 ? (
-              <Pressable
-                onPress={() => setShowApprovedLeavesModal(true)}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  backgroundColor: '#F0F9FF',
-                  borderWidth: 1,
-                  borderColor: '#BAE6FD',
-                  borderRadius: 10,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  marginBottom: 14,
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                  <MaterialCommunityIcons name="calendar-sync-outline" size={16} color="#0284C7" style={{ marginRight: 6 }} />
-                  <Text style={{ fontSize: 12, color: '#0369A1', fontWeight: '600' }} numberOfLines={1}>
-                    Đang bù cho: {targetLeaveDate ? formatDate(targetLeaveDate) : 'Đơn nghỉ'} ({targetLeaveRate} công)
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 11, color: '#0284C7', fontWeight: '700', marginLeft: 8 }}>Đổi</Text>
-              </Pressable>
-            ) : null}
-
-            {/* Phương án làm bù */}
-            <View style={{ marginBottom: 18 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginBottom: 10 }}>
-                Phương án làm bù <Text style={{ color: '#EF4444' }}>*</Text>
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                {/* Bù 1 ngày */}
-                <Pressable
-                  style={{
-                    flex: 1,
-                    paddingVertical: 14,
-                    paddingHorizontal: 12,
-                    borderRadius: 12,
-                    borderWidth: 1.5,
-                    borderColor: compensationMode === 'SINGLE' ? '#0284C7' : '#E2E8F0',
-                    backgroundColor: compensationMode === 'SINGLE' ? '#F0F9FF' : '#FFFFFF',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                  onPress={() => {
-                    setCompensationMode('SINGLE');
-                    if (targetLeaveRate === 1.0) {
-                      setCompensatoryRate(1.0);
-                      setCompensatoryHours('8');
-                    } else if (targetLeaveRate === 0.5) {
-                      setCompensatoryRate(0.5);
-                      setCompensatoryHours('4');
-                    }
-                  }}
-                >
-                  <View style={{ flex: 1, paddingRight: 6 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
-                      Bù 1 ngày
-                    </Text>
-                    <Text style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>
-                      {targetLeaveRate === 1.0 ? '1 ca · 1 công' : targetLeaveRate === 0.5 ? '1 ca · 0.5 công' : `1 ca · ${targetLeaveRate} công`}
-                    </Text>
-                  </View>
-                  {compensationMode === 'SINGLE' ? (
-                    <View style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 11,
-                      backgroundColor: '#0284C7',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <MaterialCommunityIcons name="check" size={15} color="#FFFFFF" />
-                    </View>
-                  ) : (
-                    <View style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 11,
-                      borderWidth: 1.5,
-                      borderColor: '#CBD5E1',
-                      backgroundColor: 'transparent',
-                    }} />
-                  )}
-                </Pressable>
-
-                {/* Chia 2 ngày */}
-                <Pressable
-                  style={{
-                    flex: 1,
-                    paddingVertical: 14,
-                    paddingHorizontal: 12,
-                    borderRadius: 12,
-                    borderWidth: 1.5,
-                    borderColor: compensationMode === 'SPLIT_2' ? '#0284C7' : '#E2E8F0',
-                    backgroundColor: compensationMode === 'SPLIT_2' ? '#F0F9FF' : '#FFFFFF',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                  onPress={() => {
-                    setCompensationMode('SPLIT_2');
-                    if (targetLeaveRate === 1.0) {
-                      setCompensatoryRate(0.5);
-                      setCompensatoryHours('4');
-                      setCompensatoryRate2(0.5);
-                      setCompensatoryHours2('4');
-                    } else if (targetLeaveRate === 0.5) {
-                      setCompensatoryRate(0.25);
-                      setCompensatoryHours('2');
-                      setCompensatoryRate2(0.25);
-                      setCompensatoryHours2('2');
-                    } else {
-                      const halfR = Math.round((targetLeaveRate / 2) * 100) / 100;
-                      setCompensatoryRate(halfR);
-                      setCompensatoryRate2(halfR);
-                    }
-                  }}
-                >
-                  <View style={{ flex: 1, paddingRight: 6 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
-                      Chia 2 ngày
-                    </Text>
-                    <Text style={{ fontSize: 12, color: '#94A3B8', marginTop: 4 }}>
-                      {targetLeaveRate === 1.0 ? '2 ca · 0.5 công/ca' : targetLeaveRate === 0.5 ? '2 ca · 0.25 công/ca' : `2 ca · ${Math.round((targetLeaveRate / 2) * 100) / 100} công/ca`}
-                    </Text>
-                  </View>
-                  {compensationMode === 'SPLIT_2' ? (
-                    <View style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 11,
-                      backgroundColor: '#0284C7',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <MaterialCommunityIcons name="check" size={15} color="#FFFFFF" />
-                    </View>
-                  ) : (
-                    <View style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 11,
-                      borderWidth: 1.5,
-                      borderColor: '#CBD5E1',
-                      backgroundColor: 'transparent',
-                    }} />
-                  )}
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Tiêu đề mục: Lịch làm bù */}
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 12 }}>
-              Lịch làm bù
-            </Text>
-
-            {/* Card 1: Ngày làm bù 1 */}
-            <View style={{
-              backgroundColor: '#FFFFFF',
-              borderWidth: 1,
-              borderColor: '#E2E8F0',
-              borderRadius: 14,
-              padding: 16,
-              marginBottom: 14,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.04,
-              shadowRadius: 3,
-              elevation: 1,
-            }}>
-              {/* Header */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: '#E0F2FE',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 10,
-                  }}>
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1' }}>01</Text>
-                  </View>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
-                    {compensationMode === 'SPLIT_2' ? 'Ngày làm bù 1' : 'Ngày làm bù'}
-                  </Text>
-                </View>
-                <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#0369A1' }}>
-                    Dự kiến {compensatoryRate} công
-                  </Text>
-                </View>
-              </View>
-
-              {/* Field 1: Ngày * */}
-              <View style={{ marginBottom: 14 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 6 }}>
-                  Ngày <Text style={{ color: '#EF4444' }}>*</Text>
-                </Text>
-                <Pressable
-                  style={{
-                    height: 48,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: '#E2E8F0',
-                    backgroundColor: '#F8FAFC',
-                    paddingHorizontal: 14,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                  onPress={() => handleOpenDatePicker('compensatory')}
-                >
-                  <Text style={{ fontSize: 14, color: compensatoryDate ? '#0F172A' : '#94A3B8' }}>
-                    {compensatoryDate ? formatDate(compensatoryDate) : 'Chọn ngày'}
-                  </Text>
-                  <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
-                </Pressable>
-              </View>
-
-              {/* Field 2: Ca làm * */}
-              <View>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 6 }}>
-                  Ca làm <Text style={{ color: '#EF4444' }}>*</Text>
-                </Text>
-                <Pressable
-                  style={{
-                    height: 48,
-                    borderRadius: 10,
-                    borderWidth: 1,
-                    borderColor: '#E2E8F0',
-                    backgroundColor: '#F8FAFC',
-                    paddingHorizontal: 14,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                  onPress={() => {
-                    setActiveCompSlot(1);
-                    setShowShiftModal(true);
-                  }}
-                >
-                  <Text style={{ fontSize: 14, color: compensatoryShift ? '#0F172A' : '#94A3B8' }} numberOfLines={1}>
-                    {compensatoryShift ? `${compensatoryShift.name} · ${compensatoryShift.startTime} – ${compensatoryShift.endTime}` : 'Chọn ca làm'}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Card 2: Ngày làm bù 2 (khi compensationMode === 'SPLIT_2') */}
-            {compensationMode === 'SPLIT_2' && (
-              <View style={{
-                backgroundColor: '#FFFFFF',
-                borderWidth: 1,
-                borderColor: '#E2E8F0',
-                borderRadius: 14,
-                padding: 16,
-                marginBottom: 14,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.04,
-                shadowRadius: 3,
-                elevation: 1,
-              }}>
-                {/* Header */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: '#E0F2FE',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: 10,
-                    }}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1' }}>02</Text>
-                    </View>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
-                      Ngày làm bù 2
-                    </Text>
-                  </View>
-                  <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#0369A1' }}>
-                      Dự kiến {compensatoryRate2} công
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Field 1: Ngày * */}
-                <View style={{ marginBottom: 14 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 6 }}>
-                    Ngày <Text style={{ color: '#EF4444' }}>*</Text>
-                  </Text>
-                  <Pressable
-                    style={{
-                      height: 48,
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      borderColor: '#E2E8F0',
-                      backgroundColor: '#F8FAFC',
-                      paddingHorizontal: 14,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                    onPress={() => handleOpenDatePicker('compensatory2')}
-                  >
-                    <Text style={{ fontSize: 14, color: compensatoryDate2 ? '#0F172A' : '#94A3B8' }}>
-                      {compensatoryDate2 ? formatDate(compensatoryDate2) : 'Chọn ngày'}
-                    </Text>
-                    <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
-                  </Pressable>
-                </View>
-
-                {/* Field 2: Ca làm * */}
-                <View>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 6 }}>
-                    Ca làm <Text style={{ color: '#EF4444' }}>*</Text>
-                  </Text>
-                  <Pressable
-                    style={{
-                      height: 48,
-                      borderRadius: 10,
-                      borderWidth: 1,
-                      borderColor: '#E2E8F0',
-                      backgroundColor: '#F8FAFC',
-                      paddingHorizontal: 14,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                    onPress={() => {
-                      setActiveCompSlot(2);
-                      setShowShiftModal(true);
-                    }}
-                  >
-                    <Text style={{ fontSize: 14, color: compensatoryShift2 ? '#0F172A' : '#94A3B8' }} numberOfLines={1}>
-                      {compensatoryShift2 ? `${compensatoryShift2.name} · ${compensatoryShift2.startTime} – ${compensatoryShift2.endTime}` : 'Chọn ca làm'}
-                    </Text>
-                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
-                  </Pressable>
-                </View>
-              </View>
-            )}
-
-            {/* Thông tin tóm tắt tổng số ngày & công dự kiến */}
-            <View style={{
-              backgroundColor: '#F0F9FF',
-              borderWidth: 1,
-              borderColor: '#BAE6FD',
-              borderRadius: 12,
-              paddingVertical: 14,
-              paddingHorizontal: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 14,
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <MaterialCommunityIcons name="calendar-check-outline" size={22} color="#0284C7" style={{ marginRight: 8 }} />
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#0369A1' }}>
-                  {compensationMode === 'SPLIT_2' ? '2 ngày làm bù' : '1 ngày làm bù'}
-                </Text>
-              </View>
-
-              <View style={{ width: 1, height: 22, backgroundColor: '#BAE6FD', marginHorizontal: 12 }} />
-
-              <Text style={{ fontSize: 13, color: '#64748B' }}>
-                Tổng dự kiến: <Text style={{ fontWeight: '700', color: '#0369A1' }}>
-                  {compensationMode === 'SPLIT_2' 
-                    ? Math.round((compensatoryRate + compensatoryRate2) * 100) / 100 
-                    : compensatoryRate} công
-                </Text>
-              </Text>
-            </View>
-
-            {/* Accordion: Quy định làm bù */}
-            <View style={{
-              backgroundColor: '#F8FAFC',
-              borderWidth: 1,
-              borderColor: '#E2E8F0',
-              borderRadius: 12,
-              padding: 14,
-              marginBottom: 16,
-            }}>
-              <Pressable 
-                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-                onPress={() => setIsRulesExpanded(!isRulesExpanded)}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <MaterialCommunityIcons name="information-outline" size={22} color="#0284C7" style={{ marginRight: 8 }} />
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#0369A1' }}>Quy định làm bù</Text>
-                </View>
-                <MaterialCommunityIcons 
-                  name={isRulesExpanded ? "chevron-up" : "chevron-down"} 
-                  size={22} 
-                  color="#64748B" 
-                />
-              </Pressable>
-              
-              {isRulesExpanded && (
-                <View style={{ marginTop: 8, paddingLeft: 30 }}>
-                  <Text style={{ fontSize: 12.5, color: '#64748B', lineHeight: 20 }}>
-                    Ngày làm bù phải cùng tháng với ngày nghỉ.{'\n'}
-                    Công thực tế được ghi nhận theo ca hoàn thành.
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-        ) : (
-          <>
-            {/* 01 CHỌN LOẠI ĐƠN */}
+        {/* 01 CHỌN LOẠI ĐƠN */}
         <View style={styles.sectionHeadingWrap}>
           <Text style={styles.sectionNumber}>01</Text>
           <Text style={styles.sectionHeadingTitle}>CHỌN LOẠI ĐƠN</Text>
@@ -1825,6 +1371,399 @@ export default function CreateRequestScreen() {
                     <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
                       <MaterialCommunityIcons name="close" size={16} color="#fff" />
                     </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </>
+          ) : isCompensatory ? (
+            <>
+              {isLoadingApprovedLeaves ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, marginBottom: 12 }}>
+                  <ActivityIndicator size="small" color="#0284C7" style={{ marginRight: 8 }} />
+                  <Text style={{ fontSize: 13, color: '#64748B' }}>Đang tìm nạp đơn nghỉ đã duyệt gần nhất...</Text>
+                </View>
+              ) : approvedLeaves.length === 0 ? (
+                <View style={{
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FECACA',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 16,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#B91C1C' }}>Chưa có đơn nghỉ hợp lệ</Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: '#991B1B', lineHeight: 18 }}>
+                    Bạn chưa có đơn nghỉ phép nào được duyệt trong 14 ngày qua. Đơn làm bù chỉ được tạo khi đơn nghỉ phép tương ứng đã được Leader phê duyệt.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.formItem}>
+                  <Text style={styles.formLabel}>
+                    Làm bù cho ngày nghỉ <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable 
+                    style={[styles.inputBox, { height: 'auto', minHeight: 48, paddingVertical: 10 }]} 
+                    onPress={() => setShowApprovedLeavesModal(true)}
+                  >
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={[styles.inputText, !selectedLeaveRequest && styles.inputPlaceholder]}>
+                        {selectedLeaveRequest 
+                          ? (selectedLeaveRequest.title || (targetLeaveDate ? `Nghỉ phép ngày ${formatDate(targetLeaveDate)}` : 'Đơn nghỉ phép'))
+                          : 'Chọn đơn nghỉ đã được duyệt'}
+                      </Text>
+                      {selectedLeaveRequest && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                          <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 6 }}>
+                            <Text style={{ fontSize: 10, color: '#166534', fontWeight: '700' }}>✓ Đã duyệt</Text>
+                          </View>
+                          <Text style={{ fontSize: 11, color: '#64748B' }}>
+                            {((selectedLeaveRequest.attachmentMetadata as any)?.leaveDurationType) || 'Nghỉ phép'}
+                            {((selectedLeaveRequest.attachmentMetadata as any)?.leaveDurationType === 'Theo giờ' && compensatoryHours) ? ` · ${compensatoryHours} giờ` : ''}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+                  {selectedLeaveRequest && (
+                    <Text style={{ fontSize: 11, color: '#059669', marginTop: 4, marginLeft: 2 }}>
+                      ✓ Đã tự động chọn đơn nghỉ gần nhất & điền số giờ nghỉ tương ứng
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Phương án làm bù */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Phương án làm bù <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {/* Bù 1 ngày */}
+                  <Pressable
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      paddingHorizontal: 10,
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: compensationMode === 'SINGLE' ? '#0284C7' : '#E2E8F0',
+                      backgroundColor: compensationMode === 'SINGLE' ? '#F0F9FF' : '#FFFFFF',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                    onPress={() => {
+                      setCompensationMode('SINGLE');
+                      if (targetLeaveRate === 1.0) {
+                        setCompensatoryRate(1.0);
+                        setCompensatoryHours('8');
+                      } else if (targetLeaveRate === 0.5) {
+                        setCompensatoryRate(0.5);
+                        setCompensatoryHours('4');
+                      }
+                    }}
+                  >
+                    <View style={{ flex: 1, paddingRight: 4 }}>
+                      <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#0F172A' }}>
+                        Bù 1 ngày
+                      </Text>
+                      <Text style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 3 }}>
+                        {targetLeaveRate === 1.0 ? '1 ca · 1 công' : targetLeaveRate === 0.5 ? '1 ca · 0.5 công' : `1 ca · ${targetLeaveRate} công`}
+                      </Text>
+                    </View>
+                    {compensationMode === 'SINGLE' ? (
+                      <View style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        backgroundColor: '#0284C7',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <MaterialCommunityIcons name="check" size={15} color="#FFFFFF" />
+                      </View>
+                    ) : (
+                      <View style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        borderWidth: 1.5,
+                        borderColor: '#CBD5E1',
+                        backgroundColor: 'transparent',
+                      }} />
+                    )}
+                  </Pressable>
+
+                  {/* Chia 2 ngày */}
+                  <Pressable
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      paddingHorizontal: 10,
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: compensationMode === 'SPLIT_2' ? '#0284C7' : '#E2E8F0',
+                      backgroundColor: compensationMode === 'SPLIT_2' ? '#F0F9FF' : '#FFFFFF',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                    onPress={() => {
+                      setCompensationMode('SPLIT_2');
+                      if (targetLeaveRate === 1.0) {
+                        setCompensatoryRate(0.5);
+                        setCompensatoryHours('4');
+                        setCompensatoryRate2(0.5);
+                        setCompensatoryHours2('4');
+                      } else if (targetLeaveRate === 0.5) {
+                        setCompensatoryRate(0.25);
+                        setCompensatoryHours('2');
+                        setCompensatoryRate2(0.25);
+                        setCompensatoryHours2('2');
+                      } else {
+                        const halfR = Math.round((targetLeaveRate / 2) * 100) / 100;
+                        setCompensatoryRate(halfR);
+                        setCompensatoryRate2(halfR);
+                      }
+                    }}
+                  >
+                    <View style={{ flex: 1, paddingRight: 4 }}>
+                      <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#0F172A' }}>
+                        Chia 2 ngày
+                      </Text>
+                      <Text style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 3 }}>
+                        {targetLeaveRate === 1.0 ? '2 ca · 0.5 công/ca' : targetLeaveRate === 0.5 ? '2 ca · 0.25 công/ca' : `2 ca · ${Math.round((targetLeaveRate / 2) * 100) / 100} công/ca`}
+                      </Text>
+                    </View>
+                    {compensationMode === 'SPLIT_2' ? (
+                      <View style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        backgroundColor: '#0284C7',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <MaterialCommunityIcons name="check" size={15} color="#FFFFFF" />
+                      </View>
+                    ) : (
+                      <View style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        borderWidth: 1.5,
+                        borderColor: '#CBD5E1',
+                        backgroundColor: 'transparent',
+                      }} />
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Tiêu đề mục: Lịch làm bù */}
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginTop: 4, marginBottom: 10 }}>
+                Lịch làm bù
+              </Text>
+
+              {/* Card 1: Ngày làm bù 1 */}
+              <View style={{
+                backgroundColor: '#F8FAFC',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 12,
+              }}>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      backgroundColor: '#E0F2FE',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 8,
+                    }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#0369A1' }}>01</Text>
+                    </View>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                      {compensationMode === 'SPLIT_2' ? 'Ngày làm bù 1' : 'Ngày làm bù'}
+                    </Text>
+                  </View>
+                  <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
+                      Dự kiến {compensatoryRate} công
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Field 1: Ngày * */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={[styles.formLabel, { fontSize: 12.5, marginBottom: 4 }]}>
+                    Ngày <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory')}>
+                    <Text style={[styles.inputText, !compensatoryDate && styles.inputPlaceholder]}>
+                      {compensatoryDate ? formatDate(compensatoryDate) : 'Chọn ngày làm bù'}
+                    </Text>
+                    <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                  </Pressable>
+                </View>
+
+                {/* Field 2: Ca làm * */}
+                <View>
+                  <Text style={[styles.formLabel, { fontSize: 12.5, marginBottom: 4 }]}>
+                    Ca làm <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable 
+                    style={styles.inputBox} 
+                    onPress={() => {
+                      setActiveCompSlot(1);
+                      setShowShiftModal(true);
+                    }}
+                  >
+                    <Text style={[styles.inputText, !compensatoryShift && styles.inputPlaceholder]} numberOfLines={1}>
+                      {compensatoryShift ? `${compensatoryShift.name} · ${compensatoryShift.startTime} – ${compensatoryShift.endTime}` : 'Chọn ca làm'}
+                    </Text>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Card 2: Ngày làm bù 2 */}
+              {compensationMode === 'SPLIT_2' && (
+                <View style={{
+                  backgroundColor: '#F8FAFC',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 12,
+                }}>
+                  {/* Header */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        backgroundColor: '#E0F2FE',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 8,
+                      }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#0369A1' }}>02</Text>
+                      </View>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                        Ngày làm bù 2
+                      </Text>
+                    </View>
+                    <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
+                        Dự kiến {compensatoryRate2} công
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Field 1: Ngày * */}
+                  <View style={{ marginBottom: 10 }}>
+                    <Text style={[styles.formLabel, { fontSize: 12.5, marginBottom: 4 }]}>
+                      Ngày <Text style={styles.required}>*</Text>
+                    </Text>
+                    <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory2')}>
+                      <Text style={[styles.inputText, !compensatoryDate2 && styles.inputPlaceholder]}>
+                        {compensatoryDate2 ? formatDate(compensatoryDate2) : 'Chọn ngày làm bù 2'}
+                      </Text>
+                      <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                    </Pressable>
+                  </View>
+
+                  {/* Field 2: Ca làm * */}
+                  <View>
+                    <Text style={[styles.formLabel, { fontSize: 12.5, marginBottom: 4 }]}>
+                      Ca làm <Text style={styles.required}>*</Text>
+                    </Text>
+                    <Pressable 
+                      style={styles.inputBox} 
+                      onPress={() => {
+                        setActiveCompSlot(2);
+                        setShowShiftModal(true);
+                      }}
+                    >
+                      <Text style={[styles.inputText, !compensatoryShift2 && styles.inputPlaceholder]} numberOfLines={1}>
+                        {compensatoryShift2 ? `${compensatoryShift2.name} · ${compensatoryShift2.startTime} – ${compensatoryShift2.endTime}` : 'Chọn ca làm 2'}
+                      </Text>
+                      <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {/* Banner tóm tắt */}
+              <View style={{
+                backgroundColor: '#F0F9FF',
+                borderWidth: 1,
+                borderColor: '#BAE6FD',
+                borderRadius: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 14,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 12,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <MaterialCommunityIcons name="calendar-check-outline" size={20} color="#0284C7" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1' }}>
+                    {compensationMode === 'SPLIT_2' ? '2 ngày làm bù' : '1 ngày làm bù'}
+                  </Text>
+                </View>
+                <View style={{ width: 1, height: 18, backgroundColor: '#BAE6FD', marginHorizontal: 8 }} />
+                <Text style={{ fontSize: 12.5, color: '#64748B' }}>
+                  Tổng dự kiến: <Text style={{ fontWeight: '700', color: '#0369A1' }}>
+                    {compensationMode === 'SPLIT_2' 
+                      ? Math.round((compensatoryRate + compensatoryRate2) * 100) / 100 
+                      : compensatoryRate} công
+                  </Text>
+                </Text>
+              </View>
+
+              {/* Accordion: Quy định làm bù */}
+              <View style={{
+                backgroundColor: '#F8FAFC',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                borderRadius: 12,
+                padding: 12,
+                marginBottom: 14,
+              }}>
+                <Pressable 
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                  onPress={() => setIsRulesExpanded(!isRulesExpanded)}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="information-outline" size={20} color="#0284C7" style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1' }}>Quy định làm bù</Text>
+                  </View>
+                  <MaterialCommunityIcons 
+                    name={isRulesExpanded ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color="#64748B" 
+                  />
+                </Pressable>
+                
+                {isRulesExpanded && (
+                  <View style={{ marginTop: 6, paddingLeft: 26 }}>
+                    <Text style={{ fontSize: 12, color: '#64748B', lineHeight: 18 }}>
+                      Ngày làm bù phải cùng tháng với ngày nghỉ.{'\n'}
+                      Công thực tế được ghi nhận theo ca hoàn thành.
+                    </Text>
                   </View>
                 )}
               </View>
@@ -2889,8 +2828,6 @@ export default function CreateRequestScreen() {
             </>
           )}
         </View>
-        </>
-      )}
       </ScrollView>
 
       {/* Shift Picker Modal */}
@@ -3631,7 +3568,7 @@ export default function CreateRequestScreen() {
         </View>
       </Modal>
 
-      <SafeAreaView edges={['bottom']} style={[styles.footerContainer, isCompensatory && { backgroundColor: '#FFFFFF' }]}>
+      <SafeAreaView edges={['bottom']} style={styles.footerContainer}>
         <Text style={styles.requiredNoteText}>
           <Text style={styles.required}>* </Text>Thông tin bắt buộc
         </Text>
