@@ -5,7 +5,6 @@ import {
     IsNotEmpty,
     IsOptional,
     IsString,
-    IsUrl,
     MaxLength,
     MinLength,
 } from 'class-validator';
@@ -37,7 +36,6 @@ export class CreateFeedbackDto {
 
     @ApiPropertyOptional({ example: 'https://...', description: 'Đường dẫn ảnh đính kèm (nếu có)' })
     @IsOptional()
-    @IsString()
-    @IsUrl({}, { message: 'img phải là URL hợp lệ' })
+    @IsString({ message: 'img phải là chuỗi hợp lệ' })
     img?: string;
 }
