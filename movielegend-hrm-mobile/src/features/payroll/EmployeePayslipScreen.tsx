@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -25,6 +27,9 @@ import {
   MonthlyPayslipData,
   CompanyPayslipEmployee,
   uploadPayslipOfficialImage,
+  submitPayslipFeedback,
+  notifyLeaderPayslipDispute,
+  getDepartmentPayslipBatch,
 } from '../../api/payroll.api';
 import { getDepartments } from '../../api/departments.api';
 import type { Department } from '../../types/department.types';
@@ -78,6 +83,19 @@ export function EmployeePayslipScreen() {
   const [labelingDeptId, setLabelingDeptId] = useState<string | undefined>(undefined);
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
 
+  // Feedback / Khiếu nại của User (Tab MY)
+  const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
+  const [disputeNote, setDisputeNote] = useState('');
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+  // Kế toán trưởng giải quyết khiếu nại (Tab COMPANY)
+  const [selectedDisputeEmp, setSelectedDisputeEmp] = useState<CompanyPayslipEmployee | null>(null);
+  const [isDisputeResolutionModalOpen, setIsDisputeResolutionModalOpen] = useState(false);
+  const [leaderNote, setLeaderNote] = useState('');
+  const [isForwardingToLeader, setIsForwardingToLeader] = useState(false);
+  const [isReplacingDisputeImage, setIsReplacingDisputeImage] = useState(false);
+  const [disputeOnlyFilter, setDisputeOnlyFilter] = useState(false);
+
   const deptName = (
     user?.department?.name ||
     (user as any)?.departmentLinks?.[0]?.department?.name ||
@@ -128,7 +146,81 @@ export function EmployeePayslipScreen() {
           departmentId: selectedDepartmentId !== 'ALL' ? selectedDepartmentId : undefined,
           search: searchQuery.trim() ? searchQuery.trim() : undefined,
         });
-        setCompanyPayslips(data.items || []);
+        const items = data.items || [];
+
+        // Đồng bộ dữ liệu khiếu nại từ các lô ảnh phòng ban (như trên Web)
+        let curDepts = departments;
+        if (!curDepts || curDepts.length === 0) {
+          try {
+            const dRes = await getDepartments();
+            curDepts = dRes.items || [];
+            setDepartments(curDepts);
+          } catch (e) {}
+        }
+
+        const targetDeptIds =
+          selectedDepartmentId !== 'ALL'
+            ? [selectedDepartmentId]
+            : (curDepts || []).map((d) => d.id);
+
+        const disputeMap = new Map<
+          string,
+          { status: string; note?: string | null; at?: string | null }
+        >();
+
+        if (targetDeptIds.length > 0) {
+          try {
+            const batches = await Promise.all(
+              targetDeptIds.map((dId) =>
+                getDepartmentPayslipBatch({
+                  departmentId: dId,
+                  month: selectedMonth,
+                  year: selectedYear,
+                }).catch(() => null)
+              )
+            );
+
+            batches.forEach((b) => {
+              if (!b?.employees) return;
+              b.employees.forEach((emp) => {
+                if (emp.feedbackStatus === 'REJECTED' || emp.isDisputed) {
+                  disputeMap.set(emp.userId, {
+                    status: 'REJECTED',
+                    note: emp.feedbackNote || '',
+                    at: emp.feedbackAt || null,
+                  });
+                } else if (emp.feedbackStatus === 'CONFIRMED') {
+                  disputeMap.set(emp.userId, {
+                    status: 'CONFIRMED',
+                    note: emp.feedbackNote || '',
+                    at: emp.feedbackAt || null,
+                  });
+                }
+              });
+            });
+          } catch (batchErr) {
+            console.warn('Lỗi tải danh sách khiếu nại phòng ban:', batchErr);
+          }
+        }
+
+        const enrichedItems = items.map((emp) => {
+          const dInfo = disputeMap.get(emp.userId);
+          if (dInfo) {
+            return {
+              ...emp,
+              feedbackStatus: dInfo.status,
+              employeeFeedbackStatus: dInfo.status,
+              feedbackNote: dInfo.note,
+              employeeFeedbackNote: dInfo.note,
+              feedbackAt: dInfo.at,
+              employeeFeedbackAt: dInfo.at,
+              isDisputed: dInfo.status === 'REJECTED',
+            };
+          }
+          return emp;
+        });
+
+        setCompanyPayslips(enrichedItems);
       }
     } catch (err: any) {
       CustomAlert.alert('Thông báo', err.message || 'Không thể tải dữ liệu phiếu lương');
@@ -136,7 +228,7 @@ export function EmployeePayslipScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [selectedMonth, selectedYear, activeTab, selectedDepartmentId, searchQuery]);
+  }, [selectedMonth, selectedYear, activeTab, selectedDepartmentId, searchQuery, departments]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -240,6 +332,157 @@ export function EmployeePayslipScreen() {
       { text: 'Huỷ', style: 'cancel' },
     ]);
   };
+
+  // --- Handlers xác nhận & khiếu nại (User) ---
+  const handleConfirmPayslip = async () => {
+    try {
+      setIsSubmittingFeedback(true);
+      await submitPayslipFeedback({
+        action: 'CONFIRM',
+        payrollId: payslip?.id,
+        month: selectedMonth,
+        year: selectedYear,
+      });
+      CustomAlert.alert('Thành công ✓', 'Bạn đã xác nhận nhận phiếu lương thành công!');
+      setIsDisputeModalOpen(false);
+      fetchPayslip();
+    } catch (err: any) {
+      CustomAlert.alert('Lỗi', err.message || 'Không thể xác nhận phiếu lương');
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
+  const handleRejectPayslip = async () => {
+    if (!disputeNote.trim() || disputeNote.trim().length < 3) {
+      CustomAlert.alert('Lỗi', 'Vui lòng nhập lý do khiếu nại (tối thiểu 3 ký tự)');
+      return;
+    }
+    try {
+      setIsSubmittingFeedback(true);
+      await submitPayslipFeedback({
+        action: 'REJECT',
+        note: disputeNote.trim(),
+        payrollId: payslip?.id,
+        month: selectedMonth,
+        year: selectedYear,
+      });
+      CustomAlert.alert(
+        'Đã gửi khiếu nại ✓',
+        'Khiếu nại của bạn đã được chuyển đến bộ phận Kế toán & Leader để xử lý!'
+      );
+      setIsDisputeModalOpen(false);
+      setDisputeNote('');
+      fetchPayslip();
+    } catch (err: any) {
+      CustomAlert.alert('Lỗi', err.message || 'Không thể gửi khiếu nại');
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
+  // --- Handlers giải quyết khiếu nại (Kế toán trưởng) ---
+  const handleResolveDisputeByNewImage = async () => {
+    if (!selectedDisputeEmp) return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        CustomAlert.alert('Quyền truy cập', 'Vui lòng cấp quyền truy cập ảnh');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.9,
+      });
+
+      if (result.canceled || !result.assets[0]?.uri) return;
+
+      setIsReplacingDisputeImage(true);
+      const uri = result.assets[0].uri;
+      const uploaded = await uploadFile({
+        uri,
+        name: `resolved_payslip_${selectedDisputeEmp.userId}_${selectedMonth}_${selectedYear}.jpg`,
+        mimeType: 'image/jpeg',
+        purpose: 'EMPLOYEE_DOCUMENT',
+      });
+
+      const fileUrl = uploaded?.fileUrl || (uploaded as any)?.url;
+      if (!fileUrl) {
+        throw new Error('Tải ảnh lên thất bại');
+      }
+
+      await uploadPayslipOfficialImage({
+        userId: selectedDisputeEmp.userId,
+        month: selectedMonth,
+        year: selectedYear,
+        imageUrl: fileUrl,
+        note: 'Thay thế ảnh xử lý khiếu nại bởi Kế toán trưởng',
+      });
+
+      CustomAlert.alert(
+        'Đã xử lý khiếu nại ✓',
+        `Đã cập nhật ảnh phiếu lương mới cho ${selectedDisputeEmp.fullName}! Hệ thống đã giải tỏa khiếu nại và chuyển về chờ nhân viên kiểm tra lại.`
+      );
+      setIsDisputeResolutionModalOpen(false);
+      setSelectedDisputeEmp(null);
+      fetchPayslip();
+    } catch (err: any) {
+      CustomAlert.alert('Lỗi', err.message || 'Không thể cập nhật ảnh phiếu lương mới');
+    } finally {
+      setIsReplacingDisputeImage(false);
+    }
+  };
+
+  const handleForwardDisputeToLeader = async () => {
+    if (!selectedDisputeEmp) return;
+    const deptId =
+      departments.find((d) => d.name === selectedDisputeEmp.departmentName)?.id ||
+      (selectedDepartmentId !== 'ALL' ? selectedDepartmentId : undefined);
+
+    if (!deptId) {
+      CustomAlert.alert('Thông báo', 'Không xác định được phòng ban của nhân sự để chuyển tiếp');
+      return;
+    }
+
+    try {
+      setIsForwardingToLeader(true);
+      await notifyLeaderPayslipDispute({
+        departmentId: deptId,
+        userId: selectedDisputeEmp.userId,
+        employeeName: selectedDisputeEmp.fullName,
+        note: leaderNote.trim() || 'Kế toán yêu cầu kiểm tra lại công/lương và thay ảnh phiếu lương',
+        month: selectedMonth,
+        year: selectedYear,
+      });
+
+      CustomAlert.alert(
+        'Đã gửi yêu cầu ✓',
+        `Đã gửi yêu cầu điều chỉnh phiếu lương của ${selectedDisputeEmp.fullName} đến Leader phòng ban!`
+      );
+      setIsDisputeResolutionModalOpen(false);
+      setSelectedDisputeEmp(null);
+      setLeaderNote('');
+    } catch (err: any) {
+      CustomAlert.alert('Lỗi', err.message || 'Không thể gửi yêu cầu đến Leader');
+    } finally {
+      setIsForwardingToLeader(false);
+    }
+  };
+
+  const totalDisputeCount = useMemo(() => {
+    return companyPayslips.filter(
+      (c) => c.isDisputed || c.employeeFeedbackStatus === 'REJECTED'
+    ).length;
+  }, [companyPayslips]);
+
+  const displayedCompanyPayslips = useMemo(() => {
+    if (!disputeOnlyFilter) return companyPayslips;
+    return companyPayslips.filter(
+      (c) => c.isDisputed || c.employeeFeedbackStatus === 'REJECTED'
+    );
+  }, [companyPayslips, disputeOnlyFilter]);
 
   const selectedDeptLabel =
     departments.find((d) => d.id === selectedDepartmentId)?.name || 'Tất cả phòng ban';
@@ -420,6 +663,69 @@ export function EmployeePayslipScreen() {
             </View>
             <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </Pressable>
+
+          {/* Feedback & Khiếu nại phiếu lương (Dành cho nhân sự) */}
+          {payslip?.finalOfficialImageUrl ? (
+            <View style={styles.feedbackContainer}>
+              {payslip.employeeFeedbackStatus === 'CONFIRMED' ? (
+                <View style={styles.feedbackConfirmedBox}>
+                  <View style={styles.feedbackStatusHeader}>
+                    <Ionicons name="checkmark-circle" size={18} color="#059669" />
+                    <Text style={styles.feedbackConfirmedTitle}>Đã xác nhận chính xác</Text>
+                  </View>
+                  <Text style={styles.feedbackConfirmedDesc}>
+                    Bạn đã kiểm tra và đồng ý với nội dung ảnh phiếu lương tháng này.
+                  </Text>
+                </View>
+              ) : payslip.employeeFeedbackStatus === 'REJECTED' || payslip.isDisputed ? (
+                <View style={styles.feedbackDisputedBox}>
+                  <View style={styles.feedbackStatusHeader}>
+                    <Ionicons name="alert-circle" size={18} color="#DC2626" />
+                    <Text style={styles.feedbackDisputedTitle}>Đang khiếu nại phiếu lương</Text>
+                  </View>
+                  {payslip.employeeFeedbackNote ? (
+                    <Text style={styles.feedbackDisputeNoteText}>
+                      &ldquo;{payslip.employeeFeedbackNote}&rdquo;
+                    </Text>
+                  ) : null}
+                  <Text style={styles.feedbackDisputedDesc}>
+                    Kế toán trưởng & Leader đang kiểm tra đối chiếu và sẽ gửi lại ảnh phiếu lương mới sớm nhất.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.feedbackActionBox}>
+                  <Text style={styles.feedbackPromptText}>
+                    Vui lòng đối chiếu kỹ ảnh phiếu lương và phản hồi:
+                  </Text>
+                  <View style={styles.feedbackBtnRow}>
+                    <Pressable
+                      style={[styles.feedbackConfirmBtn, isSubmittingFeedback && { opacity: 0.7 }]}
+                      onPress={handleConfirmPayslip}
+                      disabled={isSubmittingFeedback}
+                    >
+                      {isSubmittingFeedback ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="checkmark-circle" size={17} color="#FFFFFF" />
+                          <Text style={styles.feedbackConfirmBtnText}>Xác nhận đúng</Text>
+                        </>
+                      )}
+                    </Pressable>
+
+                    <Pressable
+                      style={[styles.feedbackRejectBtn, isSubmittingFeedback && { opacity: 0.7 }]}
+                      onPress={() => setIsDisputeModalOpen(true)}
+                      disabled={isSubmittingFeedback}
+                    >
+                      <Ionicons name="alert-circle-outline" size={17} color="#DC2626" />
+                      <Text style={styles.feedbackRejectBtnText}>Khiếu nại</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </View>
+          ) : null}
 
           {/* Salary Advance (Tạm Ứng Lương) Hero Feature Card */}
           <View style={styles.advanceCard}>
@@ -606,7 +912,7 @@ export function EmployeePayslipScreen() {
            TAB 04: LƯƠNG CÔNG TY
         ═════════════════════════════════════════════════════════════ */
         <FlatList
-          data={companyPayslips}
+          data={displayedCompanyPayslips}
           keyExtractor={(item) => item.userId}
           contentContainerStyle={[
             styles.scrollContent,
@@ -662,6 +968,50 @@ export function EmployeePayslipScreen() {
                 <Ionicons name="chevron-down" size={16} color="#64748B" />
               </Pressable>
 
+              {/* Filter Chips: Tất cả / Có khiếu nại */}
+              <View style={styles.disputeFilterRow}>
+                <Pressable
+                  style={[
+                    styles.disputeFilterChip,
+                    !disputeOnlyFilter && styles.disputeFilterChipActive,
+                  ]}
+                  onPress={() => setDisputeOnlyFilter(false)}
+                >
+                  <Text
+                    style={[
+                      styles.disputeFilterChipText,
+                      !disputeOnlyFilter && styles.disputeFilterChipTextActive,
+                    ]}
+                  >
+                    Tất cả ({companyPayslips.length})
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.disputeFilterChip,
+                    disputeOnlyFilter && styles.disputeFilterChipActiveAlert,
+                    totalDisputeCount > 0 && !disputeOnlyFilter && styles.disputeFilterChipHasAlert,
+                  ]}
+                  onPress={() => setDisputeOnlyFilter((prev) => !prev)}
+                >
+                  <MaterialCommunityIcons
+                    name="alert-circle"
+                    size={15}
+                    color={disputeOnlyFilter ? '#FFFFFF' : totalDisputeCount > 0 ? '#DC2626' : '#64748B'}
+                  />
+                  <Text
+                    style={[
+                      styles.disputeFilterChipText,
+                      disputeOnlyFilter && styles.disputeFilterChipTextActiveAlert,
+                      totalDisputeCount > 0 && !disputeOnlyFilter && { color: '#DC2626', fontWeight: '700' },
+                    ]}
+                  >
+                    Có khiếu nại ({totalDisputeCount})
+                  </Text>
+                </Pressable>
+              </View>
+
               {/* Location Tag */}
               <View style={styles.locationTagRow}>
                 <Ionicons
@@ -676,15 +1026,19 @@ export function EmployeePayslipScreen() {
               </View>
 
               {/* Section: Nhân sự */}
-              <Text style={styles.companySectionTitle}>Nhân sự</Text>
+              <Text style={styles.companySectionTitle}>
+                Nhân sự {disputeOnlyFilter ? '(Đang khiếu nại)' : ''}
+              </Text>
             </View>
           }
           renderItem={({ item }) => {
             const isThisUploading = uploadingUserId === item.userId;
             const isComputed = item.netSalary !== null && item.netSalary !== undefined && item.netSalary > 0;
+            const isDisputed = item.isDisputed || item.employeeFeedbackStatus === 'REJECTED';
+            const isConfirmed = item.employeeFeedbackStatus === 'CONFIRMED';
 
             return (
-              <View style={styles.companyCard}>
+              <View style={[styles.companyCard, isDisputed && styles.companyCardDisputed]}>
                 <View style={styles.companyCardTop}>
                   <View style={styles.companyAvatarBox}>
                     <Text style={styles.companyAvatarText}>{getInitials(item.fullName)}</Text>
@@ -694,10 +1048,45 @@ export function EmployeePayslipScreen() {
                     <Text style={styles.companyEmpCode}>{item.userCode}</Text>
                     <Text style={styles.companyEmpDept}>{item.departmentName}</Text>
                   </View>
-                  <View style={styles.rolePill}>
-                    <Text style={styles.rolePillText}>Nhân viên</Text>
+                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    <View style={styles.rolePill}>
+                      <Text style={styles.rolePillText}>Nhân viên</Text>
+                    </View>
+                    {isConfirmed && (
+                      <View style={styles.confirmedPillSmall}>
+                        <MaterialCommunityIcons name="check" size={11} color="#059669" />
+                        <Text style={styles.confirmedPillSmallText}>Đã xác nhận</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
+
+                {/* Dispute Alert Banner if Disputed */}
+                {isDisputed && (
+                  <View style={styles.disputeAlertBanner}>
+                    <View style={styles.disputeAlertHeader}>
+                      <MaterialCommunityIcons name="alert-circle" size={16} color="#DC2626" />
+                      <Text style={styles.disputeAlertTitle}>Nhân sự khiếu nại phiếu lương</Text>
+                    </View>
+                    {item.employeeFeedbackNote ? (
+                      <Text style={styles.disputeAlertNote}>
+                        &ldquo;{item.employeeFeedbackNote}&rdquo;
+                      </Text>
+                    ) : null}
+                    {canUploadPayslip && (
+                      <Pressable
+                        style={styles.resolveDisputeActionBtn}
+                        onPress={() => {
+                          setSelectedDisputeEmp(item);
+                          setIsDisputeResolutionModalOpen(true);
+                        }}
+                      >
+                        <MaterialCommunityIcons name="shield-alert-outline" size={16} color="#FFFFFF" />
+                        <Text style={styles.resolveDisputeActionBtnText}>Xử lý khiếu nại</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
 
                 {/* Salary & Days Row */}
                 <View style={styles.companySalaryGrid}>
@@ -887,6 +1276,210 @@ export function EmployeePayslipScreen() {
           fetchPayslip();
         }}
       />
+
+      {/* ── Employee Dispute Modal (Nhân sự khiếu nại phiếu lương) ── */}
+      <Modal
+        visible={isDisputeModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsDisputeModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.disputeModalCard}>
+            <View style={styles.disputeModalHeader}>
+              <View style={styles.disputeModalIconCircle}>
+                <Ionicons name="alert-circle" size={24} color="#DC2626" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.disputeModalTitle}>Khiếu nại phiếu lương</Text>
+                <Text style={styles.disputeModalSub}>
+                  Tháng {selectedMonth}/{selectedYear}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setIsDisputeModalOpen(false);
+                  setDisputeNote('');
+                }}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+
+            <Text style={styles.disputeModalNotice}>
+              Vui lòng nêu rõ lý do khiếu nại (ví dụ: sai ngày công làm việc, thiếu tiền phụ cấp/tăng ca, sai tiền tạm ứng...). Kế toán trưởng và Leader sẽ kiểm tra đối chiếu lại để điều chỉnh cho bạn.
+            </Text>
+
+            <TextInput
+              style={styles.disputeTextInput}
+              placeholder="Nhập chi tiết lý do khiếu nại của bạn..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              numberOfLines={4}
+              value={disputeNote}
+              onChangeText={setDisputeNote}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.disputeModalBtnRow}>
+              <Pressable
+                style={styles.disputeModalCancelBtn}
+                onPress={() => {
+                  setIsDisputeModalOpen(false);
+                  setDisputeNote('');
+                }}
+                disabled={isSubmittingFeedback}
+              >
+                <Text style={styles.disputeModalCancelBtnText}>Hủy bỏ</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.disputeModalSubmitBtn,
+                  isSubmittingFeedback && { opacity: 0.7 },
+                ]}
+                onPress={handleRejectPayslip}
+                disabled={isSubmittingFeedback}
+              >
+                {isSubmittingFeedback ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="paper-plane" size={15} color="#FFFFFF" />
+                    <Text style={styles.disputeModalSubmitBtnText}>Gửi khiếu nại</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Chief Accountant Dispute Resolution Modal (Kế toán trưởng giải quyết) ── */}
+      <Modal
+        visible={isDisputeResolutionModalOpen && Boolean(selectedDisputeEmp)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setIsDisputeResolutionModalOpen(false);
+          setSelectedDisputeEmp(null);
+        }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.resolutionModalCard}>
+            <View style={styles.resolutionModalHeader}>
+              <View style={styles.resolutionIconCircle}>
+                <MaterialCommunityIcons name="shield-alert" size={24} color="#102739" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.resolutionModalTitle}>Giải quyết khiếu nại</Text>
+                <Text style={styles.resolutionModalSub}>
+                  {selectedDisputeEmp?.fullName} ({selectedDisputeEmp?.userCode}) • {selectedDisputeEmp?.departmentName}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setIsDisputeResolutionModalOpen(false);
+                  setSelectedDisputeEmp(null);
+                }}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 460 }}>
+              {/* Nội dung khiếu nại của nhân sự */}
+              <View style={styles.userDisputeNoticeBox}>
+                <Text style={styles.userDisputeLabel}>Nội dung phản ánh từ nhân sự:</Text>
+                <Text style={styles.userDisputeContent}>
+                  &ldquo;{selectedDisputeEmp?.employeeFeedbackNote || 'Không có ghi chú chi tiết'}&rdquo;
+                </Text>
+              </View>
+
+              {/* Cách 1: Kế toán thay ảnh mới & gửi luôn */}
+              <View style={styles.resolutionOptionCard}>
+                <View style={styles.resolutionOptionHeader}>
+                  <View style={styles.optionNumberBadge}>
+                    <Text style={styles.optionNumberText}>1</Text>
+                  </View>
+                  <Text style={styles.resolutionOptionTitle}>
+                    Kế toán thay ảnh mới & gửi luôn cho nhân sự
+                  </Text>
+                </View>
+                <Text style={styles.resolutionOptionDesc}>
+                  Chọn ảnh phiếu lương chuẩn đã chỉnh sửa từ thiết bị. Khiếu nại sẽ được tự động giải tỏa và chuyển về trạng thái chờ nhân viên kiểm tra lại.
+                </Text>
+                <Pressable
+                  style={[
+                    styles.replaceImageBtn,
+                    isReplacingDisputeImage && { opacity: 0.7 },
+                  ]}
+                  onPress={handleResolveDisputeByNewImage}
+                  disabled={isReplacingDisputeImage}
+                >
+                  {isReplacingDisputeImage ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="camera-plus" size={18} color="#FFFFFF" />
+                      <Text style={styles.replaceImageBtnText}>Chọn ảnh mới & Gửi luôn</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+
+              {/* Cách 2: Chuyển tiếp cho Leader phòng ban kiểm tra & thay ảnh */}
+              <View style={styles.resolutionOptionCard}>
+                <View style={styles.resolutionOptionHeader}>
+                  <View style={[styles.optionNumberBadge, { backgroundColor: '#F1F5F9' }]}>
+                    <Text style={[styles.optionNumberText, { color: '#475569' }]}>2</Text>
+                  </View>
+                  <Text style={styles.resolutionOptionTitle}>
+                    Gửi yêu cầu điều chỉnh cho Leader phòng ban
+                  </Text>
+                </View>
+                <Text style={styles.resolutionOptionDesc}>
+                  Gửi thông báo và hướng dẫn đến Leader của phòng ban để Leader kiểm tra lại công/phụ cấp và cắt gán lại ảnh phiếu lương.
+                </Text>
+                <TextInput
+                  style={styles.leaderNoteInput}
+                  placeholder="Ghi chú gửi Leader (VD: Kiểm tra lại 2 ngày phép...)"
+                  placeholderTextColor="#94A3B8"
+                  value={leaderNote}
+                  onChangeText={setLeaderNote}
+                  multiline
+                  numberOfLines={2}
+                />
+                <Pressable
+                  style={[
+                    styles.forwardLeaderBtn,
+                    isForwardingToLeader && { opacity: 0.7 },
+                  ]}
+                  onPress={handleForwardDisputeToLeader}
+                  disabled={isForwardingToLeader}
+                >
+                  {isForwardingToLeader ? (
+                    <ActivityIndicator size="small" color="#102739" />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="account-arrow-right" size={18} color="#102739" />
+                      <Text style={styles.forwardLeaderBtnText}>Gửi cho Leader phòng ban</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -1669,5 +2262,437 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#059669',
+  },
+
+  /* ── Dispute & Feedback Section (Tab MY) ── */
+  feedbackContainer: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  feedbackConfirmedBox: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 14,
+    padding: 12,
+  },
+  feedbackStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  feedbackConfirmedTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  feedbackConfirmedDesc: {
+    fontSize: 12,
+    color: '#065F46',
+    lineHeight: 17,
+  },
+  feedbackDisputedBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 14,
+    padding: 12,
+  },
+  feedbackDisputedTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  feedbackDisputeNoteText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: '#991B1B',
+    marginVertical: 4,
+  },
+  feedbackDisputedDesc: {
+    fontSize: 12,
+    color: '#7F1D1D',
+    lineHeight: 17,
+  },
+  feedbackActionBox: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 12,
+  },
+  feedbackPromptText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 10,
+  },
+  feedbackBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  feedbackConfirmBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#059669',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  feedbackConfirmBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  feedbackRejectBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  feedbackRejectBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+
+  /* ── Dispute Filters in Tab COMPANY ── */
+  disputeFilterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  disputeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  disputeFilterChipActive: {
+    backgroundColor: '#102739',
+    borderColor: '#102739',
+  },
+  disputeFilterChipActiveAlert: {
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
+  },
+  disputeFilterChipHasAlert: {
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+  },
+  disputeFilterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  disputeFilterChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  disputeFilterChipTextActiveAlert: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  /* ── Disputed Card & Banners in Tab COMPANY ── */
+  companyCardDisputed: {
+    borderColor: '#FCA5A5',
+    borderWidth: 1.5,
+  },
+  confirmedPillSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  confirmedPillSmallText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  disputeAlertBanner: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 10,
+  },
+  disputeAlertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  disputeAlertTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  disputeAlertNote: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#991B1B',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  resolveDisputeActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#DC2626',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  resolveDisputeActionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* ── Dispute Modal (User) ── */
+  disputeModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxWidth: 420,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  disputeModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  disputeModalIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disputeModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  disputeModalSub: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  disputeModalNotice: {
+    fontSize: 12.5,
+    color: '#475569',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  disputeTextInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 13,
+    color: '#0F172A',
+    height: 90,
+    marginBottom: 16,
+  },
+  disputeModalBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  disputeModalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 11,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disputeModalCancelBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  disputeModalSubmitBtn: {
+    flex: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#DC2626',
+    paddingVertical: 11,
+    borderRadius: 10,
+  },
+  disputeModalSubmitBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  /* ── Chief Accountant Dispute Resolution Modal ── */
+  resolutionModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '92%',
+    maxWidth: 480,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  resolutionModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  resolutionIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resolutionModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  resolutionModalSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  userDisputeNoticeBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  userDisputeLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+    marginBottom: 4,
+  },
+  userDisputeContent: {
+    fontSize: 13,
+    color: '#7F1D1D',
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  resolutionOptionCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+  },
+  resolutionOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  optionNumberBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#102739',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionNumberText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  resolutionOptionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    flex: 1,
+  },
+  resolutionOptionDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  replaceImageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#059669',
+    paddingVertical: 11,
+    borderRadius: 10,
+  },
+  replaceImageBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  leaderNoteInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 12.5,
+    color: '#0F172A',
+    minHeight: 56,
+    marginBottom: 10,
+  },
+  forwardLeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  forwardLeaderBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#102739',
   },
 });
