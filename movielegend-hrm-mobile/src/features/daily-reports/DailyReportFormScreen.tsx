@@ -1346,6 +1346,15 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                       const typeObj = TASK_TYPES.find((tt) => tt.value === m.taskType) || TASK_TYPES[0];
                       const prioObj = TASK_PRIORITIES.find((tp) => tp.value === m.priority) || TASK_PRIORITIES[1];
                       const currentStatus = m.status || (Number(m.progress) === 100 ? 'DONE' : 'IN_PROGRESS');
+                      const currentStatusObj = TASK_STATUSES.find((st) => st.value === currentStatus) || TASK_STATUSES[1];
+                      const currentProgress =
+                        typeof m.progress === 'number' && !isNaN(m.progress)
+                          ? Math.max(0, Math.min(100, m.progress))
+                          : currentStatus === 'DONE'
+                          ? 100
+                          : currentStatus === 'NOT_STARTED'
+                          ? 0
+                          : 50;
 
                       return (
                         <View key={idx} style={styles.quantItemBox}>
@@ -1408,67 +1417,172 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                             editable={!isSubmittedToday}
                           />
 
-                          {/* Bộ chọn trạng thái 4 nút */}
-                          <Text style={[styles.inputLabel, { marginTop: 8 }]}>Trạng thái công việc</Text>
-                          <View style={styles.statusRowContainer}>
+                          {/* Bộ chọn trạng thái 4 nút (Lưới 2x2 thông thoáng, rõ chữ, chuẩn mobile) */}
+                          <View style={styles.statusSectionHeader}>
+                            <Text style={[styles.inputLabel, { marginTop: 0, marginBottom: 0 }]}>
+                              Trạng thái công việc
+                            </Text>
+                            {currentStatusObj && (
+                              <View
+                                style={[
+                                  styles.statusActiveBadge,
+                                  {
+                                    backgroundColor: currentStatusObj.bg,
+                                    borderColor: currentStatusObj.border,
+                                  },
+                                ]}
+                              >
+                                <Ionicons name={currentStatusObj.icon} size={13} color={currentStatusObj.color} />
+                                <Text style={[styles.statusActiveBadgeText, { color: currentStatusObj.color }]}>
+                                  {currentStatusObj.label}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+
+                          <View style={styles.statusGridContainer}>
                             {TASK_STATUSES.map((st) => {
                               const isActive = currentStatus === st.value;
                               return (
                                 <TouchableOpacity
                                   key={st.value}
                                   style={[
-                                    styles.statusPillItem,
-                                    isActive && {
-                                      backgroundColor: st.bg,
-                                      borderColor: st.border,
-                                      borderWidth: 1.5,
-                                    },
+                                    styles.statusGridItem,
+                                    isActive
+                                      ? {
+                                          backgroundColor: st.bg,
+                                          borderColor: st.border,
+                                          borderWidth: 1.5,
+                                        }
+                                      : styles.statusGridItemInactive,
                                   ]}
                                   onPress={() => handleSetMetricStatus(idx, st.value)}
                                   disabled={isSubmittedToday}
                                   activeOpacity={0.7}
                                 >
-                                  <Ionicons
-                                    name={st.icon}
-                                    size={14}
-                                    color={isActive ? st.color : '#64748B'}
-                                  />
+                                  <View
+                                    style={[
+                                      styles.statusIconWrap,
+                                      isActive && { backgroundColor: '#FFFFFF' },
+                                    ]}
+                                  >
+                                    <Ionicons
+                                      name={st.icon}
+                                      size={16}
+                                      color={isActive ? st.color : '#64748B'}
+                                    />
+                                  </View>
                                   <Text
                                     style={[
-                                      styles.statusPillText,
-                                      isActive && { color: st.color, fontWeight: '700' },
+                                      styles.statusGridLabel,
+                                      isActive
+                                        ? { color: st.color, fontWeight: '700' }
+                                        : { color: '#334155', fontWeight: '500' },
                                     ]}
                                     numberOfLines={1}
                                   >
                                     {st.label}
                                   </Text>
+                                  {isActive && (
+                                    <View style={[styles.statusCheckIndicator, { backgroundColor: st.color }]}>
+                                      <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                                    </View>
+                                  )}
                                 </TouchableOpacity>
                               );
                             })}
                           </View>
 
-                          {/* Thanh tiến độ (%) */}
-                          <View style={styles.progressRow}>
-                            <Text style={[styles.inputLabel, { marginTop: 0, marginBottom: 0 }]}>
-                              Tiến độ:
-                            </Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
-                              {[25, 50, 75, 100].map((pct) => {
-                                const isPctActive = Number(m.progress) === pct;
+                          {/* Khối tiến độ công việc hiện đại, trực quan */}
+                          <View style={styles.progressCard}>
+                            {/* Header: Label + dynamic % badge */}
+                            <View style={styles.progressHeaderRow}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Ionicons name="trending-up-outline" size={15} color="#2563EB" />
+                                <Text style={styles.progressHeaderLabel}>Tiến độ hoàn thành</Text>
+                              </View>
+                              <View
+                                style={[
+                                  styles.progressPercentBadge,
+                                  {
+                                    backgroundColor:
+                                      currentProgress === 100
+                                        ? '#DCFCE7'
+                                        : currentProgress >= 50
+                                        ? '#DBEAFE'
+                                        : currentProgress > 0
+                                        ? '#FEF3C7'
+                                        : '#F1F5F9',
+                                    borderColor:
+                                      currentProgress === 100
+                                        ? '#86EFAC'
+                                        : currentProgress >= 50
+                                        ? '#93C5FD'
+                                        : currentProgress > 0
+                                        ? '#FDE68A'
+                                        : '#CBD5E1',
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.progressPercentBadgeText,
+                                    {
+                                      color:
+                                        currentProgress === 100
+                                          ? '#15803D'
+                                          : currentProgress >= 50
+                                          ? '#1D4ED8'
+                                          : currentProgress > 0
+                                          ? '#B45309'
+                                          : '#64748B',
+                                    },
+                                  ]}
+                                >
+                                  {currentProgress}%
+                                </Text>
+                              </View>
+                            </View>
+
+                            {/* Thanh Progress Bar trực quan */}
+                            <View style={styles.progressBarTrack}>
+                              <View
+                                style={[
+                                  styles.progressBarFill,
+                                  {
+                                    width: `${Math.min(100, Math.max(0, currentProgress))}%`,
+                                    backgroundColor:
+                                      currentProgress === 100
+                                        ? '#16A34A'
+                                        : currentProgress >= 50
+                                        ? '#2563EB'
+                                        : currentProgress > 0
+                                        ? '#F59E0B'
+                                        : '#94A3B8',
+                                  },
+                                ]}
+                              />
+                            </View>
+
+                            {/* Nút bấm chọn nhanh mức tiến độ (0% - 25% - 50% - 75% - 100%) */}
+                            <View style={styles.progressPresetRow}>
+                              {[0, 25, 50, 75, 100].map((pct) => {
+                                const isPctActive = currentProgress === pct;
                                 return (
                                   <TouchableOpacity
                                     key={pct}
                                     style={[
-                                      styles.progressPill,
-                                      isPctActive && styles.progressPillActive,
+                                      styles.progressPresetPill,
+                                      isPctActive && styles.progressPresetPillActive,
                                     ]}
                                     onPress={() => handleSetMetricProgress(idx, pct)}
                                     disabled={isSubmittedToday}
+                                    activeOpacity={0.7}
                                   >
                                     <Text
                                       style={[
-                                        styles.progressPillText,
-                                        isPctActive && styles.progressPillTextActive,
+                                        styles.progressPresetPillText,
+                                        isPctActive && styles.progressPresetPillTextActive,
                                       ]}
                                     >
                                       {pct}%
@@ -1477,23 +1591,50 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 );
                               })}
                             </View>
-                            <View style={{ width: 64 }}>
-                              <TextInput
-                                style={[
-                                  styles.textInput,
-                                  isSubmittedToday && styles.readOnlyInput,
-                                  { paddingVertical: 4, paddingHorizontal: 6, textAlign: 'center', fontSize: 12 },
-                                ]}
-                                placeholder="%"
-                                placeholderTextColor="#94A3B8"
-                                keyboardType="numeric"
-                                value={m.progress !== undefined && m.progress !== null ? String(m.progress) : ''}
-                                onChangeText={(v) => {
-                                  const num = parseInt(v, 10);
-                                  handleSetMetricProgress(idx, isNaN(num) ? 0 : num);
-                                }}
-                                editable={!isSubmittedToday}
-                              />
+
+                            {/* Bộ tinh chỉnh tăng / giảm hoặc nhập số tùy chỉnh */}
+                            <View style={styles.progressFineTuneRow}>
+                              <Text style={styles.progressFineTuneLabel}>Tinh chỉnh:</Text>
+
+                              <TouchableOpacity
+                                style={[styles.progressStepperBtn, currentProgress <= 0 && styles.progressStepperBtnDisabled]}
+                                onPress={() => handleSetMetricProgress(idx, Math.max(0, currentProgress - 10))}
+                                disabled={isSubmittedToday || currentProgress <= 0}
+                                activeOpacity={0.7}
+                              >
+                                <Ionicons name="remove" size={14} color={currentProgress <= 0 ? '#CBD5E1' : '#334155'} />
+                                <Text style={[styles.progressStepperText, currentProgress <= 0 && { color: '#CBD5E1' }]}>-10%</Text>
+                              </TouchableOpacity>
+
+                              <View style={styles.progressInputBox}>
+                                <TextInput
+                                  style={[
+                                    styles.progressNumericInput,
+                                    isSubmittedToday && styles.readOnlyInput,
+                                  ]}
+                                  placeholder="0"
+                                  placeholderTextColor="#94A3B8"
+                                  keyboardType="numeric"
+                                  value={m.progress !== undefined && m.progress !== null ? String(m.progress) : '0'}
+                                  onChangeText={(v) => {
+                                    const num = parseInt(v, 10);
+                                    handleSetMetricProgress(idx, isNaN(num) ? 0 : num);
+                                  }}
+                                  editable={!isSubmittedToday}
+                                  maxLength={3}
+                                />
+                                <Text style={styles.progressInputSuffix}>%</Text>
+                              </View>
+
+                              <TouchableOpacity
+                                style={[styles.progressStepperBtn, currentProgress >= 100 && styles.progressStepperBtnDisabled]}
+                                onPress={() => handleSetMetricProgress(idx, Math.min(100, currentProgress + 10))}
+                                disabled={isSubmittedToday || currentProgress >= 100}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={[styles.progressStepperText, currentProgress >= 100 && { color: '#CBD5E1' }]}>+10%</Text>
+                                <Ionicons name="add" size={14} color={currentProgress >= 100 ? '#CBD5E1' : '#334155'} />
+                              </TouchableOpacity>
                             </View>
                           </View>
 
@@ -2944,12 +3085,17 @@ const styles = StyleSheet.create({
 
   // QUANT ITEM
   quantItemBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#EDF2F7',
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   quantItemHeader: {
     flexDirection: 'row',
@@ -3454,6 +3600,191 @@ const styles = StyleSheet.create({
   uploadingText: {
     fontSize: 12,
     color: '#166534',
+  },
+
+  // STATUS GRID & ACTIVE BADGE (2x2 Grid)
+  statusSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  statusActiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  statusActiveBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  statusGridItem: {
+    width: '48.6%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 8,
+  },
+  statusGridItemInactive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+  },
+  statusIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+  },
+  statusGridLabel: {
+    flex: 1,
+    fontSize: 12.5,
+  },
+  statusCheckIndicator: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // PROGRESS CARD (Visual bar + Presets + Stepper)
+  progressCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+    gap: 10,
+  },
+  progressHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  progressHeaderLabel: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  progressPercentBadge: {
+    paddingHorizontal: 9,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  progressPercentBadgeText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  progressBarTrack: {
+    height: 7,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressPresetRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  progressPresetPill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  progressPresetPillActive: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#3B82F6',
+  },
+  progressPresetPillText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  progressPresetPillTextActive: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
+  progressFineTuneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 2,
+  },
+  progressFineTuneLabel: {
+    fontSize: 11.5,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  progressStepperBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  progressStepperBtnDisabled: {
+    opacity: 0.4,
+  },
+  progressStepperText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  progressInputBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+  },
+  progressNumericInput: {
+    paddingVertical: 5,
+    paddingHorizontal: 4,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    minWidth: 32,
+  },
+  progressInputSuffix: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
   },
 
   // SUMMARY REVIEW
