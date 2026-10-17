@@ -50,6 +50,7 @@ import { downloadAndSaveImage } from '../../utils/file-download';
 import { ChatWatermark } from '../../components/ChatWatermark';
 import { SafeAudio, isAudioAvailable } from '../../utils/safe-audio';
 import { VoiceMessageBubble } from './VoiceMessageBubble';
+import { useBatchPresence } from '../presence/usePresence';
 
 // ── Helpers ──
 
@@ -338,6 +339,12 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
     return Array.from(map.values());
   }, [departmentsQuery.data, employeesQuery.data, user?.id]);
 
+  const leaderUserIds = useMemo(() => departmentLeaders.map((l) => l.userId), [departmentLeaders]);
+  const { getStatus: getLeaderPresence } = useBatchPresence(leaderUserIds);
+  const onlineLeadersCount = useMemo(() => {
+    return departmentLeaders.filter((l) => getLeaderPresence(l.userId).isOnline).length;
+  }, [departmentLeaders, getLeaderPresence]);
+
   const filteredLeaders = useMemo(() => {
     if (!leaderSearch.trim()) return departmentLeaders;
     const q = leaderSearch.toLowerCase().trim();
@@ -509,7 +516,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                   <Text style={adminChatStyles.sectionTitle}>Trưởng phòng</Text>
                   <View style={adminChatStyles.onlineCountBadge}>
                     <View style={adminChatStyles.onlineCountDot} />
-                    <Text style={adminChatStyles.onlineCountText}>{departmentLeaders.length}</Text>
+                    <Text style={adminChatStyles.onlineCountText}>{onlineLeadersCount}</Text>
                   </View>
                 </View>
                 <TouchableOpacity
@@ -556,7 +563,9 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                         )}
 
                         {/* Online Green Badge */}
-                        <View style={adminChatStyles.activeOnlineDot} />
+                        {getLeaderPresence(leader.userId).isOnline ? (
+                          <View style={adminChatStyles.activeOnlineDot} />
+                        ) : null}
 
                         {/* Loading Spinner overlay if connecting */}
                         {isConnecting && (
@@ -1004,7 +1013,9 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                             </Text>
                           </View>
                         )}
-                        <View style={adminChatStyles.activeOnlineDotSmall} />
+                        {getLeaderPresence(item.userId).isOnline ? (
+                          <View style={adminChatStyles.activeOnlineDotSmall} />
+                        ) : null}
                       </View>
 
                       <View style={adminChatStyles.leaderInfoWrap}>
@@ -1066,6 +1077,18 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const myList = Array.isArray(myGroups.data) ? myGroups.data : [];
   const allList = Array.isArray(allGroups.data) ? allGroups.data : [];
   const currentGroup = myList.find((g: any) => g.id === groupId) || allList.find((g: any) => g.id === groupId);
+
+  const otherUserId = useMemo(() => {
+    const cg = currentGroup as any;
+    if (cg?.otherUserId) return cg.otherUserId as string;
+    if (cg?.type === 'DIRECT' && Array.isArray(cg?.members)) {
+      const other = cg.members.find((m: any) => (m.userId || m.id) !== user?.id);
+      return (other?.userId || other?.id) as string | undefined;
+    }
+    return undefined;
+  }, [currentGroup, user?.id]);
+
+  const { getStatus: getRoomUserPresence, formatPresence: formatRoomUserPresence } = useBatchPresence([otherUserId]);
 
   const isGlobalAdmin = Boolean(
     user?.roles?.includes('ADMIN') &&
@@ -1542,9 +1565,26 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
               <Text style={adminChatStyles.roomHeaderTitle} numberOfLines={1}>
                 {(decodeURIComponent(groupName || '') || currentGroup?.name || 'Nhóm chat').replace('NV000001', 'Admin')}
               </Text>
-              <Text style={adminChatStyles.roomHeaderSubtitle} numberOfLines={1}>
-                {sortedMessages.length} tin nhắn
-              </Text>
+              {currentGroup?.type === 'DIRECT' && otherUserId ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  {getRoomUserPresence(otherUserId).isOnline ? (
+                    <>
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E' }} />
+                      <Text style={[adminChatStyles.roomHeaderSubtitle, { color: '#4ADE80', fontWeight: '600' }]} numberOfLines={1}>
+                        Đang hoạt động
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={adminChatStyles.roomHeaderSubtitle} numberOfLines={1}>
+                      {formatRoomUserPresence(otherUserId) || `${sortedMessages.length} tin nhắn`}
+                    </Text>
+                  )}
+                </View>
+              ) : (
+                <Text style={adminChatStyles.roomHeaderSubtitle} numberOfLines={1}>
+                  {sortedMessages.length} tin nhắn
+                </Text>
+              )}
             </View>
 
             <View style={adminChatStyles.roomHeaderRightActions}>

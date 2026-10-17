@@ -470,6 +470,7 @@ export function ContractTemplatesScreen() {
 
 export function ContractListScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const contracts = useContracts();
   const deleteContract = useDeleteContract();
@@ -578,149 +579,167 @@ export function ContractListScreen() {
   };
 
   return (
-    <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
-      {/* Header: Back button + Title + "Mẫu HĐ" on same line */}
-      <View style={cStyles.header}>
-        <View style={cStyles.headerRow}>
-          <View style={cStyles.headerTitleGroup}>
-            <Pressable
-              onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/(tabs)` as any))}
-              style={cStyles.backBtn}
-              hitSlop={10}
-            >
-              <Ionicons name="chevron-back" size={24} color="#0F172A" />
-            </Pressable>
-            <View>
-              <Text style={cStyles.screenTitle}>Hợp đồng</Text>
-              <Text style={cStyles.screenSubtitle}>Quản lý hợp đồng lao động</Text>
-            </View>
+    <View style={cStyles.mainContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+
+      {/* Header: Back button + Title + "Mẫu HĐ" on same line (#102739) */}
+      <View style={[cStyles.navyHeader, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <View style={cStyles.navyHeaderRow}>
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/(tabs)` as any))}
+            style={cStyles.navyBackBtn}
+            hitSlop={10}
+            accessibilityLabel="Quay lại"
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </Pressable>
+
+          <View style={cStyles.navyTitleCol}>
+            <Text style={cStyles.navyScreenTitle}>Hợp đồng</Text>
+            <Text style={cStyles.navyScreenSubtitle}>Quản lý hợp đồng lao động</Text>
           </View>
 
           <Pressable
-            style={cStyles.templateBtn}
+            style={cStyles.navyTemplateBtn}
             onPress={() => router.push(`${roleBase(user)}/contracts/templates` as any)}
           >
-            <MaterialCommunityIcons name="file-document-outline" size={16} color="#102739" />
-            <Text style={cStyles.templateBtnText}>Mẫu HĐ</Text>
+            <MaterialCommunityIcons name="file-document-outline" size={17} color="#FFFFFF" />
+            <Text style={cStyles.navyTemplateBtnText}>Mẫu HĐ</Text>
           </Pressable>
         </View>
       </View>
 
-      {/* Search Input & Filter Dropdown */}
-      <View style={cStyles.searchFilterContainer}>
-        <View style={cStyles.searchBar}>
-          <Ionicons name="search" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
-          <TextInput
-            placeholder="Tìm tên nhân viên hoặc mã hợp đồng"
-            placeholderTextColor="#94A3B8"
-            value={search}
-            onChangeText={setSearch}
-            style={cStyles.searchInput}
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch("")} hitSlop={8}>
-              <Ionicons name="close-circle" size={16} color="#94A3B8" />
-            </Pressable>
-          )}
+      {/* Sheet Container with curved top corners */}
+      <View style={cStyles.sheetContainer}>
+        {/* Search Input & Filter Dropdown */}
+        <View style={cStyles.searchFilterContainer}>
+          <View style={cStyles.searchBar}>
+            <Ionicons name="search" size={19} color="#94A3B8" style={{ marginRight: 8 }} />
+            <TextInput
+              placeholder="Tìm tên nhân viên hoặc mã hợp đồng"
+              placeholderTextColor="#94A3B8"
+              value={search}
+              onChangeText={setSearch}
+              style={cStyles.searchInput}
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch("")} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color="#94A3B8" />
+              </Pressable>
+            )}
+          </View>
+
+          <Pressable
+            style={cStyles.statusDropdown}
+            onPress={() => setDepartmentModalVisible(true)}
+          >
+            <Text style={cStyles.statusDropdownText} numberOfLines={1}>{selectedDepartmentLabel}</Text>
+            <Ionicons name="chevron-down" size={18} color="#0F172A" />
+          </Pressable>
         </View>
 
-        <Pressable
-          style={cStyles.statusDropdown}
-          onPress={() => setDepartmentModalVisible(true)}
-        >
-          <Text style={cStyles.statusDropdownText} numberOfLines={1}>{selectedDepartmentLabel}</Text>
-          <Ionicons name="chevron-down" size={18} color="#64748B" />
-        </Pressable>
-      </View>
-
-      {/* Contract List */}
-      <ScrollView
-        contentContainerStyle={cStyles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={contracts.isRefetching}
-            onRefresh={() => void contracts.refetch()}
-          />
-        }
-      >
-        {contracts.isLoading ? (
-          <View style={{ paddingVertical: 40, alignItems: "center" }}>
-            <ActivityIndicator color="#102739" size="small" />
-            <Text style={{ marginTop: 8, fontSize: 13, color: "#64748B" }}>
-              Đang tải danh sách hợp đồng...
-            </Text>
+        {/* Section Title Row: "Danh sách hợp đồng" + badge count */}
+        <View style={cStyles.sectionHeaderRow}>
+          <Text style={cStyles.sectionTitleText}>Danh sách hợp đồng</Text>
+          <View style={cStyles.countPill}>
+            <Text style={cStyles.countPillText}>{filteredContracts.length}</Text>
           </View>
-        ) : filteredContracts.length > 0 ? (
-          <>
-            {filteredContracts.map((contract: any) => {
-              const empName =
-                contract.user?.profile?.fullName ??
-                contract.user?.userCode ??
-                contract.employeeName ??
-                "-";
-              const initials = getInitials(empName);
+        </View>
 
-              return (
-                <View key={contract.id} style={cStyles.contractCard}>
-                  {/* Top Row: Avatar + Info + Status */}
-                  <View style={cStyles.cardTopRow}>
-                    <View style={cStyles.avatarCircle}>
-                      <Text style={cStyles.avatarText}>{initials}</Text>
+        {/* Contract List */}
+        <ScrollView
+          contentContainerStyle={cStyles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={contracts.isRefetching}
+              onRefresh={() => void contracts.refetch()}
+              tintColor="#102739"
+            />
+          }
+        >
+          {contracts.isLoading ? (
+            <View style={{ paddingVertical: 40, alignItems: "center" }}>
+              <ActivityIndicator color="#102739" size="small" />
+              <Text style={{ marginTop: 8, fontSize: 13, color: "#64748B" }}>
+                Đang tải danh sách hợp đồng...
+              </Text>
+            </View>
+          ) : filteredContracts.length > 0 ? (
+            <>
+              {filteredContracts.map((contract: any) => {
+                const empName =
+                  contract.user?.profile?.fullName ??
+                  contract.user?.userCode ??
+                  contract.employeeName ??
+                  "-";
+                const initials = getInitials(empName);
+
+                return (
+                  <View key={contract.id} style={cStyles.contractCard}>
+                    {/* Top Row: Avatar + Info */}
+                    <View style={cStyles.cardTopRow}>
+                      <View style={cStyles.avatarCircle}>
+                        <Text style={cStyles.avatarText}>{initials}</Text>
+                      </View>
+                      <View style={cStyles.cardTopInfo}>
+                        <Text style={cStyles.cardEmpName} numberOfLines={1}>
+                          {empName}
+                        </Text>
+                        <Text style={cStyles.cardContractTitle} numberOfLines={1}>
+                          {contract.title || "Hợp đồng lao động"}
+                        </Text>
+                        <Text style={cStyles.cardContractCode}>
+                          {contract.contractCode || "-"}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={cStyles.cardTopInfo}>
-                      <Text style={cStyles.cardEmpName} numberOfLines={1}>
-                        {empName}
-                      </Text>
-                      <Text style={cStyles.cardContractTitle} numberOfLines={1}>
-                        {contract.title || "Hợp đồng lao động"}
-                      </Text>
-                      <Text style={cStyles.cardContractCode}>
-                        {contract.contractCode || "-"}
-                      </Text>
+
+                    {/* Status Badge Row */}
+                    <View style={cStyles.cardStatusRow}>
+                      <ContractStatusBadge status={contract.status} />
                     </View>
-                    <ContractStatusBadge status={contract.status} />
+
+                    <View style={cStyles.cardDivider} />
+
+                    {/* Bottom Row: Xem chi tiết -> & ... */}
+                    <View style={cStyles.cardBottomRow}>
+                      <Pressable
+                        onPress={() =>
+                          router.push(`${roleBase(user)}/contracts/${contract.id}` as any)
+                        }
+                        style={cStyles.cardDetailLink}
+                      >
+                        <Text style={cStyles.cardDetailLinkText}>Xem chi tiết →</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setSelectedContractMenu(contract)}
+                        style={cStyles.cardMoreBtn}
+                        hitSlop={8}
+                      >
+                        <Ionicons name="ellipsis-horizontal" size={20} color="#0F172A" />
+                      </Pressable>
+                    </View>
                   </View>
+                );
+              })}
 
-                  <View style={cStyles.cardDivider} />
-
-                  {/* Bottom Row: Xem chi tiết -> & ... */}
-                  <View style={cStyles.cardBottomRow}>
-                    <Pressable
-                      onPress={() =>
-                        router.push(`${roleBase(user)}/contracts/${contract.id}` as any)
-                      }
-                      style={cStyles.cardDetailLink}
-                    >
-                      <Text style={cStyles.cardDetailLinkText}>Xem chi tiết →</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setSelectedContractMenu(contract)}
-                      style={cStyles.cardMoreBtn}
-                      hitSlop={8}
-                    >
-                      <Ionicons name="ellipsis-horizontal" size={20} color="#0F172A" />
-                    </Pressable>
-                  </View>
-                </View>
-              );
-            })}
-
-            <Text style={cStyles.counterFooter}>
-              Hiển thị {filteredContracts.length} hợp đồng
-            </Text>
-          </>
-        ) : (
-          <EmptyState
-            title="Không có hợp đồng"
-            message={
-              search
-                ? "Không tìm thấy hợp đồng phù hợp với từ khóa"
-                : "Chưa có hợp đồng nào trong hệ thống"
-            }
-          />
-        )}
-      </ScrollView>
+              <Text style={cStyles.counterFooter}>
+                Hiển thị {filteredContracts.length} hợp đồng
+              </Text>
+            </>
+          ) : (
+            <EmptyState
+              title="Không có hợp đồng"
+              message={
+                search
+                  ? "Không tìm thấy hợp đồng phù hợp với từ khóa"
+                  : "Chưa có hợp đồng nào trong hệ thống"
+              }
+            />
+          )}
+        </ScrollView>
+      </View>
 
       {/* Select Department Modal */}
       <SelectModal
@@ -844,7 +863,7 @@ export function ContractListScreen() {
         }}
         title="Xem hợp đồng"
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -2660,6 +2679,90 @@ const styles = StyleSheet.create({
 });
 
 const cStyles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#102739',
+  },
+  navyHeader: {
+    backgroundColor: '#102739',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  navyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  navyBackBtn: {
+    padding: 4,
+    marginRight: 8,
+    marginLeft: -4,
+  },
+  navyTitleCol: {
+    flex: 1,
+  },
+  navyScreenTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  navyScreenSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginTop: 2,
+  },
+  navyTemplateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1.2,
+    borderColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'transparent',
+  },
+  navyTemplateBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  sheetContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 16,
+    overflow: 'hidden',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  sectionTitleText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  countPill: {
+    backgroundColor: '#E0F2FE',
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  countPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  cardStatusRow: {
+    marginTop: 10,
+    alignItems: 'flex-start',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#F5F7FA',
@@ -2791,11 +2894,11 @@ const cStyles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
     elevation: 1,
   },
   cardTopRow: {
@@ -2803,37 +2906,37 @@ const cStyles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#E7F0F7',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E0F2FE',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#102739',
+    color: '#0F172A',
   },
   cardTopInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 14,
     marginRight: 8,
   },
   cardEmpName: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
   },
   cardContractTitle: {
     fontSize: 13,
     color: '#64748B',
-    marginTop: 1,
+    marginTop: 2,
   },
   cardContractCode: {
     fontSize: 12,
     color: '#94A3B8',
-    marginTop: 1,
+    marginTop: 2,
   },
   cardDivider: {
     height: 1,
@@ -2885,9 +2988,9 @@ const cStyles = StyleSheet.create({
     alignItems: 'center',
   },
   cardDetailLinkText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#102739',
+    color: '#0F172A',
   },
   cardMoreBtn: {
     padding: 4,

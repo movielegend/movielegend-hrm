@@ -4,7 +4,7 @@ import { notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { StorageService } from '../storage/storage.service';
-import { UpdateFaceDto, UpdateMeDto } from './dto/update-me.dto';
+import { UpdateFaceDto, UpdateMeDto, ValidateFacePoseDto } from './dto/update-me.dto';
 import { DEFAULT_PINNED_APPS, UpdatePinnedAppsDto } from './dto/update-pinned-apps.dto';
 import { FacePoseType, UploadPurpose } from '@prisma/client';
 import { badRequest } from '../../common/utils/error.util';
@@ -110,6 +110,25 @@ export class UsersService {
       throw badRequest('MISSING_FACE_IMAGES', `Thiếu ảnh khuôn mặt: ${missingPoses.join(', ')}`);
     }
 
+    // Verify that every image contains a real, detectable face
+    for (const img of dto.faceImages) {
+      let buf: Buffer | undefined;
+      const storageKey = this.storage.extractKeyFromUrl(img.imageUrl) || img.imageUrl;
+      try {
+        buf = await this.storage.read(storageKey);
+      } catch {}
+      if (!buf && img.imageUrl.startsWith('http')) {
+        const resp = await fetch(img.imageUrl);
+        if (resp.ok) buf = Buffer.from(await resp.arrayBuffer());
+      }
+      if (buf) {
+        const check = await this.faceVerification.validateFacePose(buf, img.pose);
+        if (!check.valid && check.error === 'NO_FACE') {
+          throw badRequest('INVALID_FACE_IMAGE', `Không phát hiện khuôn mặt người trong ảnh góc ${img.pose}. Vui lòng thử lại.`);
+        }
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
         where: { id: actor.userId },
@@ -182,6 +201,41 @@ export class UsersService {
 
       return { success: true, message: 'Cap nhat hinh anh thanh cong' };
     });
+  }
+
+  async validateFacePose(dto: ValidateFacePoseDto, actor: AuthenticatedUser) {
+    let buffer: Buffer | undefined;
+
+    if (dto.imageBase64) {
+      const cleanBase64 = dto.imageBase64.replace(/^data:image\/\w+;base64,/, '');
+      buffer = Buffer.from(cleanBase64, 'base64');
+    } else if (dto.fileId) {
+      const file = await this.prisma.uploadedFile.findUnique({ where: { id: dto.fileId } });
+      if (file?.storageKey) {
+        buffer = await this.storage.read(file.storageKey);
+      }
+    } else if (dto.imageUrl) {
+      const storageKey = this.storage.extractKeyFromUrl(dto.imageUrl);
+      if (storageKey) {
+        buffer = await this.storage.read(storageKey).catch(() => undefined);
+      }
+      if (!buffer && dto.imageUrl.startsWith('http')) {
+        const resp = await fetch(dto.imageUrl);
+        if (resp.ok) buffer = Buffer.from(await resp.arrayBuffer());
+      }
+    }
+
+    if (!buffer) {
+      throw badRequest('IMAGE_REQUIRED', 'Vui lòng cung cấp dữ liệu hình ảnh để kiểm tra.');
+    }
+
+    const result = await this.faceVerification.validateFacePose(buffer, dto.pose);
+    return {
+      valid: result.valid,
+      detectedPose: (result as any).detectedPose,
+      error: (result as any).error,
+      message: result.reason || (result.valid ? 'Khuôn mặt hợp lệ' : 'Khuôn mặt không hợp lệ'),
+    };
   }
 
   async getMyPinnedApps(actor: AuthenticatedUser) {

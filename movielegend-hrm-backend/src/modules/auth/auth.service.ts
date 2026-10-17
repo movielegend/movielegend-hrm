@@ -478,6 +478,10 @@ export class AuthService {
       });
       userRole.role.permissions.forEach((item) => permissions.add(item.permission.code));
     }
+    if (roles.has('ACCOUNTANT_PAYROLL') || roles.has('ACCOUNTANT_LEAD')) {
+      permissions.add('contract.sign_company');
+      permissions.add('contract.read_all');
+    }
     return {
       sub: user.id,
       userId: user.id,
@@ -638,6 +642,10 @@ export class AuthService {
       });
       return userRole.role.code;
     });
+    if (roles.includes('ACCOUNTANT_PAYROLL') || roles.includes('ACCOUNTANT_LEAD')) {
+      permissions.add('contract.sign_company');
+      permissions.add('contract.read_all');
+    }
     const primaryDepartment = user.departmentLinks[0];
     return {
       id: user.id,

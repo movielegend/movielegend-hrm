@@ -23,8 +23,10 @@ describe('PayrollService', () => {
               updateMany: jest.fn(),
               update: jest.fn()
             },
-            user: { findMany: jest.fn() },
-            auditLog: { create: jest.fn() },
+            user: { findMany: jest.fn(), findUnique: jest.fn() },
+            department: { findUnique: jest.fn() },
+            uploadedFile: { findFirst: jest.fn() },
+            auditLog: { create: jest.fn(), findMany: jest.fn() },
             $transaction: jest.fn((cb) => cb({
               payroll: { upsert: jest.fn().mockResolvedValue({ id: 'p-1' }), findUnique: jest.fn().mockResolvedValue(null) },
               payrollItem: { createMany: jest.fn() },
@@ -50,6 +52,8 @@ describe('PayrollService', () => {
         },
         { provide: NotificationsService, useValue: {} },
         { provide: RealtimeEventsService, useValue: { emitToRoom: jest.fn() } },
+        { provide: require('../phase2-policy/department-scope.service').DepartmentScopeService, useValue: { isGlobalAdmin: jest.fn().mockReturnValue(true), getVisibleDepartmentIds: jest.fn().mockResolvedValue(null) } },
+        { provide: require('../storage/storage.service').StorageService, useValue: { delete: jest.fn().mockResolvedValue(undefined), extractKeyFromUrl: jest.fn().mockReturnValue('test.png') } },
       ],
     }).compile();
 
@@ -101,6 +105,98 @@ describe('PayrollService', () => {
         where: { id: 'period-1' },
         data: expect.objectContaining({ status: PayrollPeriodStatus.CALCULATED }),
       });
+    });
+  });
+
+  describe('deleteDepartmentPayslipImage', () => {
+    const mockActor = { userId: 'user-1', email: 'user@test.com', role: 'ADMIN', roles: ['ADMIN'], permissions: [], scopes: [] } as any;
+
+    it('should successfully delete image from department batch and clear employee official image if assigned', async () => {
+      (prisma as any).department = {
+        findUnique: jest.fn().mockResolvedValue({ id: 'dept-1', name: 'Phòng IT' }),
+      };
+      (prisma as any).uploadedFile = {
+        findFirst: jest.fn().mockResolvedValue({ storageKey: 'uploads/test.png' }),
+      };
+
+      const mockBatchImages = [
+        { id: 'img-1', imageUrl: 'https://r2.dev/uploads/test.png', assignedUserId: 'emp-123' },
+        { id: 'img-2', imageUrl: 'https://r2.dev/uploads/test2.png', assignedUserId: null },
+      ];
+
+      jest.spyOn(prisma.auditLog, 'findMany' as any).mockResolvedValue([
+        {
+          id: 'log-1',
+          metadata: {
+            month: 10,
+            year: 2026,
+            images: mockBatchImages,
+          },
+        },
+      ] as any);
+
+      const auditCreateSpy = jest.spyOn(prisma.auditLog, 'create' as any).mockResolvedValue({ id: 'log-new' } as any);
+
+      const result = await service.deleteDepartmentPayslipImage(mockActor, {
+        departmentId: 'dept-1',
+        month: 10,
+        year: 2026,
+        imageId: 'img-1',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.deletedImageId).toBe('img-1');
+      expect(result.totalRemainingImages).toBe(1);
+      // Verify official image cleared for emp-123
+      expect(auditCreateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'PAYROLL_OFFICIAL_IMAGE',
+            entityId: 'emp-123',
+            metadata: expect.objectContaining({ isDeleted: true, imageUrl: null }),
+          }),
+        })
+      );
+    });
+  });
+
+  describe('deleteOfficialImage', () => {
+    const mockActor = { userId: 'user-1', email: 'user@test.com', role: 'ADMIN', roles: ['ADMIN'], permissions: [], scopes: [] } as any;
+
+    it('should successfully delete official image for an employee', async () => {
+      (prisma as any).user = {
+        findUnique: jest.fn().mockResolvedValue({ id: 'emp-1', userCode: 'NV01', profile: { fullName: 'Nguyễn Văn A' } }),
+      };
+      (prisma as any).uploadedFile = {
+        findFirst: jest.fn().mockResolvedValue({ storageKey: 'uploads/emp1.png' }),
+      };
+
+      jest.spyOn(prisma.auditLog, 'findMany' as any).mockResolvedValue([
+        {
+          id: 'log-1',
+          metadata: { month: 10, year: 2026, imageUrl: 'https://r2.dev/uploads/emp1.png', isDeleted: false },
+        },
+      ] as any);
+
+      const auditCreateSpy = jest.spyOn(prisma.auditLog, 'create' as any).mockResolvedValue({ id: 'log-new' } as any);
+
+      const result = await service.deleteOfficialImage(mockActor, {
+        userId: 'emp-1',
+        month: 10,
+        year: 2026,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.userId).toBe('emp-1');
+      expect(auditCreateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: 'PAYROLL_OFFICIAL_IMAGE',
+            entityId: 'emp-1',
+            metadata: expect.objectContaining({ isDeleted: true, imageUrl: null }),
+          }),
+        })
+      );
     });
   });
 });

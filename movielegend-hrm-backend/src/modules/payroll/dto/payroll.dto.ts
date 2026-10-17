@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsDateString, IsInt, IsNumber, IsOptional, IsString, IsUUID, Max, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, Min, ValidateNested } from 'class-validator';
 
 export class CreatePayrollPeriodDto {
   @ApiProperty()
@@ -288,6 +288,11 @@ export class UploadDepartmentPayslipBatchDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @ApiPropertyOptional({ description: 'Ghi đè làm mới toàn bộ ảnh của phòng ban trong tháng này' })
+  @IsOptional()
+  @IsBoolean()
+  replaceExisting?: boolean;
 }
 
 export class AssignDepartmentPayslipImageDto {
@@ -342,11 +347,113 @@ export class UnassignDepartmentPayslipImageDto {
   imageId!: string;
 }
 
+export class DeleteDepartmentPayslipImageDto {
+  @ApiProperty({ description: 'ID phòng ban' })
+  @IsUUID()
+  departmentId!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 12 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month!: number;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year!: number;
+
+  @ApiProperty({ description: 'ID của ảnh trong batch' })
+  @IsString()
+  @IsNotEmpty()
+  imageId!: string;
+}
+
+export class DeleteOfficialPayslipImageDto {
+  @ApiProperty({ description: 'ID người dùng' })
+  @IsUUID()
+  userId!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 12 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month!: number;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year!: number;
+}
+
+export class DeleteDepartmentPayslipImagesDto {
+  @ApiProperty({ description: 'ID phòng ban' })
+  @IsUUID()
+  departmentId!: string;
+
+  @ApiProperty({ minimum: 1, maximum: 12 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month!: number;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year!: number;
+
+  @ApiPropertyOptional({ description: 'ID ảnh đơn lẻ trong batch' })
+  @IsOptional()
+  @IsString()
+  imageId?: string;
+
+  @ApiPropertyOptional({ description: 'Danh sách ID ảnh cần xóa trong batch', type: [String] })
+  @IsOptional()
+  @IsArray()
+  imageIds?: string[];
+}
+
 export class GetDepartmentBatchQueryDto {
   @ApiPropertyOptional({ description: 'ID phòng ban' })
   @IsOptional()
   @IsUUID()
   departmentId?: string;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 12 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(12)
+  month?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year?: number;
+}
+
+export class PayslipFeedbackDto {
+  @ApiProperty({ enum: ['CONFIRM', 'REJECT'], description: 'Hành động: CONFIRM hoặc REJECT' })
+  @IsEnum(['CONFIRM', 'REJECT'])
+  action!: 'CONFIRM' | 'REJECT';
+
+  @ApiPropertyOptional({ description: 'Ghi chú / lý do khiếu nại của nhân viên' })
+  @IsOptional()
+  @IsString()
+  note?: string;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 12 })
   @IsOptional()

@@ -277,6 +277,27 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(`warmUserCache error for user ${userId}: ${err?.message}`);
     }
   }
+
+  async validateFacePose(
+    targetBuffer: Buffer,
+    expectedPose: string,
+  ): Promise<{ valid: boolean; reason?: string; error?: string; detectedPose?: string }> {
+    if (!this.worker || !this.workerReady) {
+      return { valid: false, reason: 'Hệ thống nhận diện đang khởi động. Vui lòng thử lại sau.' };
+    }
+
+    return new Promise((resolve, reject) => {
+      const jobId = (++this.jobCounter).toString();
+      this.pendingJobs.set(jobId, { resolve, reject });
+
+      this.worker!.postMessage({
+        type: 'VALIDATE_POSE',
+        jobId,
+        targetBuffer: new Uint8Array(targetBuffer),
+        expectedPose,
+      });
+    });
+  }
 }
 
 

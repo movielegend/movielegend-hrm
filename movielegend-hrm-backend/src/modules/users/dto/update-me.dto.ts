@@ -40,3 +40,25 @@ export class UpdateFaceDto {
   @ArrayMaxSize(3)
   faceImages!: FaceImageDto[];
 }
+
+export class ValidateFacePoseDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  imageBase64?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  fileId?: string;
+
+  @ApiProperty({ description: 'Tư thế yêu cầu (FRONT, LEFT, RIGHT)' })
+  @IsString()
+  pose!: string;
+}
+

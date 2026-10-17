@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ArrayMinSize, ArrayNotEmpty, IsArray, IsString } from 'class-validator';
 
-export const DEFAULT_PINNED_APPS = ['attendance', 'requests', 'tasks', 'feedbacks'];
+export const DEFAULT_PINNED_APPS = ['attendance', 'attendance_history', 'requests', 'tasks', 'feedbacks'];
 
 export class UpdatePinnedAppsDto {
   @ApiProperty({

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import {
   AccountStatus,
   EmployeeBonusStatus,
@@ -23,6 +23,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import { randomUUID } from 'crypto';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
+import { StorageService } from '../storage/storage.service';
+import { MediaStorageService } from '../storage/media-storage.service';
 import {
   CreatePayrollPeriodDto,
   ImportPayrollDto,
@@ -32,7 +34,11 @@ import {
   UploadDepartmentPayslipBatchDto,
   AssignDepartmentPayslipImageDto,
   UnassignDepartmentPayslipImageDto,
+  DeleteDepartmentPayslipImageDto,
+  DeleteOfficialPayslipImageDto,
+  DeleteDepartmentPayslipImagesDto,
   GetDepartmentBatchQueryDto,
+  PayslipFeedbackDto,
 } from './dto/payroll.dto';
 import { PayrollPolicyService } from './payroll-policy.service';
 
@@ -44,6 +50,8 @@ export class PayrollService {
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeEventsService,
     private readonly scope: DepartmentScopeService,
+    @Optional() private readonly storage?: StorageService,
+    @Optional() private readonly mediaStorage?: MediaStorageService,
   ) {}
 
   createPeriod(dto: CreatePayrollPeriodDto, actor: AuthenticatedUser) {
@@ -332,6 +340,60 @@ export class PayrollService {
       }),
     };
 
+    // Kiểm tra thông tin phản hồi từ batch lô ảnh hoặc audit log
+    let batchFeedbackStatus: string | null = null;
+    let batchFeedbackNote: string | null = null;
+    let batchFeedbackAt: string | null = null;
+    let batchUpdatedAt: Date | null = null;
+
+    const userDeptId = user?.departmentLinks?.[0]?.departmentId;
+    if (userDeptId) {
+      const deptBatchLogs = await this.prisma.auditLog.findMany({
+        where: { action: 'PAYROLL_DEPARTMENT_BATCH', entityId: userDeptId },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      });
+      for (const log of deptBatchLogs) {
+        const meta = log.metadata as any;
+        if (meta?.month === month && meta?.year === year && Array.isArray(meta.images)) {
+          const userImg = meta.images.find((img: any) => img.assignedUserId === actor.userId && !img.isDeleted);
+          if (userImg) {
+            if (!finalOfficialImageUrl) finalOfficialImageUrl = userImg.imageUrl;
+            batchFeedbackStatus = userImg.feedbackStatus || null;
+            batchFeedbackNote = userImg.feedbackNote || null;
+            batchFeedbackAt = userImg.feedbackAt || null;
+            batchUpdatedAt = log.createdAt;
+          }
+          break;
+        }
+      }
+    }
+
+    const personalFeedbackLog = await this.prisma.auditLog.findFirst({
+      where: {
+        action: 'PAYSLIP_FEEDBACK',
+        actorUserId: actor.userId,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (personalFeedbackLog?.metadata && typeof personalFeedbackLog.metadata === 'object') {
+      const meta = personalFeedbackLog.metadata as any;
+      if (meta.month === month && meta.year === year) {
+        const isFeedbackOlderThanBatch = batchUpdatedAt && personalFeedbackLog.createdAt < batchUpdatedAt;
+        const isFeedbackOlderThanImage = specificImageLog && personalFeedbackLog.createdAt < specificImageLog.createdAt;
+
+        if (!isFeedbackOlderThanBatch && !isFeedbackOlderThanImage) {
+          batchFeedbackStatus = meta.status || batchFeedbackStatus;
+          batchFeedbackNote = meta.note !== undefined ? meta.note : batchFeedbackNote;
+          batchFeedbackAt = meta.timestamp || batchFeedbackAt;
+        } else {
+          // Kế toán đã cập nhật sau thời điểm nhân viên khiếu nại -> Trạng thái khiếu nại đã giải quyết
+          batchFeedbackStatus = batchFeedbackStatus || 'PENDING';
+          batchFeedbackNote = batchFeedbackStatus === 'REJECTED' ? batchFeedbackNote : null;
+        }
+      }
+    }
+
     if (!payroll) {
       return {
         month,
@@ -363,6 +425,10 @@ export class PayrollService {
         grossSalary: userBaseSalary,
         netSalary: userBaseSalary,
         status: 'UNAVAILABLE',
+        employeeAcknowledgedAt: batchFeedbackStatus === 'CONFIRMED' ? (batchFeedbackAt || new Date().toISOString()) : null,
+        employeeFeedbackStatus: batchFeedbackStatus || 'PENDING',
+        employeeFeedbackNote: batchFeedbackNote || null,
+        employeeFeedbackAt: batchFeedbackAt || null,
         items: [],
       };
     }
@@ -387,6 +453,9 @@ export class PayrollService {
       status: payroll.status,
       calculatedAt: payroll.calculatedAt,
       employeeAcknowledgedAt: payroll.employeeAcknowledgedAt,
+      employeeFeedbackStatus: payroll.employeeFeedbackStatus || (payroll.employeeAcknowledgedAt ? 'CONFIRMED' : (batchFeedbackStatus || 'PENDING')),
+      employeeFeedbackNote: payroll.employeeFeedbackNote || batchFeedbackNote || null,
+      employeeFeedbackAt: payroll.employeeFeedbackAt ? payroll.employeeFeedbackAt.toISOString() : (batchFeedbackAt || null),
       employee: {
         fullName: user?.profile?.fullName || 'Nhân viên',
         userCode: user?.userCode || '---',
@@ -464,6 +533,88 @@ export class PayrollService {
       },
     });
 
+    // Nếu tải ảnh cho cá nhân cụ thể: Tự động reset khiếu nại về PENDING
+    if (userId) {
+      try {
+        await this.prisma.payroll.updateMany({
+          where: { userId, period: { month, year } },
+          data: {
+            employeeFeedbackStatus: 'PENDING',
+            employeeFeedbackNote: null,
+            employeeAcknowledgedAt: null,
+            employeeFeedbackAt: null,
+          },
+        });
+
+        // Ghi log xóa/giải quyết khiếu nại (chuyển về PENDING)
+        await this.prisma.auditLog.create({
+          data: {
+            actorUserId: actor.userId,
+            action: 'PAYSLIP_FEEDBACK',
+            entityType: 'PayrollFeedback',
+            entityId: userId,
+            metadata: {
+              month,
+              year,
+              status: 'PENDING',
+              note: null,
+              resolvedBy: actor.userId,
+              timestamp: new Date().toISOString(),
+            },
+          },
+        });
+
+        // Đồng thời cập nhật trong DepartmentBatch log
+        const member = await this.prisma.departmentMember.findFirst({
+          where: { userId },
+          select: { departmentId: true },
+        });
+        if (member?.departmentId) {
+          const batchLogs = await this.prisma.auditLog.findMany({
+            where: { action: 'PAYROLL_DEPARTMENT_BATCH', entityId: member.departmentId },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+          });
+          for (const bLog of batchLogs) {
+            const bMeta = bLog.metadata as any;
+            if (bMeta?.month === month && bMeta?.year === year && Array.isArray(bMeta.images)) {
+              let updated = false;
+              const newImages = bMeta.images.map((img: any) => {
+                if (img.assignedUserId === userId) {
+                  updated = true;
+                  return {
+                    ...img,
+                    imageUrl,
+                    feedbackStatus: 'PENDING',
+                    feedbackNote: null,
+                    feedbackAt: null,
+                  };
+                }
+                return img;
+              });
+              if (updated) {
+                await this.prisma.auditLog.create({
+                  data: {
+                    actorUserId: actor.userId,
+                    action: 'PAYROLL_DEPARTMENT_BATCH',
+                    entityType: 'DepartmentPayslipBatch',
+                    entityId: member.departmentId,
+                    metadata: {
+                      ...bMeta,
+                      images: newImages,
+                      lastUpdatedBy: (actor as any).fullName || actor.userId,
+                      lastUpdatedAt: new Date().toISOString(),
+                    },
+                  },
+                });
+              }
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
     // Gửi thông báo đến nhân sự
     try {
       let targetUserIds: string[] = [];
@@ -491,10 +642,17 @@ export class PayrollService {
         targetUserIds = activeUsers.map((u) => u.id);
       }
 
+      const notifTitle = userId
+        ? `Phiếu lương tháng ${month}/${year} đã được cập nhật`
+        : `Phiếu lương tháng ${month}/${year}`;
+      const notifBody = userId
+        ? `Phòng Kế toán đã cập nhật lại ảnh phiếu lương tháng ${month}/${year}. Vui lòng vào kiểm tra và xác nhận.`
+        : `Phòng Kế toán đã phát hành ảnh phiếu lương chốt tháng ${month}/${year}. Vui lòng vào kiểm tra và xác nhận.`;
+
       const payload = await this.notifications.createForUsers(this.prisma, targetUserIds, {
         type: NotificationType.PAYSLIP_AVAILABLE,
-        title: `Phiếu lương tháng ${month}/${year}`,
-        body: `Phòng Kế toán đã phát hành ảnh phiếu lương chốt tháng ${month}/${year}. Vui lòng vào kiểm tra và xác nhận.`,
+        title: notifTitle,
+        body: notifBody,
         metadata: {
           screen: 'EmployeePayslip',
           month,
@@ -651,19 +809,260 @@ export class PayrollService {
     };
   }
 
-  async acknowledgePayslip(id: string, actor: AuthenticatedUser) {
-    const payroll = await this.prisma.payroll.findUnique({ where: { id } });
-    if (!payroll) throw notFound('PAYROLL_NOT_FOUND', 'Không tìm thấy phiếu lương');
-    if (payroll.userId !== actor.userId) throw forbidden('FORBIDDEN', 'Bạn chỉ có thể xác nhận phiếu lương của chính mình');
+  async submitPayslipFeedback(dto: PayslipFeedbackDto, actor: AuthenticatedUser) {
+    const now = new Date();
+    const month = dto.month ? Number(dto.month) : now.getMonth() + 1;
+    const year = dto.year ? Number(dto.year) : now.getFullYear();
+    const isReject = dto.action === 'REJECT';
+    const note = dto.note?.trim() || null;
 
-    const updated = await this.prisma.payroll.update({
-      where: { id },
-      data: { employeeAcknowledgedAt: new Date() },
+    if (isReject && (!note || note.length < 3)) {
+      throw badRequest('REJECTION_NOTE_REQUIRED', 'Vui lòng nhập lý do khiếu nại phiếu lương (ít nhất 3 ký tự)');
+    }
+
+    // 1. Cập nhật bản ghi Payroll nếu có
+    const payroll = await this.prisma.payroll.findFirst({
+      where: {
+        userId: actor.userId,
+        period: { month, year },
+      },
     });
+
+    let updatedPayroll = null;
+    if (payroll) {
+      updatedPayroll = await this.prisma.payroll.update({
+        where: { id: payroll.id },
+        data: {
+          employeeAcknowledgedAt: isReject ? null : new Date(),
+          employeeFeedbackStatus: isReject ? 'REJECTED' : 'CONFIRMED',
+          employeeFeedbackNote: isReject ? note : null,
+          employeeFeedbackAt: new Date(),
+        },
+      });
+    }
+
+    // 2. Cập nhật lô ảnh phòng ban (DepartmentBatch) nếu có
+    const userMember = await this.prisma.departmentMember.findFirst({
+      where: { userId: actor.userId },
+      include: {
+        department: {
+          select: { id: true, name: true, leaderUserId: true },
+        },
+      },
+    });
+
+    if (userMember?.departmentId) {
+      const batchLogs = await this.prisma.auditLog.findMany({
+        where: {
+          action: 'PAYROLL_DEPARTMENT_BATCH',
+          entityId: userMember.departmentId,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+
+      for (const log of batchLogs) {
+        if (log.metadata && typeof log.metadata === 'object') {
+          const meta = log.metadata as any;
+          if (meta.month === month && meta.year === year && Array.isArray(meta.images)) {
+            let foundImage = false;
+            const updatedImages = meta.images.map((img: any) => {
+              if (img.assignedUserId === actor.userId) {
+                foundImage = true;
+                return {
+                  ...img,
+                  feedbackStatus: isReject ? 'REJECTED' : 'CONFIRMED',
+                  feedbackNote: isReject ? note : null,
+                  feedbackAt: new Date().toISOString(),
+                };
+              }
+              return img;
+            });
+
+            if (foundImage) {
+              await this.prisma.auditLog.create({
+                data: {
+                  actorUserId: actor.userId,
+                  action: 'PAYROLL_DEPARTMENT_BATCH',
+                  entityType: 'DepartmentPayslipBatch',
+                  entityId: userMember.departmentId,
+                  metadata: {
+                    ...meta,
+                    images: updatedImages,
+                    lastUpdatedBy: (actor as any).fullName || actor.userId,
+                    lastUpdatedAt: new Date().toISOString(),
+                  },
+                },
+              });
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    // 3. Ghi log phản hồi cá nhân (PAYSLIP_FEEDBACK)
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: 'PAYSLIP_FEEDBACK',
+        entityType: 'PayrollFeedback',
+        entityId: payroll?.id || actor.userId,
+        metadata: {
+          month,
+          year,
+          status: isReject ? 'REJECTED' : 'CONFIRMED',
+          note,
+          timestamp: new Date().toISOString(),
+        },
+      },
+    });
+
+    // 4. Gửi thông báo In-app nếu nhân viên khiếu nại (REJECT)
+    if (isReject) {
+      try {
+        const emp = await this.prisma.user.findUnique({
+          where: { id: actor.userId },
+          select: {
+            userCode: true,
+            profile: { select: { fullName: true } },
+          },
+        });
+        const empName = emp?.profile?.fullName || (actor as any).fullName || emp?.userCode || (actor as any).userCode || 'Nhân sự';
+        const deptName = userMember?.department?.name || 'Phòng ban';
+
+        const recipientIdsSet = new Set<string>();
+
+        // 4.1. Trưởng phòng của nhân viên
+        if (userMember?.department?.leaderUserId && userMember.department.leaderUserId !== actor.userId) {
+          recipientIdsSet.add(userMember.department.leaderUserId);
+        }
+
+        // 4.2. Kế toán & Quản trị viên (ACCOUNTANT, ACCOUNTANT_LEAD, ADMIN, HR_MANAGER)
+        const financeUsers = await this.prisma.userRole.findMany({
+          where: {
+            role: {
+              code: { in: ['ACCOUNTANT', 'ACCOUNTANT_LEAD', 'ADMIN', 'HR_MANAGER'] },
+            },
+            user: {
+              isActive: true,
+              deletedAt: null,
+            },
+          },
+          select: { userId: true },
+        });
+        for (const fu of financeUsers) {
+          if (fu.userId !== actor.userId) {
+            recipientIdsSet.add(fu.userId);
+          }
+        }
+
+        const targetUserIds = Array.from(recipientIdsSet);
+        if (targetUserIds.length > 0) {
+          const notifTitle = `Khiếu nại phiếu lương: ${empName} (${deptName}) - Tháng ${month}/${year}`;
+          const notifBody = `Nhân sự ${empName} đã khiếu nại phiếu lương tháng ${month}/${year}. Lý do: "${note}"`;
+
+          const payload = await this.notifications.createForUsers(this.prisma, targetUserIds, {
+            type: NotificationType.PAYROLL_REVIEW_REQUIRED,
+            title: notifTitle,
+            body: notifBody,
+            metadata: {
+              screen: 'DepartmentPayrollLabeling',
+              month,
+              year,
+              userId: actor.userId,
+              userName: empName,
+              departmentId: userMember?.departmentId || null,
+              departmentName: deptName,
+              feedbackStatus: 'REJECTED',
+              note,
+              targetUrl: `/my-payslips?tab=company&month=${month}&year=${year}&departmentId=${userMember?.departmentId || ''}&disputeUserId=${actor.userId}`,
+            },
+          });
+          if (payload) {
+            this.notifications.emitCreated(payload);
+          }
+        }
+      } catch (e) {
+        // Do not fail feedback submission if notification creation fails
+      }
+    }
+
+    // 4. Phát socket realtime thông báo đến Kế toán và Leader
+    try {
+      this.realtime.emitToRoom('payroll:admin', 'payroll:feedback_submitted', {
+        userId: actor.userId,
+        userName: (actor as any).fullName || actor.userId,
+        month,
+        year,
+        action: dto.action,
+        status: isReject ? 'REJECTED' : 'CONFIRMED',
+        note,
+      });
+      if (userMember?.departmentId) {
+        this.realtime.emitToRoom(`department:${userMember.departmentId}`, 'payroll:feedback_submitted', {
+          userId: actor.userId,
+          departmentId: userMember.departmentId,
+          month,
+          year,
+          action: dto.action,
+          status: isReject ? 'REJECTED' : 'CONFIRMED',
+          note,
+        });
+      }
+    } catch (e) {}
 
     return {
       success: true,
-      message: 'Đã xác nhận phiếu lương thành công',
+      message: isReject ? 'Đã gửi khiếu nại phiếu lương thành công' : 'Đã xác nhận nhận phiếu lương thành công',
+      employeeFeedbackStatus: isReject ? 'REJECTED' : 'CONFIRMED',
+      employeeFeedbackNote: isReject ? note : null,
+      employeeFeedbackAt: new Date().toISOString(),
+      employeeAcknowledgedAt: isReject ? null : new Date().toISOString(),
+    };
+  }
+
+  async acknowledgePayslip(id: string, actor: AuthenticatedUser, dto?: PayslipFeedbackDto) {
+    const payroll = await this.prisma.payroll.findUnique({
+      where: { id },
+      include: { period: true },
+    });
+    if (!payroll) throw notFound('PAYROLL_NOT_FOUND', 'Không tìm thấy phiếu lương');
+    if (payroll.userId !== actor.userId) throw forbidden('FORBIDDEN', 'Bạn chỉ có thể xác nhận phiếu lương của chính mình');
+
+    const action = dto?.action || 'CONFIRM';
+    const isReject = action === 'REJECT';
+    const note = dto?.note?.trim() || null;
+
+    if (isReject && (!note || note.length < 3)) {
+      throw badRequest('REJECTION_NOTE_REQUIRED', 'Vui lòng nhập lý do khiếu nại phiếu lương (ít nhất 3 ký tự)');
+    }
+
+    const updated = await this.prisma.payroll.update({
+      where: { id },
+      data: {
+        employeeAcknowledgedAt: isReject ? null : new Date(),
+        employeeFeedbackStatus: isReject ? 'REJECTED' : 'CONFIRMED',
+        employeeFeedbackNote: isReject ? note : null,
+        employeeFeedbackAt: new Date(),
+      },
+    });
+
+    if (payroll.period?.month && payroll.period?.year) {
+      await this.submitPayslipFeedback({
+        action,
+        note: note || undefined,
+        month: payroll.period.month,
+        year: payroll.period.year,
+      }, actor);
+    }
+
+    return {
+      success: true,
+      message: isReject ? 'Đã gửi khiếu nại phiếu lương thành công' : 'Đã xác nhận phiếu lương thành công',
+      employeeFeedbackStatus: updated.employeeFeedbackStatus,
+      employeeFeedbackNote: updated.employeeFeedbackNote,
+      employeeFeedbackAt: updated.employeeFeedbackAt,
       employeeAcknowledgedAt: updated.employeeAcknowledgedAt,
     };
   }
@@ -1328,6 +1727,12 @@ export class PayrollService {
     });
     if (!dept) throw notFound('DEPARTMENT_NOT_FOUND', 'Không tìm thấy phòng ban');
 
+    const isGlobalAdmin = this.scope.isGlobalAdmin(actor);
+    const visibleDeptIds = await this.scope.getVisibleDepartmentIds(actor);
+    if (!isGlobalAdmin && visibleDeptIds !== null && !visibleDeptIds.includes(departmentId)) {
+      throw forbidden('FORBIDDEN_DEPARTMENT', 'Bạn chỉ có quyền tải phiếu lương cho phòng ban của mình');
+    }
+
     // Tìm batch hiện tại nếu có
     const existingLog = await this.prisma.auditLog.findFirst({
       where: {
@@ -1346,14 +1751,15 @@ export class PayrollService {
       labeledAt?: string | null;
     }> = [];
 
-    if (existingLog?.metadata && typeof existingLog.metadata === 'object') {
+    if (!dto.replaceExisting && existingLog?.metadata && typeof existingLog.metadata === 'object') {
       const meta = existingLog.metadata as any;
       if (meta.month === month && meta.year === year && Array.isArray(meta.images)) {
         currentImages = meta.images;
       }
     }
 
-    // Thêm các ảnh mới vào pool
+    // Thêm các ảnh mới vào pool (gắn mốc thời gian tải lên để sắp xếp mới nhất lên đầu)
+    const nowIso = new Date().toISOString();
     const newImageItems = imageUrls.map((url) => ({
       id: randomUUID(),
       imageUrl: url,
@@ -1361,9 +1767,11 @@ export class PayrollService {
       assignedUserName: null,
       labeledById: null,
       labeledAt: null,
+      uploadedAt: nowIso,
     }));
 
-    const allImages = [...currentImages, ...newImageItems];
+    // Đưa ảnh mới nhất lên đầu danh sách
+    const allImages = dto.replaceExisting ? newImageItems : [...newImageItems, ...currentImages];
 
     await this.prisma.auditLog.create({
       data: {
@@ -1450,6 +1858,12 @@ export class PayrollService {
     });
     if (!dept) throw notFound('DEPARTMENT_NOT_FOUND', 'Không tìm thấy phòng ban');
 
+    const isGlobalAdmin = this.scope.isGlobalAdmin(actor);
+    const visibleDeptIds = await this.scope.getVisibleDepartmentIds(actor);
+    if (!isGlobalAdmin && visibleDeptIds !== null && !visibleDeptIds.includes(departmentId)) {
+      throw forbidden('FORBIDDEN_DEPARTMENT', 'Bạn chỉ có quyền xem phiếu lương của phòng ban mình');
+    }
+
     // Lấy batch log mới nhất
     const batchLogs = await this.prisma.auditLog.findMany({
       where: {
@@ -1473,16 +1887,72 @@ export class PayrollService {
       if (log.metadata && typeof log.metadata === 'object') {
         const meta = log.metadata as any;
         if (meta.month === month && meta.year === year && Array.isArray(meta.images)) {
-          batchImages = meta.images;
+          // Chỉ lấy các ảnh chưa bị xóa mềm (isDeleted: true)
+          batchImages = meta.images.filter((img: any) => !img.isDeleted);
           break;
         }
       }
     }
 
+    // Tự động giải phóng ảnh cũ nếu 1 nhân sự bị gán nhiều hơn 1 ảnh (chỉ giữ ảnh mới nhất theo labeledAt)
+    const sortedByLabeledDesc = [...batchImages].sort((a, b) => {
+      const tA = a.labeledAt ? new Date(a.labeledAt).getTime() : 0;
+      const tB = b.labeledAt ? new Date(b.labeledAt).getTime() : 0;
+      return tB - tA;
+    });
+
+    const activeAssignedMap = new Map<string, string>(); // userId -> imageId
+    for (const img of sortedByLabeledDesc) {
+      if (img.assignedUserId && !activeAssignedMap.has(img.assignedUserId)) {
+        activeAssignedMap.set(img.assignedUserId, img.id);
+      }
+    }
+
+    const normalizedImages = batchImages.map((img) => {
+      if (img.assignedUserId && activeAssignedMap.get(img.assignedUserId) !== img.id) {
+        // Ảnh cũ bị thay thế -> hoàn về Chưa gán
+        return {
+          ...img,
+          assignedUserId: null,
+          assignedUserName: null,
+          labeledById: null,
+          labeledAt: null,
+        };
+      }
+      return img;
+    });
+
+    // Truy vấn song song bản ghi Payroll cho các nhân viên trong phòng để lấy feedback trạng thái
+    const memberUserIds = dept.members.map((m) => m.userId);
+    const memberPayrolls = await this.prisma.payroll.findMany({
+      where: {
+        userId: { in: memberUserIds },
+        period: { month, year },
+      },
+      select: {
+        userId: true,
+        employeeAcknowledgedAt: true,
+        employeeFeedbackStatus: true,
+        employeeFeedbackNote: true,
+        employeeFeedbackAt: true,
+      },
+    });
+    const payrollMap = new Map(memberPayrolls.map((p) => [p.userId, p]));
+
     // Danh sách nhân viên trong phòng
     const employees = dept.members.map((m) => {
       const u = m.user;
-      const assignedImage = batchImages.find((img) => img.assignedUserId === u.id);
+      const assignedImage = normalizedImages.find((img) => img.assignedUserId === u.id);
+      const userPayroll = payrollMap.get(u.id);
+
+      const feedbackStatus = userPayroll?.employeeFeedbackStatus
+        || (assignedImage as any)?.feedbackStatus
+        || (userPayroll?.employeeAcknowledgedAt ? 'CONFIRMED' : (assignedImage ? 'PENDING' : null));
+      const feedbackNote = userPayroll?.employeeFeedbackNote || (assignedImage as any)?.feedbackNote || null;
+      const feedbackAt = userPayroll?.employeeFeedbackAt
+        ? userPayroll.employeeFeedbackAt.toISOString()
+        : ((assignedImage as any)?.feedbackAt || null);
+
       return {
         userId: u.id,
         userCode: u.userCode,
@@ -1492,18 +1962,54 @@ export class PayrollService {
         hasPayslip: Boolean(assignedImage),
         assignedImageId: assignedImage?.id || null,
         assignedImageUrl: assignedImage?.imageUrl || null,
+        feedbackStatus,
+        feedbackNote,
+        feedbackAt,
       };
     });
 
-    const unassignedImages = batchImages.filter((img) => !img.assignedUserId);
-    const assignedImages = batchImages.filter((img) => Boolean(img.assignedUserId));
+    // Sắp xếp Chưa gán: MỚI NHẤT LÊN ĐẦU
+    const rawUnassigned = normalizedImages.filter((img) => !img.assignedUserId);
+    const hasUploadedAt = rawUnassigned.some((img: any) => Boolean(img.uploadedAt));
+    const unassignedImages = hasUploadedAt
+      ? [...rawUnassigned].sort((a: any, b: any) => {
+          const tA = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
+          const tB = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
+          return tB - tA;
+        })
+      : [...rawUnassigned].reverse();
+
+    // Sắp xếp Đã gán: MỚI ĐƯỢC GÁN NHẤT LÊN ĐẦU (theo labeledAt desc)
+    const assignedImages = normalizedImages
+      .filter((img) => Boolean(img.assignedUserId))
+      .map((img) => {
+        const userPayroll = img.assignedUserId ? payrollMap.get(img.assignedUserId) : null;
+        return {
+          ...img,
+          feedbackStatus: userPayroll?.employeeFeedbackStatus || (img as any).feedbackStatus || 'PENDING',
+          feedbackNote: userPayroll?.employeeFeedbackNote || (img as any).feedbackNote || null,
+          feedbackAt: userPayroll?.employeeFeedbackAt ? userPayroll.employeeFeedbackAt.toISOString() : ((img as any).feedbackAt || null),
+        };
+      })
+      .sort((a, b) => {
+        const tA = a.labeledAt ? new Date(a.labeledAt).getTime() : 0;
+        const tB = b.labeledAt ? new Date(b.labeledAt).getTime() : 0;
+        return tB - tA;
+      });
+
+    const totalConfirmed = employees.filter((e) => e.feedbackStatus === 'CONFIRMED').length;
+    const totalRejected = employees.filter((e) => e.feedbackStatus === 'REJECTED').length;
+    const totalPendingFeedback = employees.filter((e) => e.hasPayslip && e.feedbackStatus !== 'CONFIRMED' && e.feedbackStatus !== 'REJECTED').length;
 
     return {
       departmentId,
       departmentName: dept.name,
       month,
       year,
-      totalImages: batchImages.length,
+      totalImages: normalizedImages.length,
+      totalConfirmed,
+      totalRejected,
+      totalPendingFeedback,
       unassignedImages,
       assignedImages,
       employees,
@@ -1518,6 +2024,12 @@ export class PayrollService {
       include: { profile: true },
     });
     if (!targetUser) throw notFound('USER_NOT_FOUND', 'Không tìm thấy nhân sự');
+
+    const isGlobalAdmin = this.scope.isGlobalAdmin(actor);
+    const visibleDeptIds = await this.scope.getVisibleDepartmentIds(actor);
+    if (!isGlobalAdmin && visibleDeptIds !== null && !visibleDeptIds.includes(departmentId)) {
+      throw forbidden('FORBIDDEN_DEPARTMENT', 'Bạn chỉ có quyền phân công phiếu lương trong phòng ban của mình');
+    }
 
     // Lấy batch log mới nhất
     const batchLogs = await this.prisma.auditLog.findMany({
@@ -1550,7 +2062,24 @@ export class PayrollService {
 
     const targetImageUrl = batchImages[imageIndex].imageUrl;
 
-    // Cập nhật gán nhãn
+    // QUAN TRỌNG: Khi gán ảnh cho nhân sự, kiểm tra xem nhân sự này đã có ảnh khác trong lô chưa.
+    // Nếu có ảnh cũ, tự động thu hồi ảnh cũ (reset assignedUserId về null) để trả về danh sách Chưa gán!
+    let previousImageCount = 0;
+    batchImages = batchImages.map((img) => {
+      if (img.assignedUserId === targetUser.id && img.id !== imageId) {
+        previousImageCount++;
+        return {
+          ...img,
+          assignedUserId: null,
+          assignedUserName: null,
+          labeledById: null,
+          labeledAt: null,
+        };
+      }
+      return img;
+    });
+
+    // Cập nhật gán nhãn cho ảnh mới
     batchImages[imageIndex] = {
       ...batchImages[imageIndex],
       assignedUserId: targetUser.id,
@@ -1589,9 +2118,12 @@ export class PayrollService {
 
     return {
       success: true,
-      message: `Đã gán ảnh phiếu lương cho ${targetUser.profile?.fullName || targetUser.userCode} thành công`,
+      message: previousImageCount > 0
+        ? `Đã thay thế phiếu lương cho ${targetUser.profile?.fullName || targetUser.userCode} (phiếu cũ đã chuyển về danh sách Chưa gán)`
+        : `Đã gán ảnh phiếu lương cho ${targetUser.profile?.fullName || targetUser.userCode} thành công`,
       assignedUserId: targetUser.id,
       assignedImageUrl: targetImageUrl,
+      replacedPrevious: previousImageCount > 0,
     };
   }
 
@@ -1660,6 +2192,395 @@ export class PayrollService {
       message: 'Đã hủy gán ảnh phiếu lương thành công',
       unassignedImageId: imageId,
       previousUserId,
+    };
+  }
+
+  async deleteDepartmentPayslipImages(actor: AuthenticatedUser, dto: DeleteDepartmentPayslipImagesDto) {
+    const { departmentId, month, year } = dto;
+    const targetIds = new Set<string>();
+    if (dto.imageId) targetIds.add(dto.imageId);
+    if (Array.isArray(dto.imageIds)) {
+      dto.imageIds.forEach((id) => {
+        if (id) targetIds.add(id);
+      });
+    }
+
+    if (targetIds.size === 0) {
+      throw badRequest('IMAGE_ID_REQUIRED', 'Cần cung cấp ít nhất 1 imageId hoặc imageIds để xóa');
+    }
+
+    const batchLogs = await this.prisma.auditLog.findMany({
+      where: {
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityId: departmentId,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    let targetLog: any = null;
+    let allMetaImages: any[] = [];
+
+    for (const log of batchLogs) {
+      if (log.metadata && typeof log.metadata === 'object') {
+        const meta = log.metadata as any;
+        if (meta.month === month && meta.year === year && Array.isArray(meta.images)) {
+          targetLog = log;
+          allMetaImages = [...meta.images];
+          break;
+        }
+      }
+    }
+
+    const actorName = (actor as any).fullName || (actor as any).email || actor.userId;
+    const nowIso = new Date().toISOString();
+    const isGlobalAdmin = this.scope.isGlobalAdmin(actor);
+
+    // Thực hiện XÓA MỀM (Soft delete): Đánh dấu isDeleted: true, lưu vết người xóa và ngày xóa
+    let deletedCount = 0;
+    const updatedImages = allMetaImages.map((img) => {
+      const isTarget =
+        targetIds.has(img.id) ||
+        (img.imageUrl && targetIds.has(img.imageUrl)) ||
+        (img.assignedUserId && targetIds.has(`emp-${img.assignedUserId}`));
+
+      if (isTarget && !img.isDeleted) {
+        deletedCount++;
+        return {
+          ...img,
+          isDeleted: true,
+          deletedAt: nowIso,
+          deletedById: actor.userId,
+          deletedByName: actorName,
+        };
+      }
+      return img;
+    });
+
+    // Nếu ảnh đã gán cho nhân sự, clear ảnh chính thức của nhân sự đó (cũng dạng xóa mềm)
+    for (const img of allMetaImages) {
+      const isTarget =
+        targetIds.has(img.id) ||
+        (img.imageUrl && targetIds.has(img.imageUrl)) ||
+        (img.assignedUserId && targetIds.has(`emp-${img.assignedUserId}`));
+
+      if (isTarget && img.assignedUserId) {
+        try {
+          await this.prisma.auditLog.create({
+            data: {
+              actorUserId: actor.userId,
+              action: 'PAYROLL_OFFICIAL_IMAGE',
+              entityType: 'PayslipImage',
+              entityId: img.assignedUserId,
+              metadata: {
+                month,
+                year,
+                imageUrl: null,
+                isDeleted: true,
+                deletedImageUrl: img.imageUrl,
+                deletedBy: actorName,
+                deletedAt: nowIso,
+              },
+            },
+          });
+        } catch {}
+      }
+    }
+
+    // Xóa mềm cho bất kỳ user nào được chỉ định qua emp-{userId} trong targetIds
+    for (const tid of targetIds) {
+      if (tid.startsWith('emp-')) {
+        const uid = tid.replace('emp-', '');
+        try {
+          await this.prisma.auditLog.create({
+            data: {
+              actorUserId: actor.userId,
+              action: 'PAYROLL_OFFICIAL_IMAGE',
+              entityType: 'PayslipImage',
+              entityId: uid,
+              metadata: {
+                month,
+                year,
+                imageUrl: null,
+                isDeleted: true,
+                deletedBy: actorName,
+                deletedAt: nowIso,
+              },
+            },
+          });
+          deletedCount++;
+        } catch {}
+      }
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityType: 'DepartmentPayslipBatch',
+        entityId: departmentId,
+        metadata: {
+          ...(targetLog?.metadata || {}),
+          departmentId,
+          month,
+          year,
+          images: updatedImages,
+          lastUpdatedBy: actorName,
+          lastUpdatedAt: nowIso,
+        },
+      },
+    });
+
+    const activeCount = updatedImages.filter((img) => !img.isDeleted).length;
+
+    return {
+      success: true,
+      message: `Đã xóa mềm thành công ${deletedCount || targetIds.size} ảnh phiếu lương`,
+      deletedCount: deletedCount || targetIds.size,
+      remainingCount: activeCount,
+    };
+  }
+
+  async deletePhysicalFile(imageUrl?: string | null): Promise<void> {
+    if (!imageUrl) return;
+    try {
+      // 1. Tìm trong UploadedFile để lấy storageKey chính xác
+      const uploadedFile = await this.prisma.uploadedFile.findFirst({
+        where: { fileUrl: imageUrl },
+        select: { storageKey: true },
+      });
+
+      if (uploadedFile?.storageKey) {
+        if (this.storage) {
+          await this.storage.delete(uploadedFile.storageKey).catch((e) => {
+            console.warn(`[deletePhysicalFile] storage.delete error for ${uploadedFile.storageKey}:`, e?.message || e);
+          });
+        }
+        if (this.mediaStorage) {
+          await this.mediaStorage.delete(uploadedFile.storageKey).catch(() => {});
+        }
+        return;
+      }
+
+      // 2. Trích xuất key từ URL (Cloudflare R2, S3, hoặc Cloudinary)
+      if (this.storage) {
+        const extractedKey = this.storage.extractKeyFromUrl(imageUrl);
+        if (extractedKey) {
+          await this.storage.delete(extractedKey).catch((e) => {
+            console.warn(`[deletePhysicalFile] storage.delete error for extractedKey ${extractedKey}:`, e?.message || e);
+          });
+          return;
+        }
+      }
+
+      // 3. Fallback trích xuất path sau domain
+      try {
+        const urlObj = new URL(imageUrl);
+        const pathKey = urlObj.pathname.startsWith('/') ? urlObj.pathname.slice(1) : urlObj.pathname;
+        if (pathKey && this.storage) {
+          await this.storage.delete(pathKey).catch(() => {});
+        }
+        if (pathKey && this.mediaStorage && imageUrl.includes('cloudinary')) {
+          await this.mediaStorage.delete(pathKey).catch(() => {});
+        }
+      } catch {}
+    } catch (err: any) {
+      console.warn(`[deletePhysicalFile] Failed to delete physical file for ${imageUrl}:`, err?.message || err);
+    }
+  }
+
+  async deleteDepartmentPayslipImage(actor: AuthenticatedUser, dto: DeleteDepartmentPayslipImageDto) {
+    const { departmentId, month, year, imageId } = dto;
+    if (!departmentId || !month || !year || !imageId) {
+      throw badRequest('PARAMS_REQUIRED', 'Cần cung cấp departmentId, month, year và imageId');
+    }
+
+    const dept = await this.prisma.department.findUnique({
+      where: { id: departmentId },
+      select: { id: true, name: true },
+    });
+    if (!dept) throw notFound('DEPARTMENT_NOT_FOUND', 'Không tìm thấy phòng ban');
+
+    // Lấy batch log mới nhất
+    const batchLogs = await this.prisma.auditLog.findMany({
+      where: {
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityId: departmentId,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    });
+
+    let targetLog: any = null;
+    let allMetaImages: any[] = [];
+
+    for (const log of batchLogs) {
+      if (log.metadata && typeof log.metadata === 'object') {
+        const meta = log.metadata as any;
+        if (meta.month === month && meta.year === year && Array.isArray(meta.images)) {
+          targetLog = log;
+          allMetaImages = [...meta.images];
+          break;
+        }
+      }
+    }
+
+    if (!targetLog || allMetaImages.length === 0) {
+      throw notFound('BATCH_NOT_FOUND', 'Không tìm thấy lô phiếu lương phòng ban');
+    }
+
+    // Tìm ảnh mục tiêu trong batch
+    const targetImg = allMetaImages.find(
+      (img) => (img.id === imageId || img.imageUrl === imageId) && !img.isDeleted
+    );
+
+    if (!targetImg) {
+      throw notFound('IMAGE_NOT_FOUND', 'Không tìm thấy ảnh cần xóa trong lô phiếu lương hoặc ảnh đã bị xóa');
+    }
+
+    const actorName = (actor as any).fullName || (actor as any).email || actor.userId;
+    const nowIso = new Date().toISOString();
+    const deletedImageUrl = targetImg.imageUrl;
+
+    // 1. Nếu ảnh này đã được gán cho nhân viên thì hệ thống tự động xóa luôn ảnh phiếu lương của nhân viên đó
+    if (targetImg.assignedUserId) {
+      try {
+        await this.prisma.auditLog.create({
+          data: {
+            actorUserId: actor.userId,
+            action: 'PAYROLL_OFFICIAL_IMAGE',
+            entityType: 'PayslipImage',
+            entityId: targetImg.assignedUserId,
+            metadata: {
+              month,
+              year,
+              imageUrl: null,
+              isDeleted: true,
+              deletedImageUrl,
+              deletedBy: actorName,
+              deletedAt: nowIso,
+              reason: 'Ảnh trong lô phòng ban bị xóa',
+            },
+          },
+        });
+      } catch (e) {
+        console.warn('Lỗi khi xóa ảnh phiếu lương nhân viên:', e);
+      }
+    }
+
+    // 2. Cập nhật trạng thái ảnh trong lô (đánh dấu xóa mềm)
+    const updatedImages = allMetaImages.map((img) => {
+      if (img.id === targetImg.id || img.imageUrl === targetImg.imageUrl) {
+        return {
+          ...img,
+          isDeleted: true,
+          deletedAt: nowIso,
+          deletedById: actor.userId,
+          deletedByName: actorName,
+        };
+      }
+      return img;
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: 'PAYROLL_DEPARTMENT_BATCH',
+        entityType: 'DepartmentPayslipBatch',
+        entityId: departmentId,
+        metadata: {
+          ...(targetLog.metadata || {}),
+          departmentId,
+          departmentName: dept.name,
+          month,
+          year,
+          images: updatedImages,
+          lastUpdatedBy: actorName,
+          lastUpdatedAt: nowIso,
+        },
+      },
+    });
+
+    // 3. Xóa file vật lý trên đám mây (Cloudflare R2 / Cloudinary / Local)
+    if (deletedImageUrl) {
+      await this.deletePhysicalFile(deletedImageUrl);
+    }
+
+    const totalRemainingImages = updatedImages.filter((img) => !img.isDeleted).length;
+
+    // 4. Trả về đúng format response 200 OK như đặc tả yêu cầu
+    return {
+      success: true,
+      message: 'Đã xóa ảnh khỏi lô phiếu lương phòng ban và file đám mây thành công',
+      departmentId,
+      month,
+      year,
+      deletedImageId: targetImg.id,
+      deletedImageUrl,
+      totalRemainingImages,
+    };
+  }
+
+  async deleteOfficialImage(actor: AuthenticatedUser, dto: DeleteOfficialPayslipImageDto) {
+    const { userId, month, year } = dto;
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    if (!targetUser) throw notFound('USER_NOT_FOUND', 'Không tìm thấy nhân sự');
+
+    const actorName = (actor as any).fullName || (actor as any).email || actor.userId;
+    const nowIso = new Date().toISOString();
+
+    const logs = await this.prisma.auditLog.findMany({
+      where: {
+        action: 'PAYROLL_OFFICIAL_IMAGE',
+        entityId: userId,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    });
+
+    let currentImageUrl: string | null = null;
+    for (const log of logs) {
+      if (log.metadata && typeof log.metadata === 'object') {
+        const meta = log.metadata as any;
+        if (meta.month === month && meta.year === year && meta.imageUrl && !meta.isDeleted) {
+          currentImageUrl = meta.imageUrl;
+          break;
+        }
+      }
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorUserId: actor.userId,
+        action: 'PAYROLL_OFFICIAL_IMAGE',
+        entityType: 'PayslipImage',
+        entityId: userId,
+        metadata: {
+          month,
+          year,
+          imageUrl: null,
+          isDeleted: true,
+          deletedImageUrl: currentImageUrl,
+          deletedBy: actorName,
+          deletedAt: nowIso,
+        },
+      },
+    });
+
+    if (currentImageUrl) {
+      await this.deletePhysicalFile(currentImageUrl);
+    }
+
+    return {
+      success: true,
+      message: `Đã xóa ảnh phiếu lương của ${targetUser.profile?.fullName || targetUser.userCode} thành công`,
+      userId,
+      month,
+      year,
+      deletedImageUrl: currentImageUrl,
     };
   }
 }

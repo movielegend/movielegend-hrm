@@ -74,7 +74,7 @@ export default function ShiftSwapsScreen() {
       case 'PENDING_LEADER_APPROVAL':
         return { text: 'Chờ QL duyệt', bg: '#FEF3C7', color: '#D97706' };
       case 'APPROVED':
-        return { text: 'Đã duyệt', bg: '#E8F5E9', color: '#16A34A' };
+        return { text: 'Đã duyệt', bg: '#EFF6FF', color: '#16A34A' };
       case 'REJECTED':
         return { text: 'Từ chối', bg: '#FEE2E2', color: '#DC2626' };
       case 'CANCELLED':
@@ -95,7 +95,7 @@ export default function ShiftSwapsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#123826" translucent={Platform.OS === 'android'} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
 
       {/* Top Header */}
       <View style={[styles.headerBanner, { paddingTop: safeTopInset }]}>
@@ -133,7 +133,7 @@ export default function ShiftSwapsScreen() {
 
         {isLoading ? (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator size="large" color="#123826" />
+            <ActivityIndicator size="large" color="#102739" />
           </View>
         ) : (
           <ScrollView
@@ -143,7 +143,7 @@ export default function ShiftSwapsScreen() {
               <RefreshControl
                 refreshing={isRefetching}
                 onRefresh={() => void refetch()}
-                colors={['#123826']}
+                colors={['#102739']}
               />
             }
             showsVerticalScrollIndicator={false}
@@ -151,7 +151,7 @@ export default function ShiftSwapsScreen() {
             {filteredSwaps.length === 0 ? (
               <View style={styles.emptyCard}>
                 <View style={styles.emptyIconCircle}>
-                  <MaterialCommunityIcons name="calendar-sync-outline" size={48} color="#123826" />
+                  <MaterialCommunityIcons name="calendar-sync-outline" size={48} color="#102739" />
                 </View>
                 <Text style={styles.emptyTitle}>Chưa có đơn đổi ca nào</Text>
                 <Text style={styles.emptySubtitle}>
@@ -174,7 +174,7 @@ export default function ShiftSwapsScreen() {
                     <View style={styles.cardHeader}>
                       <View style={styles.cardHeaderLeft}>
                         <View style={styles.cardIconBox}>
-                          <MaterialCommunityIcons name="swap-horizontal" size={22} color="#123826" />
+                          <MaterialCommunityIcons name="swap-horizontal" size={22} color="#102739" />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.cardTitle} numberOfLines={1}>
@@ -262,10 +262,10 @@ export default function ShiftSwapsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   headerBanner: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#A7D8BE',
+    color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
   },
   headerRightPlaceholder: {
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F4F5',
   },
   tabChipActive: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   tabChipText: {
     fontSize: 13,
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EFF6FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
   actionApproveBtn: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   actionApproveBtnText: {
     fontWeight: '700',
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#F0F0F0',
   },
   createBtn: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     height: 50,
     borderRadius: 14,
     flexDirection: 'row',

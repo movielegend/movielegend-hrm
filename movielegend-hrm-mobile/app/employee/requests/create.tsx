@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useAppAlert } from '../../../src/contexts/AlertContext';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity, StatusBar } from 'react-native';
-import { useRouter } from 'expo-router';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
@@ -78,7 +78,10 @@ export default function CreateRequestScreen() {
     return trimmed.slice(0, 2).toUpperCase();
   }, [userFullName]);
 
-  const [selectedType, setSelectedType] = useState<EmployeeRequestType>('ATTENDANCE_ADJUSTMENT');
+  const params = useLocalSearchParams<{ type?: string }>();
+  const [selectedType, setSelectedType] = useState<EmployeeRequestType>(
+    (params.type as EmployeeRequestType) || 'ATTENDANCE_ADJUSTMENT'
+  );
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [amount, setAmount] = useState('');
@@ -98,6 +101,7 @@ export default function CreateRequestScreen() {
   const [shift, setShift] = useState<Shift | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [hasVat, setHasVat] = useState(false);
+  const [showVatModal, setShowVatModal] = useState(false);
 
   // Specific fields for Business Trip
   const [tripLocation, setTripLocation] = useState('');
@@ -137,6 +141,7 @@ export default function CreateRequestScreen() {
   const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<EmployeeRequest | null>(null);
   const [isLoadingApprovedLeaves, setIsLoadingApprovedLeaves] = useState(false);
   const [showApprovedLeavesModal, setShowApprovedLeavesModal] = useState(false);
+  const [isRulesExpanded, setIsRulesExpanded] = useState(true);
 
   const applyLeaveRequest = (leaveReq: EmployeeRequest) => {
     setSelectedLeaveRequest(leaveReq);
@@ -303,7 +308,16 @@ export default function CreateRequestScreen() {
 
   const leaveDurationTypes = ["1/2 ngày", "Trong ngày", "Nhiều ngày", "Theo giờ"];
   const leaveTypes = ["Nghỉ phép năm", "Nghỉ ốm", "Nghỉ không lương", "Thai sản", "Khác"];
-  const explanationTypes = ["Quên Check-in", "Quên Check-out", "Quên cả In & Out", "Lỗi hệ thống/máy chấm công", "Đi công tác/Làm việc bên ngoài"];
+  const explanationTypes = [
+    "Quên Check-in",
+    "Quên Check-out",
+    "Quên cả In & Out",
+    "Check-in muộn",
+    "Check-out sớm",
+    "Check-in muộn & Check-out sớm",
+    "Lỗi hệ thống/máy chấm công",
+    "Đi công tác/Làm việc bên ngoài",
+  ];
 
   const reasonRef = React.useRef<TextInput>(null);
 
@@ -334,7 +348,10 @@ export default function CreateRequestScreen() {
         setAdvanceBankAccount(userMeta.bankAccountNumber || userMeta.bankAccount);
       }
     }
-  }, [user, isAdvance]);
+    if ((isAdvance || isExpense || isOvertime) && !fromDate) {
+      setFromDate(new Date());
+    }
+  }, [user, isAdvance, isExpense, isOvertime]);
 
   const userDeptId = user?.department?.id || (user as any)?.departmentId;
   const userDeptName = user?.department?.name || (user as any)?.departmentName || '';
@@ -417,7 +434,24 @@ export default function CreateRequestScreen() {
     }
   }, [selectedType]);
 
-
+  const otDuration = useMemo(() => {
+    if (!startTime || !endTime) return null;
+    let diffMs = endTime.getTime() - startTime.getTime();
+    if (diffMs < 0) {
+      diffMs += 24 * 60 * 60 * 1000;
+    }
+    const totalMinutes = Math.floor(diffMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    const hourStr = hours > 0 ? `${hours} giờ` : '';
+    const minStr = mins > 0 ? `${mins} phút` : '';
+    const durationText = [hourStr, minStr].filter(Boolean).join(' ') || '0 phút';
+    return {
+      totalMinutes,
+      durationText,
+      hoursDecimal: Number((totalMinutes / 60).toFixed(1)),
+    };
+  }, [startTime, endTime]);
 
   const handleTakePhoto = async () => {
     const hasPermission = await requestCameraPermissionWithFallback();
@@ -726,6 +760,10 @@ export default function CreateRequestScreen() {
         generatedTitle = `[TẠM ỨNG LƯƠNG] Đề xuất tạm ứng lương tháng ${now.getMonth() + 1}/${now.getFullYear()}`;
       } else if (isExpense) {
         generatedTitle = `${typeLabel} - ${amount ? Number(amount).toLocaleString('vi-VN') + ' VNĐ' : ''}`;
+      } else if (isOvertime) {
+        const datePart = fromDate ? formatDate(fromDate) : '';
+        const timePart = startTime && endTime ? ` (${formatTime(startTime)} - ${formatTime(endTime)})` : '';
+        generatedTitle = `[LÀM THÊM GIỜ]${datePart ? ` Ngày ${datePart}` : ''}${timePart}`;
       } else {
         generatedTitle = `${typeLabel} - ${dateStr}`;
       }
@@ -778,6 +816,10 @@ export default function CreateRequestScreen() {
         showAlert('Lỗi', 'Vui lòng nhập số tiền muốn tạm ứng.');
         return;
       }
+      if (!fromDate) {
+        showAlert('Thiếu thông tin', 'Vui lòng chọn ngày mong muốn nhận lương tạm ứng.');
+        return;
+      }
       if (!content.trim()) {
         showAlert('Thiếu thông tin', 'Vui lòng nhập lý do tạm ứng lương.');
         return;
@@ -788,7 +830,7 @@ export default function CreateRequestScreen() {
       }
     }
 
-    if (!content.trim()) {
+    if (!content.trim() && !isCompensatory) {
       showAlert('Lỗi', isBusinessTrip ? 'Vui lòng nhập Mục đích / Kế hoạch công tác chi tiết.' : 'Vui lòng nhập Lý do/Nội dung chi tiết.');
       return;
     }
@@ -980,6 +1022,35 @@ export default function CreateRequestScreen() {
         return;
       }
     }
+    if (isExplanation) {
+      if (!explanationType) {
+        showAlert('Lỗi', 'Vui lòng chọn Loại giải trình.');
+        return;
+      }
+      if (!fromDate) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày áp dụng.');
+        return;
+      }
+      if (!shift) {
+        showAlert('Lỗi', 'Vui lòng chọn Ca làm việc.');
+        return;
+      }
+      if (['Quên Check-in', 'Quên cả In & Out', 'Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) && !startTime) {
+        showAlert('Lỗi', 'Vui lòng chọn Giờ vào thực tế.');
+        return;
+      }
+      if (['Quên Check-out', 'Quên cả In & Out', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && !endTime) {
+        showAlert('Lỗi', 'Vui lòng chọn Giờ ra thực tế.');
+        return;
+      }
+      if (['Quên cả In & Out', 'Check-in muộn & Check-out sớm'].includes(explanationType) && startTime && endTime) {
+        if (endTime.getTime() <= startTime.getTime()) {
+          showAlert('Lỗi', 'Giờ ra thực tế phải sau giờ vào thực tế.');
+          return;
+        }
+      }
+    }
+
     if (selectedType === 'EXPENSE') {
       if (!photoUri) {
         showAlert('Lỗi', 'Vui lòng đính kèm ảnh minh chứng (Hóa đơn/Chứng từ).');
@@ -1040,12 +1111,35 @@ export default function CreateRequestScreen() {
         ...(fromDate && endTime ? {
           endTime: (() => {
             const d = new Date(fromDate);
+            if (startTime) {
+              const startMins = startTime.getHours() * 60 + startTime.getMinutes();
+              const endMins = endTime.getHours() * 60 + endTime.getMinutes();
+              if (endMins <= startMins) {
+                d.setDate(d.getDate() + 1);
+              }
+            }
             d.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
             return d.toISOString();
           })(),
         } : (endTime ? { endTime: endTime.toISOString() } : {})),
+        ...(isOvertime && otDuration ? {
+          estimatedOtMinutes: otDuration.totalMinutes,
+          estimatedOtHours: otDuration.hoursDecimal,
+        } : {}),
         ...(shift ? { shiftName: shift.name, shiftId: shift.id } : {}),
         ...(explanationType ? { explanationType } : {}),
+        ...(isExplanation ? {
+          requestedCheckInAt: fromDate && startTime ? (() => {
+            const d = new Date(fromDate);
+            d.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+            return d.toISOString();
+          })() : undefined,
+          requestedCheckOutAt: fromDate && endTime ? (() => {
+            const d = new Date(fromDate);
+            d.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+            return d.toISOString();
+          })() : undefined,
+        } : {}),
         ...(leaveType ? { leaveType } : {}),
         ...(leaveDurationType ? { leaveDurationType } : {}),
         ...(isCompensatory ? {
@@ -1095,7 +1189,9 @@ export default function CreateRequestScreen() {
       await createEmployeeRequest({
         type: selectedType,
         title: generatedTitle,
-        content: content.trim(),
+        content: isCompensatory && !content.trim() 
+          ? `Làm bù cho ngày nghỉ ${targetLeaveDate ? formatDate(targetLeaveDate) : ''}`
+          : content.trim(),
         referenceId: selectedLeaveRequest?.id,
         ...(isFinancial && amount ? { amount: Number(amount) } : {}),
         ...(Object.keys(attachmentMetadata).length > 0 ? { attachmentMetadata } : {})
@@ -1242,10 +1338,10 @@ export default function CreateRequestScreen() {
               </View>
 
               {/* Giờ vào thực tế */}
-              {['Quên Check-in', 'Quên cả In & Out'].includes(explanationType) && (
+              {['Quên Check-in', 'Quên cả In & Out', 'Check-in muộn', 'Check-in muộn & Check-out sớm', 'Lỗi hệ thống/máy chấm công', 'Đi công tác/Làm việc bên ngoài'].includes(explanationType) && (
                 <View style={styles.formItem}>
                   <Text style={styles.formLabel}>
-                    Giờ vào thực tế <Text style={styles.required}>*</Text>
+                    Giờ vào thực tế {['Quên Check-in', 'Quên cả In & Out', 'Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) ? <Text style={styles.required}>*</Text> : null}
                   </Text>
                   <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
                     <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
@@ -1257,10 +1353,10 @@ export default function CreateRequestScreen() {
               )}
 
               {/* Giờ ra thực tế */}
-              {['Quên Check-out', 'Quên cả In & Out'].includes(explanationType) && (
+              {['Quên Check-out', 'Quên cả In & Out', 'Check-out sớm', 'Check-in muộn & Check-out sớm', 'Lỗi hệ thống/máy chấm công', 'Đi công tác/Làm việc bên ngoài'].includes(explanationType) && (
                 <View style={styles.formItem}>
                   <Text style={styles.formLabel}>
-                    Giờ ra thực tế <Text style={styles.required}>*</Text>
+                    Giờ ra thực tế {['Quên Check-out', 'Quên cả In & Out', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) ? <Text style={styles.required}>*</Text> : null}
                   </Text>
                   <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
                     <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
@@ -1315,6 +1411,399 @@ export default function CreateRequestScreen() {
                     <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
                       <MaterialCommunityIcons name="close" size={16} color="#fff" />
                     </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </>
+          ) : isCompensatory ? (
+            <>
+              {isLoadingApprovedLeaves ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, marginBottom: 12 }}>
+                  <ActivityIndicator size="small" color="#0284C7" style={{ marginRight: 8 }} />
+                  <Text style={{ fontSize: 13, color: '#64748B' }}>Đang tìm nạp đơn nghỉ đã duyệt gần nhất...</Text>
+                </View>
+              ) : approvedLeaves.length === 0 ? (
+                <View style={{
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FECACA',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 16,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#B91C1C' }}>Chưa có đơn nghỉ hợp lệ</Text>
+                  </View>
+                  <Text style={{ fontSize: 12, color: '#991B1B', lineHeight: 18 }}>
+                    Bạn chưa có đơn nghỉ phép nào được duyệt trong 14 ngày qua. Đơn làm bù chỉ được tạo khi đơn nghỉ phép tương ứng đã được Leader phê duyệt.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.formItem}>
+                  <Text style={styles.formLabel}>
+                    Làm bù cho ngày nghỉ <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable 
+                    style={[styles.inputBox, { height: 'auto', minHeight: 48, paddingVertical: 10 }]} 
+                    onPress={() => setShowApprovedLeavesModal(true)}
+                  >
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <Text style={[styles.inputText, !selectedLeaveRequest && styles.inputPlaceholder]}>
+                        {selectedLeaveRequest 
+                          ? (selectedLeaveRequest.title || (targetLeaveDate ? `Nghỉ phép ngày ${formatDate(targetLeaveDate)}` : 'Đơn nghỉ phép'))
+                          : 'Chọn đơn nghỉ đã được duyệt'}
+                      </Text>
+                      {selectedLeaveRequest && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                          <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 6 }}>
+                            <Text style={{ fontSize: 10, color: '#166534', fontWeight: '700' }}>✓ Đã duyệt</Text>
+                          </View>
+                          <Text style={{ fontSize: 11, color: '#64748B' }}>
+                            {((selectedLeaveRequest.attachmentMetadata as any)?.leaveDurationType) || 'Nghỉ phép'}
+                            {((selectedLeaveRequest.attachmentMetadata as any)?.leaveDurationType === 'Theo giờ' && compensatoryHours) ? ` · ${compensatoryHours} giờ` : ''}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+                  {selectedLeaveRequest && (
+                    <Text style={{ fontSize: 11, color: '#059669', marginTop: 4, marginLeft: 2 }}>
+                      ✓ Đã tự động chọn đơn nghỉ gần nhất & điền số giờ nghỉ tương ứng
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* Phương án làm bù */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Phương án làm bù <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {/* Bù 1 ngày */}
+                  <Pressable
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      paddingHorizontal: 10,
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: compensationMode === 'SINGLE' ? '#0284C7' : '#E2E8F0',
+                      backgroundColor: compensationMode === 'SINGLE' ? '#F0F9FF' : '#FFFFFF',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                    onPress={() => {
+                      setCompensationMode('SINGLE');
+                      if (targetLeaveRate === 1.0) {
+                        setCompensatoryRate(1.0);
+                        setCompensatoryHours('8');
+                      } else if (targetLeaveRate === 0.5) {
+                        setCompensatoryRate(0.5);
+                        setCompensatoryHours('4');
+                      }
+                    }}
+                  >
+                    <View style={{ flex: 1, paddingRight: 4 }}>
+                      <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#0F172A' }}>
+                        Bù 1 ngày
+                      </Text>
+                      <Text style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 3 }}>
+                        {targetLeaveRate === 1.0 ? '1 ca · 1 công' : targetLeaveRate === 0.5 ? '1 ca · 0.5 công' : `1 ca · ${targetLeaveRate} công`}
+                      </Text>
+                    </View>
+                    {compensationMode === 'SINGLE' ? (
+                      <View style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        backgroundColor: '#0284C7',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <MaterialCommunityIcons name="check" size={15} color="#FFFFFF" />
+                      </View>
+                    ) : (
+                      <View style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        borderWidth: 1.5,
+                        borderColor: '#CBD5E1',
+                        backgroundColor: 'transparent',
+                      }} />
+                    )}
+                  </Pressable>
+
+                  {/* Chia 2 ngày */}
+                  <Pressable
+                    style={{
+                      flex: 1,
+                      paddingVertical: 12,
+                      paddingHorizontal: 10,
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: compensationMode === 'SPLIT_2' ? '#0284C7' : '#E2E8F0',
+                      backgroundColor: compensationMode === 'SPLIT_2' ? '#F0F9FF' : '#FFFFFF',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                    onPress={() => {
+                      setCompensationMode('SPLIT_2');
+                      if (targetLeaveRate === 1.0) {
+                        setCompensatoryRate(0.5);
+                        setCompensatoryHours('4');
+                        setCompensatoryRate2(0.5);
+                        setCompensatoryHours2('4');
+                      } else if (targetLeaveRate === 0.5) {
+                        setCompensatoryRate(0.25);
+                        setCompensatoryHours('2');
+                        setCompensatoryRate2(0.25);
+                        setCompensatoryHours2('2');
+                      } else {
+                        const halfR = Math.round((targetLeaveRate / 2) * 100) / 100;
+                        setCompensatoryRate(halfR);
+                        setCompensatoryRate2(halfR);
+                      }
+                    }}
+                  >
+                    <View style={{ flex: 1, paddingRight: 4 }}>
+                      <Text style={{ fontSize: 13.5, fontWeight: '700', color: '#0F172A' }}>
+                        Chia 2 ngày
+                      </Text>
+                      <Text style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 3 }}>
+                        {targetLeaveRate === 1.0 ? '2 ca · 0.5 công/ca' : targetLeaveRate === 0.5 ? '2 ca · 0.25 công/ca' : `2 ca · ${Math.round((targetLeaveRate / 2) * 100) / 100} công/ca`}
+                      </Text>
+                    </View>
+                    {compensationMode === 'SPLIT_2' ? (
+                      <View style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        backgroundColor: '#0284C7',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <MaterialCommunityIcons name="check" size={15} color="#FFFFFF" />
+                      </View>
+                    ) : (
+                      <View style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        borderWidth: 1.5,
+                        borderColor: '#CBD5E1',
+                        backgroundColor: 'transparent',
+                      }} />
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Tiêu đề mục: Lịch làm bù */}
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginTop: 4, marginBottom: 10 }}>
+                Lịch làm bù
+              </Text>
+
+              {/* Card 1: Ngày làm bù 1 */}
+              <View style={{
+                backgroundColor: '#F8FAFC',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 12,
+              }}>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      backgroundColor: '#E0F2FE',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 8,
+                    }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#0369A1' }}>01</Text>
+                    </View>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                      {compensationMode === 'SPLIT_2' ? 'Ngày làm bù 1' : 'Ngày làm bù'}
+                    </Text>
+                  </View>
+                  <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
+                      Dự kiến {compensatoryRate} công
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Field 1: Ngày * */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={[styles.formLabel, { fontSize: 12.5, marginBottom: 4 }]}>
+                    Ngày <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory')}>
+                    <Text style={[styles.inputText, !compensatoryDate && styles.inputPlaceholder]}>
+                      {compensatoryDate ? formatDate(compensatoryDate) : 'Chọn ngày làm bù'}
+                    </Text>
+                    <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                  </Pressable>
+                </View>
+
+                {/* Field 2: Ca làm * */}
+                <View>
+                  <Text style={[styles.formLabel, { fontSize: 12.5, marginBottom: 4 }]}>
+                    Ca làm <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable 
+                    style={styles.inputBox} 
+                    onPress={() => {
+                      setActiveCompSlot(1);
+                      setShowShiftModal(true);
+                    }}
+                  >
+                    <Text style={[styles.inputText, !compensatoryShift && styles.inputPlaceholder]} numberOfLines={1}>
+                      {compensatoryShift ? `${compensatoryShift.name} · ${compensatoryShift.startTime} – ${compensatoryShift.endTime}` : 'Chọn ca làm'}
+                    </Text>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Card 2: Ngày làm bù 2 */}
+              {compensationMode === 'SPLIT_2' && (
+                <View style={{
+                  backgroundColor: '#F8FAFC',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 12,
+                  padding: 14,
+                  marginBottom: 12,
+                }}>
+                  {/* Header */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 14,
+                        backgroundColor: '#E0F2FE',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 8,
+                      }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#0369A1' }}>02</Text>
+                      </View>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
+                        Ngày làm bù 2
+                      </Text>
+                    </View>
+                    <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
+                        Dự kiến {compensatoryRate2} công
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Field 1: Ngày * */}
+                  <View style={{ marginBottom: 10 }}>
+                    <Text style={[styles.formLabel, { fontSize: 12.5, marginBottom: 4 }]}>
+                      Ngày <Text style={styles.required}>*</Text>
+                    </Text>
+                    <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory2')}>
+                      <Text style={[styles.inputText, !compensatoryDate2 && styles.inputPlaceholder]}>
+                        {compensatoryDate2 ? formatDate(compensatoryDate2) : 'Chọn ngày làm bù 2'}
+                      </Text>
+                      <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
+                    </Pressable>
+                  </View>
+
+                  {/* Field 2: Ca làm * */}
+                  <View>
+                    <Text style={[styles.formLabel, { fontSize: 12.5, marginBottom: 4 }]}>
+                      Ca làm <Text style={styles.required}>*</Text>
+                    </Text>
+                    <Pressable 
+                      style={styles.inputBox} 
+                      onPress={() => {
+                        setActiveCompSlot(2);
+                        setShowShiftModal(true);
+                      }}
+                    >
+                      <Text style={[styles.inputText, !compensatoryShift2 && styles.inputPlaceholder]} numberOfLines={1}>
+                        {compensatoryShift2 ? `${compensatoryShift2.name} · ${compensatoryShift2.startTime} – ${compensatoryShift2.endTime}` : 'Chọn ca làm 2'}
+                      </Text>
+                      <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {/* Banner tóm tắt */}
+              <View style={{
+                backgroundColor: '#F0F9FF',
+                borderWidth: 1,
+                borderColor: '#BAE6FD',
+                borderRadius: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 14,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 12,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <MaterialCommunityIcons name="calendar-check-outline" size={20} color="#0284C7" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1' }}>
+                    {compensationMode === 'SPLIT_2' ? '2 ngày làm bù' : '1 ngày làm bù'}
+                  </Text>
+                </View>
+                <View style={{ width: 1, height: 18, backgroundColor: '#BAE6FD', marginHorizontal: 8 }} />
+                <Text style={{ fontSize: 12.5, color: '#64748B' }}>
+                  Tổng dự kiến: <Text style={{ fontWeight: '700', color: '#0369A1' }}>
+                    {compensationMode === 'SPLIT_2' 
+                      ? Math.round((compensatoryRate + compensatoryRate2) * 100) / 100 
+                      : compensatoryRate} công
+                  </Text>
+                </Text>
+              </View>
+
+              {/* Accordion: Quy định làm bù */}
+              <View style={{
+                backgroundColor: '#F8FAFC',
+                borderWidth: 1,
+                borderColor: '#E2E8F0',
+                borderRadius: 12,
+                padding: 12,
+                marginBottom: 14,
+              }}>
+                <Pressable 
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                  onPress={() => setIsRulesExpanded(!isRulesExpanded)}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="information-outline" size={20} color="#0284C7" style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#0369A1' }}>Quy định làm bù</Text>
+                  </View>
+                  <MaterialCommunityIcons 
+                    name={isRulesExpanded ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color="#64748B" 
+                  />
+                </Pressable>
+                
+                {isRulesExpanded && (
+                  <View style={{ marginTop: 6, paddingLeft: 26 }}>
+                    <Text style={{ fontSize: 12, color: '#64748B', lineHeight: 18 }}>
+                      Ngày làm bù phải cùng tháng với ngày nghỉ.{'\n'}
+                      Công thực tế được ghi nhận theo ca hoàn thành.
+                    </Text>
                   </View>
                 )}
               </View>
@@ -1708,335 +2197,6 @@ export default function CreateRequestScreen() {
                 </View>
               </View>
             </>
-          ) : isCompensatory ? (
-            <>
-              {isLoadingApprovedLeaves ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, marginBottom: 12 }}>
-                  <ActivityIndicator size="small" color="#102739" style={{ marginRight: 8 }} />
-                  <Text style={{ fontSize: 13, color: '#64748B' }}>Đang tìm nạp đơn nghỉ đã duyệt gần nhất...</Text>
-                </View>
-              ) : approvedLeaves.length === 0 ? (
-                <View style={{
-                  backgroundColor: '#FEF2F2',
-                  borderWidth: 1,
-                  borderColor: '#FECACA',
-                  borderRadius: 10,
-                  padding: 12,
-                  marginBottom: 16,
-                }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                    <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#DC2626" style={{ marginRight: 6 }} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#B91C1C' }}>Chưa có đơn nghỉ hợp lệ</Text>
-                  </View>
-                  <Text style={{ fontSize: 12, color: '#991B1B', lineHeight: 18 }}>
-                    Bạn chưa có đơn nghỉ phép nào được duyệt trong 14 ngày qua. Đơn làm bù chỉ được tạo khi đơn nghỉ phép tương ứng đã được Leader phê duyệt.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.formItem}>
-                  <Text style={styles.formLabel}>
-                    Làm bù cho ngày nghỉ <Text style={styles.required}>*</Text>
-                  </Text>
-                  <Pressable 
-                    style={[styles.inputBox, { height: 'auto', minHeight: 48, paddingVertical: 10 }]} 
-                    onPress={() => setShowApprovedLeavesModal(true)}
-                  >
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                      <Text style={[styles.inputText, !selectedLeaveRequest && styles.inputPlaceholder]}>
-                        {selectedLeaveRequest 
-                          ? (selectedLeaveRequest.title || (targetLeaveDate ? `Nghỉ phép ngày ${formatDate(targetLeaveDate)}` : 'Đơn nghỉ phép'))
-                          : 'Chọn đơn nghỉ đã được duyệt'}
-                      </Text>
-                      {selectedLeaveRequest && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                          <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 6 }}>
-                            <Text style={{ fontSize: 10, color: '#166534', fontWeight: '700' }}>✓ Đã duyệt</Text>
-                          </View>
-                          <Text style={{ fontSize: 11, color: '#64748B' }}>
-                            {((selectedLeaveRequest.attachmentMetadata as any)?.leaveDurationType) || 'Nghỉ phép'}
-                            {((selectedLeaveRequest.attachmentMetadata as any)?.leaveDurationType === 'Theo giờ' && compensatoryHours) ? ` · ${compensatoryHours} giờ` : ''}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
-                  </Pressable>
-                  {selectedLeaveRequest && (
-                    <Text style={{ fontSize: 11, color: '#059669', marginTop: 4, marginLeft: 2 }}>
-                      ✓ Đã tự động chọn đơn nghỉ gần nhất & điền số giờ nghỉ tương ứng
-                    </Text>
-                  )}
-                </View>
-              )}
-
-              {/* Hình thức phân bổ làm bù: Bù 1 lần vs Chia làm bù 2 ngày */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>
-                  Phương án làm bù <Text style={styles.required}>*</Text>
-                </Text>
-                <View style={{ flexDirection: 'row', gap: 10 }}>
-                  <Pressable
-                    style={{
-                      flex: 1,
-                      paddingVertical: 12,
-                      paddingHorizontal: 10,
-                      borderRadius: 10,
-                      borderWidth: 1.5,
-                      borderColor: compensationMode === 'SINGLE' ? '#0284C7' : '#E2E8F0',
-                      backgroundColor: compensationMode === 'SINGLE' ? '#F0F9FF' : '#FFFFFF',
-                      alignItems: 'center',
-                    }}
-                    onPress={() => {
-                      setCompensationMode('SINGLE');
-                      if (targetLeaveRate === 1.0) {
-                        setCompensatoryRate(1.0);
-                        setCompensatoryHours('8');
-                      } else if (targetLeaveRate === 0.5) {
-                        setCompensatoryRate(0.5);
-                        setCompensatoryHours('4');
-                      }
-                    }}
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: compensationMode === 'SINGLE' ? '#0369A1' : '#64748B' }}>
-                      Bù 1 lần (1 ngày)
-                    </Text>
-                    <Text style={{ fontSize: 11, color: compensationMode === 'SINGLE' ? '#0284C7' : '#94A3B8', marginTop: 2, textAlign: 'center' }}>
-                      {targetLeaveRate === 1.0 ? '1 ca (1.0 công / 8h)' : targetLeaveRate === 0.5 ? '1 ca (0.5 công / 4h)' : `${targetLeaveRate} công (${compensatoryHours}h)`}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={{
-                      flex: 1,
-                      paddingVertical: 12,
-                      paddingHorizontal: 10,
-                      borderRadius: 10,
-                      borderWidth: 1.5,
-                      borderColor: compensationMode === 'SPLIT_2' ? '#0284C7' : '#E2E8F0',
-                      backgroundColor: compensationMode === 'SPLIT_2' ? '#F0F9FF' : '#FFFFFF',
-                      alignItems: 'center',
-                    }}
-                    onPress={() => {
-                      setCompensationMode('SPLIT_2');
-                      if (targetLeaveRate === 1.0) {
-                        setCompensatoryRate(0.5);
-                        setCompensatoryHours('4');
-                        setCompensatoryRate2(0.5);
-                        setCompensatoryHours2('4');
-                      } else if (targetLeaveRate === 0.5) {
-                        setCompensatoryRate(0.25);
-                        setCompensatoryHours('2');
-                        setCompensatoryRate2(0.25);
-                        setCompensatoryHours2('2');
-                      } else {
-                        const halfR = Math.round((targetLeaveRate / 2) * 100) / 100;
-                        setCompensatoryRate(halfR);
-                        setCompensatoryRate2(halfR);
-                      }
-                    }}
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: compensationMode === 'SPLIT_2' ? '#0369A1' : '#64748B' }}>
-                      Chia làm bù 2 ngày
-                    </Text>
-                    <Text style={{ fontSize: 11, color: compensationMode === 'SPLIT_2' ? '#0284C7' : '#94A3B8', marginTop: 2, textAlign: 'center' }}>
-                      {targetLeaveRate === 1.0 ? '2 ca (mỗi ca 0.5 công)' : targetLeaveRate === 0.5 ? '2 ca (mỗi ca 0.25 công)' : 'Chia 2 ca nhỏ'}
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* Thẻ Ca làm bù 1 */}
-              <View style={{
-                backgroundColor: '#F8FAFC',
-                borderWidth: 1,
-                borderColor: '#E2E8F0',
-                borderRadius: 12,
-                padding: 14,
-                marginBottom: 14,
-              }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <MaterialCommunityIcons name="calendar-clock" size={18} color="#0284C7" style={{ marginRight: 6 }} />
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
-                      {compensationMode === 'SPLIT_2' ? 'Ca làm bù 1 (Ngày 1)' : 'Ca làm bù'}
-                    </Text>
-                  </View>
-                  <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
-                      +{compensatoryRate} công ({compensatoryHours}h)
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Ngày làm bù 1 */}
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={styles.formLabel}>
-                    Ngày làm bù {compensationMode === 'SPLIT_2' ? '1' : ''} <Text style={styles.required}>*</Text>
-                  </Text>
-                  <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory')}>
-                    <Text style={[styles.inputText, !compensatoryDate && styles.inputPlaceholder]}>
-                      {compensatoryDate ? formatDate(compensatoryDate) : 'Chọn ngày làm bù'}
-                    </Text>
-                    <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
-                  </Pressable>
-                </View>
-
-                {/* Ca làm bù 1 */}
-                <View>
-                  <Text style={styles.formLabel}>
-                    Ca làm bù {compensationMode === 'SPLIT_2' ? '1' : ''} <Text style={styles.required}>*</Text>
-                  </Text>
-                  <Pressable 
-                    style={styles.inputBox} 
-                    onPress={() => {
-                      setActiveCompSlot(1);
-                      setShowShiftModal(true);
-                    }}
-                  >
-                    <Text style={[styles.inputText, !compensatoryShift && styles.inputPlaceholder]}>
-                      {compensatoryShift ? `${compensatoryShift.name} (${compensatoryShift.startTime} - ${compensatoryShift.endTime})` : 'Chọn ca làm bù'}
-                    </Text>
-                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* Thẻ Ca làm bù 2 (khi chọn Chia làm bù 2 ngày) */}
-              {compensationMode === 'SPLIT_2' && (
-                <View style={{
-                  backgroundColor: '#F8FAFC',
-                  borderWidth: 1,
-                  borderColor: '#E2E8F0',
-                  borderRadius: 12,
-                  padding: 14,
-                  marginBottom: 14,
-                }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <MaterialCommunityIcons name="calendar-clock" size={18} color="#0284C7" style={{ marginRight: 6 }} />
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
-                        Ca làm bù 2 (Ngày 2)
-                      </Text>
-                    </View>
-                    <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#0369A1' }}>
-                        +{compensatoryRate2} công ({compensatoryHours2}h)
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Ngày làm bù 2 */}
-                  <View style={{ marginBottom: 10 }}>
-                    <Text style={styles.formLabel}>
-                      Ngày làm bù 2 <Text style={styles.required}>*</Text>
-                    </Text>
-                    <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('compensatory2')}>
-                      <Text style={[styles.inputText, !compensatoryDate2 && styles.inputPlaceholder]}>
-                        {compensatoryDate2 ? formatDate(compensatoryDate2) : 'Chọn ngày làm bù 2'}
-                      </Text>
-                      <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
-                    </Pressable>
-                  </View>
-
-                  {/* Ca làm bù 2 */}
-                  <View>
-                    <Text style={styles.formLabel}>
-                      Ca làm bù 2 <Text style={styles.required}>*</Text>
-                    </Text>
-                    <Pressable 
-                      style={styles.inputBox} 
-                      onPress={() => {
-                        setActiveCompSlot(2);
-                        setShowShiftModal(true);
-                      }}
-                    >
-                      <Text style={[styles.inputText, !compensatoryShift2 && styles.inputPlaceholder]}>
-                        {compensatoryShift2 ? `${compensatoryShift2.name} (${compensatoryShift2.startTime} - ${compensatoryShift2.endTime})` : 'Chọn ca làm bù 2'}
-                      </Text>
-                      <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
-                    </Pressable>
-                  </View>
-                </View>
-              )}
-
-              {/* Thông tin tóm tắt quy định */}
-              <View style={{
-                backgroundColor: '#EFF6FF',
-                borderWidth: 1,
-                borderColor: '#BFDBFE',
-                borderRadius: 10,
-                padding: 12,
-                marginBottom: 16,
-              }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                  <MaterialCommunityIcons name="information-outline" size={18} color="#1D4ED8" style={{ marginRight: 6 }} />
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E40AF' }}>Quy định tính công làm bù</Text>
-                </View>
-                <Text style={{ fontSize: 11, color: '#1E40AF', lineHeight: 16 }}>
-                  • Tất cả ngày làm bù phải nằm trong cùng tháng với ngày nghỉ (theo múi giờ Việt Nam).{'\n'}
-                  • Làm bao nhiêu hưởng bấy nhiêu: mỗi ca hoàn thành sẽ chuyển công tương ứng về ngày nghỉ.{'\n'}
-                  • Ca vắng/không làm sẽ nhận 0 công và ngày nghỉ bị trừ phần công đó.
-                </Text>
-              </View>
-
-              {/* Lý do chi tiết */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>
-                  Lý do chi tiết <Text style={styles.required}>*</Text>
-                </Text>
-                <View style={styles.textAreaBox}>
-                  <TextInput
-                    style={styles.textAreaInput}
-                    placeholder="Nhập lý do nghỉ và kế hoạch làm bù..."
-                    placeholderTextColor="#94A3B8"
-                    multiline
-                    maxLength={500}
-                    value={content}
-                    onChangeText={setContent}
-                    textAlignVertical="top"
-                    onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
-                    }}
-                  />
-                  <Text style={styles.counterText}>{content.length}/500</Text>
-                </View>
-              </View>
-
-              {/* Ảnh / minh chứng nếu có */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>Ảnh / Minh chứng đính kèm (nếu có)</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handlePickPhoto}>
-                    <MaterialCommunityIcons 
-                      name={photoUri ? "check-circle" : "image-plus"} 
-                      size={20} 
-                      color={photoUri ? "#10B981" : "#475569"} 
-                    />
-                    <Text style={[styles.photoButtonText, photoUri && styles.photoButtonTextSuccess]}>
-                      {photoUri ? 'Đã chọn ảnh' : 'Chọn từ máy'}
-                    </Text>
-                  </Pressable>
-                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handleTakePhoto}>
-                    <MaterialCommunityIcons 
-                      name="camera-outline" 
-                      size={20} 
-                      color="#475569" 
-                    />
-                    <Text style={styles.photoButtonText}>Chụp ảnh</Text>
-                  </Pressable>
-                </View>
-                {photoUri && (
-                  <View style={styles.photoPreviewWrap}>
-                    <TouchableOpacity onPress={() => setIsFullScreenPhoto(true)} style={{ width: '100%', height: '100%' }}>
-                      <Image source={{ uri: photoUri }} style={styles.photoPreview} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
-                      <MaterialCommunityIcons name="close" size={16} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            </>
           ) : isLateOrEarly ? (
             <>
               {/* Ngày áp dụng */}
@@ -2142,65 +2302,139 @@ export default function CreateRequestScreen() {
             </>
           ) : isOvertime ? (
             <>
+              {/* Policy & Notice Banner Card */}
+              <View style={styles.advanceNoticeCard}>
+                <View style={styles.advanceNoticeCardHeader}>
+                  <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#D97706" />
+                  <Text style={styles.advanceNoticeCardTitle}>Quy định làm thêm giờ (OT)</Text>
+                </View>
+                <Text style={styles.advanceNoticeCardText}>
+                  Đơn làm thêm cần tạo trong vòng 3 ngày kể từ ngày OT. Giờ làm thêm hợp lệ được hệ thống đối soát tự động giữa đơn duyệt và dữ liệu chấm công thực tế.
+                </Text>
+                <TouchableOpacity
+                  style={styles.advanceNoticeCardLink}
+                  onPress={() => {
+                    showAlert(
+                      'Quy định làm thêm giờ (OT)',
+                      '• Hạn nộp đơn: Tạo đơn trong vòng tối đa 3 ngày kể từ ngày phát sinh làm thêm giờ.\n\n• Điều kiện ghi nhận công OT:\n1. Có đơn làm thêm giờ được Leader phòng ban phê duyệt.\n2. Nhân viên có quẹt vân tay / check-out thực tế tại công ty trong khung giờ OT.\n\n• Hệ số tính lương OT:\n- Ngày làm việc thường: 150%\n- Ngày nghỉ hàng tuần (Chủ nhật): 200%\n- Ngày Lễ, Tết chính thức: 300%\n\n• Giờ OT được đối soát và tổng hợp tự động vào bảng lương cuối tháng.'
+                    );
+                  }}
+                >
+                  <Text style={styles.advanceNoticeCardLinkText}>Xem chi tiết</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={14} color="#0284C7" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Workflow 3-Steps Visual */}
+              <View style={styles.advanceWorkflowBox}>
+                <View style={styles.advanceStepsContainer}>
+                  <View style={styles.advanceStepCol}>
+                    <View style={[styles.advanceStepCircle, styles.advanceStepCircleActive]}>
+                      <Text style={styles.advanceStepNum}>1</Text>
+                    </View>
+                    <Text style={styles.advanceStepName}>Đề xuất</Text>
+                    <Text style={styles.advanceStepSub}>Nhân viên</Text>
+                  </View>
+
+                  <View style={styles.advanceStepLine} />
+
+                  <View style={styles.advanceStepCol}>
+                    <View style={styles.advanceStepCircle}>
+                      <Text style={styles.advanceStepNum}>2</Text>
+                    </View>
+                    <Text style={styles.advanceStepName}>Duyệt OT</Text>
+                    <Text style={styles.advanceStepSub}>Leader</Text>
+                  </View>
+
+                  <View style={styles.advanceStepLine} />
+
+                  <View style={styles.advanceStepCol}>
+                    <View style={styles.advanceStepCircle}>
+                      <Text style={styles.advanceStepNum}>3</Text>
+                    </View>
+                    <Text style={styles.advanceStepName}>Tính lương</Text>
+                    <Text style={styles.advanceStepSub}>Hệ thống / Kế toán</Text>
+                  </View>
+                </View>
+              </View>
+
               {/* Ngày làm thêm */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
-                  Ngày áp dụng <Text style={styles.required}>*</Text>
+                  Ngày làm thêm <Text style={styles.required}>*</Text>
                 </Text>
                 <Pressable style={styles.inputBox} onPress={() => handleOpenDatePicker('single')}>
                   <Text style={[styles.inputText, !fromDate && styles.inputPlaceholder]}>
-                    {fromDate ? formatDate(fromDate) : 'Chọn ngày'}
+                    {fromDate ? formatDate(fromDate) : 'Chọn ngày làm thêm'}
                   </Text>
                   <MaterialCommunityIcons name="calendar-month-outline" size={20} color="#475569" />
                 </Pressable>
               </View>
 
-              {/* Ca làm việc (Nếu có) */}
+              {/* Ca làm việc liên quan (Không bắt buộc) */}
               <View style={styles.formItem}>
-                <Text style={styles.formLabel}>Ca làm việc (Không bắt buộc)</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={[styles.formLabel, { marginBottom: 0 }]}>Ca làm việc liên quan (Không bắt buộc)</Text>
+                  {shift && (
+                    <TouchableOpacity onPress={() => setShift(null)}>
+                      <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '600' }}>Bỏ chọn</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <Pressable style={styles.inputBox} onPress={() => setShowShiftModal(true)}>
                   <Text style={[styles.inputText, !shift && styles.inputPlaceholder]}>
-                    {shift ? shift.name : 'Chọn ca làm việc'}
+                    {shift ? `${shift.name} (${shift.startTime} - ${shift.endTime})` : 'Chọn ca làm việc (Nếu làm thêm gắn với ca)'}
                   </Text>
                   <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
                 </Pressable>
               </View>
 
-              {/* Từ giờ */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>
-                  Từ giờ <Text style={styles.required}>*</Text>
-                </Text>
-                <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
-                  <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
-                    {startTime ? formatTime(startTime) : 'Chọn từ giờ'}
+              {/* Khung giờ làm thêm: Từ giờ -> Đến giờ */}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={[styles.formItem, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>
+                    Từ giờ <Text style={styles.required}>*</Text>
                   </Text>
-                  <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
-                </Pressable>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('start')}>
+                    <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
+                      {startTime ? formatTime(startTime) : 'Chọn từ giờ'}
+                    </Text>
+                    <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
+                  </Pressable>
+                </View>
+
+                <View style={[styles.formItem, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>
+                    Đến giờ <Text style={styles.required}>*</Text>
+                  </Text>
+                  <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
+                    <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
+                      {endTime ? formatTime(endTime) : 'Chọn đến giờ'}
+                    </Text>
+                    <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
+                  </Pressable>
+                </View>
               </View>
 
-              {/* Đến giờ */}
-              <View style={styles.formItem}>
-                <Text style={styles.formLabel}>
-                  Đến giờ <Text style={styles.required}>*</Text>
-                </Text>
-                <Pressable style={styles.inputBox} onPress={() => handleOpenTimePicker('end')}>
-                  <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
-                    {endTime ? formatTime(endTime) : 'Chọn đến giờ'}
+              {/* Estimated OT Duration Banner */}
+              {otDuration && (
+                <View style={styles.otDurationBanner}>
+                  <MaterialCommunityIcons name="timer-sand" size={18} color="#102739" />
+                  <Text style={styles.otDurationBannerText}>
+                    Tổng thời gian làm thêm dự kiến: <Text style={{ fontWeight: '800', color: '#102739' }}>{otDuration.durationText}</Text>
                   </Text>
-                  <MaterialCommunityIcons name="clock-outline" size={20} color="#64748B" />
-                </Pressable>
-              </View>
+                </View>
+              )}
 
               {/* Lý do chi tiết */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
-                  Lý do chi tiết <Text style={styles.required}>*</Text>
+                  Nội dung công việc / Lý do làm thêm <Text style={styles.required}>*</Text>
                 </Text>
                 <View style={styles.textAreaBox}>
                   <TextInput
                     style={styles.textAreaInput}
-                    placeholder="Nhập nội dung công việc / lý do làm thêm giờ..."
+                    placeholder="Nhập nội dung công việc cụ thể, dự án hoặc lý do làm thêm giờ..."
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
@@ -2213,6 +2447,45 @@ export default function CreateRequestScreen() {
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
+              </View>
+
+              {/* Ảnh / Tệp minh chứng (Tùy chọn) */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>Ảnh minh chứng (Tùy chọn)</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Pressable 
+                    style={[styles.expenseProofBtn, photoUri && styles.expenseProofBtnActive]} 
+                    onPress={handlePickPhoto}
+                  >
+                    <MaterialCommunityIcons 
+                      name={photoUri ? "check-circle" : "file-image-outline"} 
+                      size={20} 
+                      color={photoUri ? "#102739" : "#475569"} 
+                    />
+                    <Text style={[styles.expenseProofBtnText, photoUri && styles.expenseProofBtnTextActive]}>
+                      Chọn từ máy
+                    </Text>
+                  </Pressable>
+                  <Pressable style={styles.expenseProofBtn} onPress={handleTakePhoto}>
+                    <MaterialCommunityIcons 
+                      name="camera-outline" 
+                      size={20} 
+                      color="#475569" 
+                    />
+                    <Text style={styles.expenseProofBtnText}>Chụp ảnh</Text>
+                  </Pressable>
+                </View>
+
+                {photoUri && (
+                  <View style={styles.photoPreviewWrap}>
+                    <TouchableOpacity onPress={() => setIsFullScreenPhoto(true)} style={{ width: '100%', height: '100%' }}>
+                      <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.removePhotoBtn} onPress={() => setPhotoUri(null)}>
+                      <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </>
           ) : isPurchase ? (
@@ -2309,36 +2582,51 @@ export default function CreateRequestScreen() {
                   <Text style={styles.advanceNoticeCardTitle}>Quy định tạm ứng lương (Tối đa 50%)</Text>
                 </View>
                 <Text style={styles.advanceNoticeCardText}>
-                  Theo quy định công ty, số tiền tạm ứng khuyến nghị không quá 50% mức lương. Đề xuất của bạn sẽ được gửi tới Trưởng bộ phận (Leader) xem xét tính hợp lý và phê duyệt trước khi Kế toán trưởng tiến hành giải ngân.
+                  Khuyến nghị không quá 50% mức lương. Leader xem xét, phê duyệt trước khi Kế toán trưởng giải ngân.
                 </Text>
+                <TouchableOpacity
+                  style={styles.advanceNoticeCardLink}
+                  onPress={() => {
+                    showAlert(
+                      'Quy định tạm ứng lương',
+                      '• Mức tạm ứng tối đa khuyến nghị: Không quá 50% mức lương thực nhận hàng tháng.\n\n• Quy trình thẩm định:\n1. Nhân viên gửi đơn đề xuất.\n2. Trưởng bộ phận (Leader) xem xét tính hợp lý và phê duyệt.\n3. Kế toán trưởng đối soát và tiến hành chuyển khoản giải ngân.\n\n• Thời gian nhận tiền: Căn cứ vào ngày mong muốn và lịch chi trả của bộ phận Kế toán.'
+                    );
+                  }}
+                >
+                  <Text style={styles.advanceNoticeCardLinkText}>Xem chi tiết</Text>
+                  <MaterialCommunityIcons name="chevron-right" size={14} color="#0284C7" />
+                </TouchableOpacity>
               </View>
 
               {/* Workflow 3-Steps Visual */}
               <View style={styles.advanceWorkflowBox}>
-                <Text style={styles.advanceWorkflowBoxTitle}>Quy trình xét duyệt tạm ứng 3 bước:</Text>
-                <View style={styles.advanceStepsRow}>
+                <View style={styles.advanceStepsContainer}>
                   <View style={styles.advanceStepCol}>
                     <View style={[styles.advanceStepCircle, styles.advanceStepCircleActive]}>
                       <Text style={styles.advanceStepNum}>1</Text>
                     </View>
                     <Text style={styles.advanceStepName}>Đề xuất</Text>
-                    <Text style={styles.advanceStepSub}>Nhân viên (Max 50%)</Text>
+                    <Text style={styles.advanceStepSub}>Nhân viên</Text>
                   </View>
+
                   <View style={styles.advanceStepLine} />
+
                   <View style={styles.advanceStepCol}>
                     <View style={styles.advanceStepCircle}>
                       <Text style={styles.advanceStepNum}>2</Text>
                     </View>
                     <Text style={styles.advanceStepName}>Duyệt</Text>
-                    <Text style={styles.advanceStepSub}>Leader bộ phận</Text>
+                    <Text style={styles.advanceStepSub}>Leader</Text>
                   </View>
+
                   <View style={styles.advanceStepLine} />
+
                   <View style={styles.advanceStepCol}>
-                    <View style={[styles.advanceStepCircle, { backgroundColor: '#ECFDF5', borderColor: '#059669' }]}>
-                      <Text style={[styles.advanceStepNum, { color: '#059669' }]}>3</Text>
+                    <View style={styles.advanceStepCircle}>
+                      <Text style={styles.advanceStepNum}>3</Text>
                     </View>
-                    <Text style={styles.advanceStepName}>Đi lương</Text>
-                    <Text style={styles.advanceStepSub}>Kế toán trưởng chi</Text>
+                    <Text style={styles.advanceStepName}>Giải ngân</Text>
+                    <Text style={styles.advanceStepSub}>Kế toán trưởng</Text>
                   </View>
                 </View>
               </View>
@@ -2362,29 +2650,37 @@ export default function CreateRequestScreen() {
 
                 {/* Quick Pick Chips */}
                 <View style={styles.advanceChipsRow}>
-                  {[1000000, 2000000, 3000000, 5000000].map((quickVal) => (
-                    <Pressable
-                      key={quickVal}
-                      style={[
-                        styles.advanceChip,
-                        amount === String(quickVal) && styles.advanceChipActive
-                      ]}
-                      onPress={() => setAmount(String(quickVal))}
-                    >
-                      <Text
+                  {[
+                    { label: '1 triệu', value: 1000000 },
+                    { label: '2 triệu', value: 2000000 },
+                    { label: '3 triệu', value: 3000000 },
+                    { label: '5 triệu', value: 5000000 }
+                  ].map((chip) => {
+                    const isSelected = amount === String(chip.value);
+                    return (
+                      <Pressable
+                        key={chip.value}
                         style={[
-                          styles.advanceChipText,
-                          amount === String(quickVal) && styles.advanceChipTextActive
+                          styles.advanceChip,
+                          isSelected && styles.advanceChipActive
                         ]}
+                        onPress={() => setAmount(String(chip.value))}
                       >
-                        {quickVal.toLocaleString('vi-VN')}đ
-                      </Text>
-                    </Pressable>
-                  ))}
+                        <Text
+                          style={[
+                            styles.advanceChipText,
+                            isSelected && styles.advanceChipTextActive
+                          ]}
+                        >
+                          {chip.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
 
-              {/* Tháng tạm ứng / Ngày mong muốn nhận */}
+              {/* Ngày mong muốn nhận lương tạm ứng */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
                   Ngày mong muốn nhận lương tạm ứng <Text style={styles.required}>*</Text>
@@ -2405,7 +2701,7 @@ export default function CreateRequestScreen() {
                 <View style={styles.textAreaBox}>
                   <TextInput
                     style={styles.textAreaInput}
-                    placeholder="Ví dụ: Tạm ứng giải quyết việc gia đình, khám sức khỏe..."
+                    placeholder="Ví dụ: Giải quyết việc gia đình, khám sức khỏe..."
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
@@ -2422,7 +2718,7 @@ export default function CreateRequestScreen() {
 
               {/* Bank Info Header */}
               <View style={styles.advanceSectionHeaderRow}>
-                <MaterialCommunityIcons name="bank-transfer" size={20} color="#059669" />
+                <MaterialCommunityIcons name="bank" size={18} color="#102739" />
                 <Text style={styles.advanceSectionHeaderTitle}>Tài khoản nhận tiền (Kế toán chi lương)</Text>
               </View>
 
@@ -2433,13 +2729,13 @@ export default function CreateRequestScreen() {
                   style={styles.advanceTextInput}
                   value={advanceBankName}
                   onChangeText={setAdvanceBankName}
-                  placeholder="Ví dụ: Vietcombank, MBBank, Techcombank..."
+                  placeholder="Ví dụ: Vietcombank, MBBank..."
                   placeholderTextColor="#94A3B8"
                 />
 
                 {/* Bank quick chips */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.advanceBankChipsScroll}>
-                  {COMMON_BANKS.map((b) => (
+                  {COMMON_BANKS.slice(0, 5).map((b) => (
                     <Pressable
                       key={b}
                       style={[styles.advanceBankChip, advanceBankName === b && styles.advanceBankChipActive]}
@@ -2453,56 +2749,55 @@ export default function CreateRequestScreen() {
                 </ScrollView>
               </View>
 
-              {/* Số tài khoản & Chủ tài khoản */}
-              <View style={styles.advanceInputRow}>
-                <View style={[styles.formItem, { flex: 1, marginRight: 8, marginBottom: 0 }]}>
-                  <Text style={styles.formLabel}>
-                    Số tài khoản <Text style={styles.required}>*</Text>
-                  </Text>
-                  <TextInput
-                    style={styles.advanceTextInput}
-                    value={advanceBankAccount}
-                    onChangeText={setAdvanceBankAccount}
-                    placeholder="0123456789"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="numeric"
-                  />
-                </View>
+              {/* Số tài khoản */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Số tài khoản <Text style={styles.required}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.advanceTextInput}
+                  value={advanceBankAccount}
+                  onChangeText={setAdvanceBankAccount}
+                  placeholder="0123456789"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
+                />
+              </View>
 
-                <View style={[styles.formItem, { flex: 1.2, marginBottom: 0 }]}>
-                  <Text style={styles.formLabel}>Tên chủ tài khoản</Text>
-                  <TextInput
-                    style={styles.advanceTextInput}
-                    value={advanceAccountHolder}
-                    onChangeText={(t) => setAdvanceAccountHolder(t.toUpperCase())}
-                    placeholder="NGUYEN VAN A"
-                    placeholderTextColor="#94A3B8"
-                    autoCapitalize="characters"
-                  />
-                </View>
+              {/* Tên chủ tài khoản */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>Tên chủ tài khoản</Text>
+                <TextInput
+                  style={styles.advanceTextInput}
+                  value={advanceAccountHolder}
+                  onChangeText={(t) => setAdvanceAccountHolder(t.toUpperCase())}
+                  placeholder={userFullName ? userFullName.toUpperCase() : 'NGUYEN VAN A'}
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="characters"
+                />
               </View>
             </>
           ) : isExpense ? (
             <>
-              {/* Số tiền */}
+              {/* Số tiền thanh toán (VNĐ) */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
                   Số tiền thanh toán (VNĐ) <Text style={styles.required}>*</Text>
                 </Text>
-                <View style={styles.inputBox}>
+                <View style={styles.advanceAmountInputWrap}>
                   <TextInput
-                    style={[styles.inputText, { flex: 1, fontWeight: '600' }]}
+                    style={styles.advanceAmountInput}
                     placeholder="Nhập số tiền..."
                     placeholderTextColor="#94A3B8"
                     keyboardType="numeric"
                     value={amount ? parseInt(amount, 10).toLocaleString('vi-VN') : ''}
                     onChangeText={(text) => setAmount(text.replace(/[^0-9]/g, ''))}
                   />
-                  <Text style={{ color: '#0F172A', fontWeight: '700', fontSize: 13, marginLeft: 6 }}>VNĐ</Text>
+                  <Text style={styles.advanceAmountUnit}>VNĐ</Text>
                 </View>
               </View>
 
-              {/* Ngày áp dụng */}
+              {/* Ngày phát sinh chi phí */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
                   Ngày phát sinh chi phí <Text style={styles.required}>*</Text>
@@ -2538,83 +2833,71 @@ export default function CreateRequestScreen() {
                 </View>
               </View>
 
-              {/* Phân loại Hóa đơn VAT (chỉ dành cho EXPENSE) */}
-              <View style={[styles.formItem, { backgroundColor: '#F8FAFC', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text style={[styles.formLabel, { marginBottom: 2 }]}>Hóa đơn VAT</Text>
-                    <Text style={{ fontSize: 12, color: '#64748B' }}>
-                      {hasVat 
-                        ? 'Đơn có VAT (Duyệt: Leader ➔ Kế toán giải ngân)' 
-                        : 'Đơn K° VAT (≤ 2tr: Kế toán | > 2tr: Ban Giám Đốc ➔ Kế toán)'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => setHasVat(!hasVat)}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 16,
-                      backgroundColor: hasVat ? '#10B981' : '#E2E8F0'
-                    }}
-                  >
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: hasVat ? '#FFFFFF' : '#475569' }}>
-                      {hasVat ? 'CÓ VAT' : 'K° VAT'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Quy trình duyệt thông minh Movie Legend */}
-              <View style={styles.approvalWorkflowBanner}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                  <MaterialCommunityIcons 
-                    name="transit-connection-variant" 
-                    size={16} 
-                    color={hasVat || Number(amount || 0) <= 2000000 ? '#16A34A' : '#2563EB'} 
-                  />
-                  <Text style={[styles.approvalWorkflowTitle, { color: hasVat || Number(amount || 0) <= 2000000 ? '#15803D' : '#1E40AF' }]}>
-                    {hasVat 
-                      ? 'Quy trình: Có hóa đơn VAT' 
-                      : Number(amount || 0) > 2000000 
-                        ? 'Quy trình: Không VAT trên 2tr (Ban Giám Đốc duyệt)' 
-                        : 'Quy trình: Không VAT dưới 2tr (Kế toán chi)'}
+              {/* Hóa đơn VAT Card */}
+              <View style={styles.expenseVatCard}>
+                <Text style={styles.expenseVatCardTitle}>Hóa đơn VAT</Text>
+                <Pressable 
+                  style={styles.expenseVatDropdown}
+                  onPress={() => setShowVatModal(true)}
+                >
+                  <Text style={styles.expenseVatDropdownText}>
+                    {hasVat ? 'Có VAT' : 'Không VAT'}
                   </Text>
-                </View>
-                <Text style={styles.approvalWorkflowSubtitle}>
-                  {hasVat
-                    ? '1. Leader PB duyệt ➔ 2. Kế toán giải ngân'
-                    : Number(amount || 0) > 2000000
-                      ? '1. Leader PB duyệt ➔ 2. Ban Giám Đốc duyệt ➔ 3. Kế toán chi'
-                      : '1. Leader PB duyệt ➔ 2. Kế toán giải ngân'}
+                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                </Pressable>
+                <Text style={styles.expenseVatCardNote}>
+                  {hasVat 
+                    ? 'Có VAT: Leader phòng ban duyệt ➔ Kế toán giải ngân.' 
+                    : 'Không VAT: ≤ 2 triệu: Kế toán; > 2 triệu: Ban Giám đốc ➔ Kế toán.'}
                 </Text>
               </View>
 
-              {/* Đính kèm minh chứng / hóa đơn */}
+              {/* Quy trình đang hiển thị Banner */}
+              <View style={styles.expenseWorkflowBanner}>
+                <View style={styles.expenseWorkflowIconCircle}>
+                  <MaterialCommunityIcons name="information-variant" size={16} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.expenseWorkflowTitle}>Quy trình đang hiển thị</Text>
+                  <Text style={styles.expenseWorkflowSubtitle}>
+                    {hasVat
+                      ? 'Leader phòng ban duyệt ➔ Kế toán giải ngân'
+                      : Number(amount || 0) > 2000000
+                        ? 'Leader phòng ban duyệt ➔ Ban Giám đốc duyệt ➔ Kế toán giải ngân'
+                        : 'Leader phòng ban duyệt ➔ Kế toán giải ngân'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Ảnh / Tệp minh chứng */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
                   Ảnh / Tệp minh chứng <Text style={styles.required}>*</Text>
                 </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handlePickPhoto}>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Pressable 
+                    style={[styles.expenseProofBtn, photoUri && styles.expenseProofBtnActive]} 
+                    onPress={handlePickPhoto}
+                  >
                     <MaterialCommunityIcons 
-                      name={photoUri ? "check-circle" : "image-plus"} 
+                      name={photoUri ? "check-circle" : "file-image-outline"} 
                       size={20} 
-                      color={photoUri ? "#10B981" : "#475569"} 
+                      color={photoUri ? "#102739" : "#475569"} 
                     />
-                    <Text style={[styles.photoButtonText, photoUri && styles.photoButtonTextSuccess]}>
-                      {photoUri ? 'Đã chọn ảnh' : 'Chọn từ máy'}
+                    <Text style={[styles.expenseProofBtnText, photoUri && styles.expenseProofBtnTextActive]}>
+                      Chọn từ máy
                     </Text>
                   </Pressable>
-                  <Pressable style={[styles.photoButton, { flex: 1 }]} onPress={handleTakePhoto}>
+                  <Pressable style={styles.expenseProofBtn} onPress={handleTakePhoto}>
                     <MaterialCommunityIcons 
                       name="camera-outline" 
                       size={20} 
                       color="#475569" 
                     />
-                    <Text style={styles.photoButtonText}>Chụp ảnh</Text>
+                    <Text style={styles.expenseProofBtnText}>Chụp ảnh</Text>
                   </Pressable>
                 </View>
+
                 {photoUri && (
                   <View style={styles.photoPreviewWrap}>
                     <TouchableOpacity onPress={() => setIsFullScreenPhoto(true)} style={{ width: '100%', height: '100%' }}>
@@ -2710,6 +2993,54 @@ export default function CreateRequestScreen() {
         </View>
       </ScrollView>
 
+      {/* VAT Type Picker Modal */}
+      <Modal visible={showVatModal} transparent animationType="slide" onRequestClose={() => setShowVatModal(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowVatModal(false)} />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ width: 28 }} />
+              <Text style={styles.modalTitle}>Hóa đơn VAT</Text>
+              <Pressable onPress={() => setShowVatModal(false)} style={styles.modalCloseBtn}>
+                <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
+              </Pressable>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalItem, !hasVat && styles.modalItemSelected]}
+              onPress={() => {
+                setHasVat(false);
+                setShowVatModal(false);
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalItemText, !hasVat && styles.modalItemTextSelected]}>Không VAT</Text>
+                <Text style={[styles.modalItemSubtext, !hasVat && styles.modalItemSubtextSelected]}>
+                  ≤ 2 triệu: Kế toán; &gt; 2 triệu: Ban Giám đốc ➔ Kế toán
+                </Text>
+              </View>
+              {!hasVat && <MaterialCommunityIcons name="check-circle" size={20} color="#059669" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modalItem, hasVat && styles.modalItemSelected]}
+              onPress={() => {
+                setHasVat(true);
+                setShowVatModal(false);
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalItemText, hasVat && styles.modalItemTextSelected]}>Có VAT</Text>
+                <Text style={[styles.modalItemSubtext, hasVat && styles.modalItemSubtextSelected]}>
+                  Có hóa đơn VAT (Leader ➔ Kế toán giải ngân)
+                </Text>
+              </View>
+              {hasVat && <MaterialCommunityIcons name="check-circle" size={20} color="#059669" />}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Shift Picker Modal */}
       <Modal visible={showShiftModal} transparent animationType="slide" onRequestClose={() => setShowShiftModal(false)}>
         <View style={styles.modalOverlay}>
@@ -2730,7 +3061,9 @@ export default function CreateRequestScreen() {
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 renderItem={({ item }) => {
-                  const isSelected = shift?.id === item.id;
+                  const isSelected = isCompensatory
+                    ? (activeCompSlot === 2 ? compensatoryShift2?.id === item.id : compensatoryShift?.id === item.id)
+                    : shift?.id === item.id;
                   return (
                     <TouchableOpacity
                       style={[styles.modalItem, isSelected && styles.modalItemSelected]}
@@ -4318,20 +4651,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 20,
   },
-  // Specific Styles for Tạm Ứng Lương (Matching SalaryAdvanceModal)
+  // Specific Styles for Tạm Ứng Lương (Matching User Mockup)
   advanceNoticeCard: {
     backgroundColor: '#FFFBEB',
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#FEF3C7',
+    borderColor: '#FDE68A',
     marginBottom: 14,
   },
   advanceNoticeCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   advanceNoticeCardTitle: {
     fontSize: 13,
@@ -4343,23 +4676,29 @@ const styles = StyleSheet.create({
     color: '#78350F',
     lineHeight: 18,
   },
-  advanceWorkflowBox: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-    marginBottom: 14,
-  },
-  advanceWorkflowBoxTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#166534',
-    marginBottom: 8,
-  },
-  advanceStepsRow: {
+  advanceNoticeCardLink: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 6,
+    gap: 2,
+  },
+  advanceNoticeCardLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  advanceWorkflowBox: {
+    backgroundColor: '#F0F4F8',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#D8E2EC',
+    marginBottom: 16,
+  },
+  advanceStepsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
   advanceStepCol: {
@@ -4367,103 +4706,102 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   advanceStepCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#E2E8F0',
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#CBD5E1',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   advanceStepCircleActive: {
-    backgroundColor: '#059669',
-    borderColor: '#059669',
+    backgroundColor: '#102739',
   },
   advanceStepNum: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#fff',
+    color: '#FFFFFF',
   },
   advanceStepName: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#102739',
+    marginBottom: 2,
+    textAlign: 'center',
   },
   advanceStepSub: {
-    fontSize: 9,
+    fontSize: 10,
     color: '#64748B',
     textAlign: 'center',
-    marginTop: 1,
   },
   advanceStepLine: {
-    width: 20,
+    flex: 0.6,
     height: 2,
     backgroundColor: '#CBD5E1',
-    marginBottom: 14,
+    marginTop: 13,
   },
   advanceAmountInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    borderWidth: 1.5,
+    borderRadius: 10,
+    borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 14,
-    height: 50,
+    height: 48,
   },
   advanceAmountInput: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#0F172A',
   },
   advanceAmountUnit: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#475569',
     marginLeft: 8,
   },
   advanceChipsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
-    marginTop: 10,
+    marginTop: 8,
   },
   advanceChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flex: 1,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 20,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   advanceChipActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: '#E7F0F7',
+    borderColor: '#102739',
   },
   advanceChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: '#334155',
   },
   advanceChipTextActive: {
-    color: '#059669',
+    color: '#102739',
     fontWeight: '700',
   },
   advanceSectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 6,
-    marginBottom: 10,
-    paddingTop: 10,
+    marginTop: 8,
+    marginBottom: 12,
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
   advanceSectionHeaderTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -4473,7 +4811,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     paddingHorizontal: 14,
-    height: 46,
+    height: 48,
     fontSize: 14,
     color: '#0F172A',
   },
@@ -4481,17 +4819,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   advanceBankChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     backgroundColor: '#F1F5F9',
-    marginRight: 6,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    marginRight: 6,
   },
   advanceBankChipActive: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#059669',
+    backgroundColor: '#E7F0F7',
+    borderColor: '#102739',
   },
   advanceBankChipText: {
     fontSize: 11,
@@ -4499,12 +4837,122 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   advanceBankChipTextActive: {
-    color: '#059669',
+    color: '#102739',
     fontWeight: '700',
   },
   advanceInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
+  },
+  // Specific Styles for Đơn Thanh Toán (EXPENSE)
+  expenseVatCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    marginBottom: 14,
+  },
+  expenseVatCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  expenseVatDropdown: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    height: 44,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  expenseVatDropdownText: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  expenseVatCardNote: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 8,
+    lineHeight: 16,
+  },
+  expenseWorkflowBanner: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  expenseWorkflowIconCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#0284C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expenseWorkflowTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  expenseWorkflowSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  expenseProofBtn: {
+    flex: 1,
+    height: 46,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  expenseProofBtnActive: {
+    backgroundColor: '#E7F0F7',
+    borderColor: '#CBD5E1',
+  },
+  expenseProofBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  expenseProofBtnTextActive: {
+    color: '#102739',
+    fontWeight: '700',
+  },
+  otDurationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F4F8',
+    borderWidth: 1,
+    borderColor: '#D8E2EC',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+    gap: 8,
+  },
+  otDurationBannerText: {
+    fontSize: 13,
+    color: '#102739',
+    flex: 1,
+    fontWeight: '600',
   },
 });

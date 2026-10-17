@@ -116,11 +116,11 @@ export function CheckOutScreen() {
     try {
       if (!photoUri) throw new Error('Không thể chụp ảnh xác thực');
 
-      // Fast lightweight image compression (30-40KB)
+      // Tối ưu ảnh rõ nét, giữ độ phân giải cao và dung lượng hợp lý (~90-130KB)
       const compressedImage = await ImageManipulator.manipulateAsync(
         photoUri,
-        [{ resize: { width: 400 } }],
-        { compress: 0.25, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: 960 } }],
+        { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG }
       );
 
       // 1. Upload photo first

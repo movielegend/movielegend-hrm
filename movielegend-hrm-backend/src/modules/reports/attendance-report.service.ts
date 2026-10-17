@@ -3,6 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 import moment from 'moment-timezone';
+import { calculateCompanyLatePenalty } from '../attendance/attendance.service';
 
 @Injectable()
 export class AttendanceReportService {
@@ -287,6 +288,24 @@ export class AttendanceReportService {
           moment.utc(o.workDate).format('YYYY-MM-DD') === dateStr
         ));
 
+        const approvedLateAdjReq = lateRequestsRaw.find((lr) => {
+          if (lr.userId !== user.id || lr.status !== 'APPROVED') return false;
+          const meta: any = lr.attachmentMetadata;
+          const fromDateStr = meta?.fromDate ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          const checkInDateStr = meta?.requestedCheckInAt ? moment.tz(meta.requestedCheckInAt, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          const matchDate = fromDateStr === dateStr || checkInDateStr === dateStr || meta?.workDate === dateStr || (record && lr.referenceId === record.id);
+          if (!matchDate) return false;
+          return (
+            lr.type === 'LATE_ARRIVAL' ||
+            (lr.type === 'ATTENDANCE_ADJUSTMENT' && (
+              meta?.explanationType?.toLowerCase().includes('muộn') ||
+              lr.title?.toLowerCase().includes('muộn')
+            ))
+          );
+        });
+
+        const hasApprovedLateAdj = Boolean(lateRequest || approvedLateAdjReq);
+
         const liveOt = otReportsDb.find(o => o.userId === user.id && (
           moment(o.otDate).format('YYYY-MM-DD') === dateStr ||
           moment.utc(o.otDate).format('YYYY-MM-DD') === dateStr
@@ -341,10 +360,24 @@ export class AttendanceReportService {
               }
             }
 
-            // 3. Không áp dụng đi muộn theo ca cho phòng Live
-            lateMins = 0;
-            earlyMins = 0;
-            lateDeduction = 0;
+            // 3. Tính đi muộn và tiền phạt theo quy định công ty nếu có ca hoặc có ghi nhận đi muộn
+            for (const r of dayRecords) {
+              if (r.lateMinutes && r.lateMinutes > 0) {
+                lateMins += Number(r.lateMinutes);
+              }
+              if (r.latePenaltyAmount !== null && r.latePenaltyAmount !== undefined) {
+                lateDeduction += Number(r.latePenaltyAmount);
+              }
+            }
+
+            // Nếu có đi muộn mà tiền phạt chưa được lưu (bằng 0), tự động áp dụng bảng quy định phạt công ty
+            if (lateMins > 0 && lateDeduction === 0 && !hasApprovedLateAdj) {
+              lateDeduction = calculateCompanyLatePenalty(lateMins).amount;
+            }
+
+            if (hasApprovedLateAdj) {
+              lateDeduction = 0;
+            }
 
             // 4. OT phòng Live lấy từ OtReport đã duyệt (theo % leader duyệt)
             if (liveOt && liveOt.validOtMinutes > 0) {
@@ -413,6 +446,12 @@ export class AttendanceReportService {
             }
             lateDeduction = record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0;
             lateMins = record.lateMinutes !== null ? Number(record.lateMinutes) : 0;
+            if (lateMins > 0 && lateDeduction === 0 && !hasApprovedLateAdj) {
+              lateDeduction = calculateCompanyLatePenalty(lateMins).amount;
+            }
+            if (lateMins > 0 && hasApprovedLateAdj) {
+              lateDeduction = 0;
+            }
 
             if (!shift) {
               if (checkIn && checkOut && otRequest) {
@@ -427,19 +466,14 @@ export class AttendanceReportService {
               const shiftEnd = moment.tz(`${dateStr} ${shift.endTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
 
               if (record.status === 'MISSING') {
-                if (lateRequest) {
+                if (lateRequest || hasApprovedLateAdj) {
                   attendance = 1;
                   lateDeduction = 0;
                 }
               } else {
-                if (lateMins > 0 && lateRequest) {
-                  if (record.latePenaltyLevel === null || record.latePenaltyLevel <= 3) {
-                    lateDeduction = 0;
-                    attendance = 1;
-                  } else if (record.latePenaltyLevel === 4) {
-                    lateDeduction = 50000;
-                    attendance = 1;
-                  }
+                if (lateMins > 0 && hasApprovedLateAdj) {
+                  lateDeduction = 0;
+                  attendance = 1;
                 }
 
                 if (checkOut && checkOut.isBefore(shiftEnd) && !otRequest) {
@@ -582,7 +616,14 @@ export class AttendanceReportService {
         }
 
         const noteParts: string[] = [];
-        if (record?.notes) noteParts.push(record.notes);
+        if (hasApprovedLateAdj) {
+          noteParts.push('Đi muộn được chấp thuận');
+          if (record?.notes && !record.notes.toLowerCase().includes('muộn')) {
+            noteParts.push(record.notes);
+          }
+        } else {
+          if (record?.notes) noteParts.push(record.notes);
+        }
         if (businessTrip) {
           const loc = (businessTrip.attachmentMetadata as any)?.location;
           noteParts.push(`Công tác${loc ? `: ${loc}` : ''}`);

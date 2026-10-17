@@ -9,6 +9,7 @@ import { useAuth } from './AuthProvider';
 import { useActiveChat } from '../contexts/ActiveChatContext';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
 import { CustomAlert } from '../components/CustomAlert';
+import { updatePresenceItem } from '../features/presence/usePresence';
 
 let Notifications: any = null;
 if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
@@ -413,6 +414,12 @@ export function SocketProvider({ children }: PropsWithChildren) {
         logout();
       });
 
+      socket.on('presence:update', (payload: { userId: string; isOnline: boolean; lastActiveAt?: string | null }) => {
+        if (payload?.userId) {
+          updatePresenceItem(payload.userId, payload.isOnline, payload.lastActiveAt);
+        }
+      });
+
       socket.connect();
     }
 
@@ -431,6 +438,7 @@ export function SocketProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     function refreshOnForeground(nextState: AppStateStatus) {
       if (nextState !== 'active' || !isAuthenticated) return;
+      socketRef.current?.emit('presence:heartbeat');
       void queryClient.invalidateQueries({ queryKey: ['tasks', 'me'] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
     }

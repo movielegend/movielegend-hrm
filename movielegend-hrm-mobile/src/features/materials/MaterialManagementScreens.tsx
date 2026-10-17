@@ -1,23 +1,35 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useAppAlert } from '../../contexts/AlertContext';
-import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Image } from 'react-native';
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  TextInput,
+  Image,
+  StatusBar,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { Picker } from '@react-native-picker/picker';
 import { EmptyState } from '../../components/EmptyState';
 import { ErrorState } from '../../components/ErrorState';
 import { LoadingState } from '../../components/LoadingState';
-import { PageHeader } from '../../components/PageHeader';
-import { PrimaryButton, SecondaryButton } from '../../components/Buttons';
-import { Screen } from '../../components/Screen';
-import { ScreenContainer } from '../../components/ScreenContainer';
 import { SectionCard } from '../../components/SectionCard';
-import { useAssetDepartments } from '../../hooks/useAssets';
+import {
+  useAssetDepartments,
+  useAssets,
+  useAssignAsset,
+  useTransferAsset,
+  useRequestAssetReturn,
+  useRevokeAsset,
+} from '../../hooks/useAssets';
 import { useDepartments } from '../../hooks/useDepartments';
-import { useAssets, useAssignAsset, useTransferAsset, useRequestAssetReturn, useRevokeAsset } from '../../hooks/useAssets';
-import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { FilterChip } from '../../components/FilterChip';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { SelectModal } from '../../components/SelectModal';
@@ -26,122 +38,140 @@ import { useEmployees } from '../../hooks/useEmployees';
 
 export function AssetDepartmentListScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Custom debounce logic if needed, or rely on the query hook itself
-  // Here we'll just pass searchQuery directly since we want it real-time or handled by the hook
   const { data: departments, isLoading, isError, error, refetch, isRefetching } = useAssetDepartments({ search: searchQuery });
 
   const filteredDepartments = departments?.items || [];
 
   return (
-    <Screen>
-      <ScreenContainer style={styles.container} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}>
+    <View style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
-        <PageHeader
-          title="Vật tư"
-          subtitle="Chọn phòng ban làm việc"
-          showBack={false}
-          right={
-            <Pressable style={styles.historyBtn}>
-              <MaterialCommunityIcons name="history" size={22} color="#102739" />
+      {/* Navy Header */}
+      <View style={[styles.navyHeader, { paddingTop: Math.max(insets.top, 16) }]}>
+        <View style={styles.headerTitleRow}>
+          {router.canGoBack() && (
+            <Pressable onPress={() => router.back()} style={styles.headerBackBtn}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
             </Pressable>
-          }
-        />
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Vật tư</Text>
+            <Text style={styles.headerSubtitle}>Chọn phòng ban làm việc</Text>
+          </View>
+          <Pressable style={styles.headerCircleBtn}>
+            <MaterialCommunityIcons name="history" size={20} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      </View>
 
-        <View style={{ gap: 16, marginTop: -8 }}>
-          <View style={{ gap: 8 }}>
-            <Text style={[styles.sectionLabelHeader, { marginTop: 0, marginBottom: 0 }]}>Tìm phòng ban</Text>
-            <View style={[styles.searchBarContainerDept, { marginBottom: 0 }]}>
-              <MaterialCommunityIcons name="magnify" size={20} color="#98A0A8" />
-              <TextInput
-                style={styles.searchInputDept}
-                placeholder="Nhập tên phòng ban..."
-                placeholderTextColor="#98A0A8"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
+      {/* Content Sheet with curved top */}
+      <View style={styles.sheetContainer}>
+        <ScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}
+        >
+          {/* Section: Tìm phòng ban */}
+          <Text style={styles.sectionHeading}>Tìm phòng ban</Text>
+          <View style={styles.searchBox}>
+            <MaterialCommunityIcons name="magnify" size={22} color="#94A3B8" />
+            <TextInput
+              style={styles.searchBoxInput}
+              placeholder="Nhập tên phòng ban..."
+              placeholderTextColor="#94A3B8"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           </View>
 
-          <View style={[styles.sectionHeaderRow, { marginTop: 0, marginBottom: 0 }]}>
-            <Text style={[styles.sectionLabelHeader, { marginTop: 0, marginHorizontal: 0, marginBottom: 0 }]}>Danh sách phòng ban</Text>
-            <View style={styles.countBadge}>
-              <MaterialCommunityIcons name="office-building" size={14} color="#102739" />
-              <Text style={styles.countBadgeText}>{filteredDepartments?.length || 0} Đơn vị</Text>
+          {/* Section: Danh sách phòng ban */}
+          <View style={styles.deptSectionRow}>
+            <Text style={styles.sectionHeading}>Danh sách phòng ban</Text>
+            <View style={styles.unitBadge}>
+              <MaterialCommunityIcons name="office-building" size={14} color="#0F172A" />
+              <Text style={styles.unitBadgeText}>{filteredDepartments.length} đơn vị</Text>
             </View>
           </View>
 
           {isLoading ? <LoadingState /> : null}
           {isError ? <ErrorState error={error} onRetry={() => void refetch()} /> : null}
 
-          {filteredDepartments?.map((dept) => (
-            <Pressable key={dept.id} onPress={() => router.push(`/admin/materials/department/${dept.id}` as never)}>
-              <View style={[styles.popularDeptCard, { marginBottom: 0 }]}>
+          {filteredDepartments.map((dept: any) => {
+            const branchName = dept.branch?.name || 'MOVIELEGEND-HÀ NỘI';
+            return (
+              <Pressable
+                key={dept.id}
+                onPress={() => router.push(`/admin/materials/department/${dept.id}` as never)}
+                style={({ pressed }) => [
+                  styles.deptCard,
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] },
+                ]}
+              >
+                {/* Card Top: Icon, Department name, branch, chevron */}
                 <View style={styles.deptCardTop}>
-                  <View style={styles.popularDeptIcon}>
+                  <View style={styles.deptIconBox}>
                     <MaterialCommunityIcons name="office-building" size={24} color="#102739" />
                   </View>
-                  <View style={styles.popularDeptInfo}>
-                    <Text style={styles.popularDeptName}>{dept.name}</Text>
-                    <Text style={styles.popularDeptDesc}>Quản lý vật tư thuộc bộ phận {dept.name.toLowerCase()}</Text>
+                  <View style={styles.deptInfoBox}>
+                    <Text style={styles.deptNameText}>{dept.name}</Text>
+                    <Text style={styles.deptBranchText}>{branchName.toUpperCase()}</Text>
                   </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9CA3AF" />
+                  <MaterialCommunityIcons name="chevron-right" size={22} color="#94A3B8" />
                 </View>
 
-                <View style={styles.deptStatsRow}>
+                {/* Card Bottom: 3 Stats */}
+                <View style={styles.deptStatsContainer}>
+                  {/* Stat 1: Vật tư */}
                   <View style={styles.deptStatItem}>
-                    <MaterialCommunityIcons name="cube-outline" size={20} color="#4B5563" />
-                    <View style={styles.deptStatTextCol}>
-                      <Text style={styles.deptStatValue}>{dept.materialCount || 0}</Text>
+                    <MaterialCommunityIcons name="cube-outline" size={22} color="#334155" />
+                    <View style={styles.deptStatTexts}>
+                      <Text style={styles.deptStatNumber}>{dept.materialCount || 0}</Text>
                       <Text style={styles.deptStatLabel}>Vật tư</Text>
                     </View>
                   </View>
+
                   <View style={styles.deptStatDivider} />
+
+                  {/* Stat 2: Yêu cầu */}
                   <View style={styles.deptStatItem}>
-                    <MaterialCommunityIcons name="clipboard-text-outline" size={20} color="#4B5563" />
-                    <View style={styles.deptStatTextCol}>
-                      <Text style={styles.deptStatValue}>{dept.requestCount || 0}</Text>
+                    <MaterialCommunityIcons name="clipboard-text-outline" size={22} color="#334155" />
+                    <View style={styles.deptStatTexts}>
+                      <Text style={styles.deptStatNumber}>{dept.requestCount || 0}</Text>
                       <Text style={styles.deptStatLabel}>Yêu cầu</Text>
                     </View>
                   </View>
+
                   <View style={styles.deptStatDivider} />
+
+                  {/* Stat 3: Sắp hết */}
                   <View style={styles.deptStatItem}>
-                    <MaterialCommunityIcons name="alert-outline" size={20} color="#4B5563" />
-                    <View style={styles.deptStatTextCol}>
-                      <Text style={styles.deptStatValue}>{dept.lowStockCount || 0}</Text>
+                    <MaterialCommunityIcons name="alert-outline" size={22} color="#334155" />
+                    <View style={styles.deptStatTexts}>
+                      <Text style={styles.deptStatNumber}>{dept.lowStockCount || 0}</Text>
                       <Text style={styles.deptStatLabel}>Sắp hết</Text>
                     </View>
                   </View>
                 </View>
-              </View>
-            </Pressable>
-          ))}
+              </Pressable>
+            );
+          })}
 
-          {filteredDepartments && filteredDepartments.length === 0 && !isLoading ? (
+          {filteredDepartments.length === 0 && !isLoading ? (
             <EmptyState title="Không tìm thấy phòng ban nào" />
           ) : null}
-        </View>
-
-        <View style={{ flex: 1 }} />
-
-        <View style={[styles.tipCard, { marginBottom: 0, marginTop: 0 }]}>
-          <MaterialCommunityIcons name="lightbulb-outline" size={20} color="#4B5563" />
-          <View style={styles.tipTextContainer}>
-            <Text style={styles.tipTitle}>Mẹo</Text>
-            <Text style={styles.tipDesc}>Chọn phòng ban để xem chi tiết vật tư và các yêu cầu liên quan.</Text>
-          </View>
-          <MaterialCommunityIcons name="close" size={16} color="#9CA3AF" />
-        </View>
-
-      </ScreenContainer>
-    </Screen>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
 export function AssetDepartmentScreen() {
   const { id: departmentId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { data: departments } = useDepartments();
   const department = departments?.items.find((d) => d.id === departmentId);
   const { data: assetsData, isLoading, isError, error, refetch, isRefetching } = useAssets();
@@ -194,54 +224,157 @@ export function AssetDepartmentScreen() {
     return true;
   });
 
-  if (isLoading) return <LoadingState />;
-  if (isError) return <ErrorState error={error} onRetry={() => void refetch()} />;
+  const branchName = (department as any)?.branch?.name || 'MOVIELEGEND-HÀ NỘI';
+  const subtitleDept = `${department?.name || 'DEV'} (${branchName})`.toUpperCase();
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}>
-        <PageHeader
-          title="Danh sách Vật tư"
-          subtitle={department?.name || 'Kho thiết bị tổng'}
-          onBack={() => router.back()}
-        />
+    <View style={styles.mainContainer}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, paddingHorizontal: spacing.lg }}>
-          <Pressable
-            style={[styles.createAssetButton, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}
-            onPress={() => router.push(`/admin/assets/create?departmentId=${departmentId}` as never)}
-          >
-            <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
-            <Text style={styles.createAssetButtonText}>Tạo vật tư mới</Text>
+      {/* Navy Header */}
+      <View style={[styles.navyHeader, { paddingTop: Math.max(insets.top, 16) }]}>
+        <View style={styles.headerTitleRow}>
+          <Pressable onPress={() => router.back()} style={styles.headerBackBtn}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
           </Pressable>
-          <Pressable
-            style={[styles.createAssetButton, { flexShrink: 0, marginHorizontal: 0, paddingHorizontal: 20, backgroundColor: '#334155', marginBottom: 0 }]}
-            onPress={() => setFilterModalVisible(true)}
-          >
-            <MaterialCommunityIcons name="filter-variant" size={20} color="#FFF" />
-            <Text style={[styles.createAssetButtonText, { flexShrink: 0 }]} numberOfLines={1}>Bộ lọc</Text>
-          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Danh sách vật tư</Text>
+            <Text style={styles.headerSubtitle}>{subtitleDept}</Text>
+          </View>
         </View>
+      </View>
 
-        <Text style={styles.listHeader}>Danh sách ({filteredAssets.length} vật tư)</Text>
+      {/* Content Sheet with curved top */}
+      <View style={styles.sheetContainer}>
+        <ScrollView
+          contentContainerStyle={styles.sheetScrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}
+        >
+          {/* Top Actions: [+ Tạo vật tư mới] & [Bộ lọc] */}
+          <View style={styles.actionButtonsRow}>
+            <Pressable
+              style={styles.createBtnNavy}
+              onPress={() => router.push(`/admin/assets/create?departmentId=${departmentId}` as never)}
+            >
+              <MaterialCommunityIcons name="plus" size={22} color="#FFFFFF" />
+              <Text style={styles.createBtnNavyText}>Tạo vật tư mới</Text>
+            </Pressable>
 
-        <View style={styles.list}>
-          {filteredAssets.map((asset: any) => (
-            <AssetCard
-              key={asset.id}
-              asset={asset}
-              employees={employees?.items || []}
-              onPress={() => router.push(`/admin/assets/${asset.id}` as never)}
-              onRevoke={() => { setSelectedAssetForRevoke(asset); setRevokeNote(''); setRevokeModalVisible(true); }}
-              onReportDamaged={() => { setSelectedAssetForDamaged(asset); setDamagedNote(''); setDamagedVendorName(''); setDamagedStartedAt(new Date().toISOString().split('T')[0]); setDamagedAction('DAMAGED'); setDamagedModalVisible(true); }}
-              onAssign={() => { setSelectedAssetForAssign(asset); setAssignedUserId(null); setAssignModalVisible(true); }}
-              onTransfer={() => { setSelectedAssetForTransfer(asset); setTargetDepartmentId(null); setTransferModalVisible(true); }}
-            />
-          ))}
-          {filteredAssets.length === 0 && <EmptyState title="Không có vật tư nào khớp với bộ lọc" />}
-        </View>
-      </ScrollView>
+            <Pressable
+              style={styles.filterBtnOutline}
+              onPress={() => setFilterModalVisible(true)}
+            >
+              <MaterialCommunityIcons name="filter-variant" size={20} color="#0F172A" />
+              <Text style={styles.filterBtnOutlineText}>Bộ lọc</Text>
+            </Pressable>
+          </View>
 
+          {/* List count header */}
+          <Text style={styles.listCountHeader}>Danh sách ({filteredAssets.length} vật tư)</Text>
+
+          {isLoading ? <LoadingState /> : null}
+          {isError ? <ErrorState error={error} onRetry={() => void refetch()} /> : null}
+
+          {/* List or Custom Empty State */}
+          {!isLoading && filteredAssets.length > 0 ? (
+            <View style={styles.list}>
+              {filteredAssets.map((asset: any) => (
+                <AssetCard
+                  key={asset.id}
+                  asset={asset}
+                  employees={employees?.items || []}
+                  onPress={() => router.push(`/admin/assets/${asset.id}` as never)}
+                  onRevoke={() => { setSelectedAssetForRevoke(asset); setRevokeNote(''); setRevokeModalVisible(true); }}
+                  onReportDamaged={() => { setSelectedAssetForDamaged(asset); setDamagedNote(''); setDamagedVendorName(''); setDamagedStartedAt(new Date().toISOString().split('T')[0]); setDamagedAction('DAMAGED'); setDamagedModalVisible(true); }}
+                  onAssign={() => { setSelectedAssetForAssign(asset); setAssignedUserId(null); setAssignModalVisible(true); }}
+                  onTransfer={() => { setSelectedAssetForTransfer(asset); setTargetDepartmentId(null); setTransferModalVisible(true); }}
+                />
+              ))}
+            </View>
+          ) : !isLoading && filteredAssets.length === 0 ? (
+            <View style={styles.customEmptyContainer}>
+              <View style={styles.customEmptyIllustration}>
+                <Svg width={180} height={140} viewBox="0 0 180 140" fill="none">
+                  {/* Soft circular aura */}
+                  <Circle cx="90" cy="70" r="54" fill="#EBF3FA" />
+                  <Circle cx="146" cy="52" r="3.5" fill="#BFDBFE" />
+                  <Circle cx="34" cy="78" r="2.5" fill="#BFDBFE" />
+                  <Circle cx="152" cy="84" r="2" fill="#CBD5E1" />
+                  <Path d="M46 64H52" stroke="#93C5FD" strokeWidth="2" strokeLinecap="round" />
+                  <Path d="M132 76H138" stroke="#93C5FD" strokeWidth="2" strokeLinecap="round" />
+
+                  {/* Cardboard Box Body */}
+                  <Path
+                    d="M55 60 L90 76 L125 60 L125 96 L90 114 L55 96 Z"
+                    fill="#FFFFFF"
+                    stroke="#102739"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                  />
+                  {/* Box Center seam */}
+                  <Path
+                    d="M90 76 L90 114"
+                    stroke="#102739"
+                    strokeWidth="2"
+                  />
+                  {/* Left flap */}
+                  <Path
+                    d="M55 60 L45 52 L78 40 L90 48 Z"
+                    fill="#FFFFFF"
+                    stroke="#102739"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                  />
+                  {/* Right flap */}
+                  <Path
+                    d="M90 48 L102 40 L135 52 L125 60 Z"
+                    fill="#FFFFFF"
+                    stroke="#102739"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                  />
+                  {/* Back flap */}
+                  <Path
+                    d="M78 40 L90 32 L102 40 L90 48 Z"
+                    fill="#F8FAFC"
+                    stroke="#102739"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                  />
+
+                  {/* Magnifying Glass */}
+                  <Path
+                    d="M120 80 L142 102"
+                    stroke="#102739"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                  />
+                  <Circle
+                    cx="110"
+                    cy="70"
+                    r="17"
+                    fill="#EFF6FF"
+                    stroke="#102739"
+                    strokeWidth="3"
+                  />
+                  {/* Glass subtle highlight curve */}
+                  <Path
+                    d="M102 65 C104 61 109 59 114 60"
+                    stroke="#60A5FA"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              </View>
+              <Text style={styles.customEmptyTitle}>Không có vật tư nào khớp với bộ lọc</Text>
+              <Text style={styles.customEmptySubtitle}>Thử điều chỉnh bộ lọc để tìm kiếm lại.</Text>
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+
+      {/* Modals */}
       <ConfirmModal
         visible={filterModalVisible}
         title="Lọc vật tư"
@@ -317,7 +450,15 @@ export function AssetDepartmentScreen() {
         onConfirm={async () => {
           if (selectedAssetForDamaged) {
             try {
-              await revokeMutation.mutateAsync({ assetId: selectedAssetForDamaged.id, payload: { note: damagedNote, targetAssetStatus: damagedAction, vendorName: damagedAction === 'MAINTENANCE' ? damagedVendorName : undefined, startedAt: damagedAction === 'MAINTENANCE' && damagedStartedAt ? new Date(damagedStartedAt).toISOString() : undefined } });
+              await revokeMutation.mutateAsync({
+                assetId: selectedAssetForDamaged.id,
+                payload: {
+                  note: damagedNote,
+                  targetAssetStatus: damagedAction,
+                  vendorName: damagedAction === 'MAINTENANCE' ? damagedVendorName : undefined,
+                  startedAt: damagedAction === 'MAINTENANCE' && damagedStartedAt ? new Date(damagedStartedAt).toISOString() : undefined,
+                },
+              });
               showAlert('Thành công', 'Đã xử lý tài sản hỏng');
               setDamagedModalVisible(false);
             } catch (e: any) {
@@ -429,7 +570,7 @@ export function AssetDepartmentScreen() {
         }}
         onClose={() => setTransferModalVisible(false)}
       />
-    </Screen>
+    </View>
   );
 }
 
@@ -564,86 +705,327 @@ function getStatusColorBorder(status: string) {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
-  deptCard: { marginBottom: spacing.sm, padding: spacing.md },
-  deptHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  deptName: { fontSize: 16, fontWeight: '600', color: colors.text },
-  deptDesc: { fontSize: 14, color: colors.muted, marginTop: 4 },
-  filters: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
-  list: { gap: spacing.md },
-  assetCard: { padding: spacing.md },
-  assetHeader: { marginBottom: spacing.sm },
-  assetTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
-  assetName: { fontSize: 16, fontWeight: '700', color: colors.text, flex: 1 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-  statusText: { fontSize: 12, fontWeight: '600', color: colors.text },
-  assetCode: { fontSize: 13, color: colors.muted },
-  assetBody: { marginBottom: spacing.md, gap: 6 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  infoText: { fontSize: 14, color: colors.text },
-  assetActions: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  actionBtn: { flex: 1, minWidth: '25%', paddingVertical: 8, flexDirection: 'row', justifyContent: 'center' },
-  container: { backgroundColor: '#F8FAFC', flexGrow: 1 },
-  header: { padding: spacing.lg, paddingBottom: 0, flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
-  headerIcon: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: colors.text },
-  headerSubtitle: { fontSize: 14, color: colors.muted },
-  sectionLabel: { fontSize: 16, fontWeight: '700', color: colors.text, marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.sm },
-  sectionLabelGray: { fontSize: 12, fontWeight: '700', color: '#98A0A8', marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.sm },
-  sectionLabelHeader: { fontSize: 16, fontWeight: '700', color: colors.text, marginHorizontal: spacing.md, marginTop: spacing.md, marginBottom: spacing.sm },
-  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: spacing.md, marginTop: spacing.lg, marginBottom: spacing.md },
-  countBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, gap: 4 },
-  countBadgeText: { color: '#102739', fontSize: 13, fontWeight: '600' },
-  pickerContainer: { marginHorizontal: spacing.md },
-  searchDropdown: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF' },
-  searchDropdownText: { fontSize: 14 },
-  popularDeptCard: { backgroundColor: '#FFF', padding: 16, marginHorizontal: spacing.md, marginBottom: 12, borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  deptCardTop: { flexDirection: 'row', alignItems: 'center' },
-  popularDeptCardSelected: { borderColor: '#102739', backgroundColor: '#F9FAFB' },
-  popularDeptIcon: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginRight: spacing.md },
-  popularDeptInfo: { flex: 1 },
-  popularDeptName: { fontSize: 16, fontWeight: '700', color: '#102739' },
-  popularDeptDesc: { fontSize: 13, color: '#64748B', marginTop: 2 },
-  deptStatsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, padding: 12, marginTop: 16, gap: 12 },
-  deptStatItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  deptStatTextCol: {},
-  deptStatValue: { fontSize: 14, fontWeight: '700', color: '#102739' },
-  deptStatLabel: { fontSize: 11, color: '#64748B' },
-  deptStatDivider: { width: 1, height: 24, backgroundColor: '#E2E8F0' },
-  historyBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  bannerCard: { flexDirection: 'row', backgroundColor: '#FFF', marginHorizontal: spacing.md, marginTop: 8, marginBottom: spacing.lg, borderRadius: 16, padding: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 3 },
-  bannerIconBox: { width: 56, height: 56, borderRadius: 16, backgroundColor: '#102739', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-  bannerTextContainer: { flex: 1, zIndex: 1 },
-  bannerTitle: { fontSize: 18, fontWeight: '700', color: '#102739', marginBottom: 4 },
-  bannerSubtitle: { fontSize: 13, color: '#64748B', lineHeight: 18 },
-  bannerImage: { position: 'absolute', right: -10, top: 10, opacity: 0.5 },
-  tipCard: { flexDirection: 'row', backgroundColor: '#F9FAFB', marginHorizontal: spacing.md, marginTop: spacing.md, marginBottom: spacing.xl, padding: 16, borderRadius: 12, alignItems: 'flex-start' },
-  tipTextContainer: { flex: 1, marginHorizontal: 12 },
-  tipTitle: { fontSize: 14, fontWeight: '700', color: '#102739', marginBottom: 2 },
-  tipDesc: { fontSize: 13, color: '#64748B', lineHeight: 18 },
-  bottomBar: { padding: spacing.lg, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  continueButton: { backgroundColor: '#102739', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
-  continueButtonDisabled: { backgroundColor: '#D1D5DB' },
-  continueButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  createAssetButton: { backgroundColor: '#102739', borderRadius: 12, paddingVertical: 16, marginHorizontal: spacing.lg, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: spacing.md },
-  createAssetButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700', marginLeft: 8 },
-  filterDropdownRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg, marginBottom: spacing.md },
-  miniDropdown: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#FFF' },
-  miniDropdownText: { fontSize: 12, color: '#334155' },
-  searchBarContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginHorizontal: spacing.lg, backgroundColor: '#FFF', marginBottom: spacing.md },
-  searchInput: { flex: 1, marginLeft: 8, fontSize: 14, color: '#334155' },
-  listHeader: { fontSize: 14, fontWeight: '600', color: '#64748B', marginHorizontal: spacing.lg, marginBottom: spacing.sm },
-  assetContentRow: { flexDirection: 'row', marginBottom: spacing.md },
-  assetThumbnail: { width: 60, height: 60, borderRadius: 30, marginRight: 12, backgroundColor: '#f3f4f6' },
-  assetThumbnailPlaceholder: { width: 60, height: 60, borderRadius: 30, marginRight: 12, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
-  assetInfo: { flex: 1 },
-  statusBadgeOutline: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, borderWidth: 1, backgroundColor: '#FFF' },
-  statusTextOutline: { fontSize: 10, fontWeight: '600' },
-  assetDetailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  assetDetailText: { fontSize: 12, color: '#64748B', marginLeft: 4 },
-  assetActionsTeal: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
-  actionBtnTeal: { flex: 1, minWidth: '25%', paddingVertical: 8, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#102739', borderRadius: 8 },
-  actionBtnTealText: { color: '#102739', fontSize: 14, fontWeight: '600', marginLeft: 4 },
-  searchBarContainerDept: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#F1F5F9', borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12, marginHorizontal: spacing.md, backgroundColor: '#F8FAFC', marginBottom: spacing.md },
-  searchInputDept: { flex: 1, marginLeft: 12, fontSize: 15, color: '#334155' },
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#102739',
+  },
+  navyHeader: {
+    backgroundColor: '#102739',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerBackBtn: {
+    marginRight: 14,
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+    marginTop: 3,
+  },
+  headerCircleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  sheetScrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  sectionHeading: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 48,
+    marginBottom: 20,
+  },
+  searchBoxInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  deptSectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  unitBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    gap: 6,
+  },
+  unitBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  deptCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  deptCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  deptIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#E7F0F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  deptInfoBox: {
+    flex: 1,
+  },
+  deptNameText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  deptBranchText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 3,
+    letterSpacing: 0.3,
+  },
+  deptStatsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginTop: 14,
+  },
+  deptStatItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deptStatTexts: {
+    marginLeft: 8,
+  },
+  deptStatNumber: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  deptStatLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  deptStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E2E8F0',
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  createBtnNavy: {
+    flex: 1,
+    height: 48,
+    backgroundColor: '#102739',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  createBtnNavyText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  filterBtnOutline: {
+    height: 48,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  filterBtnOutlineText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  listCountHeader: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 12,
+  },
+  customEmptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 50,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+  },
+  customEmptyIllustration: {
+    marginBottom: 24,
+  },
+  customEmptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  customEmptySubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  list: {
+    gap: spacing.md,
+  },
+  assetCard: {
+    padding: spacing.md,
+  },
+  assetContentRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+  },
+  assetThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  assetThumbnailPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginRight: 12,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  assetInfo: {
+    flex: 1,
+  },
+  assetTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  assetName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+  },
+  statusBadgeOutline: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  statusTextOutline: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  assetCode: {
+    fontSize: 13,
+    color: colors.muted,
+  },
+  assetDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  assetDetailText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginLeft: 4,
+  },
+  assetActionsTeal: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  actionBtnTeal: {
+    flex: 1,
+    minWidth: '25%',
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#102739',
+    borderRadius: 8,
+  },
+  actionBtnTealText: {
+    color: '#102739',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  pickerContainer: {
+    marginHorizontal: spacing.md,
+  },
 });

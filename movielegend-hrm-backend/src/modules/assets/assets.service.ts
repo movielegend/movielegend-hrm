@@ -70,6 +70,7 @@ export class AssetsService {
         } : {})
       },
       include: {
+        branch: { select: { id: true, name: true } },
         assets: {
           where: { deletedAt: null },
           include: {
@@ -92,6 +93,7 @@ export class AssetsService {
           id: dept.id,
           name: dept.name,
           code: dept.code,
+          branch: dept.branch ? { id: dept.branch.id, name: dept.branch.name } : null,
           materialCount,
           requestCount,
           lowStockCount

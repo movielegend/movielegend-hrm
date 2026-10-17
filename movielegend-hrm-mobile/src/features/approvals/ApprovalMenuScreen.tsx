@@ -125,11 +125,7 @@ export function ApprovalMenuScreen() {
             <Pressable
               style={styles.menuCard}
               onPress={() =>
-                router.push(
-                  isAdmin
-                    ? '/admin/approvals'
-                    : (`${roleBase(user)}/approvals/account` as any)
-                )
+                router.push(`${roleBase(user)}/approvals/account` as any)
               }
               android_ripple={{ color: '#F1F5F9' }}
             >
@@ -178,10 +174,10 @@ export function ApprovalMenuScreen() {
                 onPress={() => router.push(`${roleBase(user)}/financial-requests` as any)}
                 android_ripple={{ color: '#F1F5F9' }}
               >
-                <View style={[styles.iconCircle, { backgroundColor: '#E7F0F7' }]}>
+                <View style={styles.iconCircle}>
                   <MaterialCommunityIcons
-                    name="cash-register"
-                    size={24}
+                    name="cash-check"
+                    size={26}
                     color="#102739"
                   />
                 </View>
@@ -202,11 +198,11 @@ export function ApprovalMenuScreen() {
                 onPress={() => router.push('/leader/ot-report-approvals' as any)}
                 android_ripple={{ color: '#F1F5F9' }}
               >
-                <View style={[styles.iconCircle, { backgroundColor: '#FFE4E6' }]}>
+                <View style={styles.iconCircle}>
                   <MaterialCommunityIcons
-                    name="television-play"
-                    size={22}
-                    color="#E11D48"
+                    name="clock-check-outline"
+                    size={24}
+                    color="#102739"
                   />
                 </View>
                 <View style={styles.menuCardInfo}>
@@ -283,10 +279,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#102739',
-    borderRadius: 20,
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    marginBottom: 16,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 14,
     gap: 14,
     shadowColor: '#102739',
     shadowOffset: { width: 0, height: 4 },
@@ -295,9 +291,9 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   heroIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -306,15 +302,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   heroTitle: {
-    fontSize: 17,
+    fontSize: 16.5,
     fontWeight: '800',
     color: '#FFFFFF',
   },
   heroSubtitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: 'rgba(255, 255, 255, 0.75)',
     fontWeight: '500',
-    marginTop: 3,
+    marginTop: 2,
   },
   menuList: {
     gap: 12,
@@ -323,8 +319,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingVertical: 16,
+    borderRadius: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: '#F1F5F9',

@@ -250,4 +250,119 @@ parentPort?.on('message', async (message) => {
       });
     }
   }
+
+  if (message.type === 'VALIDATE_POSE') {
+    const { jobId, targetBuffer, expectedPose } = message;
+    if (!modelsLoaded) {
+      return parentPort?.postMessage({
+        jobId,
+        valid: false,
+        reason: 'Hệ thống nhận diện đang khởi động. Vui lòng thử lại sau vài giây.',
+      });
+    }
+
+    try {
+      const tensor = await bufferToTensor(targetBuffer);
+      try {
+        let detection = await faceapi
+          .detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.28 }))
+          .withFaceLandmarks();
+
+        if (!detection) {
+          detection = await faceapi
+            .detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.2 }))
+            .withFaceLandmarks();
+        }
+
+        if (!detection) {
+          return parentPort?.postMessage({
+            jobId,
+            valid: false,
+            error: 'NO_FACE',
+            reason: 'Không phát hiện khuôn mặt trong khung hình. Vui lòng căn chỉnh lại.',
+          });
+        }
+
+        const landmarks = detection.landmarks;
+        const nose = landmarks.getNose();
+        const leftEye = landmarks.getLeftEye();
+        const rightEye = landmarks.getRightEye();
+
+        if (!nose?.length || !leftEye?.length || !rightEye?.length) {
+          return parentPort?.postMessage({
+            jobId,
+            valid: false,
+            error: 'INCOMPLETE_FACE',
+            reason: 'Khuôn mặt bị che khuất hoặc quá mờ. Vui lòng căn chỉnh lại.',
+          });
+        }
+
+        // In 68-point landmarks: nose has 9 points (indices 0..8)
+        // 0..3 is nose bridge, 6 is bottom center tip of nose (point 33), 8 is right nostril (point 35)
+        const noseCenter = nose[6] || nose[3] || nose[Math.floor(nose.length / 2)];
+        const noseX = noseCenter.x;
+        const leftEyeX = leftEye.reduce((s, p) => s + p.x, 0) / leftEye.length;
+        const rightEyeX = rightEye.reduce((s, p) => s + p.x, 0) / rightEye.length;
+        const eyeDist = Math.max(1, Math.abs(rightEyeX - leftEyeX));
+        const minEyeX = Math.min(leftEyeX, rightEyeX);
+        const eyeRatio = (noseX - minEyeX) / eyeDist;
+
+        // Jaw lateral margin
+        const jaw = landmarks.positions;
+        const jawLeftX = jaw[0].x;
+        const jawRightX = jaw[16].x;
+        const minJawX = Math.min(jawLeftX, jawRightX);
+        const maxJawX = Math.max(jawLeftX, jawRightX);
+        const jawWidth = Math.max(1, maxJawX - minJawX);
+        const cheekRatio = (noseX - minJawX) / jawWidth;
+
+        // Combined symmetry score
+        const symmetry = (eyeRatio + cheekRatio) / 2;
+
+        console.log(`[Worker VALIDATE_POSE] pose=${expectedPose}, eyeRatio=${eyeRatio.toFixed(3)}, cheekRatio=${cheekRatio.toFixed(3)}, symmetry=${symmetry.toFixed(3)}`);
+
+        if (expectedPose === 'FRONT') {
+          // For FRONT: Normal human frontal faces with nose between eyes have eyeRatio comfortably in [0.20, 0.80]
+          // If face is detected with both eyes & nose clearly visible, it is accepted unless turned extreme profile
+          const isFront = eyeRatio >= 0.15 && eyeRatio <= 0.85;
+          if (!isFront) {
+            return parentPort?.postMessage({
+              jobId,
+              valid: false,
+              error: 'NOT_FRONT',
+              reason: 'Vui lòng nhìn thẳng trực diện vào camera.',
+            });
+          }
+        } else if (expectedPose === 'LEFT' || expectedPose === 'RIGHT') {
+          // For side poses: ensure the face is angled away from dead-center
+          const isTurned = eyeRatio < 0.44 || eyeRatio > 0.56 || symmetry < 0.44 || symmetry > 0.56;
+          if (!isTurned) {
+            const sideName = expectedPose === 'LEFT' ? 'sang TRÁI' : 'sang PHẢI';
+            return parentPort?.postMessage({
+              jobId,
+              valid: false,
+              error: 'NOT_TURNED',
+              reason: `Vui lòng nghiêng mặt ${sideName} khoảng 20° - 30°.`,
+            });
+          }
+        }
+
+        return parentPort?.postMessage({
+          jobId,
+          valid: true,
+          detectedPose: expectedPose,
+          confidence: Number(((detection as any).detection?.score ?? 0.95).toFixed(2)),
+        });
+      } finally {
+        tensor.dispose();
+      }
+    } catch (err: any) {
+      parentPort?.postMessage({
+        jobId,
+        valid: false,
+        error: 'PROCESS_ERROR',
+        reason: 'Lỗi kiểm tra ảnh: ' + (err?.message || 'Không xác định'),
+      });
+    }
+  }
 });

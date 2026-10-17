@@ -2,7 +2,7 @@ import { Body, Controller, Get, Patch, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { UpdateFaceDto, UpdateMeDto } from './dto/update-me.dto';
+import { UpdateFaceDto, UpdateMeDto, ValidateFacePoseDto } from './dto/update-me.dto';
 import { UpdatePinnedAppsDto } from './dto/update-pinned-apps.dto';
 import { UsersService } from './users.service';
 
@@ -20,6 +20,12 @@ export class UsersController {
   @Patch('me/face')
   updateMyFace(@Body() dto: UpdateFaceDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.usersService.updateMyFace(dto, actor);
+  }
+
+  @Post('me/face/validate-pose')
+  @ApiOperation({ summary: 'Kiểm tra ảnh chụp có chứa khuôn mặt và đúng góc tư thế yêu cầu' })
+  validateFacePose(@Body() dto: ValidateFacePoseDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.usersService.validateFacePose(dto, actor);
   }
 
   @Get('me/pinned-apps')

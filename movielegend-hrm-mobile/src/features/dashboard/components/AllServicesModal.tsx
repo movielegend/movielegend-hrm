@@ -51,6 +51,7 @@ import {
   RotateCcw,
   SlidersHorizontal,
   ArrowRightLeft,
+  History,
 } from 'lucide-react-native';
 
 import {
@@ -84,6 +85,7 @@ interface AllServicesModalProps {
 export function renderAppIcon(iconName: string, color: string, size = 24, strokeWidth = 1.4) {
   switch (iconName) {
     case 'Clock': return <Clock size={size} color={color} strokeWidth={strokeWidth} />;
+    case 'History': return <History size={size} color={color} strokeWidth={strokeWidth} />;
     case 'Calendar': return <Calendar size={size} color={color} strokeWidth={strokeWidth} />;
     case 'CalendarDays': return <CalendarDays size={size} color={color} strokeWidth={strokeWidth} />;
     case 'Users': return <Users size={size} color={color} strokeWidth={strokeWidth} />;
