@@ -3,18 +3,37 @@ import type { ApiResponse } from '../types/api.types';
 
 export interface DailyReportMetricItem {
   name: string;
+  description?: string;
   value?: string | number;
   unit?: string;
   note?: string;
+  notes?: string;
+  category?: string;
+  taskType?: string;
+  priority?: string;
+  deadline?: string;
+  obstacles?: string;
+  supportRequest?: string;
+  progress?: number;
+  status?: string;
 }
 
 export interface DailyReportTaskItem {
   taskId?: string;
+  taskCode?: string;
   title: string;
+  description?: string;
+  category?: string;
+  taskType?: string;
+  priority?: string;
   status?: string;
   progress?: number;
+  deadline?: string;
   expectedDate?: string;
   note?: string;
+  notes?: string;
+  obstacles?: string;
+  supportRequest?: string;
   isManual?: boolean;
   isSelected?: boolean;
 }

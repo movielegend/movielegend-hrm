@@ -7,6 +7,7 @@ export interface WorkTask {
   title: string;
   description?: string;
   category?: string;
+  taskType?: string;
   priority?: string;
   deadline?: string;
   workStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'WAITING' | 'DONE' | 'CANCELLED';
@@ -15,6 +16,7 @@ export interface WorkTask {
     progress?: number;
     notes?: string;
     obstacles?: string;
+    supportRequest?: string;
   };
 }
 
@@ -52,6 +54,7 @@ export async function updateWorkTaskProgress(taskId: string, payload: {
   progress?: number;
   notes?: string;
   obstacles?: string;
+  supportRequest?: string;
   reportDate?: string;
   isTestBypass?: boolean;
 }): Promise<any> {

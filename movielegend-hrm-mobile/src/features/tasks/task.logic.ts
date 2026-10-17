@@ -62,14 +62,20 @@ export function translatePriority(priority?: TaskPriority | string): string {
 export function translateStatus(status?: string | null): string {
   const map: Record<string, string> = {
     NEW: 'Mới',
+    TODO: 'Cần làm',
     ACCEPTED: 'Đã nhận',
     IN_PROGRESS: 'Đang làm',
     WAITING_REVIEW: 'Chờ duyệt',
     COMPLETED: 'Hoàn thành',
+    DONE: 'Hoàn thành',
     REJECTED: 'Làm lại',
     CANCELLED: 'Đã hủy',
     PENDING: 'Chờ xử lý',
     APPROVED: 'Đã duyệt',
+    REVIEW_APPROVED: 'Đã duyệt',
+    REVIEW_REJECTED: 'Bắt làm lại',
+    ADMIN_APPROVED: 'Admin đã duyệt',
+    LEADER_APPROVED: 'Leader đã duyệt',
   };
   return status ? (map[status] ?? status) : '-';
 }
@@ -86,6 +92,21 @@ export function translateTimelineType(type: string): string {
     EXTENSION_APPROVED: 'Duyệt gia hạn',
     EXTENSION_REJECTED: 'Từ chối gia hạn',
     PROGRESS_UPDATED: 'Cập nhật tiến độ',
+    REVIEW_APPROVED: 'Đã duyệt kết quả',
+    REVIEW_REJECTED: 'Yêu cầu làm lại',
+
+    // Raw action enum values fallback
+    CREATED: 'Tạo công việc',
+    ASSIGNED: 'Giao việc',
+    ACCEPTED: 'Đã nhận việc',
+    STARTED: 'Bắt đầu làm',
+    SUBMITTED: 'Nộp kết quả',
+    APPROVED: 'Đã duyệt kết quả',
+    REJECTED: 'Yêu cầu làm lại',
+    CANCELLED: 'Đã hủy công việc',
+    COMMENTED: 'Thêm bình luận',
+    ATTACHED: 'Thêm đính kèm',
+    COMPLETED: 'Hoàn thành công việc',
   };
   return map[type] ?? type;
 }

@@ -188,6 +188,10 @@ export function TaskTimeline({ items }: { items?: TaskTimelineItemDto[] | undefi
         let eventTitle = translateTimelineType(item.type);
         if (item.type === 'STATUS_CHANGED' && item.data?.newStatus === 'COMPLETED') {
           eventTitle = 'Đã duyệt kết quả';
+        } else if (item.type === 'REVIEW_APPROVED') {
+          eventTitle = 'Đã duyệt kết quả';
+        } else if (item.type === 'REVIEW_REJECTED') {
+          eventTitle = 'Yêu cầu làm lại';
         }
         return (
           <View key={item.id} style={{ flexDirection: 'row', minHeight: 60 }}>
@@ -203,9 +207,13 @@ export function TaskTimeline({ items }: { items?: TaskTimelineItemDto[] | undefi
               {item.data?.note ? (
                 <Text style={styles.timelineNote}>{item.data.note}</Text>
               ) : null}
-              {item.data?.oldStatus || item.data?.newStatus ? (
+              {item.data?.oldStatus && item.data?.newStatus ? (
                 <Text style={styles.timelineStatusTransition}>
-                  {`${translateStatus(item.data?.oldStatus)} → ${translateStatus(item.data?.newStatus)}`}
+                  {`${translateStatus(item.data.oldStatus)} → ${translateStatus(item.data.newStatus)}`}
+                </Text>
+              ) : item.data?.newStatus ? (
+                <Text style={styles.timelineStatusTransition}>
+                  {`Trạng thái: ${translateStatus(item.data.newStatus)}`}
                 </Text>
               ) : null}
             </View>
