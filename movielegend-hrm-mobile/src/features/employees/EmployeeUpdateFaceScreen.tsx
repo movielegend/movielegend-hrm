@@ -38,7 +38,6 @@ const OVAL_RADIUS = OVAL_WIDTH / 2;
 // Perimeter of rounded rect (two vertical straight lines + two semicircles = 2 * (H - 2R) + 2 * PI * R)
 const OVAL_STRAIGHT_SEGMENT = Math.max(0, OVAL_HEIGHT - 2 * OVAL_RADIUS);
 const OVAL_PERIMETER = 2 * OVAL_STRAIGHT_SEGMENT + 2 * Math.PI * OVAL_RADIUS;
-const AUTO_SCAN_DURATION = 3000; // 3.0 seconds auto-scan flow
 
 const POSES: FacePose[] = ['FRONT', 'LEFT', 'RIGHT'];
 
@@ -91,41 +90,14 @@ export function EmployeeUpdateFaceScreen() {
   const [uploadPercent, setUploadPercent] = useState(0);
   const [uploadStatusText, setUploadStatusText] = useState('Đang chuẩn bị dữ liệu...');
 
-  // 3s Auto-scan progress state (Face ID automated flow)
-  const progressAnim = useRef(new Animated.Value(0)).current;
-  const [progressPercent, setProgressPercent] = useState(0);
-  const scanTimerRef = useRef<any>(null);
-  const isAutoScanningRef = useRef<boolean>(false);
-
   const activePose: FacePose = POSES[activePoseIndex] ?? 'FRONT';
 
   // Animations
   const successScale = useRef(new Animated.Value(0.7)).current;
 
-  // Sync animated progress value to state for SVG strokeDashoffset and countdown display
-  useEffect(() => {
-    const listenerId = progressAnim.addListener(({ value }) => {
-      setProgressPercent(Math.min(100, Math.max(0, Math.round(value))));
-    });
-
-    return () => {
-      progressAnim.removeListener(listenerId);
-    };
-  }, [progressAnim]);
-
-  // Stop current scan sequence
-  const stopScanSequence = useCallback(() => {
-    isAutoScanningRef.current = false;
-    if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
-    progressAnim.stopAnimation();
-    progressAnim.setValue(0);
-    setProgressPercent(0);
-  }, [progressAnim]);
-
-  // Handle snapping and intelligent validation
+  // Handle snapping and intelligent validation on shutter press
   const handleCapturePose = useCallback(async (pose: FacePose) => {
     if (capturing || isValidating || !cameraRef.current) return;
-    stopScanSequence();
     setCapturing(true);
     setValidationError(null);
 
@@ -156,19 +128,13 @@ export function EmployeeUpdateFaceScreen() {
 
       if (!checkResult.valid) {
         setLastAttemptPhoto({ uri: photo.uri, pose });
-        setValidationError(checkResult.message || 'Khuôn mặt chưa khớp tư thế yêu cầu. Vui lòng căn chỉnh lại.');
+        setValidationError(checkResult.message || 'Khuôn mặt chưa khớp tư thế yêu cầu. Vui lòng căn chỉnh lại rồi bấm nút chụp.');
         setCapturing(false);
         setIsValidating(false);
 
         try {
           Vibration.vibrate([0, 80, 40, 80]);
         } catch {}
-
-        // Auto restart scan after 2.5s so user can re-align and auto-capture without touching screen!
-        scanTimerRef.current = setTimeout(() => {
-          setValidationError(null);
-          startScanSequence();
-        }, 2500);
         return;
       }
 
@@ -213,59 +179,19 @@ export function EmployeeUpdateFaceScreen() {
       try {
         Vibration.vibrate([0, 80, 40, 80]);
       } catch {}
-
-      scanTimerRef.current = setTimeout(() => {
-        setValidationError(null);
-        startScanSequence();
-      }, 2500);
     }
-  }, [capturing, isValidating, capturedPhotos, activePoseIndex, stopScanSequence]);
+  }, [capturing, isValidating, capturedPhotos, activePoseIndex]);
 
-  // Start the 3-second progress sequence (Face ID style auto-capture)
-  const startScanSequence = useCallback(() => {
-    if (capturing || isValidating || step !== 'SCANNING') return;
-    if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
-    progressAnim.stopAnimation();
-    progressAnim.setValue(0);
-    setProgressPercent(0);
-    isAutoScanningRef.current = true;
-
-    Animated.timing(progressAnim, {
-      toValue: 100,
-      duration: AUTO_SCAN_DURATION,
-      useNativeDriver: false,
-    }).start(({ finished }) => {
-      if (finished && isAutoScanningRef.current) {
-        isAutoScanningRef.current = false;
-        void handleCapturePose(activePose);
-      }
-    });
-  }, [capturing, isValidating, step, activePose, handleCapturePose, progressAnim]);
-
-  // Clear errors and auto-start scan when changing pose or when camera is ready
+  // Clear errors when changing pose
   useEffect(() => {
     setValidationError(null);
     setLastAttemptPhoto(null);
     setJustCapturedPose(null);
-    stopScanSequence();
-
-    if (cameraReady && step === 'SCANNING') {
-      // 500ms delay to let user stabilize position before 3s scan
-      scanTimerRef.current = setTimeout(() => {
-        startScanSequence();
-      }, 500);
-    }
-
-    return () => {
-      if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
-      stopScanSequence();
-    };
-  }, [activePoseIndex, cameraReady, step]);
+  }, [activePoseIndex]);
 
   // Fallback to accept photo if user is confident with their angle
   const acceptCurrentPhotoAnyway = () => {
     if (!lastAttemptPhoto) return;
-    stopScanSequence();
     const { uri, pose } = lastAttemptPhoto;
     setValidationError(null);
     setLastAttemptPhoto(null);
@@ -382,21 +308,20 @@ export function EmployeeUpdateFaceScreen() {
   const ovalTop = Math.round(ovalCenterY - OVAL_HEIGHT / 2);
   const ovalLeft = Math.round((SCREEN_WIDTH - OVAL_WIDTH) / 2);
 
-  const strokeDashoffset = OVAL_PERIMETER * (1 - progressPercent / 100);
-  const secondsLeft = Math.max(1, Math.ceil(3 - (progressPercent / 100) * 3));
-
   const ringColor = justCapturedPose
     ? '#22C55E'
     : validationError
     ? '#EF4444'
-    : progressPercent > 0
-    ? '#22C55E'
+    : capturing || isValidating
+    ? '#38BDF8'
     : 'rgba(255, 255, 255, 0.4)';
 
   const frameBorderColor = justCapturedPose
     ? '#22C55E'
     : validationError
     ? '#EF4444'
+    : capturing || isValidating
+    ? '#38BDF8'
     : 'rgba(255, 255, 255, 0.45)';
 
   return (
@@ -439,7 +364,7 @@ export function EmployeeUpdateFaceScreen() {
         />
       </Svg>
 
-      {/* 3. Outer Smooth SVG Progress Ring (Face ID Style 3s Auto-Scan) */}
+      {/* 3. Outer SVG Guide Ring */}
       <View
         style={[
           styles.svgRingWrapper,
@@ -465,7 +390,7 @@ export function EmployeeUpdateFaceScreen() {
             strokeWidth={2.5}
             fill="none"
           />
-          {/* Active 3s Progress Ring */}
+          {/* Active Accent Ring */}
           <Rect
             x={5}
             y={5}
@@ -474,10 +399,7 @@ export function EmployeeUpdateFaceScreen() {
             rx={OVAL_RADIUS}
             ry={OVAL_RADIUS}
             stroke={ringColor}
-            strokeWidth={4.5}
-            strokeDasharray={`${OVAL_PERIMETER} ${OVAL_PERIMETER}`}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
+            strokeWidth={3.5}
             fill="none"
           />
         </Svg>
@@ -507,13 +429,6 @@ export function EmployeeUpdateFaceScreen() {
           <View style={styles.capturedCenterBadge}>
             <Ionicons name="checkmark-circle" size={54} color="#22C55E" />
             <Text style={styles.capturedCenterText}>Góc {POSE_INFO[justCapturedPose].shortLabel} hợp lệ</Text>
-          </View>
-        ) : progressPercent > 0 && !isValidating && !validationError ? (
-          <View style={styles.countdownCenterBadge}>
-            <Text style={styles.countdownCenterNumber}>{secondsLeft}</Text>
-            <Text style={styles.countdownCenterText}>
-              Giữ yên góc {POSE_INFO[activePose].shortLabel.toLowerCase()}
-            </Text>
           </View>
         ) : null}
       </View>
@@ -731,10 +646,10 @@ export function EmployeeUpdateFaceScreen() {
 
             <Text style={styles.autoScanHintText}>
               {isValidating
-                ? 'Đang kiểm tra ảnh...'
-                : progressPercent > 0
-                ? `Tự động chụp sau ${secondsLeft}s (hoặc bấm để chụp ngay)`
-                : 'Căn chỉnh mặt vào khung để tự chụp'}
+                ? 'Đang kiểm tra góc mặt...'
+                : capturing
+                ? 'Đang chụp ảnh...'
+                : 'Căn chỉnh mặt vào khung rồi bấm nút chụp'}
             </Text>
           </View>
         </View>

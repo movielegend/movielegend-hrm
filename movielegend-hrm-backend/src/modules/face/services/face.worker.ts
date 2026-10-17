@@ -67,7 +67,7 @@ initModels();
 async function bufferToTensor(buffer: Uint8Array) {
   const { data, info } = await sharp(Buffer.from(buffer), { failOn: 'none' })
     .rotate() // Automatically orient EXIF rotated images (from iOS devices)
-    .resize(320, 320, { fit: 'inside', withoutEnlargement: true })
+    .resize(360, 360, { fit: 'inside', withoutEnlargement: true })
     .removeAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -160,16 +160,18 @@ parentPort?.on('message', async (message) => {
         });
       }
 
-      // Strict Security Golden Threshold (0.55) - Standard for FaceNet
-      const MATCH_THRESHOLD = 0.55;
+      // High-Security Biometric Thresholds
+      // Standard distance for identical person: 0.15 - 0.38
+      // Different people (even with similar facial structure): 0.48 - 0.70+
+      const FRONT_MATCH_THRESHOLD = 0.44; // Require distance < 0.44 (~56%+ confidence) for frontal match
+      const SIDE_MATCH_THRESHOLD = 0.42;  // Even stricter for side poses to prevent false acceptances from half-faces
 
       // Multi-candidate mode (support multiple poses: FRONT, LEFT, RIGHT)
       if (Array.isArray(candidates) && candidates.length > 0) {
-        let bestDistance = Infinity;
-        let bestPose: string | undefined;
         const newDescriptors: Array<{ id: string; pose: string; descriptor: Float32Array }> = [];
 
-        for (const candidate of candidates) {
+        // Helper to get or compute descriptor
+        const resolveDescriptor = async (candidate: any): Promise<Float32Array | undefined> => {
           let desc = candidate.descriptor;
           if (!desc && candidate.buffer) {
             desc = await getFaceDescriptor(candidate.buffer);
@@ -177,16 +179,45 @@ parentPort?.on('message', async (message) => {
               newDescriptors.push({ id: candidate.id, pose: candidate.pose, descriptor: desc });
             }
           }
+          return desc;
+        };
+
+        // 1. Front-First Fast Path: Prioritize FRONT pose (covers 95%+ of attendance check-ins)
+        const frontCandidate = candidates.find((c) => c.pose === 'FRONT');
+        if (frontCandidate) {
+          const frontDesc = await resolveDescriptor(frontCandidate);
+          if (frontDesc) {
+            const frontDistance = faceapi.euclideanDistance(frontDesc, targetDescriptor);
+            if (frontDistance < FRONT_MATCH_THRESHOLD) {
+              return parentPort?.postMessage({
+                jobId,
+                matched: true,
+                confidence: Number((1 - frontDistance).toFixed(2)),
+                bestPose: 'FRONT',
+                provider: 'local-face-api-worker',
+                newDescriptors,
+              });
+            }
+          }
+        }
+
+        // 2. Cascading Fallback: Check other registered poses (LEFT, RIGHT) if FRONT was not matched or not present
+        let bestDistance = Infinity;
+        let bestPose: string | undefined;
+
+        for (const candidate of candidates) {
+          if (candidate.pose === 'FRONT') continue; // Already checked FRONT above
+          const desc = await resolveDescriptor(candidate);
           if (desc) {
             const distance = faceapi.euclideanDistance(desc, targetDescriptor);
-            if (distance < bestDistance) {
+            if (distance < SIDE_MATCH_THRESHOLD && distance < bestDistance) {
               bestDistance = distance;
               bestPose = candidate.pose;
             }
           }
         }
 
-        if (bestDistance < MATCH_THRESHOLD) {
+        if (bestDistance !== Infinity) {
           return parentPort?.postMessage({
             jobId,
             matched: true,
@@ -196,12 +227,22 @@ parentPort?.on('message', async (message) => {
             newDescriptors,
           });
         } else {
+          // Compute closest distance across all poses for diagnostic feedback
+          let closestDist = Infinity;
+          for (const candidate of candidates) {
+            const desc = candidate.descriptor || newDescriptors.find(d => d.id === candidate.id)?.descriptor;
+            if (desc) {
+              const d = faceapi.euclideanDistance(desc, targetDescriptor);
+              if (d < closestDist) closestDist = d;
+            }
+          }
+
           return parentPort?.postMessage({
             jobId,
             matched: false,
-            confidence: bestDistance !== Infinity ? Number((1 - bestDistance).toFixed(2)) : 0,
+            confidence: closestDist !== Infinity ? Number((1 - closestDist).toFixed(2)) : 0,
             provider: 'local-face-api-worker',
-            reason: `Khuôn mặt không khớp với hồ sơ nhân viên đã đăng ký (Độ lệch nhỏ nhất: ${bestDistance !== Infinity ? bestDistance.toFixed(2) : 'N/A'} / Ngưỡng cho phép: ${MATCH_THRESHOLD}). Vui lòng không chấm công hộ hoặc che mặt.`,
+            reason: `Khuôn mặt không khớp với hồ sơ nhân viên đã đăng ký (Độ lệch nhỏ nhất: ${closestDist !== Infinity ? closestDist.toFixed(2) : 'N/A'} / Ngưỡng cho phép: ${FRONT_MATCH_THRESHOLD}). Vui lòng không chấm công hộ hoặc che mặt.`,
             newDescriptors,
           });
         }
@@ -223,7 +264,7 @@ parentPort?.on('message', async (message) => {
 
       const distance = faceapi.euclideanDistance(sourceDescriptor, targetDescriptor);
 
-      if (distance < MATCH_THRESHOLD) {
+      if (distance < FRONT_MATCH_THRESHOLD) {
         parentPort?.postMessage({
           jobId,
           matched: true,
@@ -237,7 +278,7 @@ parentPort?.on('message', async (message) => {
           matched: false,
           confidence: Number((1 - distance).toFixed(2)),
           provider: 'local-face-api-worker',
-          reason: `Khuôn mặt không khớp với hồ sơ nhân viên đã đăng ký (Tỷ lệ sai lệch: ${distance.toFixed(2)} / Ngưỡng cho phép: ${MATCH_THRESHOLD}). Vui lòng không chấm công hộ hoặc che mặt.`,
+          reason: `Khuôn mặt không khớp với hồ sơ nhân viên đã đăng ký (Tỷ lệ sai lệch: ${distance.toFixed(2)} / Ngưỡng cho phép: ${FRONT_MATCH_THRESHOLD}). Vui lòng không chấm công hộ hoặc che mặt.`,
           sourceDescriptor: providedSourceDescriptor ? undefined : sourceDescriptor,
         });
       }
