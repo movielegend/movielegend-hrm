@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   Platform,
   Pressable,
@@ -82,6 +83,12 @@ export function EmployeePayslipScreen() {
   const [isLabelingModalOpen, setIsLabelingModalOpen] = useState(false);
   const [labelingDeptId, setLabelingDeptId] = useState<string | undefined>(undefined);
   const [isAdvanceModalOpen, setIsAdvanceModalOpen] = useState(false);
+  const [isIncomeDetailsExpanded, setIsIncomeDetailsExpanded] = useState(false);
+
+  const toggleIncomeDetails = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsIncomeDetailsExpanded((prev) => !prev);
+  };
 
   // Feedback / Khiếu nại của User (Tab MY)
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
@@ -849,62 +856,89 @@ export function EmployeePayslipScreen() {
             )}
           </View>
 
-          {/* Section: Chi tiết thu nhập */}
-          <Text style={styles.sectionHeaderTitle}>Chi tiết thu nhập</Text>
-
+          {/* Section: Chi tiết thu nhập (Thu gọn / Dropdown) */}
           <View style={styles.detailTableCard}>
-            {/* Group: Thu nhập */}
-            <Text style={styles.tableGroupTitle}>Thu nhập</Text>
-            <View style={styles.tableRow}>
-              <Text style={styles.tableRowLabel}>Lương cơ bản</Text>
-              <Text style={styles.tableRowVal}>{formatVnd(payslip?.baseSalary)}</Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.tableRowLabel}>Lương theo ngày công</Text>
-              <Text style={styles.tableRowVal}>
-                {formatVnd(payslip?.actualSalary)}
-              </Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.tableRowLabel}>Phụ cấp</Text>
-              <Text style={styles.tableRowVal}>
-                {formatVnd(payslip?.allowanceAmount)}
-              </Text>
-            </View>
-
-            <View style={styles.tableDivider} />
-
-            <View style={styles.tableTotalRow}>
-              <Text style={styles.tableTotalLabel}>Tổng thu nhập</Text>
-              <Text style={styles.tableTotalVal}>
-                {formatVnd(payslip?.grossSalary)}
-              </Text>
-            </View>
-
-            {/* Group: Giảm trừ */}
-            <Text style={[styles.tableGroupTitle, { marginTop: 18 }]}>Giảm trừ</Text>
-            <View style={styles.tableRow}>
-              <View>
-                <Text style={styles.tableRowLabel}>Bảo hiểm</Text>
-                <Text style={styles.tableRowSubLabel}>BHXH, BHYT, BHTN</Text>
+            <Pressable
+              style={styles.detailHeaderBtn}
+              onPress={toggleIncomeDetails}
+              hitSlop={8}
+            >
+              <View style={styles.detailHeaderLeft}>
+                <View style={styles.detailHeaderIconCircle}>
+                  <Ionicons name="receipt-outline" size={17} color="#102739" />
+                </View>
+                <Text style={styles.detailHeaderTitle}>Chi tiết thu nhập</Text>
               </View>
-              <Text style={styles.tableRowVal}>
-                {formatVnd(payslip?.insuranceAmount)}
-              </Text>
-            </View>
-            <View style={styles.tableRow}>
-              <Text style={styles.tableRowLabel}>Thuế TNCN</Text>
-              <Text style={styles.tableRowVal}>{formatVnd(payslip?.taxAmount)}</Text>
-            </View>
+              <View style={styles.detailHeaderRight}>
+                {!isIncomeDetailsExpanded && (
+                  <Text style={styles.detailHeaderSummaryText}>
+                    {formatVnd(payslip?.grossSalary)}
+                  </Text>
+                )}
+                <Ionicons
+                  name={isIncomeDetailsExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={19}
+                  color="#64748B"
+                />
+              </View>
+            </Pressable>
 
-            <View style={styles.tableDivider} />
+            {isIncomeDetailsExpanded && (
+              <View style={styles.detailContentWrap}>
+                {/* Group: Thu nhập */}
+                <Text style={styles.tableGroupTitle}>Thu nhập</Text>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableRowLabel}>Lương cơ bản</Text>
+                  <Text style={styles.tableRowVal}>{formatVnd(payslip?.baseSalary)}</Text>
+                </View>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableRowLabel}>Lương theo ngày công</Text>
+                  <Text style={styles.tableRowVal}>
+                    {formatVnd(payslip?.actualSalary)}
+                  </Text>
+                </View>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableRowLabel}>Phụ cấp</Text>
+                  <Text style={styles.tableRowVal}>
+                    {formatVnd(payslip?.allowanceAmount)}
+                  </Text>
+                </View>
 
-            <View style={styles.tableTotalRow}>
-              <Text style={styles.tableTotalLabel}>Tổng khấu trừ</Text>
-              <Text style={styles.tableTotalVal}>
-                {formatVnd(payslip?.deductionAmount)}
-              </Text>
-            </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableTotalRow}>
+                  <Text style={styles.tableTotalLabel}>Tổng thu nhập</Text>
+                  <Text style={styles.tableTotalVal}>
+                    {formatVnd(payslip?.grossSalary)}
+                  </Text>
+                </View>
+
+                {/* Group: Giảm trừ */}
+                <Text style={[styles.tableGroupTitle, { marginTop: 18 }]}>Giảm trừ</Text>
+                <View style={styles.tableRow}>
+                  <View>
+                    <Text style={styles.tableRowLabel}>Bảo hiểm</Text>
+                    <Text style={styles.tableRowSubLabel}>BHXH, BHYT, BHTN</Text>
+                  </View>
+                  <Text style={styles.tableRowVal}>
+                    {formatVnd(payslip?.insuranceAmount)}
+                  </Text>
+                </View>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableRowLabel}>Thuế TNCN</Text>
+                  <Text style={styles.tableRowVal}>{formatVnd(payslip?.taxAmount)}</Text>
+                </View>
+
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableTotalRow}>
+                  <Text style={styles.tableTotalLabel}>Tổng khấu trừ</Text>
+                  <Text style={styles.tableTotalVal}>
+                    {formatVnd(payslip?.deductionAmount)}
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </ScrollView>
       ) : (
@@ -1164,8 +1198,13 @@ export function EmployeePayslipScreen() {
         transparent
         animationType="slide"
         onRequestClose={() => setIsDeptModalVisible(false)}
+        statusBarTranslucent
       >
         <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.dialogBackdrop}
+            onPress={() => setIsDeptModalVisible(false)}
+          />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Chọn phòng ban</Text>
@@ -1282,12 +1321,27 @@ export function EmployeePayslipScreen() {
         visible={isDisputeModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setIsDisputeModalOpen(false)}
+        onRequestClose={() => {
+          if (!isSubmittingFeedback) {
+            setIsDisputeModalOpen(false);
+            setDisputeNote('');
+          }
+        }}
+        statusBarTranslucent
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={styles.dialogModalOverlay}
         >
+          <Pressable
+            style={styles.dialogBackdrop}
+            onPress={() => {
+              if (!isSubmittingFeedback) {
+                setIsDisputeModalOpen(false);
+                setDisputeNote('');
+              }
+            }}
+          />
           <View style={styles.disputeModalCard}>
             <View style={styles.disputeModalHeader}>
               <View style={styles.disputeModalIconCircle}>
@@ -1301,8 +1355,10 @@ export function EmployeePayslipScreen() {
               </View>
               <Pressable
                 onPress={() => {
-                  setIsDisputeModalOpen(false);
-                  setDisputeNote('');
+                  if (!isSubmittingFeedback) {
+                    setIsDisputeModalOpen(false);
+                    setDisputeNote('');
+                  }
                 }}
                 hitSlop={8}
               >
@@ -1329,8 +1385,10 @@ export function EmployeePayslipScreen() {
               <Pressable
                 style={styles.disputeModalCancelBtn}
                 onPress={() => {
-                  setIsDisputeModalOpen(false);
-                  setDisputeNote('');
+                  if (!isSubmittingFeedback) {
+                    setIsDisputeModalOpen(false);
+                    setDisputeNote('');
+                  }
                 }}
                 disabled={isSubmittingFeedback}
               >
@@ -1363,16 +1421,24 @@ export function EmployeePayslipScreen() {
       <Modal
         visible={isDisputeResolutionModalOpen && Boolean(selectedDisputeEmp)}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => {
           setIsDisputeResolutionModalOpen(false);
           setSelectedDisputeEmp(null);
         }}
+        statusBarTranslucent
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
+          style={styles.dialogModalOverlay}
         >
+          <Pressable
+            style={styles.dialogBackdrop}
+            onPress={() => {
+              setIsDisputeResolutionModalOpen(false);
+              setSelectedDisputeEmp(null);
+            }}
+          />
           <View style={styles.resolutionModalCard}>
             <View style={styles.resolutionModalHeader}>
               <View style={styles.resolutionIconCircle}>
@@ -1736,14 +1802,58 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  /* Detail Table Card */
+  /* Detail Table Card (Collapsible) */
   detailTableCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     padding: 16,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  detailHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  detailHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  detailHeaderIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  detailHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  detailHeaderSummaryText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  detailContentWrap: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   tableGroupTitle: {
     fontSize: 14,
@@ -2012,6 +2122,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
+  dialogModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dialogBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   modalContent: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
@@ -2053,9 +2177,8 @@ const styles = StyleSheet.create({
   // Salary Advance Styles
   advanceCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 18,
     padding: 16,
-    marginHorizontal: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -2475,8 +2598,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    width: '90%',
-    maxWidth: 420,
+    width: '100%',
+    maxWidth: 400,
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 10,
@@ -2560,9 +2683,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    width: '92%',
+    width: '100%',
     maxWidth: 480,
-    maxHeight: '90%',
+    maxHeight: '88%',
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 10,

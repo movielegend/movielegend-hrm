@@ -9,6 +9,7 @@ import { useAuth } from './AuthProvider';
 import { useActiveChat } from '../contexts/ActiveChatContext';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
 import { CustomAlert } from '../components/CustomAlert';
+import { updatePresenceItem } from '../features/presence/usePresence';
 
 let Notifications: any = null;
 if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
@@ -199,6 +200,18 @@ export function SocketProvider({ children }: PropsWithChildren) {
         }
         void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
         void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
+      });
+
+      socket.on('chat:conversation_deleted', (data: any) => {
+        if (data?.groupId) {
+          queryClient.setQueryData(chatKeys.groups(), (old: any) => {
+            if (!Array.isArray(old)) return old;
+            return old.filter((g: any) => g.id !== data.groupId);
+          });
+          void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+          void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
+          void queryClient.invalidateQueries({ queryKey: chatKeys.messages(data.groupId) });
+        }
       });
       socket.on('chat:message', (message: any) => {
         if (message?.groupId && message?.id) {
@@ -413,6 +426,12 @@ export function SocketProvider({ children }: PropsWithChildren) {
         logout();
       });
 
+      socket.on('presence:update', (payload: { userId: string; isOnline: boolean; lastActiveAt?: string | null }) => {
+        if (payload?.userId) {
+          updatePresenceItem(payload.userId, payload.isOnline, payload.lastActiveAt);
+        }
+      });
+
       socket.connect();
     }
 
@@ -431,6 +450,7 @@ export function SocketProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     function refreshOnForeground(nextState: AppStateStatus) {
       if (nextState !== 'active' || !isAuthenticated) return;
+      socketRef.current?.emit('presence:heartbeat');
       void queryClient.invalidateQueries({ queryKey: ['tasks', 'me'] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount() });
     }

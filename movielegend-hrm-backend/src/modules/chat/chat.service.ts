@@ -116,12 +116,26 @@ export class ChatService {
       where: { groupId_userId: { groupId, userId } }
     });
 
-    if (!member) throw new NotFoundException('You are not a member of this chat group');
+    const now = new Date();
+    if (!member) {
+      const group = await this.prisma.chatGroup.findUnique({ where: { id: groupId } });
+      if (!group) throw new NotFoundException('Chat group not found');
 
-    await this.prisma.chatGroupMember.update({
-      where: { groupId_userId: { groupId, userId } },
-      data: { clearedAt: new Date() }
-    });
+      await this.prisma.chatGroupMember.create({
+        data: {
+          groupId,
+          userId,
+          clearedAt: now
+        }
+      });
+    } else {
+      await this.prisma.chatGroupMember.update({
+        where: { groupId_userId: { groupId, userId } },
+        data: { clearedAt: now }
+      });
+    }
+
+    this.realtime?.emitToUser(userId, 'chat:conversation_deleted', { groupId, userId, clearedAt: now.toISOString() });
 
     return { success: true };
   }
@@ -428,7 +442,7 @@ export class ChatService {
     const directGroupIds = groups.filter(g => g.type === 'DIRECT').map(g => g.id);
     const deptIds = groups.filter(g => g.type === 'DEPARTMENT' && g.departmentId).map(g => g.departmentId!);
 
-    const [unreadCountByGroup, latestMessages, directMembers, deptMembers] = await Promise.all([
+    const [unreadCountByGroup, latestMessages, directMembers, deptMembers, userMemberships] = await Promise.all([
       this.getUnreadCounts(groupIds, userId),
       groupIds.length > 0 ? this.prisma.chatMessage.findMany({
         where: { groupId: { in: groupIds } },
@@ -451,11 +465,16 @@ export class ChatService {
             }
           }
         }
+      }) : [],
+      groupIds.length > 0 ? this.prisma.chatGroupMember.findMany({
+        where: { groupId: { in: groupIds }, userId },
+        select: { groupId: true, clearedAt: true }
       }) : []
     ]);
 
     const latestMessageMap = Object.fromEntries(latestMessages.map(m => [m.groupId, m]));
     const directMemberMap = Object.fromEntries(directMembers.map(m => [m.groupId, m]));
+    const userClearedMap = new Map(userMemberships.map(m => [m.groupId, m.clearedAt]));
     const deptMemberMap: Record<string, any[]> = {};
     for (const dm of deptMembers) {
       if (!deptMemberMap[dm.departmentId]) {
@@ -469,7 +488,23 @@ export class ChatService {
 
     const resultGroups = [];
     for (const group of groups) {
-      const latestMessage = latestMessageMap[group.id];
+      const clearedAt = userClearedMap.get(group.id);
+      let latestMessage: any = latestMessageMap[group.id];
+
+      // If user has cleared chat, only count latestMessage if sent after clearedAt
+      if (clearedAt && latestMessage) {
+        if (new Date(latestMessage.createdAt) <= new Date(clearedAt)) {
+          latestMessage = undefined;
+        }
+      }
+
+      // If it is a DIRECT conversation without messages (or cleared), hide from recent list
+      if (group.type === 'DIRECT' && !latestMessage) {
+        continue;
+      }
+      if (group.type === 'CUSTOM' && clearedAt && !latestMessage) {
+        continue;
+      }
 
       let finalName = group.name;
       let otherUserId: string | undefined;
@@ -496,7 +531,7 @@ export class ChatService {
         otherUserId,
         otherUserAvatar,
         latestMessage,
-        unreadCount: unreadCountByGroup[group.id] || 0
+        unreadCount: (clearedAt && !latestMessage) ? 0 : (unreadCountByGroup[group.id] || 0)
       });
     }
 
@@ -716,7 +751,7 @@ export class ChatService {
     }
 
     const groupIds = groups.map(g => g.id);
-    const [unreadCountByGroup, latestMessages] = await Promise.all([
+    const [unreadCountByGroup, latestMessages, userMemberships] = await Promise.all([
       this.getUnreadCounts(groupIds, actor.userId),
       groupIds.length > 0 ? this.prisma.chatMessage.findMany({
         where: { groupId: { in: groupIds } },
@@ -731,13 +766,34 @@ export class ChatService {
             }
           }
         }
+      }) : [],
+      groupIds.length > 0 ? this.prisma.chatGroupMember.findMany({
+        where: { groupId: { in: groupIds }, userId: actor.userId },
+        select: { groupId: true, clearedAt: true }
       }) : []
     ]);
     const latestMessageMap = Object.fromEntries(latestMessages.map(m => [m.groupId, m]));
+    const userClearedMap = new Map(userMemberships.map(m => [m.groupId, m.clearedAt]));
 
     const resultGroups = [];
     for (const group of groups) {
-      const latestMessage = latestMessageMap[group.id];
+      const clearedAt = userClearedMap.get(group.id);
+      let latestMessage: any = latestMessageMap[group.id];
+
+      // If user has cleared chat, only count latestMessage if sent after clearedAt
+      if (clearedAt && latestMessage) {
+        if (new Date(latestMessage.createdAt) <= new Date(clearedAt)) {
+          latestMessage = undefined;
+        }
+      }
+
+      // If it is a DIRECT conversation without messages (or cleared), hide from recent list
+      if (group.type === 'DIRECT' && !latestMessage) {
+        continue;
+      }
+      if (group.type === 'CUSTOM' && clearedAt && !latestMessage) {
+        continue;
+      }
 
       let finalName = group.name;
       let otherUserId: string | undefined;
@@ -768,7 +824,7 @@ export class ChatService {
         otherUserId,
         otherUserAvatar,
         latestMessage,
-        unreadCount: unreadCountByGroup[group.id] || 0
+        unreadCount: (clearedAt && !latestMessage) ? 0 : (unreadCountByGroup[group.id] || 0)
       });
     }
 

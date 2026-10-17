@@ -47,6 +47,15 @@ export class ChatController {
     return this.chatService.clearChatHistory(groupId, user.userId);
   }
 
+  @ApiOperation({ summary: 'Xóa đoạn chat (ẩn khỏi danh sách và xóa lịch sử phía tôi)' })
+  @Delete('groups/:groupId')
+  deleteConversation(
+    @Param('groupId') groupId: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.chatService.clearChatHistory(groupId, user.userId);
+  }
+
   // Not strictly needed if using websockets exclusively for sending,
   // but good for testing via REST.
   @ApiOperation({ summary: 'Gửi tin nhắn (REST fallback)' })
@@ -97,8 +106,8 @@ export class ChatController {
     return this.chatService.markGroupAsRead(groupId, user.userId);
   }
 
-  @ApiOperation({ summary: 'Xóa nhóm chat' })
-  @Delete('groups/:groupId')
+  @ApiOperation({ summary: 'Xóa nhóm chat vĩnh viễn (Admin/Owner)' })
+  @Delete('groups/:groupId/permanent')
   deleteGroup(
     @Param('groupId') groupId: string,
     @CurrentUser() user: AuthenticatedUser

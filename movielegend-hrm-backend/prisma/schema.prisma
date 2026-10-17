@@ -714,6 +714,7 @@ model User {
   approvalStatus                  ApprovalStatus               @default(PENDING)
   isActive                        Boolean                      @default(false)
   lastLoginAt                     DateTime?
+  lastActiveAt                    DateTime?
   createdAt                       DateTime                     @default(now())
   updatedAt                       DateTime                     @updatedAt
   deletedAt                       DateTime?

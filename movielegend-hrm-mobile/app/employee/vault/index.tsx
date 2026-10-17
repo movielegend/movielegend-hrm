@@ -12,11 +12,11 @@ export default function VaultRoute() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#071C33" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
-      {/* Top Deep Navy Gradient Header matching template */}
+      {/* Top Deep Navy Gradient Header matching template (#102739) */}
       <LinearGradient
-        colors={['#071C33', '#0A2542', '#0C2D50']}
+        colors={['#102739', '#0D2131', '#081724']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8) }]}
@@ -26,6 +26,7 @@ export default function VaultRoute() {
             onPress={() => router.canGoBack() ? router.back() : router.replace('/employee')} 
             style={styles.backButton}
             hitSlop={10}
+            accessibilityLabel="Quay lại"
           >
             <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
           </Pressable>
@@ -85,7 +86,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12.5,
-    color: 'rgba(224, 242, 254, 0.85)',
+    color: '#94A3B8',
     marginTop: 3,
   },
   contentScroll: {

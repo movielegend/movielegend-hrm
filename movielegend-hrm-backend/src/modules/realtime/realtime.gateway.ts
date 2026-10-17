@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer, OnGatewayConnection, OnGatewayInit } from '@nestjs/websockets';
+import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer, OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@nestjs/websockets';
 import { RoleScopeType } from '@prisma/client';
 import { Server, Socket } from 'socket.io';
 import { RealtimeEventsService } from './realtime-events.service';
+import { PresenceService } from './presence.service';
 
 @Injectable()
 @WebSocketGateway({ 
@@ -13,7 +14,7 @@ import { RealtimeEventsService } from './realtime-events.service';
   pingTimeout: 60000,
   pingInterval: 25000,
 })
-export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
+export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
@@ -21,6 +22,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly realtime: RealtimeEventsService,
+    private readonly presence: PresenceService,
   ) {}
 
   afterInit(): void {
@@ -45,9 +47,26 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection {
       for (const scope of payload.scopes ?? []) {
         if (scope.scopeId) client.join(`department:${scope.scopeId}`);
       }
+      this.presence.handleUserConnect(payload.sub, client.id);
     } catch {
       client.disconnect(true);
     }
+  }
+
+  handleDisconnect(client: Socket): void {
+    const userId = client.data?.userId;
+    if (userId) {
+      this.presence.handleUserDisconnect(userId, client.id);
+    }
+  }
+
+  @SubscribeMessage('presence:heartbeat')
+  handlePresenceHeartbeat(@ConnectedSocket() client: Socket) {
+    const userId = client.data?.userId;
+    if (userId) {
+      this.presence.handleHeartbeat(userId);
+    }
+    return { ok: true };
   }
 
   @SubscribeMessage('warehouse:join')

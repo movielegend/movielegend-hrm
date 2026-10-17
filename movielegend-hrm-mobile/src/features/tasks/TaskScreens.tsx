@@ -3200,6 +3200,14 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [leaderId, setLeaderId] = useState<string>('');
   const [memberModalVisible, setMemberModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (memberIds.length === 1 && !leaderId) {
+      setLeaderId(memberIds[0] ?? '');
+    } else if (leaderId && !memberIds.includes(leaderId)) {
+      setLeaderId(memberIds[0] ?? '');
+    }
+  }, [memberIds, leaderId]);
   
   const departmentId = isLeaderArea ? (departmentContextId || departmentIdFromUser(user)) : undefined;
   const usersQuery = useScopedEmployees(
@@ -3833,21 +3841,23 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
             </View>
           ) : (
             <>
-              {!parentTaskId && (area as any) === 'admin' ? (
+              {!parentTaskId ? (
                 <View style={[styles.modeSegmentContainer, { marginBottom: 14 }]}>
-                  <Pressable
-                    style={[styles.modeSegmentBtn, assigneeMode === 'DEPARTMENT' && styles.modeSegmentBtnActive]}
-                    onPress={() => setAssigneeMode('DEPARTMENT')}
-                  >
-                    <MaterialCommunityIcons
-                      name="domain"
-                      size={15}
-                      color={assigneeMode === 'DEPARTMENT' ? colors.primary : '#64748B'}
-                    />
-                    <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'DEPARTMENT' && styles.modeSegmentTextActive]}>
-                      Phòng ban
-                    </Text>
-                  </Pressable>
+                  {(!isLeaderArea || isGlobalAdmin) ? (
+                    <Pressable
+                      style={[styles.modeSegmentBtn, assigneeMode === 'DEPARTMENT' && styles.modeSegmentBtnActive]}
+                      onPress={() => setAssigneeMode('DEPARTMENT')}
+                    >
+                      <MaterialCommunityIcons
+                        name="domain"
+                        size={15}
+                        color={assigneeMode === 'DEPARTMENT' ? colors.primary : '#64748B'}
+                      />
+                      <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'DEPARTMENT' && styles.modeSegmentTextActive]}>
+                        Phòng ban
+                      </Text>
+                    </Pressable>
+                  ) : null}
 
                   <Pressable
                     style={[styles.modeSegmentBtn, assigneeMode === 'USER' && styles.modeSegmentBtnActive]}
@@ -4038,10 +4048,15 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                   <View style={[styles.modeInfoCard, styles.modeInfoCardGroup, { marginBottom: 12 }]}>
                     <View style={styles.modeInfoTitleRow}>
                       <MaterialCommunityIcons name="account-group" size={18} color="#7C3AED" />
-                      <Text style={[styles.modeInfoTitle, { color: '#5B21B6' }]}>Nhóm liên phòng ban / Đặc nhiệm</Text>
+                      <Text style={[styles.modeInfoTitle, { color: '#5B21B6' }]}>
+                        {isLeaderArea ? 'Nhóm công việc phòng ban' : 'Nhóm liên phòng ban / Đặc nhiệm'}
+                      </Text>
                     </View>
                     <Text style={styles.modeInfoDesc}>
-                      Tập hợp nhân sự từ nhiều phòng ban cùng làm việc. Hệ thống tự động tạo Nhóm Chat trao đổi. Trưởng nhóm (Leader) được chỉ định là người chịu trách nhiệm nộp báo cáo hoàn thành lên Admin.
+                      {isLeaderArea
+                        ? 'Tập hợp các nhân sự trong phòng ban cùng làm việc theo nhóm. Hệ thống tự động tạo Nhóm Chat trao đổi. Nhóm trưởng được chỉ định là người chịu trách nhiệm nộp báo cáo hoàn thành.'
+                        : 'Tập hợp nhân sự từ nhiều phòng ban cùng làm việc. Hệ thống tự động tạo Nhóm Chat trao đổi. Trưởng nhóm (Leader) được chỉ định là người chịu trách nhiệm nộp báo cáo hoàn thành lên Admin.'
+                      }
                     </Text>
                   </View>
 
