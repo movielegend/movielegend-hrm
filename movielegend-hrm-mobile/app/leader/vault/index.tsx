@@ -11,15 +11,16 @@ export default function LeaderVaultRoute() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
-      {/* Top Forest Green Header */}
+      {/* Top Navy Header (#102739) */}
       <View style={[styles.header, { paddingTop: Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8) }]}>
         <View style={styles.headerTopRow}>
           <Pressable 
             onPress={() => router.canGoBack() ? router.back() : router.replace('/leader')} 
             style={styles.backButton}
             hitSlop={10}
+            accessibilityLabel="Quay lại"
           >
             <MaterialCommunityIcons name="chevron-left" size={28} color="#FFFFFF" />
           </Pressable>
@@ -51,7 +52,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
-    backgroundColor: '#1B3B2B',
+    backgroundColor: '#102739',
     paddingBottom: 14,
     paddingHorizontal: 16,
   },
@@ -80,7 +81,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12.5,
-    color: '#A7D8BE',
+    color: '#94A3B8',
     marginTop: 2,
   },
   contentScroll: {

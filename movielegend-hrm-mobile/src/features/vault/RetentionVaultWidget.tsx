@@ -395,7 +395,7 @@ export const RetentionVaultWidget: React.FC<RetentionVaultWidgetProps> = () => {
 
       {/* 2. Hero Dark Navy Card: Balance */}
       <LinearGradient
-        colors={['#071F38', '#0A2B4E', '#081F37']}
+        colors={['#102739', '#0E2435', '#081825']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.balanceHeroCard}
