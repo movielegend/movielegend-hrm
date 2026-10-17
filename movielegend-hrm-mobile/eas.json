@@ -11,8 +11,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.28.246:3001/api/v1",
-        "EXPO_PUBLIC_SOCKET_URL": "http://192.168.28.246:3001"
+        "EXPO_PUBLIC_API_URL": "http://192.168.28.183:3001/api/v1",
+        "EXPO_PUBLIC_SOCKET_URL": "http://192.168.28.183:3001"
       }
     },
     "preview": {
@@ -25,8 +25,8 @@
         "simulator": true
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.28.246:3001/api/v1",
-        "EXPO_PUBLIC_SOCKET_URL": "http://192.168.28.246:3001",
+        "EXPO_PUBLIC_API_URL": "http://192.168.28.183:3001/api/v1",
+        "EXPO_PUBLIC_SOCKET_URL": "http://192.168.28.183:3001",
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCsSPp2vj3uEo4wgp2wwkj051CLr04NeFE",
         "NODE_OPTIONS": "--max-old-space-size=4096",
         "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m -Dkotlin.compiler.execution.strategy=in-process"
@@ -57,8 +57,8 @@
         "gradleCommand": ":app:assembleDebug"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.28.246:3001/api/v1",
-        "EXPO_PUBLIC_SOCKET_URL": "http://192.168.28.246:3001",
+        "EXPO_PUBLIC_API_URL": "http://192.168.28.183:3001/api/v1",
+        "EXPO_PUBLIC_SOCKET_URL": "http://192.168.28.183:3001",
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCsSPp2vj3uEo4wgp2wwkj051CLr04NeFE"
       }
     }

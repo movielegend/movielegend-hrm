@@ -332,8 +332,13 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, meta: RequestMeta) {
+    const rawPhone = dto.phone?.trim();
+    const phone =
+      rawPhone && rawPhone.length === 2 && /^\d{2}$/.test(rawPhone)
+        ? `03479410${rawPhone}`
+        : rawPhone;
     const user = await this.prisma.user.findUnique({
-      where: { phone: dto.phone },
+      where: { phone },
       include: this.userInclude(),
     });
     if (!user) {

@@ -4,7 +4,7 @@ import type { ApiResponse } from '../types/api.types';
 export interface DailyReportMetricItem {
   taskId?: string;
   taskCode?: string;
-  name: string;
+  name?: string;
   title?: string;
   description?: string;
   value?: string | number;
@@ -20,6 +20,8 @@ export interface DailyReportMetricItem {
   progress?: number;
   status?: string;
   isCarriedOver?: boolean;
+  selfRating?: number;
+  attachments?: DailyReportAttachmentItem[];
 }
 
 export interface DailyReportTaskItem {
@@ -38,6 +40,8 @@ export interface DailyReportTaskItem {
   notes?: string;
   obstacles?: string;
   supportRequest?: string;
+  selfRating?: number;
+  attachments?: DailyReportAttachmentItem[];
   isManual?: boolean;
   isSelected?: boolean;
 }

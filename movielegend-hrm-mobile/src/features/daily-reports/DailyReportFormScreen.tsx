@@ -153,9 +153,12 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
       progress: 50,
       obstacles: '',
       supportRequest: '',
+      selfRating: 5,
+      attachments: [],
       isCarriedOver: false,
     },
   ]);
+  const [uploadingMetricIdx, setUploadingMetricIdx] = useState<number | null>(null);
   const [completedTasks, setCompletedTasks] = useState<DailyReportTaskItem[]>([]);
   const [inProgressTasks, setInProgressTasks] = useState<DailyReportTaskItem[]>([]);
 
@@ -272,6 +275,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
           notes: t.latestUpdate?.notes || '',
           obstacles: t.latestUpdate?.obstacles || '',
           supportRequest: t.latestUpdate?.supportRequest || '',
+          selfRating: (t as any).selfRating ?? (t as any).latestUpdate?.selfRating ?? 5,
+          attachments: (t as any).attachments || (t as any).latestUpdate?.attachments || [],
           isCarriedOver: Boolean(t.isCarriedOver),
         };
       });
@@ -324,6 +329,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
             progress: m.status === 'DONE' ? 100 : (m.progress ?? (m.status === 'NOT_STARTED' ? 0 : 50)),
             obstacles: m.obstacles || '',
             supportRequest: m.supportRequest || '',
+            selfRating: m.selfRating ?? 5,
+            attachments: Array.isArray(m.attachments) ? m.attachments : [],
             isCarriedOver: Boolean(m.isCarriedOver),
           }));
 
@@ -350,6 +357,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
               progress: 50,
               obstacles: '',
               supportRequest: '',
+              selfRating: 5,
+              attachments: [],
               isCarriedOver: false,
             },
           ]);
@@ -374,6 +383,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                 notes: t.notes || t.note || '',
                 obstacles: t.obstacles || '',
                 supportRequest: t.supportRequest || '',
+                selfRating: t.selfRating ?? 5,
+                attachments: Array.isArray(t.attachments) ? t.attachments : [],
               });
             }
           });
@@ -395,6 +406,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                 notes: t.notes || t.note || '',
                 obstacles: t.obstacles || '',
                 supportRequest: t.supportRequest || '',
+                selfRating: t.selfRating ?? 5,
+                attachments: Array.isArray(t.attachments) ? t.attachments : [],
               });
             }
           });
@@ -670,6 +683,98 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
     }
   };
 
+  const handlePickImageForTask = async (taskIndex: number) => {
+    if (isSubmittedToday) return;
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Quyền truy cập', 'Cần cấp quyền truy cập thư viện ảnh để đính kèm');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+      });
+      if (res.canceled || !res.assets || res.assets.length === 0) return;
+      const asset = res.assets[0];
+      if (!asset) return;
+      setUploadingMetricIdx(taskIndex);
+      const uploaded: any = await uploadFile({
+        uri: asset.uri,
+        name: asset.fileName || `nhiemvu_${taskIndex + 1}_${Date.now()}.jpg`,
+        mimeType: asset.mimeType || 'image/jpeg',
+        purpose: 'TASK_ATTACHMENT' as any,
+      });
+      const newAttachment: DailyReportAttachmentItem = {
+        url: uploaded.fileUrl || uploaded.url,
+        fileName: uploaded.originalName || asset.fileName || `Ảnh nhiệm vụ ${taskIndex + 1}`,
+        size: uploaded.size || asset.fileSize,
+        fileType: 'IMAGE',
+      };
+      setMetrics((prev) => {
+        const next = [...prev];
+        const task = { ...next[taskIndex] };
+        task.attachments = [...(task.attachments || []), newAttachment];
+        next[taskIndex] = task;
+        return next;
+      });
+    } catch (e: any) {
+      console.error('Pick image for task error:', e);
+      Alert.alert('Lỗi', e?.message || 'Không thể tải ảnh lên');
+    } finally {
+      setUploadingMetricIdx(null);
+    }
+  };
+
+  const handlePickDocumentForTask = async (taskIndex: number) => {
+    if (isSubmittedToday) return;
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled || !res.assets || res.assets.length === 0) return;
+      const asset = res.assets[0];
+      if (!asset) return;
+      setUploadingMetricIdx(taskIndex);
+      const uploaded: any = await uploadFile({
+        uri: asset.uri,
+        name: asset.name,
+        mimeType: asset.mimeType || 'application/octet-stream',
+        purpose: 'TASK_ATTACHMENT' as any,
+      });
+      const newAttachment: DailyReportAttachmentItem = {
+        url: uploaded.fileUrl || uploaded.url,
+        fileName: uploaded.originalName || asset.name,
+        size: uploaded.size || asset.size,
+        fileType: asset.mimeType?.includes('pdf') ? 'PDF' : 'DOCUMENT',
+      };
+      setMetrics((prev) => {
+        const next = [...prev];
+        const task = { ...next[taskIndex] };
+        task.attachments = [...(task.attachments || []), newAttachment];
+        next[taskIndex] = task;
+        return next;
+      });
+    } catch (e: any) {
+      console.error('Pick doc for task error:', e);
+      Alert.alert('Lỗi', e?.message || 'Không thể tải tài liệu lên');
+    } finally {
+      setUploadingMetricIdx(null);
+    }
+  };
+
+  const handleDeleteTaskAttachment = (taskIndex: number, attachIndex: number) => {
+    if (isSubmittedToday) return;
+    setMetrics((prev) => {
+      const next = [...prev];
+      const task = { ...next[taskIndex] };
+      task.attachments = (task.attachments || []).filter((_, i) => i !== attachIndex);
+      next[taskIndex] = task;
+      return next;
+    });
+  };
+
   const handlePreviewAttachment = (item: DailyReportAttachmentItem) => {
     const isImage =
       item.fileType === 'IMAGE' ||
@@ -786,14 +891,24 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
           supportRequest: t.supportRequest,
         }));
 
+      // Tổng hợp attachments & tự đánh giá từ các nhiệm vụ
+      const taskAttachments = cleanTasks.flatMap((t) => t.attachments || []);
+      const allAttachments = [...attachments, ...taskAttachments];
+      const validRatings = cleanTasks
+        .map((t) => t.selfRating)
+        .filter((r): r is number => typeof r === 'number' && r > 0);
+      const computedSelfRating = validRatings.length > 0
+        ? Math.round(validRatings.reduce((a, b) => a + b, 0) / validRatings.length)
+        : selfRating;
+
       await saveReportMutation.mutateAsync({
         metrics: cleanTasks,
         completedTasks: derivedCompleted,
         inProgressTasks: derivedInProgress,
         obstacles: formattedObstacles || undefined,
         tomorrowPlan: cleanPlan,
-        attachments,
-        selfRating,
+        attachments: allAttachments,
+        selfRating: computedSelfRating,
         selfReview: selfReview.trim() || undefined,
         isDraft,
       });
@@ -814,6 +929,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                 notes: t.notes || t.note || undefined,
                 obstacles: t.obstacles || undefined,
                 supportRequest: t.supportRequest || undefined,
+                selfRating: t.selfRating,
+                attachments: t.attachments,
                 isTestBypass: true,
               })
             );
@@ -1499,6 +1616,110 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                             editable={!isSubmittedToday}
                           />
 
+                          {/* 4. Tự đánh giá nhiệm vụ */}
+                          <View style={{ marginTop: 10 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <Text style={styles.inputLabel}>
+                                Tự đánh giá nhiệm vụ <Text style={styles.optionalText}>· {m.selfRating ?? 5}/5 sao</Text>
+                              </Text>
+                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#D97706' }}>
+                                {ASSESSMENT_LEVELS.find((l) => l.level === (m.selfRating ?? 5))?.title || 'Đạt kế hoạch'}
+                              </Text>
+                            </View>
+                            <View style={styles.taskStarRow}>
+                              {[1, 2, 3, 4, 5].map((lvl) => {
+                                const isStarActive = lvl <= (m.selfRating ?? 5);
+                                return (
+                                  <TouchableOpacity
+                                    key={lvl}
+                                    style={styles.taskStarBtn}
+                                    onPress={() => !isSubmittedToday && handleUpdateMetric(idx, 'selfRating', lvl)}
+                                    activeOpacity={0.7}
+                                    disabled={isSubmittedToday}
+                                  >
+                                    <Ionicons
+                                      name={isStarActive ? 'star' : 'star-outline'}
+                                      size={22}
+                                      color={isStarActive ? '#F59E0B' : '#CBD5E1'}
+                                    />
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </View>
+
+                          {/* 5. Đính kèm hình ảnh & tệp cho nhiệm vụ */}
+                          <View style={{ marginTop: 10 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <Text style={styles.inputLabel}>
+                                Hình ảnh & tệp đính kèm <Text style={styles.optionalText}>· {(m.attachments || []).length} tệp</Text>
+                              </Text>
+                              {!isSubmittedToday && (
+                                <View style={{ flexDirection: 'row', gap: 6 }}>
+                                  <TouchableOpacity
+                                    style={styles.taskAttachMiniBtn}
+                                    onPress={() => handlePickImageForTask(idx)}
+                                    disabled={uploadingMetricIdx === idx}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Ionicons name="image-outline" size={13} color="#166534" />
+                                    <Text style={styles.taskAttachMiniBtnText}>Thêm ảnh</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity
+                                    style={styles.taskAttachMiniBtn}
+                                    onPress={() => handlePickDocumentForTask(idx)}
+                                    disabled={uploadingMetricIdx === idx}
+                                    activeOpacity={0.7}
+                                  >
+                                    <Ionicons name="document-text-outline" size={13} color="#166534" />
+                                    <Text style={styles.taskAttachMiniBtnText}>Tệp</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              )}
+                            </View>
+
+                            {uploadingMetricIdx === idx && (
+                              <View style={styles.taskUploadingRow}>
+                                <ActivityIndicator size="small" color="#166534" />
+                                <Text style={styles.taskUploadingText}>Đang tải tệp lên nhiệm vụ này…</Text>
+                              </View>
+                            )}
+
+                            {/* Danh sách ảnh/tệp của nhiệm vụ */}
+                            {(m.attachments || []).length > 0 && (
+                              <View style={styles.taskAttachmentList}>
+                                {(m.attachments || []).map((att, aIdx) => (
+                                  <View key={aIdx} style={styles.taskAttachmentItem}>
+                                    <TouchableOpacity
+                                      style={styles.taskAttachmentClickable}
+                                      onPress={() => handlePreviewAttachment(att)}
+                                      activeOpacity={0.7}
+                                    >
+                                      <MaterialCommunityIcons
+                                        name={att.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
+                                        size={18}
+                                        color="#166534"
+                                      />
+                                      <Text style={styles.taskAttachmentName} numberOfLines={1}>
+                                        {att.fileName || `Tệp ${aIdx + 1}`}
+                                      </Text>
+                                      <Ionicons name="eye-outline" size={15} color="#166534" />
+                                    </TouchableOpacity>
+                                    {!isSubmittedToday && (
+                                      <TouchableOpacity
+                                        onPress={() => handleDeleteTaskAttachment(idx, aIdx)}
+                                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                        style={{ paddingLeft: 6 }}
+                                      >
+                                        <Ionicons name="close-circle" size={16} color="#EF4444" />
+                                      </TouchableOpacity>
+                                    )}
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+                          </View>
+
                           {/* Chi tiết mở rộng (Drawer) */}
                           {isExpanded && (
                             <View style={styles.expandedDetailsDrawer}>
@@ -1631,143 +1852,6 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                     </TouchableOpacity>
                   )}
                 </View>
-
-                {/* 2. TỰ ĐÁNH GIÁ NGÀY LÀM VIỆC */}
-                <View style={styles.sectionCard}>
-                  <Text style={styles.sectionCardTitle}>Tự đánh giá ngày làm việc</Text>
-                  <Text style={styles.sectionCardSubtitle}>
-                    Chọn mức độ tự đánh giá kết quả hoàn thành hôm nay.
-                  </Text>
-
-                  {/* Star buttons */}
-                  <View style={styles.starRatingRow}>
-                    {[1, 2, 3, 4, 5].map((lvl) => {
-                      const isSelected = lvl <= selfRating;
-                      return (
-                        <TouchableOpacity
-                          key={lvl}
-                          style={styles.starBtn}
-                          onPress={() => !isSubmittedToday && setSelfRating(lvl)}
-                          activeOpacity={0.7}
-                          disabled={isSubmittedToday}
-                        >
-                          <Ionicons
-                            name={isSelected ? 'star' : 'star-outline'}
-                            size={34}
-                            color={isSelected ? '#F59E0B' : '#CBD5E1'}
-                          />
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-
-                  {/* Active level card */}
-                  <View style={styles.assessmentLevelBox}>
-                    <View style={styles.assessmentLevelHeader}>
-                      <Text style={styles.assessmentLevelBadge}>MỨC {selfRating}/5</Text>
-                      <Text style={styles.assessmentLevelTitle}>{currentAssessment.title}</Text>
-                    </View>
-                    <Text style={styles.assessmentLevelDesc}>{currentAssessment.desc}</Text>
-                  </View>
-
-                  <Text style={[styles.inputLabel, { marginTop: 14 }]}>
-                    Tự nhận xét bổ sung <Text style={styles.optionalText}>· Tùy chọn</Text>
-                  </Text>
-                  <TextInput
-                    style={[styles.textAreaInput, isSubmittedToday && styles.readOnlyInput]}
-                    placeholder="Nhận xét ngắn về hiệu quả công việc cá nhân hôm nay…"
-                    placeholderTextColor="#94A3B8"
-                    multiline
-                    numberOfLines={3}
-                    value={selfReview}
-                    onChangeText={setSelfReview}
-                    editable={!isSubmittedToday}
-                  />
-                </View>
-
-                {/* 4. TỆP ĐÍNH KÈM */}
-                <View style={styles.sectionCard}>
-                  <Text style={styles.sectionCardTitle}>Tệp đính kèm & hình ảnh</Text>
-                  <Text style={styles.sectionCardSubtitle}>
-                    Đính kèm hình ảnh kết quả, tài liệu, biên bản báo cáo (ảnh hoặc PDF).
-                  </Text>
-
-                  {!isSubmittedToday && (
-                    <View style={styles.attachBtnRow}>
-                      <TouchableOpacity
-                        style={styles.attachBtn}
-                        onPress={handlePickImage}
-                        disabled={isUploadingFile}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="image-outline" size={18} color="#166534" />
-                        <Text style={styles.attachBtnText}>Thêm ảnh</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.attachBtn}
-                        onPress={handlePickDocument}
-                        disabled={isUploadingFile}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="document-text-outline" size={18} color="#166534" />
-                        <Text style={styles.attachBtnText}>Thêm tài liệu</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {/* Attachments List */}
-                  {attachments.length > 0 ? (
-                    <View style={styles.attachmentList}>
-                      {attachments.map((a, idx) => (
-                        <View key={idx} style={styles.attachmentItemRow}>
-                          <TouchableOpacity
-                            style={styles.attachmentClickArea}
-                            onPress={() => handlePreviewAttachment(a)}
-                            activeOpacity={0.7}
-                          >
-                            <MaterialCommunityIcons
-                              name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
-                              size={22}
-                              color="#166534"
-                            />
-                            <View style={{ flex: 1, marginLeft: 10 }}>
-                              <Text style={styles.attachmentFileName} numberOfLines={1}>
-                                {a.fileName || `Tệp ${idx + 1}`}
-                              </Text>
-                              <Text style={styles.attachmentFileType}>
-                                {a.fileType === 'IMAGE' ? 'Hình ảnh · Nhấn để xem' : 'Tài liệu · Nhấn để xem'}
-                              </Text>
-                            </View>
-                            <Ionicons name="eye-outline" size={18} color="#166534" />
-                          </TouchableOpacity>
-
-                          {!isSubmittedToday && (
-                            <TouchableOpacity
-                              style={styles.attachmentRemoveBtn}
-                              onPress={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                              <Ionicons name="close-circle" size={20} color="#EF4444" />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <View style={styles.emptyContainerDashed}>
-                      <Ionicons name="cloud-upload-outline" size={32} color="#94A3B8" />
-                      <Text style={styles.emptyPromptText}>Chưa có tệp đính kèm. Nhấn nút bên trên để thêm ảnh hoặc tài liệu.</Text>
-                    </View>
-                  )}
-
-                  {isUploadingFile && (
-                    <View style={styles.uploadingBox}>
-                      <ActivityIndicator size="small" color="#166534" />
-                      <Text style={styles.uploadingText}>Đang tải tệp lên…</Text>
-                    </View>
-                  )}
-                </View>
               </View>
             )}
 
@@ -1812,6 +1896,13 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                       {statusObj.label} ({m.progress ?? (isDone ? 100 : 50)}%)
                                     </Text>
                                   </View>
+                                  {m.selfRating ? (
+                                    <View style={[styles.metaChip, { backgroundColor: '#FEF3C7' }]}>
+                                      <Text style={[styles.metaChipText, { color: '#B45309', fontWeight: '700' }]}>
+                                        ⭐ {m.selfRating}/5 sao
+                                      </Text>
+                                    </View>
+                                  ) : null}
                                   {m.isCarriedOver && (
                                     <View style={styles.carriedOverBadge}>
                                       <Text style={styles.carriedOverBadgeText}>Dở dang hôm qua</Text>
@@ -1838,6 +1929,27 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                     📝 Ghi chú: {m.notes || m.note}
                                   </Text>
                                 ) : null}
+                                {m.attachments && m.attachments.length > 0 && (
+                                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                                    {m.attachments.map((att, aIdx) => (
+                                      <TouchableOpacity
+                                        key={aIdx}
+                                        style={styles.reviewAttachChip}
+                                        onPress={() => handlePreviewAttachment(att)}
+                                        activeOpacity={0.7}
+                                      >
+                                        <MaterialCommunityIcons
+                                          name={att.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
+                                          size={14}
+                                          color="#166534"
+                                        />
+                                        <Text style={styles.reviewAttachChipText} numberOfLines={1}>
+                                          {att.fileName || `Tệp ${aIdx + 1}`}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    ))}
+                                  </View>
+                                )}
                               </View>
                             );
                           })
@@ -1928,38 +2040,46 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                     </View>
 
                     {/* 7. Đính kèm */}
-                    <View style={styles.summaryBoxItem}>
-                      <View style={styles.summaryBoxHeaderRow}>
-                        <Text style={styles.summaryBoxTitle}>ĐÍNH KÈM</Text>
-                        <View style={styles.summaryBoxCountBadge}>
-                          <Text style={styles.summaryBoxCountText}>{attachments.length}</Text>
+                    {(() => {
+                      const allStepAttachments = [
+                        ...attachments,
+                        ...metrics.flatMap((m) => m.attachments || []),
+                      ];
+                      return (
+                        <View style={styles.summaryBoxItem}>
+                          <View style={styles.summaryBoxHeaderRow}>
+                            <Text style={styles.summaryBoxTitle}>ĐÍNH KÈM</Text>
+                            <View style={styles.summaryBoxCountBadge}>
+                              <Text style={styles.summaryBoxCountText}>{allStepAttachments.length}</Text>
+                            </View>
+                          </View>
+                          {allStepAttachments.length === 0 ? (
+                            <Text style={styles.summaryBoxEmptyText}>Không có tệp đính kèm</Text>
+                          ) : (
+                            <View style={{ gap: 6, marginTop: 4 }}>
+                              {allStepAttachments.map((a, idx) => (
+                                <TouchableOpacity
+                                  key={idx}
+                                  style={styles.reviewAttachChip}
+                                  onPress={() => handlePreviewAttachment(a)}
+                                  activeOpacity={0.7}
+                                >
+                                  <MaterialCommunityIcons
+                                    name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
+                                    size={16}
+                                    color="#166534"
+                                  />
+                                  <Text style={styles.reviewAttachChipText} numberOfLines={1}>
+                                    {a.fileName || `Tệp ${idx + 1}`}
+                                  </Text>
+                                  <Ionicons name="eye-outline" size={14} color="#166534" />
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          )}
                         </View>
-                      </View>
-                      {attachments.length === 0 ? (
-                        <Text style={styles.summaryBoxEmptyText}>Không có tệp đính kèm</Text>
-                      ) : (
-                        <View style={{ gap: 6, marginTop: 4 }}>
-                          {attachments.map((a, idx) => (
-                            <TouchableOpacity
-                              key={idx}
-                              style={styles.reviewAttachChip}
-                              onPress={() => handlePreviewAttachment(a)}
-                              activeOpacity={0.7}
-                            >
-                              <MaterialCommunityIcons
-                                name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
-                                size={16}
-                                color="#166534"
-                              />
-                              <Text style={styles.reviewAttachChipText} numberOfLines={1}>
-                                {a.fileName || `Tệp ${idx + 1}`}
-                              </Text>
-                              <Ionicons name="eye-outline" size={14} color="#166534" />
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
-                    </View>
+                      );
+                    })()}
                   </View>
                 </View>
 
@@ -3897,5 +4017,72 @@ const styles = StyleSheet.create({
   imageModalFullImage: {
     width: '100%',
     height: '100%',
+  },
+
+  // TASK LEVEL RATING & ATTACHMENT STYLES
+  taskStarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  taskStarBtn: {
+    padding: 2,
+  },
+  taskAttachMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  taskAttachMiniBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  taskUploadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  taskUploadingText: {
+    fontSize: 11,
+    color: '#166534',
+  },
+  taskAttachmentList: {
+    marginTop: 6,
+    gap: 6,
+  },
+  taskAttachmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  taskAttachmentClickable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  taskAttachmentName: {
+    fontSize: 12,
+    color: '#1E293B',
+    flex: 1,
   },
 });

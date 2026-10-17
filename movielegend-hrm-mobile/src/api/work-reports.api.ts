@@ -56,6 +56,8 @@ export async function updateWorkTaskProgress(taskId: string, payload: {
   notes?: string;
   obstacles?: string;
   supportRequest?: string;
+  selfRating?: number;
+  attachments?: any[];
   reportDate?: string;
   isTestBypass?: boolean;
 }): Promise<any> {

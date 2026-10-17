@@ -111,6 +111,8 @@ export class WorkReportsService {
     notes?: string | null;
     obstacles?: string | null;
     supportRequest?: string | null;
+    selfRating?: number | null;
+    attachments?: any;
     reportDate: string;
     isDraft?: boolean;
     metricName?: string;
@@ -135,17 +137,21 @@ export class WorkReportsService {
       }
 
       if (task) {
+        const taskUpdateData: any = {
+          title: data.title,
+          category: data.category || task.category,
+          description: data.description !== undefined ? data.description : task.description,
+          taskType: data.taskType || task.taskType,
+          priority: data.priority || task.priority,
+          deadline: data.deadline !== undefined ? data.deadline : task.deadline,
+          workStatus: data.workStatus || task.workStatus,
+        };
+        if (data.selfRating !== undefined && data.selfRating !== null) taskUpdateData.selfRating = data.selfRating;
+        if (data.attachments !== undefined) taskUpdateData.attachments = data.attachments;
+
         await this.prisma.workTask.update({
           where: { id: task.id },
-          data: {
-            title: data.title,
-            category: data.category || task.category,
-            description: data.description !== undefined ? data.description : task.description,
-            taskType: data.taskType || task.taskType,
-            priority: data.priority || task.priority,
-            deadline: data.deadline !== undefined ? data.deadline : task.deadline,
-            workStatus: data.workStatus || task.workStatus,
-          }
+          data: taskUpdateData
         });
 
         const existingUpdate = await this.prisma.workTaskUpdate.findUnique({
@@ -160,6 +166,8 @@ export class WorkReportsService {
               notes: data.notes || existingUpdate.notes,
               obstacles: data.obstacles || existingUpdate.obstacles,
               supportRequest: data.supportRequest || existingUpdate.supportRequest,
+              selfRating: data.selfRating !== undefined && data.selfRating !== null ? data.selfRating : existingUpdate.selfRating,
+              attachments: data.attachments !== undefined ? data.attachments : existingUpdate.attachments,
               isDraft: data.isDraft ?? existingUpdate.isDraft,
             }
           });
@@ -173,6 +181,8 @@ export class WorkReportsService {
               notes: data.notes,
               obstacles: data.obstacles,
               supportRequest: data.supportRequest,
+              selfRating: data.selfRating ?? 5,
+              attachments: data.attachments || [],
               reportedByUserId: data.userId,
               isDraft: data.isDraft ?? false,
             }
@@ -194,6 +204,8 @@ export class WorkReportsService {
             deadline: data.deadline || null,
             workStatus: data.workStatus || 'IN_PROGRESS',
             approvalStatus: 'PENDING',
+            selfRating: data.selfRating ?? 5,
+            attachments: data.attachments || [],
             reportDate: data.reportDate,
             updates: {
               create: {
@@ -204,6 +216,8 @@ export class WorkReportsService {
                 notes: data.notes || null,
                 obstacles: data.obstacles || null,
                 supportRequest: data.supportRequest || null,
+                selfRating: data.selfRating ?? 5,
+                attachments: data.attachments || [],
                 reportedByUserId: data.userId,
                 isDraft: data.isDraft ?? false,
               }
@@ -257,6 +271,8 @@ export class WorkReportsService {
             notes: t.notes || t.note || null,
             obstacles: t.obstacles || null,
             supportRequest: t.supportRequest || null,
+            selfRating: t.selfRating ?? r.selfRating ?? 5,
+            attachments: t.attachments || [],
             reportDate: date,
             isDraft,
           });
@@ -281,6 +297,8 @@ export class WorkReportsService {
             notes: t.notes || t.note || null,
             obstacles: t.obstacles || null,
             supportRequest: t.supportRequest || null,
+            selfRating: t.selfRating ?? r.selfRating ?? 5,
+            attachments: t.attachments || [],
             reportDate: date,
             isDraft,
           });
@@ -309,6 +327,8 @@ export class WorkReportsService {
             notes: m.notes || m.note || null,
             obstacles: m.obstacles || null,
             supportRequest: m.supportRequest || null,
+            selfRating: m.selfRating ?? r.selfRating ?? 5,
+            attachments: m.attachments || [],
             reportDate: date,
             isDraft,
           });
@@ -437,6 +457,8 @@ export class WorkReportsService {
         priority: dto.priority || 'MEDIUM',
         deadline: dto.deadline,
         workStatus,
+        selfRating: dto.selfRating ?? 5,
+        attachments: dto.attachments || [],
         isMakeup: dto.isMakeup || false,
         makeupForDate: dto.makeupForDate,
         makeupReason: dto.makeupReason,
@@ -449,6 +471,8 @@ export class WorkReportsService {
             notes: dto.initialNotes,
             obstacles: dto.initialObstacles,
             supportRequest: dto.initialSupportRequest,
+            selfRating: dto.selfRating ?? 5,
+            attachments: dto.attachments || [],
             reportedByUserId: actor.userId,
             isProxied: isProxy,
             proxyReason: isProxy ? 'Leader nhập thay' : null,
@@ -521,6 +545,8 @@ export class WorkReportsService {
           notes: dto.notes,
           obstacles: dto.obstacles,
           supportRequest: dto.supportRequest,
+          selfRating: dto.selfRating !== undefined ? dto.selfRating : undefined,
+          attachments: dto.attachments !== undefined ? dto.attachments : undefined,
           isDraft: dto.isDraft || false,
           reportedByUserId: actor.userId,
           isProxied: isProxy,
@@ -538,6 +564,8 @@ export class WorkReportsService {
           notes: dto.notes,
           obstacles: dto.obstacles,
           supportRequest: dto.supportRequest,
+          selfRating: dto.selfRating ?? 5,
+          attachments: dto.attachments || [],
           isDraft: dto.isDraft || false,
           reportedByUserId: actor.userId,
           isProxied: isProxy,
@@ -547,9 +575,13 @@ export class WorkReportsService {
     }
 
     // Sync task status
+    const taskUpdateData: any = { workStatus, approvalStatus: 'PENDING' };
+    if (dto.selfRating !== undefined) taskUpdateData.selfRating = dto.selfRating;
+    if (dto.attachments !== undefined) taskUpdateData.attachments = dto.attachments;
+
     await this.prisma.workTask.update({
       where: { id: taskId },
-      data: { workStatus, approvalStatus: 'PENDING' }
+      data: taskUpdateData
     });
 
     await this.logHistory({
@@ -1241,6 +1273,8 @@ export class WorkReportsService {
             deadline: item.deadline,
             workStatus,
             approvalStatus,
+            selfRating: item.selfRating ?? 5,
+            attachments: item.attachments || [],
             reportDate: date,
             updates: {
               create: {
@@ -1251,6 +1285,8 @@ export class WorkReportsService {
                 notes: item.notes,
                 obstacles: item.obstacles,
                 supportRequest: item.supportRequest,
+                selfRating: item.selfRating ?? 5,
+                attachments: item.attachments || [],
                 reportedByUserId: actor.userId,
                 isProxied: targetUserId !== actor.userId,
                 proxyReason: targetUserId !== actor.userId ? 'Leader/Admin nhập thay' : null,
@@ -1300,6 +1336,8 @@ export class WorkReportsService {
         if (item.taskType) taskUpdateData.taskType = item.taskType;
         if (item.priority) taskUpdateData.priority = item.priority;
         if (item.deadline !== undefined) taskUpdateData.deadline = item.deadline;
+        if (item.selfRating !== undefined) taskUpdateData.selfRating = item.selfRating;
+        if (item.attachments !== undefined) taskUpdateData.attachments = item.attachments;
         if (!dto.isDraft) taskUpdateData.approvalStatus = 'PENDING';
 
         await this.prisma.workTask.update({
@@ -1321,6 +1359,8 @@ export class WorkReportsService {
               notes: item.notes !== undefined ? item.notes : update.notes,
               obstacles: item.obstacles !== undefined ? item.obstacles : update.obstacles,
               supportRequest: item.supportRequest !== undefined ? item.supportRequest : update.supportRequest,
+              selfRating: item.selfRating !== undefined ? item.selfRating : update.selfRating,
+              attachments: item.attachments !== undefined ? item.attachments : update.attachments,
               isDraft: dto.isDraft ?? false,
               reportedByUserId: actor.userId,
               isProxied: !isOwner,
@@ -1338,6 +1378,8 @@ export class WorkReportsService {
               notes: item.notes,
               obstacles: item.obstacles,
               supportRequest: item.supportRequest,
+              selfRating: item.selfRating ?? 5,
+              attachments: item.attachments || [],
               isDraft: dto.isDraft ?? false,
               reportedByUserId: actor.userId,
               isProxied: !isOwner,
