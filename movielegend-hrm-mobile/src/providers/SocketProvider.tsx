@@ -201,6 +201,18 @@ export function SocketProvider({ children }: PropsWithChildren) {
         void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
         void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
       });
+
+      socket.on('chat:conversation_deleted', (data: any) => {
+        if (data?.groupId) {
+          queryClient.setQueryData(chatKeys.groups(), (old: any) => {
+            if (!Array.isArray(old)) return old;
+            return old.filter((g: any) => g.id !== data.groupId);
+          });
+          void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+          void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
+          void queryClient.invalidateQueries({ queryKey: chatKeys.messages(data.groupId) });
+        }
+      });
       socket.on('chat:message', (message: any) => {
         if (message?.groupId && message?.id) {
           updateGroupDataOptimistic(message.groupId, message);

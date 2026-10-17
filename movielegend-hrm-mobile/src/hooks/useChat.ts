@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchMyChatGroups, fetchAllChatGroups, fetchChatMessages, sendChatMessage, createDirectChat, createCustomChat, markGroupAsRead, deleteChatMessage, reactChatMessage, fetchMessageReactionDetails, fetchMessageSeenDetails, type SendMessagePayload } from '../api/chat.api';
+import { fetchMyChatGroups, fetchAllChatGroups, fetchChatMessages, sendChatMessage, createDirectChat, createCustomChat, markGroupAsRead, deleteChatMessage, reactChatMessage, fetchMessageReactionDetails, fetchMessageSeenDetails, deleteConversationApi, type SendMessagePayload } from '../api/chat.api';
 import { chatKeys } from '../constants/queryKeys';
 
 export function useChatGroups() {
@@ -329,6 +329,37 @@ export function useGroupMembers(groupId: string, enabled: boolean = true) {
     enabled: Boolean(groupId && enabled),
     staleTime: 1000 * 60 * 2,
     refetchOnWindowFocus: false,
+  });
+}
+
+export function useDeleteConversation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (groupId: string) => deleteConversationApi(groupId),
+    onMutate: async (groupId: string) => {
+      await queryClient.cancelQueries({ queryKey: chatKeys.groups() });
+
+      const prevGroups = queryClient.getQueryData<any[]>(chatKeys.groups());
+      if (Array.isArray(prevGroups)) {
+        queryClient.setQueryData(
+          chatKeys.groups(),
+          prevGroups.filter((g) => g.id !== groupId)
+        );
+      }
+
+      return { prevGroups };
+    },
+    onError: (_err, _groupId, context) => {
+      if (context?.prevGroups) {
+        queryClient.setQueryData(chatKeys.groups(), context.prevGroups);
+      }
+    },
+    onSettled: (_data, _error, groupId) => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.allGroups() });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.messages(groupId) });
+    },
   });
 }
 

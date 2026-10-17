@@ -37,7 +37,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
-import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage, useMessageReactionDetails, useMessageSeenDetails, useGroupMembers, useCreateCustomChat } from '../../hooks/useChat';
+import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMarkGroupAsRead, useDeleteMessage, useReactMessage, useMessageReactionDetails, useMessageSeenDetails, useGroupMembers, useCreateCustomChat, useDeleteConversation } from '../../hooks/useChat';
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { usePublicDepartments } from '../../hooks/useDepartments';
 import { uploadFile } from '../../api/uploads.api';
@@ -224,13 +224,32 @@ const StickerPickerModal = ({ visible, onClose, onSelectSticker }: { visible: bo
 export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all' | 'department' }) {
   const router = useRouter();
   const { user } = useAuth();
-  const { showAlert } = useAppAlert();
+  const { showAlert, showConfirm } = useAppAlert();
   const tabBarScroll = useTabBarScroll();
   const queryClient = useQueryClient();
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
   const markAsRead = useMarkGroupAsRead();
   const createCustomChatMutation = useCreateCustomChat();
+  const deleteConversationMutation = useDeleteConversation();
+
+  function handlePromptDeleteConversation(group: any, groupName: string) {
+    showConfirm({
+      title: 'Xóa đoạn chat?',
+      message: `Bạn có chắc chắn muốn xóa đoạn chat "${groupName}"? Toàn bộ lịch sử cuộc trò chuyện phía bạn sẽ bị xóa và không thể khôi phục.`,
+      confirmLabel: 'Xóa',
+      onConfirm: () => {
+        deleteConversationMutation.mutate(group.id, {
+          onSuccess: () => {
+            showAlert('Thành công', 'Đã xóa đoạn chat.');
+          },
+          onError: (err) => {
+            showAlert('Lỗi', normalizeApiError(err).message || 'Không thể xóa đoạn chat');
+          },
+        });
+      },
+    });
+  }
   const groups = scope === 'all' ? allGroups : myGroups;
   const groupItems = useMemo(() => {
     const raw = Array.isArray(groups.data) ? groups.data : [];
@@ -647,6 +666,8 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                       key={group.id}
                       style={adminChatStyles.recentGroupItem}
                       activeOpacity={0.7}
+                      delayLongPress={350}
+                      onLongPress={() => handlePromptDeleteConversation(group, groupName)}
                       onPress={() => {
                         const basePath = user?.roles?.includes('ADMIN') ? '/admin/chat' :
                           user?.roles?.includes('HR') ? '/hr/chat' :
@@ -684,7 +705,21 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                         </View>
                       )}
 
-                      <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
+                      {isDirect ? (
+                        <TouchableOpacity
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          onPress={(e) => {
+                            e.stopPropagation?.();
+                            handlePromptDeleteConversation(group, groupName);
+                          }}
+                          style={{ padding: 4, marginLeft: 4 }}
+                          accessibilityLabel="Xóa đoạn chat"
+                        >
+                          <MaterialCommunityIcons name="trash-can-outline" size={19} color="#94A3B8" />
+                        </TouchableOpacity>
+                      ) : (
+                        <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
+                      )}
                     </TouchableOpacity>
                   );
                 })
@@ -1070,6 +1105,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const messages = useChatMessages(groupId);
   const sendMessage = useSendMessage(groupId);
   const deleteMessage = useDeleteMessage(groupId);
+  const deleteConversationMutation = useDeleteConversation();
   const markAsRead = useMarkGroupAsRead();
   const myGroups = useChatGroups();
   const allGroups = useAllChatGroups();
@@ -2569,32 +2605,36 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                 <Text style={{ fontSize: 15, fontWeight: '600', color: '#0F172A' }}>Gọi điện</Text>
               </TouchableOpacity>
 
-              {/* Xóa nhóm chat (Admin / Direct) */}
+              {/* Xóa đoạn chat / Xóa nhóm chat */}
               {(currentGroup?.type === 'DIRECT' || user?.roles?.includes('ADMIN')) && (
                 <TouchableOpacity
                   style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}
                   onPress={() => {
                     setRoomMenuVisible(false);
                     showConfirm({
-                      title: 'Xác nhận xóa',
-                      message: 'Bạn có chắc chắn muốn xóa nhóm chat này không? Mọi tin nhắn sẽ bị xóa vĩnh viễn.',
+                      title: currentGroup?.type === 'DIRECT' ? 'Xóa đoạn chat' : 'Xác nhận xóa nhóm',
+                      message: currentGroup?.type === 'DIRECT'
+                        ? 'Bạn có chắc chắn muốn xóa đoạn chat này? Lịch sử cuộc trò chuyện phía bạn sẽ bị xóa và không thể khôi phục.'
+                        : 'Bạn có chắc chắn muốn xóa nhóm chat này không? Mọi tin nhắn sẽ bị xóa vĩnh viễn.',
                       confirmLabel: 'Xóa',
-                      confirmTone: 'danger',
-                      onConfirm: async () => {
-                        try {
-                          await require('../../utils/api').api.delete(`/chat/groups/${groupId}`);
-                          queryClient.invalidateQueries({ queryKey: ['chat', 'groups'] });
-                          queryClient.invalidateQueries({ queryKey: ['chat', 'allGroups'] });
-                          router.back();
-                        } catch (error) {
-                          showAlert('Lỗi', 'Không thể xóa nhóm chat');
-                        }
-                      }
+                      onConfirm: () => {
+                        deleteConversationMutation.mutate(groupId, {
+                          onSuccess: () => {
+                            showAlert('Thành công', currentGroup?.type === 'DIRECT' ? 'Đã xóa đoạn chat.' : 'Đã xóa nhóm chat.');
+                            router.back();
+                          },
+                          onError: (err) => {
+                            showAlert('Lỗi', normalizeApiError(err).message || 'Không thể xóa đoạn chat');
+                          },
+                        });
+                      },
                     });
                   }}
                 >
                   <MaterialCommunityIcons name="trash-can-outline" size={22} color="#DC2626" />
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#DC2626' }}>Xóa nhóm chat</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#DC2626' }}>
+                    {currentGroup?.type === 'DIRECT' ? 'Xóa đoạn chat' : 'Xóa nhóm chat'}
+                  </Text>
                 </TouchableOpacity>
               )}
 
