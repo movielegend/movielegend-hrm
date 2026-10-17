@@ -87,7 +87,9 @@ import { WorkReportsModule } from './modules/work-reports/work-reports.module';
           {
             rootPath: require('path').resolve(rootPath),
             serveRoot: '/uploads',
+            renderPath: '/__disabled_spa__',
             serveStaticOptions: {
+              index: false,
               setHeaders: (res: any) => {
                 res.set('Access-Control-Allow-Origin', '*');
                 res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');

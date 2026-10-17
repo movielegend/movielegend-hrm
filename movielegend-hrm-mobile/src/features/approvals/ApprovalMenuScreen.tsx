@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { roleBase } from '../../utils/notification-routing';
 import { isUserInLiveDepartment } from '../../constants/app-registry';
+import { hasUserRole } from '../../utils/role-routing';
 
 export function ApprovalMenuScreen() {
   const router = useRouter();
@@ -41,7 +42,12 @@ export function ApprovalMenuScreen() {
     userDeptName.includes('hành chính') ||
     (user as any)?.role?.code === 'HR';
 
-  const isFinancialReviewer = isAccountantOrAdmin || isHr;
+  const isLeader =
+    hasUserRole(user, 'LEADER') ||
+    roleCodes.includes('LEADER') ||
+    Boolean((user as any)?.isDepartmentLeader);
+
+  const isFinancialReviewer = isAccountantOrAdmin || isHr || isLeader;
 
   return (
     <View style={styles.container}>
@@ -194,12 +200,18 @@ export function ApprovalMenuScreen() {
                 </View>
                 <View style={styles.menuCardInfo}>
                   <Text style={styles.menuCardTitle}>
-                    {isAccountantOrAdmin ? 'Duyệt tài chính & Xuất Excel' : 'Đơn tài chính & Mua sắm'}
+                    {isAccountantOrAdmin
+                      ? 'Duyệt tài chính & Xuất Excel'
+                      : isHr
+                      ? 'Đơn tài chính & Mua sắm'
+                      : 'Duyệt tài chính & Mua sắm'}
                   </Text>
                   <Text style={styles.menuCardSubtitle}>
                     {isAccountantOrAdmin
                       ? 'Thanh toán, mua sắm, tạm ứng & xuất bảng kê 13 cột'
-                      : 'Đối chứng báo giá, nhận tiền & xác nhận hoàn tất mua hàng'}
+                      : isHr
+                      ? 'Đối chứng báo giá, nhận tiền & xác nhận hoàn tất mua hàng'
+                      : 'Duyệt đơn thanh toán, mua sắm, tạm ứng của phòng ban'}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
