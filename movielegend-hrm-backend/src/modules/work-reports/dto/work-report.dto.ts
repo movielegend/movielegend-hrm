@@ -77,6 +77,15 @@ export class CreateWorkTaskDto {
   initialSupportRequest?: string;
 
   @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  selfRating?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  attachments?: any;
+
+  @ApiPropertyOptional()
   @IsBoolean()
   @IsOptional()
   isTestBypass?: boolean;
@@ -117,6 +126,15 @@ export class UpdateWorkTaskDto {
   @IsString()
   @IsOptional()
   workStatus?: string;
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  selfRating?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  attachments?: any;
   
   @ApiPropertyOptional()
   @IsString()
@@ -154,6 +172,15 @@ export class CreateWorkTaskUpdateDto {
   @IsString()
   @IsOptional()
   supportRequest?: string;
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  selfRating?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  attachments?: any;
 
   @ApiPropertyOptional()
   @IsBoolean()
@@ -353,6 +380,15 @@ export class BulkSaveItemDto {
   @IsString()
   @IsOptional()
   supportRequest?: string;
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  selfRating?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  attachments?: any;
 }
 
 export class BulkSaveWorkReportsDto {

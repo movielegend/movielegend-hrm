@@ -2,7 +2,10 @@ import { apiClient, unwrapData } from './client';
 import type { ApiResponse } from '../types/api.types';
 
 export interface DailyReportMetricItem {
-  name: string;
+  taskId?: string;
+  taskCode?: string;
+  name?: string;
+  title?: string;
   description?: string;
   value?: string | number;
   unit?: string;
@@ -16,6 +19,9 @@ export interface DailyReportMetricItem {
   supportRequest?: string;
   progress?: number;
   status?: string;
+  isCarriedOver?: boolean;
+  selfRating?: number;
+  attachments?: DailyReportAttachmentItem[];
 }
 
 export interface DailyReportTaskItem {
@@ -34,6 +40,8 @@ export interface DailyReportTaskItem {
   notes?: string;
   obstacles?: string;
   supportRequest?: string;
+  selfRating?: number;
+  attachments?: DailyReportAttachmentItem[];
   isManual?: boolean;
   isSelected?: boolean;
 }
