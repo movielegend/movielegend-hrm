@@ -33,7 +33,6 @@ import {
   useMyReportHistory,
 } from '../../hooks/useDailyReports';
 import { uploadFile } from '../../api/uploads.api';
-import { fetchMyWorkTasks, updateWorkTaskProgress } from '../../api/work-reports.api';
 import type {
   DailyReport,
   DailyReportMetricItem,
@@ -121,7 +120,6 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
   const [selfReview, setSelfReview] = useState<string>('');
   const [attachments, setAttachments] = useState<DailyReportAttachmentItem[]>([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
-  const [isSyncingFromWeb, setIsSyncingFromWeb] = useState(false);
 
   // STEP 3: XÁC NHẬN
   const [isConfirmed, setIsConfirmed] = useState<boolean>(false);
@@ -136,82 +134,13 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
     return all.filter((r) => r.status === 'REVIEWED');
   }, [historyQuery.data]);
 
-  // Đồng bộ danh sách công việc từ module Báo cáo công việc (bảng Excel Web)
-  const handleSyncFromWeb = async (silent = false) => {
-    if (isSubmittedToday) return;
-    try {
-      setIsSyncingFromWeb(true);
-      const webTasks = await fetchMyWorkTasks();
-      if (!webTasks || webTasks.length === 0) {
-        if (!silent) {
-          Alert.alert('Đồng bộ từ Web', 'Chưa có công việc nào của bạn được ghi nhận trên Web cho ngày hôm nay.');
-        }
-        return;
-      }
-
-      const webCompleted: DailyReportTaskItem[] = [];
-      const webInProgress: DailyReportTaskItem[] = [];
-
-      webTasks.forEach((t) => {
-        const isDone = t.workStatus === 'DONE';
-        const displayTitle = t.taskCode ? `[${t.taskCode}] ${t.title}` : t.title;
-        const item: DailyReportTaskItem = {
-          taskId: t.id,
-          title: displayTitle,
-          status: isDone ? 'COMPLETED' : 'IN_PROGRESS',
-          progress: t.latestUpdate?.progress ?? (isDone ? 100 : t.workStatus === 'NOT_STARTED' ? 0 : 50),
-          expectedDate: t.deadline ? new Date(t.deadline).toLocaleDateString('vi-VN') : 'Hôm nay',
-          note: t.latestUpdate?.notes || '',
-          isManual: false,
-          isSelected: true,
-        };
-
-        if (isDone) {
-          webCompleted.push(item);
-        } else {
-          webInProgress.push(item);
-        }
-      });
-
-      // Merge: giữ lại các task nhập tay thủ công (isManual hoặc không có taskId)
-      setCompletedTasks((prev) => {
-        const manualTasks = prev.filter((item) => item.isManual || !item.taskId);
-        const webTaskIds = new Set(webCompleted.map((item) => item.taskId));
-        const remainingTasks = prev.filter((item) => item.taskId && !webTaskIds.has(item.taskId));
-        return [...webCompleted, ...remainingTasks, ...manualTasks];
-      });
-
-      setInProgressTasks((prev) => {
-        const manualTasks = prev.filter((item) => item.isManual || !item.taskId);
-        const webTaskIds = new Set(webInProgress.map((item) => item.taskId));
-        const remainingTasks = prev.filter((item) => item.taskId && !webTaskIds.has(item.taskId));
-        return [...webInProgress, ...remainingTasks, ...manualTasks];
-      });
-
-      if (!silent) {
-        Alert.alert(
-          'Đồng bộ thành công',
-          `Đã đồng bộ ${webTasks.length} công việc từ bảng Báo cáo công việc trên Web.`
-        );
-      }
-    } catch (err: any) {
-      console.warn('Lỗi đồng bộ từ Web:', err);
-      if (!silent) {
-        Alert.alert('Lỗi', 'Không thể đồng bộ công việc từ Web, vui lòng kiểm tra kết nối mạng.');
-      }
-    } finally {
-      setIsSyncingFromWeb(false);
-    }
-  };
-
   // Khởi tạo từ Server / Auto-pull
   useEffect(() => {
     if (reportData) {
       if (reportData.metrics && reportData.metrics.length > 0) {
         setMetrics(reportData.metrics);
       }
-      const hasCompleted = Boolean(reportData.completedTasks && reportData.completedTasks.length > 0);
-      if (hasCompleted) {
+      if (reportData.completedTasks && reportData.completedTasks.length > 0) {
         setCompletedTasks(
           reportData.completedTasks.map((t) => ({
             ...t,
@@ -219,8 +148,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
           }))
         );
       }
-      const hasInProgress = Boolean(reportData.inProgressTasks && reportData.inProgressTasks.length > 0);
-      if (hasInProgress) {
+      if (reportData.inProgressTasks && reportData.inProgressTasks.length > 0) {
         setInProgressTasks(
           reportData.inProgressTasks.map((t) => ({
             ...t,
@@ -246,16 +174,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         setSelfReview(reportData.selfReview);
       }
       setIsInitializing(false);
-
-      // Nếu chưa có bất kỳ việc nào và chưa gửi báo cáo hôm nay -> tự động kéo từ Web
-      if (!hasCompleted && !hasInProgress && reportData.status !== 'SUBMITTED' && reportData.status !== 'REVIEWED') {
-        handleSyncFromWeb(true);
-      }
-    } else if (!todayReportQuery.isLoading) {
-      setIsInitializing(false);
-      handleSyncFromWeb(true);
     }
-  }, [reportData, todayReportQuery.isLoading]);
+  }, [reportData]);
 
   // Format ngày tiếng Việt
   const displayDate = useMemo(() => {
@@ -523,48 +443,6 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         selfReview: selfReview.trim() || undefined,
         isDraft,
       });
-
-      // Đồng bộ trạng thái và tiến độ công việc ngược lại bảng Excel trên Web
-      try {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const syncPromises: Promise<any>[] = [];
-
-        // 1. Task hoàn thành được chọn -> update lên Web thành DONE, 100%
-        selectedCompleted.forEach((t) => {
-          if (t.taskId) {
-            syncPromises.push(
-              updateWorkTaskProgress(t.taskId, {
-                workStatus: 'DONE',
-                progress: 100,
-                reportDate: todayStr,
-                notes: t.note || 'Hoàn thành từ báo cáo Mobile',
-                isTestBypass: true,
-              })
-            );
-          }
-        });
-
-        // 2. Task đang làm -> update lên Web thành IN_PROGRESS và cập nhật tiến độ
-        cleanInProgress.forEach((t) => {
-          if (t.taskId) {
-            syncPromises.push(
-              updateWorkTaskProgress(t.taskId, {
-                workStatus: 'IN_PROGRESS',
-                progress: typeof t.progress === 'number' ? t.progress : 50,
-                reportDate: todayStr,
-                notes: t.note || (t.expectedDate ? `Dự kiến hoàn thành: ${t.expectedDate}` : 'Cập nhật từ Mobile'),
-                isTestBypass: true,
-              })
-            );
-          }
-        });
-
-        if (syncPromises.length > 0) {
-          await Promise.allSettled(syncPromises);
-        }
-      } catch (syncErr) {
-        console.warn('Lỗi đồng bộ ngược về Web (non-fatal):', syncErr);
-      }
 
       setNoticeText(isDraft ? '✓ Đã lưu nháp báo cáo thành công' : '✓ Đã gửi báo cáo cuối ngày thành công');
 
@@ -936,36 +814,6 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                   )}
                 </View>
 
-                {/* ĐỒNG BỘ CÔNG VIỆC TỪ WEB */}
-                {!isSubmittedToday && (
-                  <View style={styles.syncWebBanner}>
-                    <View style={styles.syncWebIconBox}>
-                      <MaterialCommunityIcons name="cloud-sync-outline" size={22} color="#1E40AF" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.syncWebTitle}>Đồng bộ từ bảng Web</Text>
-                      <Text style={styles.syncWebSub}>
-                        Nạp các đầu việc hôm nay từ module Báo cáo công việc trên Web
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.syncWebBtn}
-                      onPress={() => handleSyncFromWeb(false)}
-                      disabled={isSyncingFromWeb}
-                      activeOpacity={0.8}
-                    >
-                      {isSyncingFromWeb ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <>
-                          <Ionicons name="refresh" size={15} color="#FFFFFF" />
-                          <Text style={styles.syncWebBtnText}>Đồng bộ</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                )}
-
                 {/* 2. CÔNG VIỆC HOÀN THÀNH */}
                 <View style={styles.sectionCard}>
                   <View style={styles.sectionCardHeaderRow}>
@@ -1016,17 +864,9 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                   {t.title}
                                 </Text>
                               )}
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                                <Text style={styles.taskSubText}>
-                                  {t.isManual ? 'Thêm thủ công' : 'Từ danh sách nhiệm vụ'}
-                                </Text>
-                                {Boolean(t.taskId) && (
-                                  <View style={styles.webTagBadge}>
-                                    <MaterialCommunityIcons name="web" size={11} color="#1E40AF" />
-                                    <Text style={styles.webTagBadgeText}>Web</Text>
-                                  </View>
-                                )}
-                              </View>
+                              <Text style={styles.taskSubText}>
+                                {t.isManual ? 'Thêm thủ công' : 'Từ danh sách nhiệm vụ được giao'}
+                              </Text>
                             </View>
 
                             {t.isManual && !isSubmittedToday && (
@@ -1071,15 +911,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                     inProgressTasks.map((t, idx) => (
                       <View key={idx} style={styles.inProgressCard}>
                         <View style={styles.quantItemHeader}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Text style={styles.inProgressNumberText}>CÔNG VIỆC {String(idx + 1).padStart(2, '0')}</Text>
-                            {Boolean(t.taskId) && (
-                              <View style={styles.webTagBadge}>
-                                <MaterialCommunityIcons name="web" size={11} color="#1E40AF" />
-                                <Text style={styles.webTagBadgeText}>Web</Text>
-                              </View>
-                            )}
-                          </View>
+                          <Text style={styles.inProgressNumberText}>CÔNG VIỆC {String(idx + 1).padStart(2, '0')}</Text>
                           {!isSubmittedToday && (
                             <TouchableOpacity onPress={() => handleDeleteInProgressTask(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                               <Text style={styles.removeText}>Xóa</Text>
@@ -3160,65 +2992,5 @@ const styles = StyleSheet.create({
   imageModalFullImage: {
     width: '100%',
     height: '100%',
-  },
-
-  // SYNC FROM WEB BANNER & BADGES
-  syncWebBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 16,
-    gap: 10,
-  },
-  syncWebIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#DBEAFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  syncWebTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1E40AF',
-  },
-  syncWebSub: {
-    fontSize: 11,
-    color: '#3B82F6',
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  syncWebBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  syncWebBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  webTagBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#DBEAFE',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 4,
-  },
-  webTagBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#1E40AF',
   },
 });
