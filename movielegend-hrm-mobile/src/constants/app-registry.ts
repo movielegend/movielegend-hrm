@@ -133,7 +133,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#D97706',
     bgColor: '#FEF3C7',
     leaderRoute: '/leader/shift-management?mode=patch',
-    employeeRoute: '/employee/schedule',
     hrRoute: '/leader/shift-management?mode=patch',
   },
   shift_swaps: {
@@ -428,7 +427,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
 };
 
 export const ALL_APPS_LIST: AppRegistryItem[] = Object.values(APP_REGISTRY).filter(
-  (item) => !['stock_receipts', 'material_issues', 'inventory_checks'].includes(item.key),
+  (item) => !['stock_receipts', 'material_issues', 'inventory_checks', 'shift_reassign'].includes(item.key),
 );
 
 export function isUserInLiveDepartment(user?: any): boolean {
@@ -460,13 +459,13 @@ export function isAppAllowedForRole(
     return false;
   }
 
-  // Admin không có và không dùng "Lịch sử chấm công" cá nhân (Admin chỉ quản lý Dữ liệu chấm công qua /admin/attendance)
-  if (role === 'ADMIN' && item.key === 'attendance_history') {
+  // Không hiển thị dịch vụ "Vá ca đột xuất" độc lập (nhân viên chỉ dùng "Ca làm" cho /schedule, quản lý thao tác trong "Phân ca làm")
+  if (item.key === 'shift_reassign') {
     return false;
   }
 
-  // Admin không hiển thị dịch vụ "Vá ca đột xuất" độc lập (nếu cần Admin thao tác trong Ca làm việc -> Phân ca)
-  if (role === 'ADMIN' && item.key === 'shift_reassign') {
+  // Admin không có và không dùng "Lịch sử chấm công" cá nhân (Admin chỉ quản lý Dữ liệu chấm công qua /admin/attendance)
+  if (role === 'ADMIN' && item.key === 'attendance_history') {
     return false;
   }
 
