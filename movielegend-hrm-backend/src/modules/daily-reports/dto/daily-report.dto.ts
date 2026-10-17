@@ -28,6 +28,56 @@ export class DailyReportMetricItemDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @ApiPropertyOptional({ description: 'Ghi chú chi tiết' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({ description: 'Chi tiết công việc' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ description: 'Hạng mục (Vận hành, Kế hoạch...)' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({ description: 'Loại việc (THEO_KE_HOACH, PHAT_SINH...)' })
+  @IsOptional()
+  @IsString()
+  taskType?: string;
+
+  @ApiPropertyOptional({ description: 'Mức độ ưu tiên (HIGH, MEDIUM, LOW)' })
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @ApiPropertyOptional({ description: 'Hạn chót hoặc ngày dự kiến' })
+  @IsOptional()
+  @IsString()
+  deadline?: string;
+
+  @ApiPropertyOptional({ description: 'Khó khăn vướng mắc' })
+  @IsOptional()
+  @IsString()
+  obstacles?: string;
+
+  @ApiPropertyOptional({ description: 'Đề xuất hỗ trợ' })
+  @IsOptional()
+  @IsString()
+  supportRequest?: string;
+
+  @ApiPropertyOptional({ description: 'Tiến độ (%)' })
+  @IsOptional()
+  @IsNumber()
+  progress?: number;
+
+  @ApiPropertyOptional({ description: 'Trạng thái' })
+  @IsOptional()
+  @IsString()
+  status?: string;
 }
 
 export class DailyReportTaskItemDto {
@@ -36,18 +86,49 @@ export class DailyReportTaskItemDto {
   @IsString()
   taskId?: string;
 
+  @ApiPropertyOptional({ description: 'Mã công việc (VD: CV001)' })
+  @IsOptional()
+  @IsString()
+  taskCode?: string;
+
   @ApiProperty({ description: 'Tên công việc' })
   @IsString()
   title!: string;
 
+  @ApiPropertyOptional({ description: 'Chi tiết công việc' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ description: 'Hạng mục (Báo cáo, Kế hoạch, Vận hành...)' })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiPropertyOptional({ description: 'Phân loại công việc (THEO_KE_HOACH, PHAT_SINH...)' })
+  @IsOptional()
+  @IsString()
+  taskType?: string;
+
+  @ApiPropertyOptional({ description: 'Mức độ ưu tiên (HIGH, MEDIUM, LOW)' })
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
   @ApiPropertyOptional({ description: 'Tiến độ hoàn thành (%)' })
   @IsOptional()
+  @IsNumber()
   progress?: number;
 
   @ApiPropertyOptional({ description: 'Trạng thái công việc' })
   @IsOptional()
   @IsString()
   status?: string;
+
+  @ApiPropertyOptional({ description: 'Thời hạn hoàn thành' })
+  @IsOptional()
+  @IsString()
+  deadline?: string;
 
   @ApiPropertyOptional({ description: 'Ngày dự kiến hoàn thành' })
   @IsOptional()
@@ -59,10 +140,30 @@ export class DailyReportTaskItemDto {
   @IsString()
   note?: string;
 
+  @ApiPropertyOptional({ description: 'Ghi chú chi tiết kết quả' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({ description: 'Khó khăn, vướng mắc' })
+  @IsOptional()
+  @IsString()
+  obstacles?: string;
+
+  @ApiPropertyOptional({ description: 'Đề xuất, cần hỗ trợ' })
+  @IsOptional()
+  @IsString()
+  supportRequest?: string;
+
   @ApiPropertyOptional({ description: 'Đánh dấu là việc nhập tay ngoài hệ thống' })
   @IsOptional()
   @IsBoolean()
   isManual?: boolean;
+
+  @ApiPropertyOptional({ description: 'Đánh dấu đã chọn để nộp' })
+  @IsOptional()
+  @IsBoolean()
+  isSelected?: boolean;
 }
 
 export class DailyReportAttachmentItemDto {

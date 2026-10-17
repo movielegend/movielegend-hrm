@@ -58,6 +58,217 @@ export class DailyReportsService {
     return anyDept?.id || null;
   }
 
+  private async generateTaskCode(): Promise<string> {
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    return `CV${Date.now().toString().slice(-6)}${randomSuffix}`;
+  }
+
+  private async upsertSingleWorkTask(data: {
+    taskId?: string;
+    userId: string;
+    departmentId: string;
+    category: string;
+    title: string;
+    description?: string | null;
+    taskType: string;
+    priority: string;
+    deadline?: string | null;
+    workStatus: string;
+    progress: number;
+    notes?: string | null;
+    obstacles?: string | null;
+    supportRequest?: string | null;
+    reportDate: string;
+    isDraft?: boolean;
+    metricName?: string;
+  }) {
+    let task: any = null;
+    if (data.taskId) {
+      task = await this.prisma.workTask.findUnique({ where: { id: data.taskId } });
+    }
+    if (!task) {
+      task = await this.prisma.workTask.findFirst({
+        where: {
+          userId: data.userId,
+          reportDate: data.reportDate,
+          OR: [
+            { title: data.title },
+            ...(data.metricName ? [{ title: { startsWith: data.metricName } }] : []),
+          ],
+          isDeleted: false,
+        }
+      });
+    }
+
+    if (task) {
+      await this.prisma.workTask.update({
+        where: { id: task.id },
+        data: {
+          title: data.title,
+          category: data.category || task.category,
+          description: data.description !== undefined ? data.description : task.description,
+          taskType: data.taskType || task.taskType,
+          priority: data.priority || task.priority,
+          deadline: data.deadline !== undefined ? data.deadline : task.deadline,
+          workStatus: data.workStatus || task.workStatus,
+        }
+      });
+
+      const existingUpdate = await this.prisma.workTaskUpdate.findUnique({
+        where: { taskId_reportDate: { taskId: task.id, reportDate: data.reportDate } }
+      });
+      if (existingUpdate) {
+        await this.prisma.workTaskUpdate.update({
+          where: { id: existingUpdate.id },
+          data: {
+            progress: data.progress,
+            workStatus: data.workStatus,
+            notes: data.notes || existingUpdate.notes,
+            obstacles: data.obstacles || existingUpdate.obstacles,
+            supportRequest: data.supportRequest || existingUpdate.supportRequest,
+            isDraft: data.isDraft ?? existingUpdate.isDraft,
+          }
+        });
+      } else {
+        await this.prisma.workTaskUpdate.create({
+          data: {
+            taskId: task.id,
+            reportDate: data.reportDate,
+            progress: data.progress,
+            workStatus: data.workStatus,
+            notes: data.notes,
+            obstacles: data.obstacles,
+            supportRequest: data.supportRequest,
+            reportedByUserId: data.userId,
+            isDraft: data.isDraft ?? false,
+          }
+        });
+      }
+    } else {
+      const taskCode = await this.generateTaskCode();
+      task = await this.prisma.workTask.create({
+        data: {
+          taskCode,
+          userId: data.userId,
+          createdByUserId: data.userId,
+          departmentId: data.departmentId,
+          category: data.category || 'Vận hành',
+          title: data.title,
+          description: data.description || null,
+          taskType: data.taskType || 'THEO_KE_HOACH',
+          priority: data.priority || 'MEDIUM',
+          deadline: data.deadline || null,
+          workStatus: data.workStatus || 'IN_PROGRESS',
+          approvalStatus: 'PENDING',
+          reportDate: data.reportDate,
+          updates: {
+            create: {
+              reportDate: data.reportDate,
+              progress: data.progress,
+              workStatus: data.workStatus || 'IN_PROGRESS',
+              approvalStatus: 'PENDING',
+              notes: data.notes || null,
+              obstacles: data.obstacles || null,
+              supportRequest: data.supportRequest || null,
+              reportedByUserId: data.userId,
+              isDraft: data.isDraft ?? false,
+            }
+          }
+        }
+      });
+    }
+    return task;
+  }
+
+  private async syncToWorkTasks(userId: string, departmentId: string, reportDate: string, dto: CreateDailyReportDto, isDraft: boolean) {
+    try {
+      // 1. Sync completedTasks
+      const completed = Array.isArray(dto.completedTasks) ? dto.completedTasks : [];
+      for (const t of completed as any[]) {
+        if (!t || !t.title || t.isSelected === false) continue;
+        await this.upsertSingleWorkTask({
+          taskId: t.taskId,
+          userId,
+          departmentId,
+          category: t.category || 'Vận hành',
+          title: t.title,
+          description: t.description || null,
+          taskType: t.taskType || 'THEO_KE_HOACH',
+          priority: t.priority || 'MEDIUM',
+          deadline: t.deadline || null,
+          workStatus: 'DONE',
+          progress: 100,
+          notes: t.notes || t.note || null,
+          obstacles: t.obstacles || null,
+          supportRequest: t.supportRequest || null,
+          reportDate,
+          isDraft,
+        });
+      }
+
+      // 2. Sync inProgressTasks
+      const inProgress = Array.isArray(dto.inProgressTasks) ? dto.inProgressTasks : [];
+      for (const t of inProgress as any[]) {
+        if (!t || !t.title) continue;
+        await this.upsertSingleWorkTask({
+          taskId: t.taskId,
+          userId,
+          departmentId,
+          category: t.category || 'Vận hành',
+          title: t.title,
+          description: t.description || null,
+          taskType: t.taskType || 'THEO_KE_HOACH',
+          priority: t.priority || 'MEDIUM',
+          deadline: t.deadline || t.expectedDate || null,
+          workStatus: 'IN_PROGRESS',
+          progress: typeof t.progress === 'number' ? t.progress : 50,
+          notes: t.notes || t.note || null,
+          obstacles: t.obstacles || null,
+          supportRequest: t.supportRequest || null,
+          reportDate,
+          isDraft,
+        });
+      }
+
+      // 3. Sync metrics (chỉ tiêu định lượng)
+      const metrics = Array.isArray(dto.metrics) ? dto.metrics : [];
+      for (const m of metrics as any[]) {
+        if (!m || !m.name) continue;
+        const title = m.value ? `${m.name}: ${m.value} ${m.unit || ''}`.trim() : m.name;
+        const progress = m.progress ?? (m.value ? 100 : 50);
+        const workStatus = progress === 100 ? 'DONE' : 'IN_PROGRESS';
+        await this.upsertSingleWorkTask({
+          taskId: m.taskId,
+          metricName: m.name,
+          userId,
+          departmentId,
+          category: m.category || 'Vận hành',
+          title,
+          description: m.description || m.notes || null,
+          taskType: m.taskType || 'THEO_KE_HOACH',
+          priority: m.priority || 'MEDIUM',
+          deadline: m.deadline || null,
+          workStatus,
+          progress,
+          notes: m.notes || m.note || null,
+          obstacles: m.obstacles || null,
+          supportRequest: m.supportRequest || null,
+          reportDate,
+          isDraft,
+        });
+      }
+
+      // Phát realtime event để cập nhật bảng Excel trên Web
+      this.realtime.emitToDepartment(departmentId, 'work-report:department_updated', {
+        departmentId,
+        action: 'DAILY_REPORT_SYNC',
+        reportDate,
+      });
+    } catch (err) {
+      console.error('[DailyReportsService] syncToWorkTasks error:', err);
+    }
+  }
+
   /**
    * 1. Tạo hoặc Cập nhật báo cáo cuối ngày
    */
@@ -123,6 +334,9 @@ export class DailyReportsService {
         reviewedBy: { select: { id: true, userCode: true, profile: { select: { fullName: true } } } },
       },
     });
+
+    // Tự động đồng bộ các công việc và chỉ tiêu nhân viên đã nhập vào bảng Excel (WorkTask)
+    await this.syncToWorkTasks(userId, departmentId, reportDate, dto, Boolean(dto.isDraft));
 
     // Nếu là nộp chính thức (SUBMITTED), phát thông báo
     if (status === 'SUBMITTED') {
@@ -287,10 +501,7 @@ export class DailyReportsService {
       reportDate,
       roleType: actor.roles.includes('LEADER') ? 'LEADER' : 'EMPLOYEE',
       metrics: [
-        { name: 'Khách hàng mới / Đã tư vấn', value: '', note: '' },
-        { name: 'Đơn hàng thành công', value: '', note: '' },
-        { name: 'Doanh số hôm nay (VNĐ)', value: '', note: '' },
-        { name: 'Chăm sóc khách hàng / Hỗ trợ', value: '', note: '' },
+        { name: '', value: '', note: '', category: 'Vận hành' },
       ],
       completedTasks,
       inProgressTasks,

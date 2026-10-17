@@ -131,9 +131,20 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
 
   // STEP 1: HÔM NAY
   const [metrics, setMetrics] = useState<DailyReportMetricItem[]>([
-    { name: 'Khách hàng mới / Tư vấn', value: '', unit: 'Khách', note: '' },
-    { name: 'Đơn hàng thành công', value: '', unit: 'Đơn', note: '' },
-    { name: 'Doanh số hôm nay', value: '', unit: 'VND', note: '' },
+    {
+      name: '',
+      description: '',
+      value: '',
+      unit: '',
+      note: '',
+      notes: '',
+      category: 'Vận hành',
+      taskType: 'THEO_KE_HOACH',
+      priority: 'MEDIUM',
+      deadline: '',
+      obstacles: '',
+      supportRequest: '',
+    },
   ]);
   const [completedTasks, setCompletedTasks] = useState<DailyReportTaskItem[]>([]);
   const [inProgressTasks, setInProgressTasks] = useState<DailyReportTaskItem[]>([]);
@@ -301,7 +312,29 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
   useEffect(() => {
     if (reportData) {
       if (reportData.metrics && reportData.metrics.length > 0) {
-        setMetrics(reportData.metrics);
+        const validMetrics = reportData.metrics.filter(
+          (m: any) => m && m.name && ((m.value !== undefined && m.value !== null && String(m.value).trim() !== '') || m.description || m.notes)
+        );
+        if (validMetrics.length > 0) {
+          setMetrics(validMetrics);
+        } else if (!isSubmittedToday) {
+          setMetrics([
+            {
+              name: '',
+              description: '',
+              value: '',
+              unit: '',
+              note: '',
+              notes: '',
+              category: 'Vận hành',
+              taskType: 'THEO_KE_HOACH',
+              priority: 'MEDIUM',
+              deadline: '',
+              obstacles: '',
+              supportRequest: '',
+            },
+          ]);
+        }
       }
       const hasCompleted = Boolean(reportData.completedTasks && reportData.completedTasks.length > 0);
       if (hasCompleted) {
@@ -616,7 +649,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
     }
 
     const cleanMetrics = metrics
-      .filter((m) => m.name.trim().length > 0)
+      .filter((m) => m.name && m.name.trim().length > 0 && ((m.value !== undefined && m.value !== null && String(m.value).trim() !== '') || m.description || m.notes))
       .map((m) => ({
         ...m,
         value: typeof m.value === 'string' ? m.value.trim() : m.value,
