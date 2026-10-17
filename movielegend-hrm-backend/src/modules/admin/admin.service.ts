@@ -385,9 +385,65 @@ export class AdminService {
 
   async revokeLeader(id: string, actor: AuthenticatedUser) {
     return this.prisma.$transaction(async (tx) => {
-      const assignment = await tx.userRole.delete({ where: { id } });
-      if (assignment.scopeId) {
-        const dept = await tx.department.findUnique({ where: { id: assignment.scopeId } });
+      // 1. Tìm theo UserRole ID
+      let assignment = await tx.userRole.findUnique({ where: { id } });
+
+      let targetUserId = assignment?.userId;
+      let targetScopeId = assignment?.scopeId;
+
+      // 2. Nếu id không phải UserRole ID, có thể là userId được gửi trực tiếp từ frontend
+      if (!assignment) {
+        const leaderRole = await tx.role.findFirst({
+          where: { code: { in: ['LEADER', 'DEPARTMENT_HEAD'] } },
+        });
+
+        if (leaderRole) {
+          assignment = await tx.userRole.findFirst({
+            where: {
+              userId: id,
+              roleId: leaderRole.id,
+            },
+          });
+        }
+
+        // Tìm phòng ban mà user này đang là leaderUserId
+        const dept = await tx.department.findFirst({
+          where: { leaderUserId: id },
+        });
+
+        if (dept) {
+          targetUserId = id;
+          targetScopeId = targetScopeId || dept.id;
+        } else if (assignment) {
+          targetUserId = assignment.userId;
+          targetScopeId = assignment.scopeId;
+        } else {
+          const user = await tx.user.findUnique({ where: { id } });
+          if (user) {
+            targetUserId = user.id;
+          }
+        }
+      }
+
+      // 3. Xóa UserRole nếu tìm thấy
+      if (assignment) {
+        targetUserId = targetUserId || assignment.userId;
+        targetScopeId = targetScopeId || assignment.scopeId;
+        await tx.userRole.delete({ where: { id: assignment.id } });
+      } else if (targetUserId) {
+        // Xóa tất cả role LEADER của user này nếu có
+        const leaderRole = await tx.role.findFirst({
+          where: { code: { in: ['LEADER', 'DEPARTMENT_HEAD'] } },
+        });
+        if (leaderRole) {
+          await tx.userRole.deleteMany({
+            where: { userId: targetUserId, roleId: leaderRole.id },
+          });
+        }
+      }
+
+      if (targetScopeId && targetUserId) {
+        const dept = await tx.department.findUnique({ where: { id: targetScopeId } });
         const isHrDept = 
           dept?.code?.toUpperCase() === 'HCNS' || 
           dept?.code?.toUpperCase() === 'HR' || 
@@ -402,7 +458,7 @@ export class AdminService {
           const hrRole = await tx.role.findUnique({ where: { code: 'HR' } });
           if (hrRole) {
             await tx.userRole.deleteMany({
-              where: { userId: assignment.userId, roleId: hrRole.id, scopeType: RoleScopeType.GLOBAL },
+              where: { userId: targetUserId, roleId: hrRole.id, scopeType: RoleScopeType.GLOBAL },
             });
           }
         }
@@ -411,35 +467,47 @@ export class AdminService {
           const accLeadRole = await tx.role.findUnique({ where: { code: 'ACCOUNTANT_LEAD' } });
           if (accLeadRole) {
             await tx.userRole.deleteMany({
-              where: { userId: assignment.userId, roleId: accLeadRole.id, scopeType: RoleScopeType.GLOBAL }
+              where: { userId: targetUserId, roleId: accLeadRole.id, scopeType: RoleScopeType.GLOBAL }
             });
           }
         }
 
         await tx.department.updateMany({
-          where: { id: assignment.scopeId, leaderUserId: assignment.userId },
+          where: { id: targetScopeId, leaderUserId: targetUserId },
+          data: { leaderUserId: null },
+        });
+
+        // Xóa leaderUserId ở bất kỳ phòng ban nào khác mà user này đang nắm
+        await tx.department.updateMany({
+          where: { leaderUserId: targetUserId },
+          data: { leaderUserId: null },
+        });
+      } else if (targetUserId) {
+        await tx.department.updateMany({
+          where: { leaderUserId: targetUserId },
           data: { leaderUserId: null },
         });
       }
+
       await tx.auditLog.create({
         data: {
           actorUserId: actor.userId,
           action: 'admin.leader.revoke',
           entityType: 'UserRole',
-          entityId: id,
-          metadata: { userId: assignment.userId, departmentId: assignment.scopeId },
+          entityId: assignment?.id || id,
+          metadata: { userId: targetUserId, departmentId: targetScopeId },
         },
       });
 
-      if (assignment.scopeId) {
-        const department = await tx.department.findUnique({ where: { id: assignment.scopeId } });
-        const notif = await this.notifications.createForUsers(tx as any, [assignment.userId], {
+      if (targetScopeId && targetUserId) {
+        const department = await tx.department.findUnique({ where: { id: targetScopeId } });
+        const notif = await this.notifications.createForUsers(tx as any, [targetUserId], {
           type: 'SYSTEM' as NotificationType,
           title: 'Thu hồi chức vụ',
           body: `Bạn đã được rút khỏi vai trò quản lý chi nhánh/phòng ban ${department?.name || ''}.`,
         });
         if (notif) this.notifications.emitCreated(notif);
-        this.realtimeEvents.emitToRoom('company', 'department:updated', { departmentId: assignment.scopeId });
+        this.realtimeEvents.emitToRoom('company', 'department:updated', { departmentId: targetScopeId });
       }
 
       return { revoked: true };
