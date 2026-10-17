@@ -729,13 +729,22 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
       }
     }
 
-    let formattedObstacles = '';
-    if (hasObstacles) {
-      formattedObstacles = obstacleText.trim();
-      if (supportWish.trim()) {
-        formattedObstacles += `\n[Hỗ trợ mong muốn: ${supportWish.trim()}]`;
+    const taskObstacleList: string[] = [];
+    cleanTasks.forEach((t) => {
+      const obs = (t.obstacles || '').trim();
+      const sup = (t.supportRequest || '').trim();
+      if (obs || sup) {
+        let entry = `• ${t.name || 'Nhiệm vụ'}: `;
+        if (obs && sup) entry += `${obs} (Đề xuất hỗ trợ: ${sup})`;
+        else if (obs) entry += obs;
+        else entry += `Đề xuất hỗ trợ: ${sup}`;
+        taskObstacleList.push(entry);
       }
+    });
+    if (hasObstacles && obstacleText.trim()) {
+      taskObstacleList.push(`• Khó khăn chung: ${obstacleText.trim()}${supportWish.trim() ? ` (Đề xuất hỗ trợ: ${supportWish.trim()})` : ''}`);
     }
+    const formattedObstacles = taskObstacleList.length > 0 ? taskObstacleList.join('\n') : undefined;
 
     try {
       // Phục vụ tương thích ngược với các phiên bản cũ
@@ -1448,6 +1457,48 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                             </View>
                           </View>
 
+                          {/* 1. Khó khăn / Vướng mắc */}
+                          <Text style={[styles.inputLabel, { marginTop: 8 }]}>
+                            Khó khăn & vướng mắc <Text style={styles.optionalText}>· Tùy chọn</Text>
+                          </Text>
+                          <TextInput
+                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                            placeholder="Mô tả khó khăn hoặc trở ngại khi làm nhiệm vụ này…"
+                            placeholderTextColor="#94A3B8"
+                            value={m.obstacles || ''}
+                            onChangeText={(v) => handleUpdateMetric(idx, 'obstacles', v)}
+                            editable={!isSubmittedToday}
+                          />
+
+                          {/* 2. Đề xuất hỗ trợ */}
+                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>
+                            Đề xuất hỗ trợ <Text style={styles.optionalText}>· Tùy chọn</Text>
+                          </Text>
+                          <TextInput
+                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                            placeholder="Cần Leader hoặc bộ phận khác hỗ trợ gì…"
+                            placeholderTextColor="#94A3B8"
+                            value={m.supportRequest || ''}
+                            onChangeText={(v) => handleUpdateMetric(idx, 'supportRequest', v)}
+                            editable={!isSubmittedToday}
+                          />
+
+                          {/* 3. Ghi chú */}
+                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>
+                            Ghi chú <Text style={styles.optionalText}>· Tùy chọn</Text>
+                          </Text>
+                          <TextInput
+                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                            placeholder="Ghi chú thêm về nhiệm vụ này…"
+                            placeholderTextColor="#94A3B8"
+                            value={m.notes || m.note || ''}
+                            onChangeText={(v) => {
+                              handleUpdateMetric(idx, 'note', v);
+                              handleUpdateMetric(idx, 'notes', v);
+                            }}
+                            editable={!isSubmittedToday}
+                          />
+
                           {/* Chi tiết mở rộng (Drawer) */}
                           {isExpanded && (
                             <View style={styles.expandedDetailsDrawer}>
@@ -1525,42 +1576,6 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                   );
                                 })}
                               </View>
-
-                              {/* 4. Khó khăn / Vướng mắc */}
-                              <Text style={styles.drawerFieldLabel}>Khó khăn / Vướng mắc (nếu có)</Text>
-                              <TextInput
-                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Khó khăn khi thực hiện nhiệm vụ này…"
-                                placeholderTextColor="#94A3B8"
-                                value={m.obstacles || ''}
-                                onChangeText={(v) => handleUpdateMetric(idx, 'obstacles', v)}
-                                editable={!isSubmittedToday}
-                              />
-
-                              {/* 5. Đề xuất hỗ trợ */}
-                              <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Đề xuất hỗ trợ (nếu có)</Text>
-                              <TextInput
-                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Cần Leader hoặc bộ phận khác hỗ trợ gì…"
-                                placeholderTextColor="#94A3B8"
-                                value={m.supportRequest || ''}
-                                onChangeText={(v) => handleUpdateMetric(idx, 'supportRequest', v)}
-                                editable={!isSubmittedToday}
-                              />
-
-                              {/* 6. Ghi chú thêm */}
-                              <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Ghi chú thêm</Text>
-                              <TextInput
-                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Ghi chú chi tiết thêm…"
-                                placeholderTextColor="#94A3B8"
-                                value={m.notes || m.note || ''}
-                                onChangeText={(v) => {
-                                  handleUpdateMetric(idx, 'note', v);
-                                  handleUpdateMetric(idx, 'notes', v);
-                                }}
-                                editable={!isSubmittedToday}
-                              />
                             </View>
                           )}
                         </View>
@@ -1617,56 +1632,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                   )}
                 </View>
 
-                {/* 2. KHÓ KHĂN & ĐỀ XUẤT HỖ TRỢ */}
-                <View style={styles.sectionCard}>
-                  <View style={styles.switchRow}>
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                      <Text style={styles.sectionCardTitle}>Khó khăn & vướng mắc</Text>
-                      <Text style={styles.sectionCardSubtitle}>
-                        Bật nếu hôm nay gặp trở ngại cần Leader hoặc phòng ban khác hỗ trợ.
-                      </Text>
-                    </View>
-                    <Switch
-                      value={hasObstacles}
-                      onValueChange={(val: boolean) => {
-                        if (!isSubmittedToday) setHasObstacles(val);
-                      }}
-                      trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
-                      thumbColor={hasObstacles ? '#166534' : '#FFFFFF'}
-                      disabled={isSubmittedToday}
-                    />
-                  </View>
-
-                  {hasObstacles && (
-                    <View style={{ marginTop: 12 }}>
-                      <Text style={styles.inputLabel}>Mô tả vướng mắc</Text>
-                      <TextInput
-                        style={[styles.textAreaInput, isSubmittedToday && styles.readOnlyInput]}
-                        placeholder="Mô tả cụ thể khó khăn phát sinh trong công việc hôm nay…"
-                        placeholderTextColor="#94A3B8"
-                        multiline
-                        numberOfLines={3}
-                        value={obstacleText}
-                        onChangeText={setObstacleText}
-                        editable={!isSubmittedToday}
-                      />
-
-                      <Text style={[styles.inputLabel, { marginTop: 10 }]}>
-                        Mong muốn hỗ trợ <Text style={styles.optionalText}>· Tùy chọn</Text>
-                      </Text>
-                      <TextInput
-                        style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                        placeholder="Ví dụ: Cần họp nhanh 15p với bên Media…"
-                        placeholderTextColor="#94A3B8"
-                        value={supportWish}
-                        onChangeText={setSupportWish}
-                        editable={!isSubmittedToday}
-                      />
-                    </View>
-                  )}
-                </View>
-
-                {/* 3. TỰ ĐÁNH GIÁ NGÀY LÀM VIỆC */}
+                {/* 2. TỰ ĐÁNH GIÁ NGÀY LÀM VIỆC */}
                 <View style={styles.sectionCard}>
                   <Text style={styles.sectionCardTitle}>Tự đánh giá ngày làm việc</Text>
                   <Text style={styles.sectionCardSubtitle}>
@@ -1857,6 +1823,21 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                     </Text>
                                   ) : null}
                                 </View>
+                                {m.obstacles ? (
+                                  <Text style={[styles.summaryBoxContentText, { fontSize: 11, color: '#DC2626', marginTop: 2 }]}>
+                                    ⚠️ Khó khăn: {m.obstacles}
+                                  </Text>
+                                ) : null}
+                                {m.supportRequest ? (
+                                  <Text style={[styles.summaryBoxContentText, { fontSize: 11, color: '#0284C7', marginTop: 1 }]}>
+                                    🤝 Đề xuất hỗ trợ: {m.supportRequest}
+                                  </Text>
+                                ) : null}
+                                {(m.notes || m.note) ? (
+                                  <Text style={[styles.summaryBoxContentText, { fontSize: 11, color: '#64748B', fontStyle: 'italic', marginTop: 1 }]}>
+                                    📝 Ghi chú: {m.notes || m.note}
+                                  </Text>
+                                ) : null}
                               </View>
                             );
                           })
@@ -1891,15 +1872,39 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                       <View style={styles.summaryBoxHeaderRow}>
                         <Text style={styles.summaryBoxTitle}>VƯỚNG MẮC & HỖ TRỢ</Text>
                       </View>
-                      {hasObstacles ? (
-                        <View style={{ gap: 2 }}>
-                          <Text style={styles.summaryBoxContentText}>
-                            • <Text style={{ fontWeight: '700' }}>Vướng mắc:</Text> {obstacleText.trim() || 'Có vướng mắc'}
-                          </Text>
-                          {supportWish.trim() ? (
-                            <Text style={styles.summaryBoxContentText}>
-                              • <Text style={{ fontWeight: '700' }}>Đề xuất hỗ trợ:</Text> {supportWish.trim()}
-                            </Text>
+                      {metrics.some((m) => (m.obstacles || '').trim() || (m.supportRequest || '').trim()) || (hasObstacles && obstacleText.trim()) ? (
+                        <View style={{ gap: 4 }}>
+                          {metrics
+                            .filter((m) => (m.obstacles || '').trim() || (m.supportRequest || '').trim())
+                            .map((m, idx) => (
+                              <View key={idx} style={{ marginTop: 2 }}>
+                                <Text style={[styles.summaryBoxContentText, { fontWeight: '700' }]}>
+                                  • {m.name || `Nhiệm vụ ${idx + 1}`}:
+                                </Text>
+                                {m.obstacles ? (
+                                  <Text style={[styles.summaryBoxContentText, { marginLeft: 12, color: '#DC2626' }]}>
+                                    Khó khăn: {m.obstacles}
+                                  </Text>
+                                ) : null}
+                                {m.supportRequest ? (
+                                  <Text style={[styles.summaryBoxContentText, { marginLeft: 12, color: '#0284C7' }]}>
+                                    Đề xuất hỗ trợ: {m.supportRequest}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            ))}
+                          {hasObstacles && obstacleText.trim() ? (
+                            <View style={{ marginTop: 2 }}>
+                              <Text style={[styles.summaryBoxContentText, { fontWeight: '700' }]}>• Khó khăn chung:</Text>
+                              <Text style={[styles.summaryBoxContentText, { marginLeft: 12, color: '#DC2626' }]}>
+                                {obstacleText.trim()}
+                              </Text>
+                              {supportWish.trim() ? (
+                                <Text style={[styles.summaryBoxContentText, { marginLeft: 12, color: '#0284C7' }]}>
+                                  Đề xuất hỗ trợ: {supportWish.trim()}
+                                </Text>
+                              ) : null}
+                            </View>
                           ) : null}
                         </View>
                       ) : (
