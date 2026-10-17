@@ -230,13 +230,17 @@ export class DailyReportsService {
         });
       }
 
-      // 3. Sync metrics (chỉ tiêu định lượng)
+      // 3. Sync metrics (nhiệm vụ / công việc chuẩn hóa)
       const metrics = Array.isArray(dto.metrics) ? dto.metrics : [];
       for (const m of metrics as any[]) {
-        if (!m || !m.name) continue;
-        const title = m.value ? `${m.name}: ${m.value} ${m.unit || ''}`.trim() : m.name;
-        const progress = m.progress ?? (m.value ? 100 : 50);
-        const workStatus = progress === 100 ? 'DONE' : 'IN_PROGRESS';
+        if (!m) continue;
+        const taskTitle = (m.name || m.title || '').trim();
+        if (!taskTitle) continue;
+
+        const title = m.value ? `${taskTitle}: ${m.value} ${m.unit || ''}`.trim() : taskTitle;
+        const workStatus = m.status || (m.progress === 100 ? 'DONE' : 'IN_PROGRESS');
+        const progress = workStatus === 'DONE' ? 100 : (m.progress ?? (workStatus === 'NOT_STARTED' ? 0 : 50));
+
         await this.upsertSingleWorkTask({
           taskId: m.taskId,
           metricName: m.name,
@@ -299,6 +303,49 @@ export class DailyReportsService {
       );
     }
 
+    const unifiedMetrics = Array.isArray(dto.metrics) ? (dto.metrics as any[]) : [];
+    const derivedCompleted = (dto.completedTasks && dto.completedTasks.length > 0)
+      ? dto.completedTasks
+      : unifiedMetrics
+          .filter((m) => m.status === 'DONE' && Boolean((m.name || m.title || '').trim()))
+          .map((m, idx) => ({
+            taskId: m.taskId,
+            taskCode: m.taskCode || `CV${String(idx + 1).padStart(3, '0')}`,
+            title: m.name || m.title || '',
+            description: m.description || '',
+            category: m.category || 'Vận hành',
+            taskType: m.taskType || 'THEO_KE_HOACH',
+            priority: m.priority || 'MEDIUM',
+            deadline: m.deadline || '',
+            status: 'DONE',
+            progress: 100,
+            notes: m.notes || m.note || '',
+            obstacles: m.obstacles || '',
+            supportRequest: m.supportRequest || '',
+            isSelected: true,
+          }));
+
+    const derivedInProgress = (dto.inProgressTasks && dto.inProgressTasks.length > 0)
+      ? dto.inProgressTasks
+      : unifiedMetrics
+          .filter((m) => m.status !== 'DONE' && Boolean((m.name || m.title || '').trim()))
+          .map((m, idx) => ({
+            taskId: m.taskId,
+            taskCode: m.taskCode || `CV${String(idx + 1).padStart(3, '0')}`,
+            title: m.name || m.title || '',
+            description: m.description || '',
+            category: m.category || 'Vận hành',
+            taskType: m.taskType || 'THEO_KE_HOACH',
+            priority: m.priority || 'MEDIUM',
+            deadline: m.deadline || '',
+            status: m.status || 'IN_PROGRESS',
+            progress: m.progress ?? (m.status === 'NOT_STARTED' ? 0 : 50),
+            expectedDate: m.deadline || '',
+            notes: m.notes || m.note || '',
+            obstacles: m.obstacles || '',
+            supportRequest: m.supportRequest || '',
+          }));
+
     const report = await this.prisma.dailyReport.upsert({
       where: { userId_reportDate: { userId, reportDate } },
       create: {
@@ -307,8 +354,8 @@ export class DailyReportsService {
         reportDate,
         roleType,
         metrics: (dto.metrics as any) || [],
-        completedTasks: (dto.completedTasks as any) || [],
-        inProgressTasks: (dto.inProgressTasks as any) || [],
+        completedTasks: (derivedCompleted as any) || [],
+        inProgressTasks: (derivedInProgress as any) || [],
         obstacles: dto.obstacles || null,
         tomorrowPlan: (dto.tomorrowPlan as any) || [],
         attachments: (dto.attachments as any) || [],
@@ -318,8 +365,8 @@ export class DailyReportsService {
       },
       update: {
         metrics: dto.metrics !== undefined ? (dto.metrics as any) : undefined,
-        completedTasks: dto.completedTasks !== undefined ? (dto.completedTasks as any) : undefined,
-        inProgressTasks: dto.inProgressTasks !== undefined ? (dto.inProgressTasks as any) : undefined,
+        completedTasks: (derivedCompleted as any),
+        inProgressTasks: (derivedInProgress as any),
         obstacles: dto.obstacles !== undefined ? dto.obstacles : undefined,
         tomorrowPlan: dto.tomorrowPlan !== undefined ? (dto.tomorrowPlan as any) : undefined,
         attachments: dto.attachments !== undefined ? (dto.attachments as any) : undefined,
@@ -467,7 +514,7 @@ export class DailyReportsService {
         })
       : null;
 
-    // Tự động phân loại Task hoàn thành & Task đang làm
+    // Tự động phân loại Task hoàn thành & Task đang làm (hệ thống giao việc)
     const completedTasks: any[] = [];
     const inProgressTasks: any[] = [];
 
@@ -494,15 +541,96 @@ export class DailyReportsService {
       }
     }
 
+    // Tự động chuyển tiếp việc dở dang từ báo cáo ngày gần nhất (Auto Carryover)
+    const carriedOverMetrics: any[] = [];
+    try {
+      const lastReport = await this.prisma.dailyReport.findFirst({
+        where: {
+          userId,
+          reportDate: { lt: reportDate },
+          status: { in: ['SUBMITTED', 'REVIEWED'] },
+        },
+        orderBy: { reportDate: 'desc' },
+      });
+
+      if (lastReport) {
+        const prevMetrics = Array.isArray(lastReport.metrics) ? (lastReport.metrics as any[]) : [];
+        for (const m of prevMetrics) {
+          const isDone = m.status === 'DONE' || Number(m.progress) >= 100;
+          const name = (m.name || m.title || '').trim();
+          if (name && !isDone) {
+            carriedOverMetrics.push({
+              name,
+              description: m.description || '',
+              value: m.value || '',
+              unit: m.unit || '',
+              category: m.category || 'Vận hành',
+              taskType: m.taskType || 'THEO_KE_HOACH',
+              priority: m.priority || 'MEDIUM',
+              deadline: m.deadline || '',
+              status: m.status || 'IN_PROGRESS',
+              progress: m.progress ?? 50,
+              isCarriedOver: true,
+              note: m.note || m.notes || '',
+              notes: m.notes || m.note || '',
+              obstacles: m.obstacles || '',
+              supportRequest: m.supportRequest || '',
+            });
+          }
+        }
+
+        // Kiểm tra tương thích thêm inProgressTasks cũ nếu có
+        const prevInProgress = Array.isArray(lastReport.inProgressTasks) ? (lastReport.inProgressTasks as any[]) : [];
+        for (const t of prevInProgress) {
+          const title = (t.title || t.name || '').trim();
+          if (title && !carriedOverMetrics.some((cm) => cm.name === title)) {
+            carriedOverMetrics.push({
+              name: title,
+              description: t.description || '',
+              category: t.category || 'Vận hành',
+              taskType: t.taskType || 'THEO_KE_HOACH',
+              priority: t.priority || 'MEDIUM',
+              deadline: t.deadline || t.expectedDate || '',
+              status: 'IN_PROGRESS',
+              progress: t.progress ?? 50,
+              isCarriedOver: true,
+              note: t.note || t.notes || '',
+              notes: t.notes || t.note || '',
+              obstacles: t.obstacles || '',
+              supportRequest: t.supportRequest || '',
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[DailyReports] Auto carryover lookup failed:', e);
+    }
+
+    const defaultMetrics = carriedOverMetrics.length > 0
+      ? carriedOverMetrics
+      : [
+          {
+            name: '',
+            value: '',
+            note: '',
+            category: 'Vận hành',
+            taskType: 'THEO_KE_HOACH',
+            priority: 'MEDIUM',
+            status: 'IN_PROGRESS',
+            progress: 50,
+            deadline: '',
+            description: '',
+            isCarriedOver: false,
+          },
+        ];
+
     return {
       id: null,
       userId,
       departmentId,
       reportDate,
       roleType: actor.roles.includes('LEADER') ? 'LEADER' : 'EMPLOYEE',
-      metrics: [
-        { name: '', value: '', note: '', category: 'Vận hành' },
-      ],
+      metrics: defaultMetrics,
       completedTasks,
       inProgressTasks,
       obstacles: '',

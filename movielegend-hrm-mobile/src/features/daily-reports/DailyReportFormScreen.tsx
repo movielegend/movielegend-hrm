@@ -68,6 +68,13 @@ export const TASK_PRIORITIES: { value: string; label: string; color: string; bg:
   { value: 'LOW', label: 'Thấp', color: '#047857', bg: '#D1FAE5' },
 ];
 
+export const TASK_STATUSES: { value: string; label: string; color: string; bg: string; border: string; icon: any }[] = [
+  { value: 'DONE', label: 'Hoàn thành', color: '#15803D', bg: '#DCFCE7', border: '#86EFAC', icon: 'checkmark-circle' },
+  { value: 'IN_PROGRESS', label: 'Đang thực hiện', color: '#2563EB', bg: '#DBEAFE', border: '#93C5FD', icon: 'time-outline' },
+  { value: 'NOT_STARTED', label: 'Chưa thực hiện', color: '#64748B', bg: '#F1F5F9', border: '#CBD5E1', icon: 'hourglass-outline' },
+  { value: 'WAITING', label: 'Chờ phối hợp', color: '#D97706', bg: '#FEF3C7', border: '#FDE68A', icon: 'alert-circle-outline' },
+];
+
 // 5 mức tự đánh giá theo template
 const ASSESSMENT_LEVELS = [
   {
@@ -129,7 +136,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
   // Detailed view of an approved report
   const [selectedApprovedReport, setSelectedApprovedReport] = useState<DailyReport | null>(null);
 
-  // STEP 1: HÔM NAY
+  // STEP 1: HÔM NAY (Danh sách công việc & nhiệm vụ hợp nhất)
   const [metrics, setMetrics] = useState<DailyReportMetricItem[]>([
     {
       name: '',
@@ -142,8 +149,11 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
       taskType: 'THEO_KE_HOACH',
       priority: 'MEDIUM',
       deadline: '',
+      status: 'IN_PROGRESS',
+      progress: 50,
       obstacles: '',
       supportRequest: '',
+      isCarriedOver: false,
     },
   ]);
   const [completedTasks, setCompletedTasks] = useState<DailyReportTaskItem[]>([]);
@@ -244,58 +254,39 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         return;
       }
 
-      const webCompleted: DailyReportTaskItem[] = [];
-      const webInProgress: DailyReportTaskItem[] = [];
-
-      webTasks.forEach((t) => {
+      const webMetrics: DailyReportMetricItem[] = webTasks.map((t) => {
         const isDone = t.workStatus === 'DONE';
-        const displayTitle = t.taskCode ? `[${t.taskCode}] ${t.title}` : t.title;
-        const item: DailyReportTaskItem = {
+        const displayTitle = t.title;
+        return {
           taskId: t.id,
           taskCode: t.taskCode,
-          title: displayTitle,
+          name: displayTitle,
           description: t.description || t.title,
           category: t.category || 'Vận hành',
           taskType: t.taskType || 'THEO_KE_HOACH',
-          priority: t.priority || 'MEDIUM',
-          status: isDone ? 'COMPLETED' : 'IN_PROGRESS',
+          priority: (t.priority as any) || 'MEDIUM',
+          status: t.workStatus || (isDone ? 'DONE' : 'IN_PROGRESS'),
           progress: t.latestUpdate?.progress ?? (isDone ? 100 : t.workStatus === 'NOT_STARTED' ? 0 : 50),
-          deadline: t.deadline,
-          expectedDate: t.deadline ? new Date(t.deadline).toLocaleDateString('vi-VN') : 'Hôm nay',
+          deadline: t.deadline || '',
           note: t.latestUpdate?.notes || '',
           notes: t.latestUpdate?.notes || '',
           obstacles: t.latestUpdate?.obstacles || '',
           supportRequest: t.latestUpdate?.supportRequest || '',
-          isManual: false,
-          isSelected: true,
+          isCarriedOver: Boolean(t.isCarriedOver),
         };
-
-        if (isDone) {
-          webCompleted.push(item);
-        } else {
-          webInProgress.push(item);
-        }
       });
 
-      // Merge: giữ lại các task nhập tay thủ công (isManual hoặc không có taskId)
-      setCompletedTasks((prev) => {
-        const manualTasks = prev.filter((item) => item.isManual || !item.taskId);
-        const webTaskIds = new Set(webCompleted.map((item) => item.taskId));
-        const remainingTasks = prev.filter((item) => item.taskId && !webTaskIds.has(item.taskId));
-        return [...webCompleted, ...remainingTasks, ...manualTasks];
-      });
-
-      setInProgressTasks((prev) => {
-        const manualTasks = prev.filter((item) => item.isManual || !item.taskId);
-        const webTaskIds = new Set(webInProgress.map((item) => item.taskId));
-        const remainingTasks = prev.filter((item) => item.taskId && !webTaskIds.has(item.taskId));
-        return [...webInProgress, ...remainingTasks, ...manualTasks];
+      setMetrics((prev) => {
+        const currentClean = prev.filter((m) => (m.name || '').trim() || (m.description || '').trim());
+        const webTaskIds = new Set(webMetrics.map((m) => m.taskId).filter(Boolean));
+        const manualItems = currentClean.filter((m) => !m.taskId || !webTaskIds.has(m.taskId));
+        return [...webMetrics, ...manualItems];
       });
 
       if (!silent) {
         Alert.alert(
           'Đồng bộ thành công',
-          `Đã đồng bộ ${webTasks.length} công việc đầy đủ hạng mục, loại việc, độ ưu tiên từ bảng Web.`
+          `Đã đồng bộ ${webTasks.length} công việc đầy đủ hạng mục, loại việc, tiến độ & trạng thái từ bảng Web.`
         );
       }
     } catch (err: any) {
@@ -312,9 +303,30 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
   useEffect(() => {
     if (reportData) {
       if (reportData.metrics && reportData.metrics.length > 0) {
-        const validMetrics = reportData.metrics.filter(
-          (m: any) => m && m.name && ((m.value !== undefined && m.value !== null && String(m.value).trim() !== '') || m.description || m.notes)
-        );
+        const validMetrics = reportData.metrics
+          .filter(
+            (m: any) => m && ((m.name && m.name.trim()) || (m.title && m.title.trim()) || m.description || m.notes)
+          )
+          .map((m: any) => ({
+            taskId: m.taskId,
+            taskCode: m.taskCode,
+            name: m.name || m.title || '',
+            description: m.description || '',
+            value: m.value || '',
+            unit: m.unit || '',
+            note: m.note || m.notes || '',
+            notes: m.notes || m.note || '',
+            category: m.category || 'Vận hành',
+            taskType: m.taskType || 'THEO_KE_HOACH',
+            priority: m.priority || 'MEDIUM',
+            deadline: m.deadline || '',
+            status: m.status || (Number(m.progress) === 100 ? 'DONE' : 'IN_PROGRESS'),
+            progress: m.status === 'DONE' ? 100 : (m.progress ?? (m.status === 'NOT_STARTED' ? 0 : 50)),
+            obstacles: m.obstacles || '',
+            supportRequest: m.supportRequest || '',
+            isCarriedOver: Boolean(m.isCarriedOver),
+          }));
+
         if (validMetrics.length > 0) {
           setMetrics(validMetrics);
         } else if (!isSubmittedToday) {
@@ -330,31 +342,64 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
               taskType: 'THEO_KE_HOACH',
               priority: 'MEDIUM',
               deadline: '',
+              status: 'IN_PROGRESS',
+              progress: 50,
               obstacles: '',
               supportRequest: '',
+              isCarriedOver: false,
             },
           ]);
         }
+      } else {
+        // Fallback tương thích nếu báo cáo cũ có completedTasks/inProgressTasks
+        const fallbackTasks: DailyReportMetricItem[] = [];
+        if (reportData.completedTasks && reportData.completedTasks.length > 0) {
+          reportData.completedTasks.forEach((t: any) => {
+            if (t && (t.title || t.name)) {
+              fallbackTasks.push({
+                taskId: t.taskId,
+                taskCode: t.taskCode,
+                name: t.title || t.name,
+                description: t.description || '',
+                category: t.category || 'Vận hành',
+                taskType: t.taskType || 'THEO_KE_HOACH',
+                priority: t.priority || 'MEDIUM',
+                deadline: t.deadline || '',
+                status: 'DONE',
+                progress: 100,
+                notes: t.notes || t.note || '',
+                obstacles: t.obstacles || '',
+                supportRequest: t.supportRequest || '',
+              });
+            }
+          });
+        }
+        if (reportData.inProgressTasks && reportData.inProgressTasks.length > 0) {
+          reportData.inProgressTasks.forEach((t: any) => {
+            if (t && (t.title || t.name)) {
+              fallbackTasks.push({
+                taskId: t.taskId,
+                taskCode: t.taskCode,
+                name: t.title || t.name,
+                description: t.description || '',
+                category: t.category || 'Vận hành',
+                taskType: t.taskType || 'THEO_KE_HOACH',
+                priority: t.priority || 'MEDIUM',
+                deadline: t.deadline || t.expectedDate || '',
+                status: 'IN_PROGRESS',
+                progress: t.progress ?? 50,
+                notes: t.notes || t.note || '',
+                obstacles: t.obstacles || '',
+                supportRequest: t.supportRequest || '',
+              });
+            }
+          });
+        }
+        if (fallbackTasks.length > 0) {
+          setMetrics(fallbackTasks);
+        }
       }
-      const hasCompleted = Boolean(reportData.completedTasks && reportData.completedTasks.length > 0);
-      if (hasCompleted) {
-        setCompletedTasks(
-          reportData.completedTasks.map((t) => ({
-            ...t,
-            isSelected: t.isSelected ?? true,
-          }))
-        );
-      }
-      const hasInProgress = Boolean(reportData.inProgressTasks && reportData.inProgressTasks.length > 0);
-      if (hasInProgress) {
-        setInProgressTasks(
-          reportData.inProgressTasks.map((t) => ({
-            ...t,
-            progress: t.progress ?? 60,
-            expectedDate: t.expectedDate || 'Ngày mai',
-          }))
-        );
-      }
+
       if (reportData.obstacles) {
         setHasObstacles(true);
         setObstacleText(reportData.obstacles);
@@ -373,9 +418,12 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
       }
       setIsInitializing(false);
 
-      // Nếu chưa có bất kỳ việc nào và chưa gửi báo cáo hôm nay -> tự động kéo từ Web
-      if (!hasCompleted && !hasInProgress && reportData.status !== 'SUBMITTED' && reportData.status !== 'REVIEWED') {
-        handleSyncFromWeb(true);
+      // Nếu chưa có báo cáo hôm nay và danh sách rỗng -> tự động kéo từ Web
+      if (reportData.status !== 'SUBMITTED' && reportData.status !== 'REVIEWED') {
+        const hasTasks = reportData.metrics?.some((m: any) => (m.name || '').trim().length > 0);
+        if (!hasTasks) {
+          handleSyncFromWeb(true);
+        }
       }
     } else if (!todayReportQuery.isLoading) {
       setIsInitializing(false);
@@ -648,20 +696,30 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
       return;
     }
 
-    const cleanMetrics = metrics
-      .filter((m) => m.name && m.name.trim().length > 0 && ((m.value !== undefined && m.value !== null && String(m.value).trim() !== '') || m.description || m.notes))
-      .map((m) => ({
-        ...m,
-        value: typeof m.value === 'string' ? m.value.trim() : m.value,
-      }));
+    const cleanTasks = metrics
+      .filter(
+        (m) =>
+          (m.name && m.name.trim().length > 0) ||
+          (m.description && m.description.trim().length > 0) ||
+          (m.notes && m.notes.trim().length > 0)
+      )
+      .map((m) => {
+        const isDone = m.status === 'DONE';
+        const progress = isDone ? 100 : (typeof m.progress === 'number' ? m.progress : (m.status === 'NOT_STARTED' ? 0 : 50));
+        return {
+          ...m,
+          name: m.name ? m.name.trim() : (m.description ? m.description.trim() : 'Nhiệm vụ'),
+          status: m.status || (progress === 100 ? 'DONE' : 'IN_PROGRESS'),
+          progress,
+          value: typeof m.value === 'string' ? m.value.trim() : m.value,
+        };
+      });
 
-    const selectedCompleted = completedTasks.filter((t) => (t.isSelected ?? true) && t.title.trim().length > 0);
-    const cleanInProgress = inProgressTasks.filter((t) => t.title.trim().length > 0);
     const cleanPlan = tomorrowPlan.filter((p) => p.trim().length > 0);
 
     if (!isDraft) {
-      if (selectedCompleted.length === 0 && cleanMetrics.length === 0) {
-        Alert.alert('Chưa đủ thông tin', 'Vui lòng ghi nhận ít nhất 1 kết quả định lượng hoặc chọn 1 công việc hoàn thành.');
+      if (cleanTasks.length === 0) {
+        Alert.alert('Chưa đủ thông tin', 'Vui lòng nhập ít nhất 1 công việc / nhiệm vụ cho ngày hôm nay.');
         setCurrentStep(0);
         return;
       }
@@ -685,10 +743,49 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
     }
 
     try {
+      // Phục vụ tương thích ngược với các phiên bản cũ
+      const derivedCompleted = cleanTasks
+        .filter((t) => t.status === 'DONE')
+        .map((t) => ({
+          taskId: t.taskId,
+          taskCode: t.taskCode,
+          title: t.name,
+          description: t.description,
+          category: t.category,
+          taskType: t.taskType,
+          priority: t.priority,
+          deadline: t.deadline,
+          status: 'COMPLETED',
+          progress: 100,
+          isSelected: true,
+          notes: t.notes || t.note,
+          obstacles: t.obstacles,
+          supportRequest: t.supportRequest,
+        }));
+
+      const derivedInProgress = cleanTasks
+        .filter((t) => t.status !== 'DONE')
+        .map((t) => ({
+          taskId: t.taskId,
+          taskCode: t.taskCode,
+          title: t.name,
+          description: t.description,
+          category: t.category,
+          taskType: t.taskType,
+          priority: t.priority,
+          deadline: t.deadline,
+          status: t.status,
+          progress: t.progress,
+          expectedDate: t.deadline,
+          notes: t.notes || t.note,
+          obstacles: t.obstacles,
+          supportRequest: t.supportRequest,
+        }));
+
       await saveReportMutation.mutateAsync({
-        metrics: cleanMetrics,
-        completedTasks: selectedCompleted,
-        inProgressTasks: cleanInProgress,
+        metrics: cleanTasks,
+        completedTasks: derivedCompleted,
+        inProgressTasks: derivedInProgress,
         obstacles: formattedObstacles || undefined,
         tomorrowPlan: cleanPlan,
         attachments,
@@ -697,37 +794,20 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         isDraft,
       });
 
-      // Đồng bộ trạng thái, tiến độ và các trường chi tiết ngược lại bảng Excel trên Web
+      // Đồng bộ trực tiếp ngược lại bảng Excel trên Web
       try {
         const todayStr = new Date().toISOString().split('T')[0];
         const syncPromises: Promise<any>[] = [];
 
-        // 1. Task hoàn thành được chọn -> update lên Web thành DONE, 100%
-        selectedCompleted.forEach((t) => {
+        cleanTasks.forEach((t) => {
           if (t.taskId) {
+            const isDone = t.status === 'DONE';
             syncPromises.push(
               updateWorkTaskProgress(t.taskId, {
-                workStatus: 'DONE',
-                progress: 100,
+                workStatus: (t.status as any) || (isDone ? 'DONE' : 'IN_PROGRESS'),
+                progress: t.progress ?? (isDone ? 100 : 50),
                 reportDate: todayStr,
-                notes: t.notes || t.note || 'Hoàn thành từ Mobile',
-                obstacles: t.obstacles || undefined,
-                supportRequest: t.supportRequest || undefined,
-                isTestBypass: true,
-              })
-            );
-          }
-        });
-
-        // 2. Task đang làm -> update lên Web thành IN_PROGRESS và cập nhật tiến độ
-        cleanInProgress.forEach((t) => {
-          if (t.taskId) {
-            syncPromises.push(
-              updateWorkTaskProgress(t.taskId, {
-                workStatus: 'IN_PROGRESS',
-                progress: typeof t.progress === 'number' ? t.progress : 50,
-                reportDate: todayStr,
-                notes: t.notes || t.note || (t.expectedDate ? `Dự kiến: ${t.expectedDate}` : 'Cập nhật từ Mobile'),
+                notes: t.notes || t.note || undefined,
                 obstacles: t.obstacles || undefined,
                 supportRequest: t.supportRequest || undefined,
                 isTestBypass: true,
@@ -763,8 +843,55 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
 
   // Đếm số việc hoàn thành được chọn
   const activeCompletedCount = useMemo(() => {
-    return completedTasks.filter((t) => (t.isSelected ?? true) && t.title.trim().length > 0).length;
-  }, [completedTasks]);
+    return metrics.filter((m) => m.status === 'DONE' && ((m.name || '').trim() || (m.title || '').trim())).length;
+  }, [metrics]);
+
+  const handleSetMetricStatus = (index: number, newStatus: string) => {
+    if (isSubmittedToday) return;
+    setMetrics((prev) => {
+      const next = [...prev];
+      const cur = next[index] || { name: '' };
+      let newProgress = cur.progress;
+      if (newStatus === 'DONE') {
+        newProgress = 100;
+      } else if (newStatus === 'NOT_STARTED') {
+        newProgress = 0;
+      } else if (newStatus === 'IN_PROGRESS') {
+        if (!newProgress || newProgress === 0 || newProgress === 100) {
+          newProgress = 50;
+        }
+      }
+      next[index] = {
+        ...cur,
+        status: newStatus,
+        progress: newProgress,
+      };
+      return next;
+    });
+  };
+
+  const handleSetMetricProgress = (index: number, progressVal: number) => {
+    if (isSubmittedToday) return;
+    setMetrics((prev) => {
+      const next = [...prev];
+      const cur = next[index] || { name: '' };
+      const clamped = Math.max(0, Math.min(100, progressVal));
+      let newStatus = cur.status;
+      if (clamped === 100) {
+        newStatus = 'DONE';
+      } else if (clamped === 0) {
+        newStatus = 'NOT_STARTED';
+      } else if (!newStatus || newStatus === 'DONE' || newStatus === 'NOT_STARTED') {
+        newStatus = 'IN_PROGRESS';
+      }
+      next[index] = {
+        ...cur,
+        progress: clamped,
+        status: newStatus,
+      };
+      return next;
+    });
+  };
 
   // Current assessment obj
   const currentAssessment = useMemo(() => {
@@ -1031,229 +1158,6 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
             {/* PANEL 0: HÔM NAY */}
             {currentStep === 0 && (
               <View style={styles.panelContainer}>
-                {/* 1. KẾT QUẢ CÔNG VIỆC ĐỊNH LƯỢNG */}
-                <View style={styles.sectionCard}>
-                  <Text style={styles.sectionCardTitle}>Kết quả công việc định lượng</Text>
-                  <Text style={styles.sectionCardSubtitle}>
-                    {isSubmittedToday
-                      ? 'Số liệu định lượng đã ghi nhận hôm nay.'
-                      : 'Ghi nhận số liệu đạt được hôm nay. Có thể đổi tên chỉ tiêu theo công việc của bạn.'}
-                  </Text>
-
-                  {metrics.length === 0 ? (
-                    <Text style={styles.emptyPromptText}>Chưa có chỉ tiêu. Thêm chỉ tiêu khi có kết quả cần ghi nhận.</Text>
-                  ) : (
-                    metrics.map((m, idx) => {
-                      const metricKey = `m_${idx}`;
-                      const isExpanded = !!expandedTasks[metricKey];
-                      const typeObj = TASK_TYPES.find((tt) => tt.value === m.taskType) || TASK_TYPES[0];
-                      const prioObj = TASK_PRIORITIES.find((tp) => tp.value === m.priority) || TASK_PRIORITIES[1];
-
-                      return (
-                        <View key={idx} style={styles.quantItemBox}>
-                          <View style={styles.quantItemHeader}>
-                            <Text style={styles.quantNumberText}>CHỈ TIÊU {String(idx + 1).padStart(2, '0')}</Text>
-
-                            {!isSubmittedToday && (
-                              <TouchableOpacity onPress={() => handleDeleteMetric(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                <Text style={styles.removeText}>Xóa</Text>
-                              </TouchableOpacity>
-                            )}
-                          </View>
-
-                          <Text style={styles.inputLabel}>Tên chỉ tiêu / Công việc</Text>
-                          <TextInput
-                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                            placeholder="Ví dụ: Khách hàng mới, đơn hàng thành công, doanh số…"
-                            placeholderTextColor="#94A3B8"
-                            value={m.name}
-                            onChangeText={(v) => handleUpdateMetric(idx, 'name', v)}
-                            editable={!isSubmittedToday}
-                          />
-
-                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>Chi tiết công việc</Text>
-                          <TextInput
-                            style={[styles.textAreaInput, isSubmittedToday && styles.readOnlyInput, { minHeight: 52, marginBottom: 4 }]}
-                            placeholder="Mô tả chi tiết nội dung công việc thực hiện…"
-                            placeholderTextColor="#94A3B8"
-                            multiline
-                            numberOfLines={2}
-                            value={m.description || ''}
-                            onChangeText={(v) => handleUpdateMetric(idx, 'description', v)}
-                            editable={!isSubmittedToday}
-                          />
-
-                          <View style={styles.quantPairRow}>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.inputLabel}>Kết quả đạt được</Text>
-                              <TextInput
-                                style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Nhập số"
-                                placeholderTextColor="#94A3B8"
-                                keyboardType="numeric"
-                                value={String(m.value ?? '')}
-                                onChangeText={(v) => handleUpdateMetric(idx, 'value', v)}
-                                editable={!isSubmittedToday}
-                              />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.inputLabel}>Đơn vị tính</Text>
-                              <TextInput
-                                style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Khách, Đơn, Lỗi, VND…"
-                                placeholderTextColor="#94A3B8"
-                                value={m.unit || ''}
-                                onChangeText={(v) => handleUpdateMetric(idx, 'unit', v)}
-                                editable={!isSubmittedToday}
-                              />
-                            </View>
-                          </View>
-
-                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>Hạn chót (Deadline)</Text>
-                          <View style={styles.dateInputWrapper}>
-                            <TextInput
-                              style={[styles.textInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
-                              placeholder="Ví dụ: 2026-10-17, 17:30, Hôm nay…"
-                              placeholderTextColor="#94A3B8"
-                              value={m.deadline || ''}
-                              onChangeText={(v) => handleUpdateMetric(idx, 'deadline', v)}
-                              editable={!isSubmittedToday}
-                            />
-                            {!isSubmittedToday && (
-                              <TouchableOpacity
-                                style={styles.datePickerBtn}
-                                onPress={() => handleOpenDatePicker('metric', idx, m.deadline)}
-                                activeOpacity={0.7}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                              >
-                                <Ionicons name="calendar-outline" size={18} color="#166534" />
-                              </TouchableOpacity>
-                            )}
-                          </View>
-
-                          {/* 1. Hạng mục công việc (Nhập tên tự do hoặc chọn gợi ý) */}
-                          <Text style={[styles.drawerFieldLabel, { marginTop: 8 }]}>Hạng mục công việc (Nhập tên hoặc chọn gợi ý)</Text>
-                          <TextInput
-                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput, { marginBottom: 6 }]}
-                            placeholder="Nhập tên hạng mục tự do…"
-                            placeholderTextColor="#94A3B8"
-                            value={m.category || ''}
-                            onChangeText={(v) => handleUpdateMetric(idx, 'category', v)}
-                            editable={!isSubmittedToday}
-                          />
-                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
-                            <View style={styles.chipScrollInner}>
-                              {TASK_CATEGORIES.map((cat) => {
-                                const isCatActive = (m.category || '') === cat;
-                                return (
-                                  <TouchableOpacity
-                                    key={cat}
-                                    style={[styles.drawerPill, isCatActive && styles.drawerPillActive]}
-                                    onPress={() => handleUpdateMetric(idx, 'category', cat)}
-                                    disabled={isSubmittedToday}
-                                  >
-                                    <Text style={[styles.drawerPillText, isCatActive && styles.drawerPillTextActive]}>
-                                      {cat}
-                                    </Text>
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-                          </ScrollView>
-
-                          {/* 2. Loại việc */}
-                          <Text style={styles.drawerFieldLabel}>Loại việc</Text>
-                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
-                            <View style={styles.chipScrollInner}>
-                              {TASK_TYPES.map((tt) => {
-                                const isTypeActive = (m.taskType || 'THEO_KE_HOACH') === tt.value;
-                                return (
-                                  <TouchableOpacity
-                                    key={tt.value}
-                                    style={[styles.drawerPill, isTypeActive && { backgroundColor: tt.bg, borderColor: tt.color }]}
-                                    onPress={() => handleUpdateMetric(idx, 'taskType', tt.value)}
-                                    disabled={isSubmittedToday}
-                                  >
-                                    <Text style={[styles.drawerPillText, isTypeActive && { color: tt.color, fontWeight: '700' }]}>
-                                      {tt.label}
-                                    </Text>
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-                          </ScrollView>
-
-                          {/* 3. Mức độ ưu tiên */}
-                          <Text style={styles.drawerFieldLabel}>Mức độ ưu tiên</Text>
-                          <View style={styles.priorityRowContainer}>
-                            {TASK_PRIORITIES.map((tp) => {
-                              const isPrioActive = (m.priority || 'MEDIUM') === tp.value;
-                              return (
-                                <TouchableOpacity
-                                  key={tp.value}
-                                  style={[
-                                    styles.priorityPillItem,
-                                    isPrioActive && { backgroundColor: tp.bg, borderColor: tp.color, borderWidth: 1.5 },
-                                  ]}
-                                  onPress={() => handleUpdateMetric(idx, 'priority', tp.value)}
-                                  disabled={isSubmittedToday}
-                                >
-                                  <Text style={[styles.priorityPillText, isPrioActive && { color: tp.color, fontWeight: '700' }]}>
-                                    {tp.label}
-                                  </Text>
-                                </TouchableOpacity>
-                              );
-                            })}
-                          </View>
-
-                          {/* 4. Khó khăn / Vướng mắc */}
-                          <Text style={styles.drawerFieldLabel}>Khó khăn / Vướng mắc (nếu có)</Text>
-                          <TextInput
-                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                            placeholder="Khó khăn khi thực hiện chỉ tiêu này…"
-                            placeholderTextColor="#94A3B8"
-                            value={m.obstacles || ''}
-                            onChangeText={(v) => handleUpdateMetric(idx, 'obstacles', v)}
-                            editable={!isSubmittedToday}
-                          />
-
-                          {/* 5. Đề xuất hỗ trợ */}
-                          <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Đề xuất hỗ trợ</Text>
-                          <TextInput
-                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                            placeholder="Cần Leader hoặc bộ phận khác hỗ trợ gì…"
-                            placeholderTextColor="#94A3B8"
-                            value={m.supportRequest || ''}
-                            onChangeText={(v) => handleUpdateMetric(idx, 'supportRequest', v)}
-                            editable={!isSubmittedToday}
-                          />
-
-                          {/* 6. Ghi chú thêm */}
-                          <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Ghi chú thêm</Text>
-                          <TextInput
-                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                            placeholder="Ghi chú chi tiết thêm…"
-                            placeholderTextColor="#94A3B8"
-                            value={m.notes || m.note || ''}
-                            onChangeText={(v) => {
-                              handleUpdateMetric(idx, 'note', v);
-                              handleUpdateMetric(idx, 'notes', v);
-                            }}
-                            editable={!isSubmittedToday}
-                          />
-                        </View>
-                      );
-                    })
-                  )}
-
-                  {!isSubmittedToday && (
-                    <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddMetric} activeOpacity={0.7}>
-                      <Ionicons name="add" size={18} color="#166534" />
-                      <Text style={styles.dashedAddBtnText}>Thêm chỉ tiêu</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
                 {/* BANNER ĐỒNG BỘ VỚI BẢNG EXCEL WEB */}
                 <View style={styles.syncBanner}>
                   <View style={styles.syncBannerLeft}>
@@ -1291,100 +1195,63 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                   )}
                 </View>
 
-                {/* 2. CÔNG VIỆC HOÀN THÀNH */}
+                {/* KHỐI CÔNG VIỆC & NHIỆM VỤ HÔM NAY (HỢP NHẤT) */}
                 <View style={styles.sectionCard}>
                   <View style={styles.sectionCardHeaderRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.sectionCardTitle}>Công việc hoàn thành</Text>
+                      <Text style={styles.sectionCardTitle}>Công việc & Nhiệm vụ hôm nay</Text>
                       <Text style={styles.sectionCardSubtitle}>
-                        {isSubmittedToday ? 'Các việc đã hoàn thành hôm nay' : 'Chọn việc đã hoàn thành hoặc thêm trực tiếp.'}
+                        {isSubmittedToday
+                          ? 'Danh sách công việc và trạng thái đã ghi nhận hôm nay.'
+                          : 'Ghi nhận tiến độ công việc trong ngày. Việc chưa hoàn thành sẽ tự động chuyển sang ngày mai.'}
                       </Text>
                     </View>
                     <View style={styles.countBadge}>
-                      <Text style={styles.countBadgeText}>{activeCompletedCount} việc</Text>
+                      <Text style={styles.countBadgeText}>
+                        {metrics.filter((m) => (m.name || '').trim().length > 0).length} việc
+                      </Text>
                     </View>
                   </View>
 
-                  {completedTasks.length === 0 ? (
+                  {metrics.length === 0 ? (
                     <View style={styles.emptyContainerDashed}>
                       <Ionicons name="document-text-outline" size={32} color="#94A3B8" />
-                      <Text style={styles.emptyPromptText}>Chưa có công việc nào trong danh sách hoàn thành.</Text>
+                      <Text style={styles.emptyPromptText}>Chưa có công việc nào. Nhấn "+ Thêm nhiệm vụ" để bắt đầu.</Text>
                     </View>
                   ) : (
-                    completedTasks.map((t, idx) => {
-                      const isSelected = t.isSelected ?? true;
-                      const taskKey = t.taskId ? `c_${t.taskId}` : `c_manual_${idx}`;
-                      const isExpanded = !!expandedTasks[taskKey];
-                      const typeObj = TASK_TYPES.find((tt) => tt.value === t.taskType) || TASK_TYPES[0];
-                      const prioObj = TASK_PRIORITIES.find((tp) => tp.value === t.priority) || TASK_PRIORITIES[1];
+                    metrics.map((m, idx) => {
+                      const metricKey = `m_${idx}`;
+                      const isExpanded = !!expandedTasks[metricKey];
+                      const typeObj = TASK_TYPES.find((tt) => tt.value === m.taskType) || TASK_TYPES[0];
+                      const prioObj = TASK_PRIORITIES.find((tp) => tp.value === m.priority) || TASK_PRIORITIES[1];
+                      const currentStatus = m.status || (Number(m.progress) === 100 ? 'DONE' : 'IN_PROGRESS');
 
                       return (
-                        <View key={idx} style={[styles.taskItemCard, isSelected && styles.taskItemCardActive]}>
-                          <View style={styles.taskCardHeaderRow}>
-                            <TouchableOpacity
-                              style={styles.checkboxRow}
-                              onPress={() => handleToggleTask(idx)}
-                              disabled={isSubmittedToday}
-                              activeOpacity={0.7}
-                            >
-                              <MaterialCommunityIcons
-                                name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                                size={22}
-                                color={isSelected ? '#166534' : '#94A3B8'}
-                              />
-                            </TouchableOpacity>
+                        <View key={idx} style={styles.quantItemBox}>
+                          {/* Item Header */}
+                          <View style={styles.quantItemHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+                              <Text style={styles.quantNumberText}>NHIỆM VỤ {String(idx + 1).padStart(2, '0')}</Text>
 
-                            <View style={{ flex: 1, marginLeft: 8 }}>
-                              {t.isManual && !isSubmittedToday ? (
-                                <TextInput
-                                  style={styles.taskInlineInput}
-                                  placeholder="Nhập tên việc đã hoàn thành…"
-                                  placeholderTextColor="#94A3B8"
-                                  value={t.title}
-                                  onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'title', v)}
-                                  editable={!isSubmittedToday}
-                                />
-                              ) : (
-                                <Text style={[styles.taskTitleText, isSelected && styles.taskTitleTextActive]}>
-                                  {t.title}
-                                </Text>
+                              {m.isCarriedOver && (
+                                <View style={styles.carriedOverBadge}>
+                                  <Ionicons name="refresh-outline" size={11} color="#B45309" />
+                                  <Text style={styles.carriedOverBadgeText}>Dở dang hôm qua</Text>
+                                </View>
                               )}
 
-                              {/* Badges / Chips hàng ngang */}
-                              <View style={styles.taskMetaRow}>
-                                {t.taskId ? (
-                                  <View style={styles.webBadge}>
-                                    <Ionicons name="globe-outline" size={10} color="#0284C7" />
-                                    <Text style={styles.webBadgeText}>Web{t.taskCode ? ` · ${t.taskCode}` : ''}</Text>
-                                  </View>
-                                ) : (
-                                  <View style={styles.manualBadge}>
-                                    <Text style={styles.manualBadgeText}>Thủ công</Text>
-                                  </View>
-                                )}
-
-                                <View style={[styles.metaChip, { backgroundColor: '#F1F5F9' }]}>
-                                  <Text style={styles.metaChipText}>{t.category || 'Vận hành'}</Text>
+                              {m.taskId ? (
+                                <View style={styles.webBadge}>
+                                  <Ionicons name="globe-outline" size={10} color="#0284C7" />
+                                  <Text style={styles.webBadgeText}>Web{m.taskCode ? ` · ${m.taskCode}` : ''}</Text>
                                 </View>
-
-                                <View style={[styles.metaChip, { backgroundColor: typeObj?.bg || '#F1F5F9' }]}>
-                                  <Text style={[styles.metaChipText, { color: typeObj?.color || '#334155' }]}>
-                                    {typeObj?.label || 'Kế hoạch'}
-                                  </Text>
-                                </View>
-
-                                <View style={[styles.metaChip, { backgroundColor: prioObj?.bg || '#FEF3C7' }]}>
-                                  <Text style={[styles.metaChipText, { color: prioObj?.color || '#D97706' }]}>
-                                    {prioObj?.label || 'Trung bình'}
-                                  </Text>
-                                </View>
-                              </View>
+                              ) : null}
                             </View>
 
-                            <View style={styles.taskRightActions}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                               <TouchableOpacity
                                 style={styles.expandToggleBtn}
-                                onPress={() => toggleTaskExpand(taskKey)}
+                                onPress={() => toggleTaskExpand(metricKey)}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               >
                                 <Ionicons
@@ -1394,11 +1261,11 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 />
                               </TouchableOpacity>
 
-                              {t.isManual && !isSubmittedToday && (
+                              {!isSubmittedToday && metrics.length > 1 && (
                                 <TouchableOpacity
-                                  onPress={() => handleDeleteCompletedTask(idx)}
+                                  onPress={() => handleDeleteMetric(idx)}
                                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                  style={{ marginLeft: 6 }}
+                                  style={{ marginLeft: 4 }}
                                 >
                                   <Ionicons name="trash-outline" size={18} color="#EF4444" />
                                 </TouchableOpacity>
@@ -1406,303 +1273,179 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                             </View>
                           </View>
 
-                          {/* Chi tiết công việc (Mở rộng) */}
-                          {isExpanded && (
-                            <View style={styles.expandedDetailsDrawer}>
-                              {/* Chi tiết công việc & Hạn chót */}
-                              <Text style={styles.drawerFieldLabel}>Chi tiết công việc</Text>
-                              <TextInput
-                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput, { minHeight: 52 }]}
-                                placeholder="Mô tả chi tiết nội dung công việc hoàn thành…"
-                                placeholderTextColor="#94A3B8"
-                                multiline
-                                numberOfLines={2}
-                                value={t.description || ''}
-                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'description', v)}
-                                editable={!isSubmittedToday}
-                              />
-
-                              <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Hạn chót</Text>
-                              <View style={styles.dateInputWrapper}>
-                                <TextInput
-                                  style={[styles.drawerInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
-                                  placeholder="Ví dụ: 2026-10-17, 17:30, Hôm nay…"
-                                  placeholderTextColor="#94A3B8"
-                                  value={t.deadline || ''}
-                                  onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'deadline', v)}
-                                  editable={!isSubmittedToday}
-                                />
-                                {!isSubmittedToday && (
-                                  <TouchableOpacity
-                                    style={styles.datePickerBtn}
-                                    onPress={() => handleOpenDatePicker('completed', idx, t.deadline)}
-                                    activeOpacity={0.7}
-                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                  >
-                                    <Ionicons name="calendar-outline" size={18} color="#166534" />
-                                  </TouchableOpacity>
-                                )}
-                              </View>
-
-                              {/* 1. Chọn Hạng mục (Category) */}
-                              <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Hạng mục công việc (Nhập tên hoặc chọn gợi ý)</Text>
-                              <TextInput
-                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput, { marginBottom: 6 }]}
-                                placeholder="Nhập tên hạng mục tự do…"
-                                placeholderTextColor="#94A3B8"
-                                value={t.category || ''}
-                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'category', v)}
-                                editable={!isSubmittedToday}
-                              />
-                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
-                                <View style={styles.chipScrollInner}>
-                                  {TASK_CATEGORIES.map((cat) => {
-                                    const isCatActive = (t.category || '') === cat;
-                                    return (
-                                      <TouchableOpacity
-                                        key={cat}
-                                        style={[styles.drawerPill, isCatActive && styles.drawerPillActive]}
-                                        onPress={() => handleUpdateCompletedTaskField(idx, 'category', cat)}
-                                        disabled={isSubmittedToday}
-                                      >
-                                        <Text style={[styles.drawerPillText, isCatActive && styles.drawerPillTextActive]}>
-                                          {cat}
-                                        </Text>
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                                </View>
-                              </ScrollView>
-
-                              {/* 2. Loại việc (TaskType) */}
-                              <Text style={styles.drawerFieldLabel}>Loại việc</Text>
-                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
-                                <View style={styles.chipScrollInner}>
-                                  {TASK_TYPES.map((tt) => {
-                                    const isTypeActive = (t.taskType || 'THEO_KE_HOACH') === tt.value;
-                                    return (
-                                      <TouchableOpacity
-                                        key={tt.value}
-                                        style={[styles.drawerPill, isTypeActive && { backgroundColor: tt.bg, borderColor: tt.color }]}
-                                        onPress={() => handleUpdateCompletedTaskField(idx, 'taskType', tt.value)}
-                                        disabled={isSubmittedToday}
-                                      >
-                                        <Text style={[styles.drawerPillText, isTypeActive && { color: tt.color, fontWeight: '700' }]}>
-                                          {tt.label}
-                                        </Text>
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                                </View>
-                              </ScrollView>
-
-                              {/* 3. Độ ưu tiên */}
-                              <Text style={styles.drawerFieldLabel}>Mức độ ưu tiên</Text>
-                              <View style={styles.priorityRowContainer}>
-                                {TASK_PRIORITIES.map((tp) => {
-                                  const isPrioActive = (t.priority || 'MEDIUM') === tp.value;
-                                  return (
-                                    <TouchableOpacity
-                                      key={tp.value}
-                                      style={[
-                                        styles.priorityPillItem,
-                                        isPrioActive && { backgroundColor: tp.bg, borderColor: tp.color, borderWidth: 1.5 },
-                                      ]}
-                                      onPress={() => handleUpdateCompletedTaskField(idx, 'priority', tp.value)}
-                                      disabled={isSubmittedToday}
-                                    >
-                                      <Text style={[styles.priorityPillText, isPrioActive && { color: tp.color, fontWeight: '700' }]}>
-                                        {tp.label}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-
-                              {/* 4. Ghi chú & Khó khăn & Hỗ trợ */}
-                              <Text style={styles.drawerFieldLabel}>Ghi chú kết quả</Text>
-                              <TextInput
-                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Ghi chú chi tiết kết quả hoàn thành…"
-                                placeholderTextColor="#94A3B8"
-                                value={t.notes || t.note || ''}
-                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'notes', v)}
-                                editable={!isSubmittedToday}
-                              />
-
-                              <Text style={styles.drawerFieldLabel}>Khó khăn / Vướng mắc phát sinh (nếu có)</Text>
-                              <TextInput
-                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Trở ngại trong quá trình thực hiện…"
-                                placeholderTextColor="#94A3B8"
-                                value={t.obstacles || ''}
-                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'obstacles', v)}
-                                editable={!isSubmittedToday}
-                              />
-
-                              <Text style={styles.drawerFieldLabel}>Đề xuất hỗ trợ (nếu có)</Text>
-                              <TextInput
-                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Cần phòng ban/Leader hỗ trợ gì…"
-                                placeholderTextColor="#94A3B8"
-                                value={t.supportRequest || ''}
-                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'supportRequest', v)}
-                                editable={!isSubmittedToday}
-                              />
-                            </View>
-                          )}
-                        </View>
-                      );
-                    })
-                  )}
-
-                  {!isSubmittedToday && (
-                    <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddManualCompletedTask} activeOpacity={0.7}>
-                      <Ionicons name="add" size={18} color="#166534" />
-                      <Text style={styles.dashedAddBtnText}>Thêm việc hoàn thành</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* 3. CÔNG VIỆC ĐANG THỰC HIỆN / DỞ DANG */}
-                <View style={styles.sectionCard}>
-                  <View style={styles.sectionCardHeaderRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.sectionCardTitle}>Công việc đang thực hiện</Text>
-                      <Text style={styles.sectionCardSubtitle}>
-                        {isSubmittedToday ? 'Tiến độ các việc đang làm' : 'Ghi nhận tiến độ và ngày dự kiến hoàn thành.'}
-                      </Text>
-                    </View>
-                    <View style={styles.countBadge}>
-                      <Text style={styles.countBadgeText}>{inProgressTasks.length} việc</Text>
-                    </View>
-                  </View>
-
-                  {inProgressTasks.length === 0 ? (
-                    <View style={styles.emptyContainerDashed}>
-                      <Ionicons name="time-outline" size={32} color="#94A3B8" />
-                      <Text style={styles.emptyPromptText}>Chưa có công việc đang thực hiện.</Text>
-                    </View>
-                  ) : (
-                    inProgressTasks.map((t, idx) => {
-                      const taskKey = t.taskId ? `p_${t.taskId}` : `p_manual_${idx}`;
-                      const isExpanded = !!expandedTasks[taskKey];
-                      const typeObj = TASK_TYPES.find((tt) => tt.value === t.taskType) || TASK_TYPES[0];
-                      const prioObj = TASK_PRIORITIES.find((tp) => tp.value === t.priority) || TASK_PRIORITIES[1];
-
-                      return (
-                        <View key={idx} style={styles.inProgressCard}>
-                          <View style={styles.quantItemHeader}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Text style={styles.inProgressNumberText}>CÔNG VIỆC {String(idx + 1).padStart(2, '0')}</Text>
-                              {t.taskId ? (
-                                <View style={styles.webBadge}>
-                                  <Ionicons name="globe-outline" size={10} color="#0284C7" />
-                                  <Text style={styles.webBadgeText}>Web{t.taskCode ? ` · ${t.taskCode}` : ''}</Text>
-                                </View>
-                              ) : (
-                                <View style={styles.manualBadge}>
-                                  <Text style={styles.manualBadgeText}>Thủ công</Text>
-                                </View>
-                              )}
-                            </View>
-
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <TouchableOpacity
-                                style={styles.expandToggleBtn}
-                                onPress={() => toggleTaskExpand(taskKey)}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                              >
-                                <Ionicons
-                                  name={isExpanded ? 'chevron-up-circle' : 'chevron-down-circle-outline'}
-                                  size={20}
-                                  color={isExpanded ? '#166534' : '#64748B'}
-                                />
-                              </TouchableOpacity>
-
-                              {!isSubmittedToday && (
-                                <TouchableOpacity onPress={() => handleDeleteInProgressTask(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                  <Text style={styles.removeText}>Xóa</Text>
-                                </TouchableOpacity>
-                              )}
-                            </View>
-                          </View>
-
-                          <Text style={styles.inputLabel}>Tên công việc</Text>
+                          {/* Tên công việc / nhiệm vụ */}
+                          <Text style={styles.inputLabel}>Tên công việc / Nhiệm vụ</Text>
                           <TextInput
                             style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                            placeholder="Tên công việc đang làm…"
+                            placeholder="Ví dụ: Gọi điện khách hàng, hoàn thiện báo giá, fix bug..."
                             placeholderTextColor="#94A3B8"
-                            value={t.title}
-                            onChangeText={(v) => handleUpdateInProgressTask(idx, 'title', v)}
+                            value={m.name || m.title || ''}
+                            onChangeText={(v) => {
+                              handleUpdateMetric(idx, 'name', v);
+                              handleUpdateMetric(idx, 'title', v);
+                            }}
                             editable={!isSubmittedToday}
                           />
 
+                          {/* Bộ chọn trạng thái 4 nút */}
+                          <Text style={[styles.inputLabel, { marginTop: 8 }]}>Trạng thái công việc</Text>
+                          <View style={styles.statusRowContainer}>
+                            {TASK_STATUSES.map((st) => {
+                              const isActive = currentStatus === st.value;
+                              return (
+                                <TouchableOpacity
+                                  key={st.value}
+                                  style={[
+                                    styles.statusPillItem,
+                                    isActive && {
+                                      backgroundColor: st.bg,
+                                      borderColor: st.border,
+                                      borderWidth: 1.5,
+                                    },
+                                  ]}
+                                  onPress={() => handleSetMetricStatus(idx, st.value)}
+                                  disabled={isSubmittedToday}
+                                  activeOpacity={0.7}
+                                >
+                                  <Ionicons
+                                    name={st.icon}
+                                    size={14}
+                                    color={isActive ? st.color : '#64748B'}
+                                  />
+                                  <Text
+                                    style={[
+                                      styles.statusPillText,
+                                      isActive && { color: st.color, fontWeight: '700' },
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {st.label}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+
+                          {/* Thanh tiến độ (%) */}
+                          <View style={styles.progressRow}>
+                            <Text style={[styles.inputLabel, { marginTop: 0, marginBottom: 0 }]}>
+                              Tiến độ:
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
+                              {[25, 50, 75, 100].map((pct) => {
+                                const isPctActive = Number(m.progress) === pct;
+                                return (
+                                  <TouchableOpacity
+                                    key={pct}
+                                    style={[
+                                      styles.progressPill,
+                                      isPctActive && styles.progressPillActive,
+                                    ]}
+                                    onPress={() => handleSetMetricProgress(idx, pct)}
+                                    disabled={isSubmittedToday}
+                                  >
+                                    <Text
+                                      style={[
+                                        styles.progressPillText,
+                                        isPctActive && styles.progressPillTextActive,
+                                      ]}
+                                    >
+                                      {pct}%
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                            <View style={{ width: 64 }}>
+                              <TextInput
+                                style={[
+                                  styles.textInput,
+                                  isSubmittedToday && styles.readOnlyInput,
+                                  { paddingVertical: 4, paddingHorizontal: 6, textAlign: 'center', fontSize: 12 },
+                                ]}
+                                placeholder="%"
+                                placeholderTextColor="#94A3B8"
+                                keyboardType="numeric"
+                                value={m.progress !== undefined && m.progress !== null ? String(m.progress) : ''}
+                                onChangeText={(v) => {
+                                  const num = parseInt(v, 10);
+                                  handleSetMetricProgress(idx, isNaN(num) ? 0 : num);
+                                }}
+                                editable={!isSubmittedToday}
+                              />
+                            </View>
+                          </View>
+
+                          {/* Chi tiết công việc & Hạn chót */}
                           <Text style={[styles.inputLabel, { marginTop: 6 }]}>Chi tiết công việc</Text>
                           <TextInput
-                            style={[styles.textAreaInput, isSubmittedToday && styles.readOnlyInput, { minHeight: 52, marginBottom: 4 }]}
-                            placeholder="Mô tả chi tiết nội dung công việc đang thực hiện…"
+                            style={[styles.textAreaInput, isSubmittedToday && styles.readOnlyInput, { minHeight: 48, marginBottom: 4 }]}
+                            placeholder="Mô tả cụ thể nội dung công việc thực hiện…"
                             placeholderTextColor="#94A3B8"
                             multiline
                             numberOfLines={2}
-                            value={t.description || ''}
-                            onChangeText={(v) => handleUpdateInProgressTask(idx, 'description', v)}
+                            value={m.description || ''}
+                            onChangeText={(v) => handleUpdateMetric(idx, 'description', v)}
                             editable={!isSubmittedToday}
                           />
 
                           <View style={styles.quantPairRow}>
                             <View style={{ flex: 1 }}>
-                              <Text style={styles.inputLabel}>Tiến độ (%)</Text>
+                              <Text style={styles.inputLabel}>Kết quả (nếu có số liệu)</Text>
                               <TextInput
                                 style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Ví dụ: 60"
+                                placeholder="Ví dụ: 10, 500k…"
                                 placeholderTextColor="#94A3B8"
-                                keyboardType="numeric"
-                                value={String(t.progress ?? '')}
-                                onChangeText={(v) => handleUpdateInProgressTask(idx, 'progress', Number(v) || 0)}
+                                value={String(m.value ?? '')}
+                                onChangeText={(v) => handleUpdateMetric(idx, 'value', v)}
                                 editable={!isSubmittedToday}
                               />
                             </View>
                             <View style={{ flex: 1 }}>
-                              <Text style={styles.inputLabel}>Dự kiến xong / Hạn chót</Text>
-                              <View style={styles.dateInputWrapper}>
-                                <TextInput
-                                  style={[styles.textInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
-                                  placeholder="Ví dụ: 2026-10-17, Ngày mai…"
-                                  placeholderTextColor="#94A3B8"
-                                  value={t.expectedDate || t.deadline || ''}
-                                  onChangeText={(v) => {
-                                    handleUpdateInProgressTask(idx, 'expectedDate', v);
-                                    handleUpdateInProgressTask(idx, 'deadline', v);
-                                  }}
-                                  editable={!isSubmittedToday}
-                                />
-                                {!isSubmittedToday && (
-                                  <TouchableOpacity
-                                    style={styles.datePickerBtn}
-                                    onPress={() => handleOpenDatePicker('inProgress', idx, t.expectedDate || t.deadline)}
-                                    activeOpacity={0.7}
-                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                  >
-                                    <Ionicons name="calendar-outline" size={18} color="#166534" />
-                                  </TouchableOpacity>
-                                )}
-                              </View>
+                              <Text style={styles.inputLabel}>Đơn vị tính</Text>
+                              <TextInput
+                                style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Khách, Đơn, Lỗi…"
+                                placeholderTextColor="#94A3B8"
+                                value={m.unit || ''}
+                                onChangeText={(v) => handleUpdateMetric(idx, 'unit', v)}
+                                editable={!isSubmittedToday}
+                              />
                             </View>
                           </View>
 
-                          {/* Meta row chips */}
+                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>Hạn chót (Deadline)</Text>
+                          <View style={styles.dateInputWrapper}>
+                            <TextInput
+                              style={[styles.textInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
+                              placeholder="Ví dụ: 2026-10-17, 17:30, Hôm nay…"
+                              placeholderTextColor="#94A3B8"
+                              value={m.deadline || ''}
+                              onChangeText={(v) => handleUpdateMetric(idx, 'deadline', v)}
+                              editable={!isSubmittedToday}
+                            />
+                            {!isSubmittedToday && (
+                              <TouchableOpacity
+                                style={styles.datePickerBtn}
+                                onPress={() => handleOpenDatePicker('metric', idx, m.deadline)}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Ionicons name="calendar-outline" size={18} color="#166534" />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+
+                          {/* Badges / Chips hàng ngang tóm tắt */}
                           <View style={[styles.taskMetaRow, { marginTop: 8 }]}>
                             <View style={[styles.metaChip, { backgroundColor: '#F1F5F9' }]}>
-                              <Text style={styles.metaChipText}>{t.category || 'Vận hành'}</Text>
+                              <Text style={styles.metaChipText}>{m.category || 'Vận hành'}</Text>
                             </View>
-
                             <View style={[styles.metaChip, { backgroundColor: typeObj?.bg || '#F1F5F9' }]}>
                               <Text style={[styles.metaChipText, { color: typeObj?.color || '#334155' }]}>
                                 {typeObj?.label || 'Kế hoạch'}
                               </Text>
                             </View>
-
                             <View style={[styles.metaChip, { backgroundColor: prioObj?.bg || '#FEF3C7' }]}>
                               <Text style={[styles.metaChipText, { color: prioObj?.color || '#D97706' }]}>
                                 {prioObj?.label || 'Trung bình'}
@@ -1710,7 +1453,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                             </View>
                           </View>
 
-                          {/* Chi tiết công việc đang làm (Mở rộng) */}
+                          {/* Chi tiết mở rộng (Drawer) */}
                           {isExpanded && (
                             <View style={styles.expandedDetailsDrawer}>
                               {/* 1. Hạng mục */}
@@ -1719,19 +1462,19 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput, { marginBottom: 6 }]}
                                 placeholder="Nhập tên hạng mục tự do…"
                                 placeholderTextColor="#94A3B8"
-                                value={t.category || ''}
-                                onChangeText={(v) => handleUpdateInProgressTask(idx, 'category', v)}
+                                value={m.category || ''}
+                                onChangeText={(v) => handleUpdateMetric(idx, 'category', v)}
                                 editable={!isSubmittedToday}
                               />
                               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
                                 <View style={styles.chipScrollInner}>
                                   {TASK_CATEGORIES.map((cat) => {
-                                    const isCatActive = (t.category || '') === cat;
+                                    const isCatActive = (m.category || '') === cat;
                                     return (
                                       <TouchableOpacity
                                         key={cat}
                                         style={[styles.drawerPill, isCatActive && styles.drawerPillActive]}
-                                        onPress={() => handleUpdateInProgressTask(idx, 'category', cat)}
+                                        onPress={() => handleUpdateMetric(idx, 'category', cat)}
                                         disabled={isSubmittedToday}
                                       >
                                         <Text style={[styles.drawerPillText, isCatActive && styles.drawerPillTextActive]}>
@@ -1748,12 +1491,12 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
                                 <View style={styles.chipScrollInner}>
                                   {TASK_TYPES.map((tt) => {
-                                    const isTypeActive = (t.taskType || 'THEO_KE_HOACH') === tt.value;
+                                    const isTypeActive = (m.taskType || 'THEO_KE_HOACH') === tt.value;
                                     return (
                                       <TouchableOpacity
                                         key={tt.value}
                                         style={[styles.drawerPill, isTypeActive && { backgroundColor: tt.bg, borderColor: tt.color }]}
-                                        onPress={() => handleUpdateInProgressTask(idx, 'taskType', tt.value)}
+                                        onPress={() => handleUpdateMetric(idx, 'taskType', tt.value)}
                                         disabled={isSubmittedToday}
                                       >
                                         <Text style={[styles.drawerPillText, isTypeActive && { color: tt.color, fontWeight: '700' }]}>
@@ -1765,11 +1508,11 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 </View>
                               </ScrollView>
 
-                              {/* 3. Độ ưu tiên */}
+                              {/* 3. Mức độ ưu tiên */}
                               <Text style={styles.drawerFieldLabel}>Mức độ ưu tiên</Text>
                               <View style={styles.priorityRowContainer}>
                                 {TASK_PRIORITIES.map((tp) => {
-                                  const isPrioActive = (t.priority || 'MEDIUM') === tp.value;
+                                  const isPrioActive = (m.priority || 'MEDIUM') === tp.value;
                                   return (
                                     <TouchableOpacity
                                       key={tp.value}
@@ -1777,7 +1520,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                         styles.priorityPillItem,
                                         isPrioActive && { backgroundColor: tp.bg, borderColor: tp.color, borderWidth: 1.5 },
                                       ]}
-                                      onPress={() => handleUpdateInProgressTask(idx, 'priority', tp.value)}
+                                      onPress={() => handleUpdateMetric(idx, 'priority', tp.value)}
                                       disabled={isSubmittedToday}
                                     >
                                       <Text style={[styles.priorityPillText, isPrioActive && { color: tp.color, fontWeight: '700' }]}>
@@ -1788,36 +1531,39 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 })}
                               </View>
 
-                              {/* 4. Khó khăn vướng mắc */}
-                              <Text style={styles.drawerFieldLabel}>Khó khăn / Vướng mắc</Text>
+                              {/* 4. Khó khăn / Vướng mắc */}
+                              <Text style={styles.drawerFieldLabel}>Khó khăn / Vướng mắc (nếu có)</Text>
                               <TextInput
                                 style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Mô tả vướng mắc đang gặp phải…"
+                                placeholder="Khó khăn khi thực hiện nhiệm vụ này…"
                                 placeholderTextColor="#94A3B8"
-                                value={t.obstacles || ''}
-                                onChangeText={(v) => handleUpdateInProgressTask(idx, 'obstacles', v)}
+                                value={m.obstacles || ''}
+                                onChangeText={(v) => handleUpdateMetric(idx, 'obstacles', v)}
                                 editable={!isSubmittedToday}
                               />
 
                               {/* 5. Đề xuất hỗ trợ */}
-                              <Text style={styles.drawerFieldLabel}>Đề xuất hỗ trợ</Text>
+                              <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Đề xuất hỗ trợ (nếu có)</Text>
                               <TextInput
                                 style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
                                 placeholder="Cần Leader hoặc bộ phận khác hỗ trợ gì…"
                                 placeholderTextColor="#94A3B8"
-                                value={t.supportRequest || ''}
-                                onChangeText={(v) => handleUpdateInProgressTask(idx, 'supportRequest', v)}
+                                value={m.supportRequest || ''}
+                                onChangeText={(v) => handleUpdateMetric(idx, 'supportRequest', v)}
                                 editable={!isSubmittedToday}
                               />
 
-                              {/* 6. Ghi chú */}
-                              <Text style={styles.drawerFieldLabel}>Ghi chú công việc</Text>
+                              {/* 6. Ghi chú thêm */}
+                              <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Ghi chú thêm</Text>
                               <TextInput
                                 style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Ghi chú thêm về công việc này…"
+                                placeholder="Ghi chú chi tiết thêm…"
                                 placeholderTextColor="#94A3B8"
-                                value={t.notes || t.note || ''}
-                                onChangeText={(v) => handleUpdateInProgressTask(idx, 'notes', v)}
+                                value={m.notes || m.note || ''}
+                                onChangeText={(v) => {
+                                  handleUpdateMetric(idx, 'note', v);
+                                  handleUpdateMetric(idx, 'notes', v);
+                                }}
                                 editable={!isSubmittedToday}
                               />
                             </View>
@@ -1828,9 +1574,9 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                   )}
 
                   {!isSubmittedToday && (
-                    <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddInProgressTask} activeOpacity={0.7}>
+                    <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddMetric} activeOpacity={0.7}>
                       <Ionicons name="add" size={18} color="#166534" />
-                      <Text style={styles.dashedAddBtnText}>Thêm việc đang làm</Text>
+                      <Text style={styles.dashedAddBtnText}>Thêm nhiệm vụ</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -2075,71 +1821,50 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                   </Text>
 
                   <View style={styles.summaryTable}>
-                    {/* 1. Định lượng */}
+                    {/* CÔNG VIỆC & NHIỆM VỤ HÔM NAY */}
                     <View style={styles.summaryBoxItem}>
                       <View style={styles.summaryBoxHeaderRow}>
-                        <Text style={styles.summaryBoxTitle}>ĐỊNH LƯỢNG</Text>
+                        <Text style={styles.summaryBoxTitle}>CÔNG VIỆC & NHIỆM VỤ HÔM NAY</Text>
                         <View style={styles.summaryBoxCountBadge}>
                           <Text style={styles.summaryBoxCountText}>
-                            {metrics.filter((m) => m.name.trim() && m.value !== '').length}
+                            {metrics.filter((m) => (m.name || '').trim().length > 0).length}
                           </Text>
                         </View>
                       </View>
-                      {metrics.filter((m) => m.name.trim() && m.value !== '').length === 0 ? (
-                        <Text style={styles.summaryBoxEmptyText}>Chưa nhập số liệu định lượng</Text>
+                      {metrics.filter((m) => (m.name || '').trim().length > 0).length === 0 ? (
+                        <Text style={styles.summaryBoxEmptyText}>Chưa có công việc nào</Text>
                       ) : (
                         metrics
-                          .filter((m) => m.name.trim() && m.value !== '')
-                          .map((m, idx) => (
-                            <Text key={idx} style={styles.summaryBoxContentText}>
-                              • {m.name}: <Text style={{ fontWeight: '700' }}>{m.value}{m.unit ? ` ${m.unit}` : ''}</Text>
-                              {m.note ? ` (${m.note})` : ''}
-                            </Text>
-                          ))
-                      )}
-                    </View>
-
-                    {/* 2. Đã hoàn thành */}
-                    <View style={styles.summaryBoxItem}>
-                      <View style={styles.summaryBoxHeaderRow}>
-                        <Text style={styles.summaryBoxTitle}>ĐÃ HOÀN THÀNH</Text>
-                        <View style={styles.summaryBoxCountBadge}>
-                          <Text style={styles.summaryBoxCountText}>{activeCompletedCount}</Text>
-                        </View>
-                      </View>
-                      {activeCompletedCount === 0 ? (
-                        <Text style={styles.summaryBoxEmptyText}>Không có công việc hoàn thành</Text>
-                      ) : (
-                        completedTasks
-                          .filter((t) => (t.isSelected ?? true) && t.title.trim())
-                          .map((t, idx) => (
-                            <Text key={idx} style={styles.summaryBoxContentText}>
-                              ✓ {t.title}
-                            </Text>
-                          ))
-                      )}
-                    </View>
-
-                    {/* 3. Đang thực hiện */}
-                    <View style={styles.summaryBoxItem}>
-                      <View style={styles.summaryBoxHeaderRow}>
-                        <Text style={styles.summaryBoxTitle}>ĐANG THỰC HIỆN</Text>
-                        <View style={styles.summaryBoxCountBadge}>
-                          <Text style={styles.summaryBoxCountText}>
-                            {inProgressTasks.filter((t) => t.title.trim()).length}
-                          </Text>
-                        </View>
-                      </View>
-                      {inProgressTasks.filter((t) => t.title.trim()).length === 0 ? (
-                        <Text style={styles.summaryBoxEmptyText}>Không có công việc đang làm</Text>
-                      ) : (
-                        inProgressTasks
-                          .filter((t) => t.title.trim())
-                          .map((t, idx) => (
-                            <Text key={idx} style={styles.summaryBoxContentText}>
-                              🕒 {t.title} · <Text style={{ fontWeight: '700' }}>{t.progress ?? 60}%</Text> · Dự kiến: {t.expectedDate || 'Đang cập nhật'}
-                            </Text>
-                          ))
+                          .filter((m) => (m.name || '').trim().length > 0)
+                          .map((m, idx) => {
+                            const isDone = m.status === 'DONE';
+                            const statusObj = TASK_STATUSES.find((s) => s.value === m.status) || TASK_STATUSES[1]!;
+                            return (
+                              <View key={idx} style={{ marginBottom: 6 }}>
+                                <Text style={styles.summaryBoxContentText}>
+                                  {isDone ? '✓' : '🕒'} <Text style={{ fontWeight: '700' }}>{m.name || m.title}</Text>
+                                  {m.value ? ` · Số liệu: ${m.value} ${m.unit || ''}` : ''}
+                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                                  <View style={[styles.metaChip, { backgroundColor: statusObj.bg }]}>
+                                    <Text style={[styles.metaChipText, { color: statusObj.color, fontWeight: '700' }]}>
+                                      {statusObj.label} ({m.progress ?? (isDone ? 100 : 50)}%)
+                                    </Text>
+                                  </View>
+                                  {m.isCarriedOver && (
+                                    <View style={styles.carriedOverBadge}>
+                                      <Text style={styles.carriedOverBadgeText}>Dở dang hôm qua</Text>
+                                    </View>
+                                  )}
+                                  {m.deadline ? (
+                                    <Text style={{ fontSize: 11, color: '#64748B' }}>
+                                      Hạn chót: {m.deadline}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                              </View>
+                            );
+                          })
                       )}
                     </View>
 
@@ -3612,6 +3337,73 @@ const styles = StyleSheet.create({
   },
 
   // SUMMARY REVIEW
+  statusRowContainer: {
+    flexDirection: 'row',
+    gap: 6,
+    marginVertical: 6,
+  },
+  statusPillItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    gap: 4,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  progressPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  progressPillActive: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#3B82F6',
+  },
+  progressPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  progressPillTextActive: {
+    color: '#1D4ED8',
+    fontWeight: '700',
+  },
+  carriedOverBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  carriedOverBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#B45309',
+  },
   summaryTable: {
     gap: 10,
   },

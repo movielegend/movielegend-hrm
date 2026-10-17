@@ -18,6 +18,7 @@ export interface WorkTask {
     obstacles?: string;
     supportRequest?: string;
   };
+  isCarriedOver?: boolean;
 }
 
 export interface MyWorkTasksResponse {

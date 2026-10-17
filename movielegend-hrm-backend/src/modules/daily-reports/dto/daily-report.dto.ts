@@ -78,6 +78,16 @@ export class DailyReportMetricItemDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @ApiPropertyOptional({ description: 'Mã công việc (VD: CV001)' })
+  @IsOptional()
+  @IsString()
+  taskCode?: string;
+
+  @ApiPropertyOptional({ description: 'Được chuyển tiếp từ ngày trước' })
+  @IsOptional()
+  @IsBoolean()
+  isCarriedOver?: boolean;
 }
 
 export class DailyReportTaskItemDto {

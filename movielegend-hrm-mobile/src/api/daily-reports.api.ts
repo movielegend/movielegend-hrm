@@ -2,7 +2,10 @@ import { apiClient, unwrapData } from './client';
 import type { ApiResponse } from '../types/api.types';
 
 export interface DailyReportMetricItem {
+  taskId?: string;
+  taskCode?: string;
   name: string;
+  title?: string;
   description?: string;
   value?: string | number;
   unit?: string;
@@ -16,6 +19,7 @@ export interface DailyReportMetricItem {
   supportRequest?: string;
   progress?: number;
   status?: string;
+  isCarriedOver?: boolean;
 }
 
 export interface DailyReportTaskItem {
