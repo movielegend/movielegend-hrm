@@ -217,13 +217,49 @@ const extensionToMime: Record<string, string> = {
   '.csv': 'text/csv',
 };
 
+const mimeToDefaultExtension: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'application/pdf': '.pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+  'application/msword': '.doc',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.ms-powerpoint': '.ppt',
+  'text/plain': '.txt',
+  'text/csv': '.csv',
+  'video/mp4': '.mp4',
+  'video/quicktime': '.mov',
+  'audio/m4a': '.m4a',
+  'audio/mp4': '.m4a',
+  'audio/aac': '.aac',
+  'audio/x-m4a': '.m4a',
+  'audio/mpeg': '.mp3',
+  'audio/wav': '.wav',
+  'audio/ogg': '.ogg',
+  'application/zip': '.zip',
+  'application/x-zip-compressed': '.zip',
+  'application/x-rar-compressed': '.rar',
+  'application/vnd.rar': '.rar',
+  'application/x-7z-compressed': '.7z',
+};
+
 function validateFile(file: ParsedFile, policy: (typeof uploadPolicies)[UploadPurpose]) {
   if (file.buffer.length > policy.maxSize) {
     throw badRequest('UPLOAD_FILE_TOO_LARGE', 'File is too large');
   }
-  const extension = path.extname(file.fileName).toLowerCase();
-  if (!extension || !policy.extensions.includes(extension)) {
-    throw badRequest('UPLOAD_MIME_NOT_ALLOWED', 'File extension is not allowed');
+  let extension = path.extname(file.fileName).toLowerCase();
+  if (!extension || extension === '.bin' || !policy.extensions.includes(extension)) {
+    const inferred = mimeToDefaultExtension[file.mimeType];
+    if (inferred && policy.extensions.includes(inferred) && policy.mimeTypes.includes(file.mimeType)) {
+      extension = inferred;
+      const baseName = extension ? path.basename(file.fileName, path.extname(file.fileName)) : file.fileName;
+      file.fileName = `${baseName || 'upload'}${extension}`;
+    } else {
+      throw badRequest('UPLOAD_MIME_NOT_ALLOWED', 'File extension is not allowed');
+    }
   }
   if (!policy.mimeTypes.includes(file.mimeType)) {
     const inferred = extensionToMime[extension];

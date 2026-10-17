@@ -26,8 +26,20 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
     }
   }
 
-  const extMatch = input.name?.match(/\.([a-zA-Z0-9]+)$/);
-  const ext = extMatch ? `.${extMatch[1].toLowerCase()}` : '';
+  let effectiveName = input.name || `photo_${Date.now()}.jpg`;
+  let extMatch = effectiveName.match(/\.([a-zA-Z0-9]+)$/);
+  let ext = extMatch ? `.${extMatch[1].toLowerCase()}` : '';
+
+  if (!ext || ext === '.heic' || ext === '.heif') {
+    const extFromMime = targetMimeType === 'image/png' ? '.png' : targetMimeType === 'image/webp' ? '.webp' : '.jpg';
+    if (!ext) {
+      effectiveName = `${effectiveName}${extFromMime}`;
+    } else {
+      effectiveName = effectiveName.replace(/\.(heic|heif)$/i, extFromMime);
+    }
+    ext = extFromMime;
+  }
+
   const mimeByExt: Record<string, string> = {
     '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg',
@@ -54,6 +66,16 @@ export async function uploadFile(input: UploadFileInput): Promise<UploadedFileDt
   if (Platform.OS !== 'web') {
     if (!safeUri.startsWith('content://') && !safeUri.startsWith('file://')) {
       safeUri = safeUri.startsWith('/') ? `file://${safeUri}` : `file:///${safeUri}`;
+    }
+    // If safeUri is a content:// URI or lacks an extension, copy to cacheDirectory with effectiveName
+    if (safeUri.startsWith('content://') || !safeUri.match(/\.[a-zA-Z0-9]+$/)) {
+      try {
+        const cachePath = `${FileSystem.cacheDirectory}${Date.now()}_${effectiveName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        await FileSystem.copyAsync({ from: safeUri, to: cachePath });
+        safeUri = cachePath;
+      } catch (copyErr) {
+        console.warn('[uploadFile] Failed to copy to cache:', copyErr);
+      }
     }
   }
 
@@ -119,7 +141,7 @@ function uploadWithXHR(
     const formData = new FormData();
     formData.append('purpose', input.purpose);
     const fileBlob = await fetch(input.uri).then((r) => r.blob());
-    const safeFile = new File([fileBlob], input.name || 'upload.jpg', { type: effectiveMime });
+    const safeFile = new File([fileBlob], effectiveName, { type: effectiveMime });
     formData.append('file', safeFile);
 
     const response = await fetch(endpoint, {
@@ -190,7 +212,7 @@ function uploadWithXHR(
     return await uploadWithXHR(
       endpoint,
       safeUri,
-      input.name || `photo_${Date.now()}.jpg`,
+      effectiveName,
       effectiveMime,
       input.purpose,
       headers,

@@ -689,16 +689,6 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 2,
   },
-  modalTileIconGloss: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 22,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.40)',
-  },
   modalTileBadge: {
     position: 'absolute',
     top: -4,

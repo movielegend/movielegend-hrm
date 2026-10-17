@@ -133,7 +133,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     color: '#D97706',
     bgColor: '#FEF3C7',
     leaderRoute: '/leader/shift-management?mode=patch',
-    employeeRoute: '/employee/schedule',
     hrRoute: '/leader/shift-management?mode=patch',
   },
   shift_swaps: {
@@ -282,15 +281,18 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     hrRoute: '/hr/newsfeed',
   },
 
-  // Tài chính & Đãi ngộ (Chỉ Kế toán / ACCOUNTANT mới duyệt tài chính)
+  // Tài chính & Đãi ngộ (Kế toán / HR / Leader duyệt tài chính)
   financial: {
     key: 'financial',
     title: 'Duyệt tài chính',
     employeeTitle: 'Đơn tài chính',
+    hrTitle: 'Đơn tài chính & Mua sắm',
+    leaderTitle: 'Duyệt tài chính',
     category: 'finance',
     icon: 'Receipt',
     color: '#16A34A',
     bgColor: '#DCFCE7',
+    leaderRoute: '/leader/financial-requests',
     employeeRoute: '/employee/requests',
     hrRoute: '/hr/financial-requests',
     badgeKey: 'pendingFinancial',
@@ -428,7 +430,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
 };
 
 export const ALL_APPS_LIST: AppRegistryItem[] = Object.values(APP_REGISTRY).filter(
-  (item) => !['stock_receipts', 'material_issues', 'inventory_checks'].includes(item.key),
+  (item) => !['stock_receipts', 'material_issues', 'inventory_checks', 'shift_reassign'].includes(item.key),
 );
 
 export function isUserInLiveDepartment(user?: any): boolean {
@@ -460,13 +462,13 @@ export function isAppAllowedForRole(
     return false;
   }
 
-  // Admin không có và không dùng "Lịch sử chấm công" cá nhân (Admin chỉ quản lý Dữ liệu chấm công qua /admin/attendance)
-  if (role === 'ADMIN' && item.key === 'attendance_history') {
+  // Không hiển thị dịch vụ "Vá ca đột xuất" độc lập (nhân viên chỉ dùng "Ca làm" cho /schedule, quản lý thao tác trong "Phân ca làm")
+  if (item.key === 'shift_reassign') {
     return false;
   }
 
-  // Admin không hiển thị dịch vụ "Vá ca đột xuất" độc lập (nếu cần Admin thao tác trong Ca làm việc -> Phân ca)
-  if (role === 'ADMIN' && item.key === 'shift_reassign') {
+  // Admin không có và không dùng "Lịch sử chấm công" cá nhân (Admin chỉ quản lý Dữ liệu chấm công qua /admin/attendance)
+  if (role === 'ADMIN' && item.key === 'attendance_history') {
     return false;
   }
 
@@ -480,12 +482,11 @@ export function isAppAllowedForRole(
     return false;
   }
 
-  // Duyệt tài chính: Chỉ hiển thị cho Kế toán (ACCOUNTANT)
-  // Leader và HR thông thường KHÔNG có quyền duyệt tài chính!
+  // Duyệt tài chính: Hiển thị cho Kế toán (ACCOUNTANT), Nhân sự (HR phụ trách mua sắm & thanh toán) và Leader phòng ban
   // Admin duyệt tập trung tại Duyệt đơn từ chứ không hiển thị riêng dịch vụ này
   if (item.key === 'financial') {
     if (role === 'ADMIN') return false;
-    if (!hasUserRole(user, 'ACCOUNTANT')) {
+    if (!hasUserRole(user, 'ACCOUNTANT') && role !== 'HR' && role !== 'LEADER') {
       return false;
     }
   }

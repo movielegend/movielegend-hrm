@@ -62,14 +62,20 @@ export function translatePriority(priority?: TaskPriority | string): string {
 export function translateStatus(status?: string | null): string {
   const map: Record<string, string> = {
     NEW: 'Mới',
+    TODO: 'Cần làm',
     ACCEPTED: 'Đã nhận',
     IN_PROGRESS: 'Đang làm',
     WAITING_REVIEW: 'Chờ duyệt',
     COMPLETED: 'Hoàn thành',
+    DONE: 'Hoàn thành',
     REJECTED: 'Làm lại',
     CANCELLED: 'Đã hủy',
     PENDING: 'Chờ xử lý',
     APPROVED: 'Đã duyệt',
+    REVIEW_APPROVED: 'Đã duyệt',
+    REVIEW_REJECTED: 'Bắt làm lại',
+    ADMIN_APPROVED: 'Admin đã duyệt',
+    LEADER_APPROVED: 'Leader đã duyệt',
   };
   return status ? (map[status] ?? status) : '-';
 }
@@ -86,6 +92,21 @@ export function translateTimelineType(type: string): string {
     EXTENSION_APPROVED: 'Duyệt gia hạn',
     EXTENSION_REJECTED: 'Từ chối gia hạn',
     PROGRESS_UPDATED: 'Cập nhật tiến độ',
+    REVIEW_APPROVED: 'Đã duyệt kết quả',
+    REVIEW_REJECTED: 'Yêu cầu làm lại',
+
+    // Raw action enum values fallback
+    CREATED: 'Tạo công việc',
+    ASSIGNED: 'Giao việc',
+    ACCEPTED: 'Đã nhận việc',
+    STARTED: 'Bắt đầu làm',
+    SUBMITTED: 'Nộp kết quả',
+    APPROVED: 'Đã duyệt kết quả',
+    REJECTED: 'Yêu cầu làm lại',
+    CANCELLED: 'Đã hủy công việc',
+    COMMENTED: 'Thêm bình luận',
+    ATTACHED: 'Thêm đính kèm',
+    COMPLETED: 'Hoàn thành công việc',
   };
   return map[type] ?? type;
 }
@@ -118,5 +139,83 @@ export function mapTaskError(code: string, fallback: string): string {
     NOTIFICATION_NOT_FOUND: 'Khong tim thay thong bao.',
   };
   return map[code] ?? fallback;
+}
+
+export interface TaskMeta {
+  status: string | null;
+  progress: number | null;
+  note: string | null;
+  creatorId: string | null;
+  creatorName: string | null;
+  creatorCode: string | null;
+  cleanDescription: string;
+}
+
+export function extractTaskMeta(description?: string | null): TaskMeta {
+  if (!description) {
+    return {
+      status: null,
+      progress: null,
+      note: null,
+      creatorId: null,
+      creatorName: null,
+      creatorCode: null,
+      cleanDescription: '',
+    };
+  }
+  const match = description.match(/\[META:(.*?)\]/);
+  if (!match) {
+    return {
+      status: null,
+      progress: null,
+      note: null,
+      creatorId: null,
+      creatorName: null,
+      creatorCode: null,
+      cleanDescription: description.trim(),
+    };
+  }
+
+  const rawMeta = match[1] || '';
+  const cleanDescription = description.replace(/\s*\[META:.*?\]\s*/g, '').trim();
+
+  const parts = rawMeta.split(';');
+  const meta: Record<string, string> = {};
+  for (const part of parts) {
+    const [k, v] = part.split('=');
+    if (k && v !== undefined) meta[k] = v;
+  }
+
+  let note: string | null = null;
+  if (meta.NOTE) {
+    try {
+      note = decodeURIComponent(meta.NOTE);
+    } catch {
+      note = meta.NOTE;
+    }
+  }
+
+  let creatorName: string | null = null;
+  if (meta.CREATOR_NAME) {
+    try {
+      creatorName = decodeURIComponent(meta.CREATOR_NAME);
+    } catch {
+      creatorName = meta.CREATOR_NAME;
+    }
+  }
+
+  return {
+    status: meta.STATUS || null,
+    progress: meta.PROGRESS !== undefined && meta.PROGRESS !== null && meta.PROGRESS !== '' ? Number(meta.PROGRESS) : null,
+    note,
+    creatorId: meta.CREATOR_ID || null,
+    creatorName,
+    creatorCode: meta.CREATOR_CODE || null,
+    cleanDescription,
+  };
+}
+
+export function cleanTaskDescription(description?: string | null): string {
+  return extractTaskMeta(description).cleanDescription;
 }
 

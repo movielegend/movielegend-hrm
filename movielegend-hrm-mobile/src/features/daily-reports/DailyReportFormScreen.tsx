@@ -26,6 +26,7 @@ import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PageHeader } from '../../components/PageHeader';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
+import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
 import { useAuth } from '../../providers/AuthProvider';
 import {
   useMyTodayReport,
@@ -33,6 +34,7 @@ import {
   useMyReportHistory,
 } from '../../hooks/useDailyReports';
 import { uploadFile } from '../../api/uploads.api';
+import { fetchMyWorkTasks, updateWorkTaskProgress } from '../../api/work-reports.api';
 import type {
   DailyReport,
   DailyReportMetricItem,
@@ -40,6 +42,31 @@ import type {
   DailyReportAttachmentItem,
 } from '../../api/daily-reports.api';
 import { colors } from '../../theme/colors';
+
+// Danh mục & Phân loại đồng bộ theo Web
+export const TASK_CATEGORIES = [
+  'Vận hành',
+  'Báo cáo',
+  'Kế hoạch',
+  'Kỹ thuật',
+  'Họp nội bộ',
+  'Đào tạo',
+  'Khác',
+];
+
+export const TASK_TYPES: { value: string; label: string; color: string; bg: string }[] = [
+  { value: 'THEO_KE_HOACH', label: 'Theo kế hoạch', color: '#334155', bg: '#F1F5F9' },
+  { value: 'PHAT_SINH', label: 'Phát sinh', color: '#92400E', bg: '#FEF3C7' },
+  { value: 'PHOI_HOP', label: 'Phối hợp', color: '#065F46', bg: '#D1FAE5' },
+  { value: 'THUONG_XUYEN', label: 'Thường xuyên', color: '#075985', bg: '#E0F2FE' },
+  { value: 'XU_LY_VAN_DE', label: 'Xử lý vấn đề', color: '#991B1B', bg: '#FEE2E2' },
+];
+
+export const TASK_PRIORITIES: { value: string; label: string; color: string; bg: string }[] = [
+  { value: 'HIGH', label: 'Cao', color: '#B91C1C', bg: '#FEE2E2' },
+  { value: 'MEDIUM', label: 'Trung bình', color: '#D97706', bg: '#FEF3C7' },
+  { value: 'LOW', label: 'Thấp', color: '#047857', bg: '#D1FAE5' },
+];
 
 // 5 mức tự đánh giá theo template
 const ASSESSMENT_LEVELS = [
@@ -120,6 +147,65 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
   const [selfReview, setSelfReview] = useState<string>('');
   const [attachments, setAttachments] = useState<DailyReportAttachmentItem[]>([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [isSyncingFromWeb, setIsSyncingFromWeb] = useState(false);
+  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
+
+  const toggleTaskExpand = (key: string) => {
+    setExpandedTasks((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Date Picker state cho chọn ngày Hạn chót
+  const [activeDatePicker, setActiveDatePicker] = useState<{
+    type: 'metric' | 'completed' | 'inProgress';
+    index: number;
+    initialDate?: Date;
+  } | null>(null);
+
+  const handleOpenDatePicker = (type: 'metric' | 'completed' | 'inProgress', index: number, currentValue?: string) => {
+    if (isSubmittedToday) return;
+    let parsedDate: Date | undefined;
+    if (currentValue) {
+      const d = new Date(currentValue);
+      if (!isNaN(d.getTime())) {
+        parsedDate = d;
+      } else {
+        const parts = currentValue.split(/[-/]/);
+        if (parts.length === 3) {
+          if (parts[0] && parts[0].length === 4) {
+            const d2 = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            if (!isNaN(d2.getTime())) parsedDate = d2;
+          } else if (parts[2] && parts[2].length === 4) {
+            const d2 = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            if (!isNaN(d2.getTime())) parsedDate = d2;
+          }
+        }
+      }
+    }
+    setActiveDatePicker({
+      type,
+      index,
+      initialDate: parsedDate || new Date(),
+    });
+  };
+
+  const handleSelectDate = (date: Date) => {
+    if (!activeDatePicker) return;
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    const { type, index } = activeDatePicker;
+    if (type === 'metric') {
+      handleUpdateMetric(index, 'deadline', dateStr);
+    } else if (type === 'completed') {
+      handleUpdateCompletedTaskField(index, 'deadline', dateStr);
+    } else if (type === 'inProgress') {
+      handleUpdateInProgressTask(index, 'expectedDate', dateStr);
+      handleUpdateInProgressTask(index, 'deadline', dateStr);
+    }
+    setActiveDatePicker(null);
+  };
 
   // STEP 3: XÁC NHẬN
   const [isConfirmed, setIsConfirmed] = useState<boolean>(false);
@@ -134,13 +220,91 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
     return all.filter((r) => r.status === 'REVIEWED');
   }, [historyQuery.data]);
 
+  // Đồng bộ danh sách công việc từ module Báo cáo công việc (bảng Excel Web)
+  const handleSyncFromWeb = async (silent = false) => {
+    if (isSubmittedToday) return;
+    try {
+      setIsSyncingFromWeb(true);
+      const webTasks = await fetchMyWorkTasks();
+      if (!webTasks || webTasks.length === 0) {
+        if (!silent) {
+          Alert.alert('Đồng bộ từ Web', 'Chưa có công việc nào của bạn được ghi nhận trên Web cho ngày hôm nay.');
+        }
+        return;
+      }
+
+      const webCompleted: DailyReportTaskItem[] = [];
+      const webInProgress: DailyReportTaskItem[] = [];
+
+      webTasks.forEach((t) => {
+        const isDone = t.workStatus === 'DONE';
+        const displayTitle = t.taskCode ? `[${t.taskCode}] ${t.title}` : t.title;
+        const item: DailyReportTaskItem = {
+          taskId: t.id,
+          taskCode: t.taskCode,
+          title: displayTitle,
+          description: t.description || t.title,
+          category: t.category || 'Vận hành',
+          taskType: t.taskType || 'THEO_KE_HOACH',
+          priority: t.priority || 'MEDIUM',
+          status: isDone ? 'COMPLETED' : 'IN_PROGRESS',
+          progress: t.latestUpdate?.progress ?? (isDone ? 100 : t.workStatus === 'NOT_STARTED' ? 0 : 50),
+          deadline: t.deadline,
+          expectedDate: t.deadline ? new Date(t.deadline).toLocaleDateString('vi-VN') : 'Hôm nay',
+          note: t.latestUpdate?.notes || '',
+          notes: t.latestUpdate?.notes || '',
+          obstacles: t.latestUpdate?.obstacles || '',
+          supportRequest: t.latestUpdate?.supportRequest || '',
+          isManual: false,
+          isSelected: true,
+        };
+
+        if (isDone) {
+          webCompleted.push(item);
+        } else {
+          webInProgress.push(item);
+        }
+      });
+
+      // Merge: giữ lại các task nhập tay thủ công (isManual hoặc không có taskId)
+      setCompletedTasks((prev) => {
+        const manualTasks = prev.filter((item) => item.isManual || !item.taskId);
+        const webTaskIds = new Set(webCompleted.map((item) => item.taskId));
+        const remainingTasks = prev.filter((item) => item.taskId && !webTaskIds.has(item.taskId));
+        return [...webCompleted, ...remainingTasks, ...manualTasks];
+      });
+
+      setInProgressTasks((prev) => {
+        const manualTasks = prev.filter((item) => item.isManual || !item.taskId);
+        const webTaskIds = new Set(webInProgress.map((item) => item.taskId));
+        const remainingTasks = prev.filter((item) => item.taskId && !webTaskIds.has(item.taskId));
+        return [...webInProgress, ...remainingTasks, ...manualTasks];
+      });
+
+      if (!silent) {
+        Alert.alert(
+          'Đồng bộ thành công',
+          `Đã đồng bộ ${webTasks.length} công việc đầy đủ hạng mục, loại việc, độ ưu tiên từ bảng Web.`
+        );
+      }
+    } catch (err: any) {
+      console.warn('Lỗi đồng bộ từ Web:', err);
+      if (!silent) {
+        Alert.alert('Lỗi', 'Không thể đồng bộ công việc từ Web, vui lòng kiểm tra kết nối mạng.');
+      }
+    } finally {
+      setIsSyncingFromWeb(false);
+    }
+  };
+
   // Khởi tạo từ Server / Auto-pull
   useEffect(() => {
     if (reportData) {
       if (reportData.metrics && reportData.metrics.length > 0) {
         setMetrics(reportData.metrics);
       }
-      if (reportData.completedTasks && reportData.completedTasks.length > 0) {
+      const hasCompleted = Boolean(reportData.completedTasks && reportData.completedTasks.length > 0);
+      if (hasCompleted) {
         setCompletedTasks(
           reportData.completedTasks.map((t) => ({
             ...t,
@@ -148,7 +312,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
           }))
         );
       }
-      if (reportData.inProgressTasks && reportData.inProgressTasks.length > 0) {
+      const hasInProgress = Boolean(reportData.inProgressTasks && reportData.inProgressTasks.length > 0);
+      if (hasInProgress) {
         setInProgressTasks(
           reportData.inProgressTasks.map((t) => ({
             ...t,
@@ -174,8 +339,16 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         setSelfReview(reportData.selfReview);
       }
       setIsInitializing(false);
+
+      // Nếu chưa có bất kỳ việc nào và chưa gửi báo cáo hôm nay -> tự động kéo từ Web
+      if (!hasCompleted && !hasInProgress && reportData.status !== 'SUBMITTED' && reportData.status !== 'REVIEWED') {
+        handleSyncFromWeb(true);
+      }
+    } else if (!todayReportQuery.isLoading) {
+      setIsInitializing(false);
+      handleSyncFromWeb(true);
     }
-  }, [reportData]);
+  }, [reportData, todayReportQuery.isLoading]);
 
   // Format ngày tiếng Việt
   const displayDate = useMemo(() => {
@@ -208,9 +381,25 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
   // --- ACTIONS CHO CHỈ TIÊU ĐỊNH LƯỢNG ---
   const handleAddMetric = () => {
     if (isSubmittedToday) return;
-    setMetrics((prev) => [...prev, { name: '', value: '', unit: '', note: '' }]);
+    setMetrics((prev) => [
+      ...prev,
+      {
+        name: '',
+        description: '',
+        value: '',
+        unit: '',
+        note: '',
+        notes: '',
+        category: 'Vận hành',
+        taskType: 'THEO_KE_HOACH',
+        priority: 'MEDIUM',
+        deadline: '',
+        obstacles: '',
+        supportRequest: '',
+      },
+    ]);
   };
-  const handleUpdateMetric = (index: number, field: keyof DailyReportMetricItem, val: string) => {
+  const handleUpdateMetric = (index: number, field: keyof DailyReportMetricItem, val: any) => {
     if (isSubmittedToday) return;
     setMetrics((prev) => {
       const next = [...prev];
@@ -239,18 +428,35 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
     if (isSubmittedToday) return;
     setCompletedTasks((prev) => [
       ...prev,
-      { title: '', status: 'COMPLETED', isManual: true, isSelected: true },
+      {
+        title: '',
+        description: '',
+        category: 'Vận hành',
+        taskType: 'THEO_KE_HOACH',
+        priority: 'MEDIUM',
+        status: 'COMPLETED',
+        progress: 100,
+        deadline: '',
+        isManual: true,
+        isSelected: true,
+        notes: '',
+        obstacles: '',
+        supportRequest: '',
+      },
     ]);
   };
-  const handleUpdateCompletedTask = (index: number, val: string) => {
+  const handleUpdateCompletedTaskField = (index: number, field: keyof DailyReportTaskItem, val: any) => {
     if (isSubmittedToday) return;
     setCompletedTasks((prev) => {
       const next = [...prev];
       if (next[index]) {
-        next[index] = { ...next[index], title: val };
+        next[index] = { ...next[index], [field]: val };
       }
       return next;
     });
+  };
+  const handleUpdateCompletedTask = (index: number, val: string) => {
+    handleUpdateCompletedTaskField(index, 'title', val);
   };
   const handleDeleteCompletedTask = (index: number) => {
     if (isSubmittedToday) return;
@@ -262,7 +468,21 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
     if (isSubmittedToday) return;
     setInProgressTasks((prev) => [
       ...prev,
-      { title: '', status: 'IN_PROGRESS', isManual: true, progress: 50, expectedDate: 'Ngày mai' },
+      {
+        title: '',
+        description: '',
+        category: 'Vận hành',
+        taskType: 'THEO_KE_HOACH',
+        priority: 'MEDIUM',
+        status: 'IN_PROGRESS',
+        progress: 50,
+        deadline: '',
+        expectedDate: 'Ngày mai',
+        isManual: true,
+        notes: '',
+        obstacles: '',
+        supportRequest: '',
+      },
     ]);
   };
   const handleUpdateInProgressTask = (index: number, field: keyof DailyReportTaskItem, val: any) => {
@@ -443,6 +663,52 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         selfReview: selfReview.trim() || undefined,
         isDraft,
       });
+
+      // Đồng bộ trạng thái, tiến độ và các trường chi tiết ngược lại bảng Excel trên Web
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const syncPromises: Promise<any>[] = [];
+
+        // 1. Task hoàn thành được chọn -> update lên Web thành DONE, 100%
+        selectedCompleted.forEach((t) => {
+          if (t.taskId) {
+            syncPromises.push(
+              updateWorkTaskProgress(t.taskId, {
+                workStatus: 'DONE',
+                progress: 100,
+                reportDate: todayStr,
+                notes: t.notes || t.note || 'Hoàn thành từ Mobile',
+                obstacles: t.obstacles || undefined,
+                supportRequest: t.supportRequest || undefined,
+                isTestBypass: true,
+              })
+            );
+          }
+        });
+
+        // 2. Task đang làm -> update lên Web thành IN_PROGRESS và cập nhật tiến độ
+        cleanInProgress.forEach((t) => {
+          if (t.taskId) {
+            syncPromises.push(
+              updateWorkTaskProgress(t.taskId, {
+                workStatus: 'IN_PROGRESS',
+                progress: typeof t.progress === 'number' ? t.progress : 50,
+                reportDate: todayStr,
+                notes: t.notes || t.note || (t.expectedDate ? `Dự kiến: ${t.expectedDate}` : 'Cập nhật từ Mobile'),
+                obstacles: t.obstacles || undefined,
+                supportRequest: t.supportRequest || undefined,
+                isTestBypass: true,
+              })
+            );
+          }
+        });
+
+        if (syncPromises.length > 0) {
+          await Promise.allSettled(syncPromises);
+        }
+      } catch (syncErr) {
+        console.warn('Lỗi đồng bộ ngược về Web (non-fatal):', syncErr);
+      }
 
       setNoticeText(isDraft ? '✓ Đã lưu nháp báo cáo thành công' : '✓ Đã gửi báo cáo cuối ngày thành công');
 
@@ -744,72 +1010,250 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                   {metrics.length === 0 ? (
                     <Text style={styles.emptyPromptText}>Chưa có chỉ tiêu. Thêm chỉ tiêu khi có kết quả cần ghi nhận.</Text>
                   ) : (
-                    metrics.map((m, idx) => (
-                      <View key={idx} style={styles.quantItemBox}>
-                        <View style={styles.quantItemHeader}>
-                          <Text style={styles.quantNumberText}>CHỈ TIÊU {String(idx + 1).padStart(2, '0')}</Text>
-                          {!isSubmittedToday && (
-                            <TouchableOpacity onPress={() => handleDeleteMetric(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                              <Text style={styles.removeText}>Xóa</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
+                    metrics.map((m, idx) => {
+                      const metricKey = `m_${idx}`;
+                      const isExpanded = !!expandedTasks[metricKey];
+                      const typeObj = TASK_TYPES.find((tt) => tt.value === m.taskType) || TASK_TYPES[0];
+                      const prioObj = TASK_PRIORITIES.find((tp) => tp.value === m.priority) || TASK_PRIORITIES[1];
 
-                        <Text style={styles.inputLabel}>Tên chỉ tiêu</Text>
-                        <TextInput
-                          style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                          placeholder="Ví dụ: Khách hàng mới, doanh số…"
-                          placeholderTextColor="#94A3B8"
-                          value={m.name}
-                          onChangeText={(v) => handleUpdateMetric(idx, 'name', v)}
-                          editable={!isSubmittedToday}
-                        />
+                      return (
+                        <View key={idx} style={styles.quantItemBox}>
+                          <View style={styles.quantItemHeader}>
+                            <Text style={styles.quantNumberText}>CHỈ TIÊU {String(idx + 1).padStart(2, '0')}</Text>
 
-                        <View style={styles.quantPairRow}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.inputLabel}>Kết quả</Text>
+                            {!isSubmittedToday && (
+                              <TouchableOpacity onPress={() => handleDeleteMetric(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                <Text style={styles.removeText}>Xóa</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+
+                          <Text style={styles.inputLabel}>Tên chỉ tiêu / Công việc</Text>
+                          <TextInput
+                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                            placeholder="Ví dụ: Khách hàng mới, đơn hàng thành công, doanh số…"
+                            placeholderTextColor="#94A3B8"
+                            value={m.name}
+                            onChangeText={(v) => handleUpdateMetric(idx, 'name', v)}
+                            editable={!isSubmittedToday}
+                          />
+
+                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>Chi tiết công việc</Text>
+                          <TextInput
+                            style={[styles.textAreaInput, isSubmittedToday && styles.readOnlyInput, { minHeight: 52, marginBottom: 4 }]}
+                            placeholder="Mô tả chi tiết nội dung công việc thực hiện…"
+                            placeholderTextColor="#94A3B8"
+                            multiline
+                            numberOfLines={2}
+                            value={m.description || ''}
+                            onChangeText={(v) => handleUpdateMetric(idx, 'description', v)}
+                            editable={!isSubmittedToday}
+                          />
+
+                          <View style={styles.quantPairRow}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.inputLabel}>Kết quả đạt được</Text>
+                              <TextInput
+                                style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Nhập số"
+                                placeholderTextColor="#94A3B8"
+                                keyboardType="numeric"
+                                value={String(m.value ?? '')}
+                                onChangeText={(v) => handleUpdateMetric(idx, 'value', v)}
+                                editable={!isSubmittedToday}
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.inputLabel}>Đơn vị tính</Text>
+                              <TextInput
+                                style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Khách, Đơn, Lỗi, VND…"
+                                placeholderTextColor="#94A3B8"
+                                value={m.unit || ''}
+                                onChangeText={(v) => handleUpdateMetric(idx, 'unit', v)}
+                                editable={!isSubmittedToday}
+                              />
+                            </View>
+                          </View>
+
+                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>Hạn chót (Deadline)</Text>
+                          <View style={styles.dateInputWrapper}>
                             <TextInput
-                              style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                              placeholder="Nhập số"
+                              style={[styles.textInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
+                              placeholder="Ví dụ: 2026-10-17, 17:30, Hôm nay…"
                               placeholderTextColor="#94A3B8"
-                              keyboardType="numeric"
-                              value={String(m.value ?? '')}
-                              onChangeText={(v) => handleUpdateMetric(idx, 'value', v)}
+                              value={m.deadline || ''}
+                              onChangeText={(v) => handleUpdateMetric(idx, 'deadline', v)}
                               editable={!isSubmittedToday}
                             />
+                            {!isSubmittedToday && (
+                              <TouchableOpacity
+                                style={styles.datePickerBtn}
+                                onPress={() => handleOpenDatePicker('metric', idx, m.deadline)}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Ionicons name="calendar-outline" size={18} color="#166534" />
+                              </TouchableOpacity>
+                            )}
                           </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.inputLabel}>Đơn vị</Text>
-                            <TextInput
-                              style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                              placeholder="Lỗi, khách, VND…"
-                              placeholderTextColor="#94A3B8"
-                              value={m.unit || ''}
-                              onChangeText={(v) => handleUpdateMetric(idx, 'unit', v)}
-                              editable={!isSubmittedToday}
-                            />
-                          </View>
-                        </View>
 
-                        <Text style={styles.inputLabel}>
-                          Ghi chú <Text style={styles.optionalText}>· Tùy chọn</Text>
-                        </Text>
-                        <TextInput
-                          style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                          placeholder="Ghi chú thêm nếu cần…"
-                          placeholderTextColor="#94A3B8"
-                          value={m.note || ''}
-                          onChangeText={(v) => handleUpdateMetric(idx, 'note', v)}
-                          editable={!isSubmittedToday}
-                        />
-                      </View>
-                    ))
+                          {/* 1. Hạng mục công việc (Nhập tên tự do hoặc chọn gợi ý) */}
+                          <Text style={[styles.drawerFieldLabel, { marginTop: 8 }]}>Hạng mục công việc (Nhập tên hoặc chọn gợi ý)</Text>
+                          <TextInput
+                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput, { marginBottom: 6 }]}
+                            placeholder="Nhập tên hạng mục tự do…"
+                            placeholderTextColor="#94A3B8"
+                            value={m.category || ''}
+                            onChangeText={(v) => handleUpdateMetric(idx, 'category', v)}
+                            editable={!isSubmittedToday}
+                          />
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
+                            <View style={styles.chipScrollInner}>
+                              {TASK_CATEGORIES.map((cat) => {
+                                const isCatActive = (m.category || '') === cat;
+                                return (
+                                  <TouchableOpacity
+                                    key={cat}
+                                    style={[styles.drawerPill, isCatActive && styles.drawerPillActive]}
+                                    onPress={() => handleUpdateMetric(idx, 'category', cat)}
+                                    disabled={isSubmittedToday}
+                                  >
+                                    <Text style={[styles.drawerPillText, isCatActive && styles.drawerPillTextActive]}>
+                                      {cat}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </ScrollView>
+
+                          {/* 2. Loại việc */}
+                          <Text style={styles.drawerFieldLabel}>Loại việc</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
+                            <View style={styles.chipScrollInner}>
+                              {TASK_TYPES.map((tt) => {
+                                const isTypeActive = (m.taskType || 'THEO_KE_HOACH') === tt.value;
+                                return (
+                                  <TouchableOpacity
+                                    key={tt.value}
+                                    style={[styles.drawerPill, isTypeActive && { backgroundColor: tt.bg, borderColor: tt.color }]}
+                                    onPress={() => handleUpdateMetric(idx, 'taskType', tt.value)}
+                                    disabled={isSubmittedToday}
+                                  >
+                                    <Text style={[styles.drawerPillText, isTypeActive && { color: tt.color, fontWeight: '700' }]}>
+                                      {tt.label}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </ScrollView>
+
+                          {/* 3. Mức độ ưu tiên */}
+                          <Text style={styles.drawerFieldLabel}>Mức độ ưu tiên</Text>
+                          <View style={styles.priorityRowContainer}>
+                            {TASK_PRIORITIES.map((tp) => {
+                              const isPrioActive = (m.priority || 'MEDIUM') === tp.value;
+                              return (
+                                <TouchableOpacity
+                                  key={tp.value}
+                                  style={[
+                                    styles.priorityPillItem,
+                                    isPrioActive && { backgroundColor: tp.bg, borderColor: tp.color, borderWidth: 1.5 },
+                                  ]}
+                                  onPress={() => handleUpdateMetric(idx, 'priority', tp.value)}
+                                  disabled={isSubmittedToday}
+                                >
+                                  <Text style={[styles.priorityPillText, isPrioActive && { color: tp.color, fontWeight: '700' }]}>
+                                    {tp.label}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+
+                          {/* 4. Khó khăn / Vướng mắc */}
+                          <Text style={styles.drawerFieldLabel}>Khó khăn / Vướng mắc (nếu có)</Text>
+                          <TextInput
+                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                            placeholder="Khó khăn khi thực hiện chỉ tiêu này…"
+                            placeholderTextColor="#94A3B8"
+                            value={m.obstacles || ''}
+                            onChangeText={(v) => handleUpdateMetric(idx, 'obstacles', v)}
+                            editable={!isSubmittedToday}
+                          />
+
+                          {/* 5. Đề xuất hỗ trợ */}
+                          <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Đề xuất hỗ trợ</Text>
+                          <TextInput
+                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                            placeholder="Cần Leader hoặc bộ phận khác hỗ trợ gì…"
+                            placeholderTextColor="#94A3B8"
+                            value={m.supportRequest || ''}
+                            onChangeText={(v) => handleUpdateMetric(idx, 'supportRequest', v)}
+                            editable={!isSubmittedToday}
+                          />
+
+                          {/* 6. Ghi chú thêm */}
+                          <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Ghi chú thêm</Text>
+                          <TextInput
+                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                            placeholder="Ghi chú chi tiết thêm…"
+                            placeholderTextColor="#94A3B8"
+                            value={m.notes || m.note || ''}
+                            onChangeText={(v) => {
+                              handleUpdateMetric(idx, 'note', v);
+                              handleUpdateMetric(idx, 'notes', v);
+                            }}
+                            editable={!isSubmittedToday}
+                          />
+                        </View>
+                      );
+                    })
                   )}
 
                   {!isSubmittedToday && (
                     <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddMetric} activeOpacity={0.7}>
                       <Ionicons name="add" size={18} color="#166534" />
                       <Text style={styles.dashedAddBtnText}>Thêm chỉ tiêu</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* BANNER ĐỒNG BỘ VỚI BẢNG EXCEL WEB */}
+                <View style={styles.syncBanner}>
+                  <View style={styles.syncBannerLeft}>
+                    <View style={styles.syncIconBox}>
+                      <Ionicons name="cloud-done-outline" size={20} color="#0284C7" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.syncBannerTitle}>Đồng bộ từ bảng Web</Text>
+                        <View style={styles.syncStatusLiveBadge}>
+                          <Text style={styles.syncStatusLiveText}>1:1 Web</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.syncBannerSubtitle}>
+                        Đầy đủ hạng mục, loại việc, độ ưu tiên & tiến độ từ Web
+                      </Text>
+                    </View>
+                  </View>
+                  {!isSubmittedToday && (
+                    <TouchableOpacity
+                      style={styles.syncRefreshBtn}
+                      onPress={() => handleSyncFromWeb(false)}
+                      disabled={isSyncingFromWeb}
+                      activeOpacity={0.7}
+                    >
+                      {isSyncingFromWeb ? (
+                        <ActivityIndicator size="small" color="#0284C7" />
+                      ) : (
+                        <Ionicons name="sync-outline" size={16} color="#0284C7" />
+                      )}
+                      <Text style={styles.syncRefreshBtnText}>
+                        {isSyncingFromWeb ? 'Đang kéo…' : 'Đồng bộ'}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -836,19 +1280,27 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                   ) : (
                     completedTasks.map((t, idx) => {
                       const isSelected = t.isSelected ?? true;
+                      const taskKey = t.taskId ? `c_${t.taskId}` : `c_manual_${idx}`;
+                      const isExpanded = !!expandedTasks[taskKey];
+                      const typeObj = TASK_TYPES.find((tt) => tt.value === t.taskType) || TASK_TYPES[0];
+                      const prioObj = TASK_PRIORITIES.find((tp) => tp.value === t.priority) || TASK_PRIORITIES[1];
+
                       return (
                         <View key={idx} style={[styles.taskItemCard, isSelected && styles.taskItemCardActive]}>
-                          <TouchableOpacity
-                            style={styles.checkboxRow}
-                            onPress={() => handleToggleTask(idx)}
-                            disabled={isSubmittedToday}
-                            activeOpacity={0.7}
-                          >
-                            <MaterialCommunityIcons
-                              name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                              size={22}
-                              color={isSelected ? '#166534' : '#94A3B8'}
-                            />
+                          <View style={styles.taskCardHeaderRow}>
+                            <TouchableOpacity
+                              style={styles.checkboxRow}
+                              onPress={() => handleToggleTask(idx)}
+                              disabled={isSubmittedToday}
+                              activeOpacity={0.7}
+                            >
+                              <MaterialCommunityIcons
+                                name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                                size={22}
+                                color={isSelected ? '#166534' : '#94A3B8'}
+                              />
+                            </TouchableOpacity>
+
                             <View style={{ flex: 1, marginLeft: 8 }}>
                               {t.isManual && !isSubmittedToday ? (
                                 <TextInput
@@ -856,7 +1308,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                   placeholder="Nhập tên việc đã hoàn thành…"
                                   placeholderTextColor="#94A3B8"
                                   value={t.title}
-                                  onChangeText={(v) => handleUpdateCompletedTask(idx, v)}
+                                  onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'title', v)}
                                   editable={!isSubmittedToday}
                                 />
                               ) : (
@@ -864,17 +1316,208 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                   {t.title}
                                 </Text>
                               )}
-                              <Text style={styles.taskSubText}>
-                                {t.isManual ? 'Thêm thủ công' : 'Từ danh sách nhiệm vụ được giao'}
-                              </Text>
+
+                              {/* Badges / Chips hàng ngang */}
+                              <View style={styles.taskMetaRow}>
+                                {t.taskId ? (
+                                  <View style={styles.webBadge}>
+                                    <Ionicons name="globe-outline" size={10} color="#0284C7" />
+                                    <Text style={styles.webBadgeText}>Web{t.taskCode ? ` · ${t.taskCode}` : ''}</Text>
+                                  </View>
+                                ) : (
+                                  <View style={styles.manualBadge}>
+                                    <Text style={styles.manualBadgeText}>Thủ công</Text>
+                                  </View>
+                                )}
+
+                                <View style={[styles.metaChip, { backgroundColor: '#F1F5F9' }]}>
+                                  <Text style={styles.metaChipText}>{t.category || 'Vận hành'}</Text>
+                                </View>
+
+                                <View style={[styles.metaChip, { backgroundColor: typeObj?.bg || '#F1F5F9' }]}>
+                                  <Text style={[styles.metaChipText, { color: typeObj?.color || '#334155' }]}>
+                                    {typeObj?.label || 'Kế hoạch'}
+                                  </Text>
+                                </View>
+
+                                <View style={[styles.metaChip, { backgroundColor: prioObj?.bg || '#FEF3C7' }]}>
+                                  <Text style={[styles.metaChipText, { color: prioObj?.color || '#D97706' }]}>
+                                    {prioObj?.label || 'Trung bình'}
+                                  </Text>
+                                </View>
+                              </View>
                             </View>
 
-                            {t.isManual && !isSubmittedToday && (
-                              <TouchableOpacity onPress={() => handleDeleteCompletedTask(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                            <View style={styles.taskRightActions}>
+                              <TouchableOpacity
+                                style={styles.expandToggleBtn}
+                                onPress={() => toggleTaskExpand(taskKey)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Ionicons
+                                  name={isExpanded ? 'chevron-up-circle' : 'chevron-down-circle-outline'}
+                                  size={20}
+                                  color={isExpanded ? '#166534' : '#64748B'}
+                                />
                               </TouchableOpacity>
-                            )}
-                          </TouchableOpacity>
+
+                              {t.isManual && !isSubmittedToday && (
+                                <TouchableOpacity
+                                  onPress={() => handleDeleteCompletedTask(idx)}
+                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  style={{ marginLeft: 6 }}
+                                >
+                                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+
+                          {/* Chi tiết công việc (Mở rộng) */}
+                          {isExpanded && (
+                            <View style={styles.expandedDetailsDrawer}>
+                              {/* Chi tiết công việc & Hạn chót */}
+                              <Text style={styles.drawerFieldLabel}>Chi tiết công việc</Text>
+                              <TextInput
+                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput, { minHeight: 52 }]}
+                                placeholder="Mô tả chi tiết nội dung công việc hoàn thành…"
+                                placeholderTextColor="#94A3B8"
+                                multiline
+                                numberOfLines={2}
+                                value={t.description || ''}
+                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'description', v)}
+                                editable={!isSubmittedToday}
+                              />
+
+                              <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Hạn chót</Text>
+                              <View style={styles.dateInputWrapper}>
+                                <TextInput
+                                  style={[styles.drawerInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
+                                  placeholder="Ví dụ: 2026-10-17, 17:30, Hôm nay…"
+                                  placeholderTextColor="#94A3B8"
+                                  value={t.deadline || ''}
+                                  onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'deadline', v)}
+                                  editable={!isSubmittedToday}
+                                />
+                                {!isSubmittedToday && (
+                                  <TouchableOpacity
+                                    style={styles.datePickerBtn}
+                                    onPress={() => handleOpenDatePicker('completed', idx, t.deadline)}
+                                    activeOpacity={0.7}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  >
+                                    <Ionicons name="calendar-outline" size={18} color="#166534" />
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+
+                              {/* 1. Chọn Hạng mục (Category) */}
+                              <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Hạng mục công việc (Nhập tên hoặc chọn gợi ý)</Text>
+                              <TextInput
+                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput, { marginBottom: 6 }]}
+                                placeholder="Nhập tên hạng mục tự do…"
+                                placeholderTextColor="#94A3B8"
+                                value={t.category || ''}
+                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'category', v)}
+                                editable={!isSubmittedToday}
+                              />
+                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
+                                <View style={styles.chipScrollInner}>
+                                  {TASK_CATEGORIES.map((cat) => {
+                                    const isCatActive = (t.category || '') === cat;
+                                    return (
+                                      <TouchableOpacity
+                                        key={cat}
+                                        style={[styles.drawerPill, isCatActive && styles.drawerPillActive]}
+                                        onPress={() => handleUpdateCompletedTaskField(idx, 'category', cat)}
+                                        disabled={isSubmittedToday}
+                                      >
+                                        <Text style={[styles.drawerPillText, isCatActive && styles.drawerPillTextActive]}>
+                                          {cat}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                                </View>
+                              </ScrollView>
+
+                              {/* 2. Loại việc (TaskType) */}
+                              <Text style={styles.drawerFieldLabel}>Loại việc</Text>
+                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
+                                <View style={styles.chipScrollInner}>
+                                  {TASK_TYPES.map((tt) => {
+                                    const isTypeActive = (t.taskType || 'THEO_KE_HOACH') === tt.value;
+                                    return (
+                                      <TouchableOpacity
+                                        key={tt.value}
+                                        style={[styles.drawerPill, isTypeActive && { backgroundColor: tt.bg, borderColor: tt.color }]}
+                                        onPress={() => handleUpdateCompletedTaskField(idx, 'taskType', tt.value)}
+                                        disabled={isSubmittedToday}
+                                      >
+                                        <Text style={[styles.drawerPillText, isTypeActive && { color: tt.color, fontWeight: '700' }]}>
+                                          {tt.label}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                                </View>
+                              </ScrollView>
+
+                              {/* 3. Độ ưu tiên */}
+                              <Text style={styles.drawerFieldLabel}>Mức độ ưu tiên</Text>
+                              <View style={styles.priorityRowContainer}>
+                                {TASK_PRIORITIES.map((tp) => {
+                                  const isPrioActive = (t.priority || 'MEDIUM') === tp.value;
+                                  return (
+                                    <TouchableOpacity
+                                      key={tp.value}
+                                      style={[
+                                        styles.priorityPillItem,
+                                        isPrioActive && { backgroundColor: tp.bg, borderColor: tp.color, borderWidth: 1.5 },
+                                      ]}
+                                      onPress={() => handleUpdateCompletedTaskField(idx, 'priority', tp.value)}
+                                      disabled={isSubmittedToday}
+                                    >
+                                      <Text style={[styles.priorityPillText, isPrioActive && { color: tp.color, fontWeight: '700' }]}>
+                                        {tp.label}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+
+                              {/* 4. Ghi chú & Khó khăn & Hỗ trợ */}
+                              <Text style={styles.drawerFieldLabel}>Ghi chú kết quả</Text>
+                              <TextInput
+                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Ghi chú chi tiết kết quả hoàn thành…"
+                                placeholderTextColor="#94A3B8"
+                                value={t.notes || t.note || ''}
+                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'notes', v)}
+                                editable={!isSubmittedToday}
+                              />
+
+                              <Text style={styles.drawerFieldLabel}>Khó khăn / Vướng mắc phát sinh (nếu có)</Text>
+                              <TextInput
+                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Trở ngại trong quá trình thực hiện…"
+                                placeholderTextColor="#94A3B8"
+                                value={t.obstacles || ''}
+                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'obstacles', v)}
+                                editable={!isSubmittedToday}
+                              />
+
+                              <Text style={styles.drawerFieldLabel}>Đề xuất hỗ trợ (nếu có)</Text>
+                              <TextInput
+                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Cần phòng ban/Leader hỗ trợ gì…"
+                                placeholderTextColor="#94A3B8"
+                                value={t.supportRequest || ''}
+                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'supportRequest', v)}
+                                editable={!isSubmittedToday}
+                              />
+                            </View>
+                          )}
                         </View>
                       );
                     })
@@ -908,54 +1551,247 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                       <Text style={styles.emptyPromptText}>Chưa có công việc đang thực hiện.</Text>
                     </View>
                   ) : (
-                    inProgressTasks.map((t, idx) => (
-                      <View key={idx} style={styles.inProgressCard}>
-                        <View style={styles.quantItemHeader}>
-                          <Text style={styles.inProgressNumberText}>CÔNG VIỆC {String(idx + 1).padStart(2, '0')}</Text>
-                          {!isSubmittedToday && (
-                            <TouchableOpacity onPress={() => handleDeleteInProgressTask(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                              <Text style={styles.removeText}>Xóa</Text>
-                            </TouchableOpacity>
+                    inProgressTasks.map((t, idx) => {
+                      const taskKey = t.taskId ? `p_${t.taskId}` : `p_manual_${idx}`;
+                      const isExpanded = !!expandedTasks[taskKey];
+                      const typeObj = TASK_TYPES.find((tt) => tt.value === t.taskType) || TASK_TYPES[0];
+                      const prioObj = TASK_PRIORITIES.find((tp) => tp.value === t.priority) || TASK_PRIORITIES[1];
+
+                      return (
+                        <View key={idx} style={styles.inProgressCard}>
+                          <View style={styles.quantItemHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={styles.inProgressNumberText}>CÔNG VIỆC {String(idx + 1).padStart(2, '0')}</Text>
+                              {t.taskId ? (
+                                <View style={styles.webBadge}>
+                                  <Ionicons name="globe-outline" size={10} color="#0284C7" />
+                                  <Text style={styles.webBadgeText}>Web{t.taskCode ? ` · ${t.taskCode}` : ''}</Text>
+                                </View>
+                              ) : (
+                                <View style={styles.manualBadge}>
+                                  <Text style={styles.manualBadgeText}>Thủ công</Text>
+                                </View>
+                              )}
+                            </View>
+
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <TouchableOpacity
+                                style={styles.expandToggleBtn}
+                                onPress={() => toggleTaskExpand(taskKey)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Ionicons
+                                  name={isExpanded ? 'chevron-up-circle' : 'chevron-down-circle-outline'}
+                                  size={20}
+                                  color={isExpanded ? '#166534' : '#64748B'}
+                                />
+                              </TouchableOpacity>
+
+                              {!isSubmittedToday && (
+                                <TouchableOpacity onPress={() => handleDeleteInProgressTask(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                  <Text style={styles.removeText}>Xóa</Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+
+                          <Text style={styles.inputLabel}>Tên công việc</Text>
+                          <TextInput
+                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                            placeholder="Tên công việc đang làm…"
+                            placeholderTextColor="#94A3B8"
+                            value={t.title}
+                            onChangeText={(v) => handleUpdateInProgressTask(idx, 'title', v)}
+                            editable={!isSubmittedToday}
+                          />
+
+                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>Chi tiết công việc</Text>
+                          <TextInput
+                            style={[styles.textAreaInput, isSubmittedToday && styles.readOnlyInput, { minHeight: 52, marginBottom: 4 }]}
+                            placeholder="Mô tả chi tiết nội dung công việc đang thực hiện…"
+                            placeholderTextColor="#94A3B8"
+                            multiline
+                            numberOfLines={2}
+                            value={t.description || ''}
+                            onChangeText={(v) => handleUpdateInProgressTask(idx, 'description', v)}
+                            editable={!isSubmittedToday}
+                          />
+
+                          <View style={styles.quantPairRow}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.inputLabel}>Tiến độ (%)</Text>
+                              <TextInput
+                                style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Ví dụ: 60"
+                                placeholderTextColor="#94A3B8"
+                                keyboardType="numeric"
+                                value={String(t.progress ?? '')}
+                                onChangeText={(v) => handleUpdateInProgressTask(idx, 'progress', Number(v) || 0)}
+                                editable={!isSubmittedToday}
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.inputLabel}>Dự kiến xong / Hạn chót</Text>
+                              <View style={styles.dateInputWrapper}>
+                                <TextInput
+                                  style={[styles.textInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
+                                  placeholder="Ví dụ: 2026-10-17, Ngày mai…"
+                                  placeholderTextColor="#94A3B8"
+                                  value={t.expectedDate || t.deadline || ''}
+                                  onChangeText={(v) => {
+                                    handleUpdateInProgressTask(idx, 'expectedDate', v);
+                                    handleUpdateInProgressTask(idx, 'deadline', v);
+                                  }}
+                                  editable={!isSubmittedToday}
+                                />
+                                {!isSubmittedToday && (
+                                  <TouchableOpacity
+                                    style={styles.datePickerBtn}
+                                    onPress={() => handleOpenDatePicker('inProgress', idx, t.expectedDate || t.deadline)}
+                                    activeOpacity={0.7}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  >
+                                    <Ionicons name="calendar-outline" size={18} color="#166534" />
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+                            </View>
+                          </View>
+
+                          {/* Meta row chips */}
+                          <View style={[styles.taskMetaRow, { marginTop: 8 }]}>
+                            <View style={[styles.metaChip, { backgroundColor: '#F1F5F9' }]}>
+                              <Text style={styles.metaChipText}>{t.category || 'Vận hành'}</Text>
+                            </View>
+
+                            <View style={[styles.metaChip, { backgroundColor: typeObj?.bg || '#F1F5F9' }]}>
+                              <Text style={[styles.metaChipText, { color: typeObj?.color || '#334155' }]}>
+                                {typeObj?.label || 'Kế hoạch'}
+                              </Text>
+                            </View>
+
+                            <View style={[styles.metaChip, { backgroundColor: prioObj?.bg || '#FEF3C7' }]}>
+                              <Text style={[styles.metaChipText, { color: prioObj?.color || '#D97706' }]}>
+                                {prioObj?.label || 'Trung bình'}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Chi tiết công việc đang làm (Mở rộng) */}
+                          {isExpanded && (
+                            <View style={styles.expandedDetailsDrawer}>
+                              {/* 1. Hạng mục */}
+                              <Text style={styles.drawerFieldLabel}>Hạng mục công việc (Nhập tên hoặc chọn gợi ý)</Text>
+                              <TextInput
+                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput, { marginBottom: 6 }]}
+                                placeholder="Nhập tên hạng mục tự do…"
+                                placeholderTextColor="#94A3B8"
+                                value={t.category || ''}
+                                onChangeText={(v) => handleUpdateInProgressTask(idx, 'category', v)}
+                                editable={!isSubmittedToday}
+                              />
+                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
+                                <View style={styles.chipScrollInner}>
+                                  {TASK_CATEGORIES.map((cat) => {
+                                    const isCatActive = (t.category || '') === cat;
+                                    return (
+                                      <TouchableOpacity
+                                        key={cat}
+                                        style={[styles.drawerPill, isCatActive && styles.drawerPillActive]}
+                                        onPress={() => handleUpdateInProgressTask(idx, 'category', cat)}
+                                        disabled={isSubmittedToday}
+                                      >
+                                        <Text style={[styles.drawerPillText, isCatActive && styles.drawerPillTextActive]}>
+                                          {cat}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                                </View>
+                              </ScrollView>
+
+                              {/* 2. Loại việc */}
+                              <Text style={styles.drawerFieldLabel}>Loại việc</Text>
+                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
+                                <View style={styles.chipScrollInner}>
+                                  {TASK_TYPES.map((tt) => {
+                                    const isTypeActive = (t.taskType || 'THEO_KE_HOACH') === tt.value;
+                                    return (
+                                      <TouchableOpacity
+                                        key={tt.value}
+                                        style={[styles.drawerPill, isTypeActive && { backgroundColor: tt.bg, borderColor: tt.color }]}
+                                        onPress={() => handleUpdateInProgressTask(idx, 'taskType', tt.value)}
+                                        disabled={isSubmittedToday}
+                                      >
+                                        <Text style={[styles.drawerPillText, isTypeActive && { color: tt.color, fontWeight: '700' }]}>
+                                          {tt.label}
+                                        </Text>
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                                </View>
+                              </ScrollView>
+
+                              {/* 3. Độ ưu tiên */}
+                              <Text style={styles.drawerFieldLabel}>Mức độ ưu tiên</Text>
+                              <View style={styles.priorityRowContainer}>
+                                {TASK_PRIORITIES.map((tp) => {
+                                  const isPrioActive = (t.priority || 'MEDIUM') === tp.value;
+                                  return (
+                                    <TouchableOpacity
+                                      key={tp.value}
+                                      style={[
+                                        styles.priorityPillItem,
+                                        isPrioActive && { backgroundColor: tp.bg, borderColor: tp.color, borderWidth: 1.5 },
+                                      ]}
+                                      onPress={() => handleUpdateInProgressTask(idx, 'priority', tp.value)}
+                                      disabled={isSubmittedToday}
+                                    >
+                                      <Text style={[styles.priorityPillText, isPrioActive && { color: tp.color, fontWeight: '700' }]}>
+                                        {tp.label}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+
+                              {/* 4. Khó khăn vướng mắc */}
+                              <Text style={styles.drawerFieldLabel}>Khó khăn / Vướng mắc</Text>
+                              <TextInput
+                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Mô tả vướng mắc đang gặp phải…"
+                                placeholderTextColor="#94A3B8"
+                                value={t.obstacles || ''}
+                                onChangeText={(v) => handleUpdateInProgressTask(idx, 'obstacles', v)}
+                                editable={!isSubmittedToday}
+                              />
+
+                              {/* 5. Đề xuất hỗ trợ */}
+                              <Text style={styles.drawerFieldLabel}>Đề xuất hỗ trợ</Text>
+                              <TextInput
+                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Cần Leader hoặc bộ phận khác hỗ trợ gì…"
+                                placeholderTextColor="#94A3B8"
+                                value={t.supportRequest || ''}
+                                onChangeText={(v) => handleUpdateInProgressTask(idx, 'supportRequest', v)}
+                                editable={!isSubmittedToday}
+                              />
+
+                              {/* 6. Ghi chú */}
+                              <Text style={styles.drawerFieldLabel}>Ghi chú công việc</Text>
+                              <TextInput
+                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Ghi chú thêm về công việc này…"
+                                placeholderTextColor="#94A3B8"
+                                value={t.notes || t.note || ''}
+                                onChangeText={(v) => handleUpdateInProgressTask(idx, 'notes', v)}
+                                editable={!isSubmittedToday}
+                              />
+                            </View>
                           )}
                         </View>
-
-                        <Text style={styles.inputLabel}>Tên công việc</Text>
-                        <TextInput
-                          style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                          placeholder="Tên công việc đang làm…"
-                          placeholderTextColor="#94A3B8"
-                          value={t.title}
-                          onChangeText={(v) => handleUpdateInProgressTask(idx, 'title', v)}
-                          editable={!isSubmittedToday}
-                        />
-
-                        <View style={styles.quantPairRow}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.inputLabel}>Tiến độ (%)</Text>
-                            <TextInput
-                              style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                              placeholder="Ví dụ: 60"
-                              placeholderTextColor="#94A3B8"
-                              keyboardType="numeric"
-                              value={String(t.progress ?? '')}
-                              onChangeText={(v) => handleUpdateInProgressTask(idx, 'progress', Number(v) || 0)}
-                              editable={!isSubmittedToday}
-                            />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.inputLabel}>Dự kiến xong</Text>
-                            <TextInput
-                              style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                              placeholder="Ví dụ: Ngày mai, 22/09…"
-                              placeholderTextColor="#94A3B8"
-                              value={t.expectedDate || ''}
-                              onChangeText={(v) => handleUpdateInProgressTask(idx, 'expectedDate', v)}
-                              editable={!isSubmittedToday}
-                            />
-                          </View>
-                        </View>
-                      </View>
-                    ))
+                      );
+                    })
                   )}
 
                   {!isSubmittedToday && (
@@ -1554,11 +2390,28 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                     <Text style={styles.emptyPromptText}>Không có chỉ tiêu định lượng.</Text>
                   ) : (
                     selectedApprovedReport.metrics.map((m: any, idx: number) => (
-                      <View key={idx} style={styles.historyDetailMetricRow}>
-                        <Text style={styles.historyDetailMetricName}>{m.name}</Text>
-                        <Text style={styles.historyDetailMetricValue}>
-                          {m.value || '0'} {m.unit || ''}
-                        </Text>
+                      <View key={idx} style={[styles.historyDetailMetricRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 4, paddingVertical: 8 }]}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                          <Text style={styles.historyDetailMetricName}>{m.name}</Text>
+                          <Text style={styles.historyDetailMetricValue}>
+                            {m.value || '0'} {m.unit || ''}
+                          </Text>
+                        </View>
+                        {m.description ? (
+                          <Text style={{ fontSize: 12, color: '#475569' }}>Chi tiết: {m.description}</Text>
+                        ) : null}
+                        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                          {m.category ? (
+                            <View style={[styles.metaChip, { backgroundColor: '#F1F5F9' }]}>
+                              <Text style={styles.metaChipText}>{m.category}</Text>
+                            </View>
+                          ) : null}
+                          {m.deadline ? (
+                            <View style={[styles.metaChip, { backgroundColor: '#FEF3C7' }]}>
+                              <Text style={[styles.metaChipText, { color: '#D97706' }]}>Hạn: {m.deadline}</Text>
+                            </View>
+                          ) : null}
+                        </View>
                       </View>
                     ))
                   )}
@@ -1805,6 +2658,16 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         url={pdfPreviewUrl}
         title={pdfPreviewTitle}
         onClose={() => setPdfPreviewUrl(null)}
+      />
+
+      {/* ========================================================================= */}
+      {/* DATE PICKER MODAL (CHỌN LỊCH HẠN CHÓT)                                    */}
+      {/* ========================================================================= */}
+      <CustomDatePickerModal
+        visible={!!activeDatePicker}
+        onClose={() => setActiveDatePicker(null)}
+        onSelect={handleSelectDate}
+        initialDate={activeDatePicker?.initialDate}
       />
     </View>
   );
@@ -2254,6 +3117,27 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     color: '#334155',
   },
+  dateInputWrapper: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  dateInputWithBtn: {
+    paddingRight: 42,
+  },
+  datePickerBtn: {
+    position: 'absolute',
+    right: 8,
+    top: 6,
+    width: 30,
+    height: 30,
+    borderRadius: 7,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
   quantPairRow: {
     flexDirection: 'row',
     gap: 10,
@@ -2289,6 +3173,70 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
+  // SYNC BANNER
+  syncBanner: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  syncBannerLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  syncIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0369A1',
+  },
+  syncStatusLiveBadge: {
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  syncStatusLiveText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  syncBannerSubtitle: {
+    fontSize: 11,
+    color: '#0284C7',
+    marginTop: 2,
+  },
+  syncRefreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 4,
+  },
+  syncRefreshBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+
   // TASKS
   taskItemCard: {
     backgroundColor: '#F8FAFC',
@@ -2302,9 +3250,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderColor: '#BFDBFE',
   },
+  taskCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 2,
   },
   taskInlineInput: {
     fontSize: 13,
@@ -2319,6 +3272,133 @@ const styles = StyleSheet.create({
   taskTitleTextActive: {
     color: '#192232',
     fontWeight: '700',
+  },
+  taskMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 6,
+    alignItems: 'center',
+  },
+  webBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  webBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  manualBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  manualBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  metaChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  metaChipText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  taskRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 6,
+    marginTop: 2,
+  },
+  expandToggleBtn: {
+    padding: 2,
+  },
+  expandedDetailsDrawer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 8,
+  },
+  drawerFieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  chipScrollView: {
+    marginBottom: 4,
+  },
+  chipScrollInner: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  drawerPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  drawerPillActive: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#166534',
+  },
+  drawerPillText: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  drawerPillTextActive: {
+    color: '#166534',
+    fontWeight: '700',
+  },
+  priorityRowContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  priorityPillItem: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  priorityPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  drawerInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 12,
+    color: '#1E293B',
+    marginBottom: 4,
   },
   taskSubText: {
     fontSize: 11,

@@ -77,7 +77,7 @@ import {
   TaskTimeline,
   translatePriority,
 } from './TaskComponents';
-import { canAcceptAssignment, canStartAssignment, canSubmitAssignment, canUpdateProgress, mapTaskError, myAssignment, canCancelTask, isReadOnlyStatus } from './task.logic';
+import { canAcceptAssignment, canStartAssignment, canSubmitAssignment, canUpdateProgress, mapTaskError, myAssignment, canCancelTask, isReadOnlyStatus, extractTaskMeta, cleanTaskDescription } from './task.logic';
 
 type TaskArea = 'employee' | 'leader' | 'admin' | 'hr';
 
@@ -1044,11 +1044,46 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
             ) : null}
           </View>
 
-          {item.description ? (
-            <Text style={{ fontSize: 14, color: '#475569', marginTop: 10, lineHeight: 20 }}>
-              {item.description}
-            </Text>
-          ) : null}
+          {(() => {
+            const meta = extractTaskMeta(item.description);
+            const isSystemAutoNote = meta.note && [
+              'Duyệt hoàn thành qua kéo thả',
+              'Duyệt hoàn thành công việc',
+              'Nộp kết quả chờ phê duyệt',
+            ].includes(meta.note);
+            const showCustomNote = meta.note && !isSystemAutoNote;
+
+            if (!meta.cleanDescription && !showCustomNote) return null;
+
+            return (
+              <View style={{ marginTop: 10 }}>
+                {meta.cleanDescription ? (
+                  <Text style={{ fontSize: 14, color: '#475569', lineHeight: 20 }}>
+                    {meta.cleanDescription}
+                  </Text>
+                ) : null}
+                {showCustomNote ? (
+                  <View style={{
+                    marginTop: meta.cleanDescription ? 8 : 0,
+                    paddingHorizontal: 10,
+                    paddingVertical: 7,
+                    backgroundColor: '#F8FAFC',
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                    borderRadius: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}>
+                    <MaterialCommunityIcons name="information-outline" size={15} color="#64748B" />
+                    <Text style={{ fontSize: 12.5, color: '#334155', flex: 1, fontWeight: '500' }}>
+                      Ghi chú: {meta.note}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            );
+          })()}
 
           {/* 2-Column Date Box */}
           <View style={{
@@ -2660,9 +2695,44 @@ function AdminTaskDetailScreen({ id }: { id?: string }) {
               </Text>
             </View>
           </View>
-          {item.description ? (
-            <Text style={adminStyles.detailTaskDesc}>{item.description}</Text>
-          ) : null}
+          {(() => {
+            const meta = extractTaskMeta(item.description);
+            const isSystemAutoNote = meta.note && [
+              'Duyệt hoàn thành qua kéo thả',
+              'Duyệt hoàn thành công việc',
+              'Nộp kết quả chờ phê duyệt',
+            ].includes(meta.note);
+            const showCustomNote = meta.note && !isSystemAutoNote;
+
+            if (!meta.cleanDescription && !showCustomNote) return null;
+
+            return (
+              <View style={{ marginTop: 4 }}>
+                {meta.cleanDescription ? (
+                  <Text style={adminStyles.detailTaskDesc}>{meta.cleanDescription}</Text>
+                ) : null}
+                {showCustomNote ? (
+                  <View style={{
+                    marginTop: meta.cleanDescription ? 8 : 0,
+                    paddingHorizontal: 10,
+                    paddingVertical: 7,
+                    backgroundColor: '#F8FAFC',
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                    borderRadius: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}>
+                    <MaterialCommunityIcons name="information-outline" size={15} color="#64748B" />
+                    <Text style={{ fontSize: 12.5, color: '#334155', flex: 1, fontWeight: '500' }}>
+                      Ghi chú: {meta.note}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            );
+          })()}
         </View>
 
         <View style={adminStyles.cardBox}>
@@ -3130,6 +3200,14 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [leaderId, setLeaderId] = useState<string>('');
   const [memberModalVisible, setMemberModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (memberIds.length === 1 && !leaderId) {
+      setLeaderId(memberIds[0] ?? '');
+    } else if (leaderId && !memberIds.includes(leaderId)) {
+      setLeaderId(memberIds[0] ?? '');
+    }
+  }, [memberIds, leaderId]);
   
   const departmentId = isLeaderArea ? (departmentContextId || departmentIdFromUser(user)) : undefined;
   const usersQuery = useScopedEmployees(
@@ -3763,21 +3841,23 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
             </View>
           ) : (
             <>
-              {!parentTaskId && (area as any) === 'admin' ? (
+              {!parentTaskId ? (
                 <View style={[styles.modeSegmentContainer, { marginBottom: 14 }]}>
-                  <Pressable
-                    style={[styles.modeSegmentBtn, assigneeMode === 'DEPARTMENT' && styles.modeSegmentBtnActive]}
-                    onPress={() => setAssigneeMode('DEPARTMENT')}
-                  >
-                    <MaterialCommunityIcons
-                      name="domain"
-                      size={15}
-                      color={assigneeMode === 'DEPARTMENT' ? colors.primary : '#64748B'}
-                    />
-                    <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'DEPARTMENT' && styles.modeSegmentTextActive]}>
-                      Phòng ban
-                    </Text>
-                  </Pressable>
+                  {(!isLeaderArea || isGlobalAdmin) ? (
+                    <Pressable
+                      style={[styles.modeSegmentBtn, assigneeMode === 'DEPARTMENT' && styles.modeSegmentBtnActive]}
+                      onPress={() => setAssigneeMode('DEPARTMENT')}
+                    >
+                      <MaterialCommunityIcons
+                        name="domain"
+                        size={15}
+                        color={assigneeMode === 'DEPARTMENT' ? colors.primary : '#64748B'}
+                      />
+                      <Text numberOfLines={1} style={[styles.modeSegmentText, assigneeMode === 'DEPARTMENT' && styles.modeSegmentTextActive]}>
+                        Phòng ban
+                      </Text>
+                    </Pressable>
+                  ) : null}
 
                   <Pressable
                     style={[styles.modeSegmentBtn, assigneeMode === 'USER' && styles.modeSegmentBtnActive]}
@@ -3968,10 +4048,15 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
                   <View style={[styles.modeInfoCard, styles.modeInfoCardGroup, { marginBottom: 12 }]}>
                     <View style={styles.modeInfoTitleRow}>
                       <MaterialCommunityIcons name="account-group" size={18} color="#7C3AED" />
-                      <Text style={[styles.modeInfoTitle, { color: '#5B21B6' }]}>Nhóm liên phòng ban / Đặc nhiệm</Text>
+                      <Text style={[styles.modeInfoTitle, { color: '#5B21B6' }]}>
+                        {isLeaderArea ? 'Nhóm công việc phòng ban' : 'Nhóm liên phòng ban / Đặc nhiệm'}
+                      </Text>
                     </View>
                     <Text style={styles.modeInfoDesc}>
-                      Tập hợp nhân sự từ nhiều phòng ban cùng làm việc. Hệ thống tự động tạo Nhóm Chat trao đổi. Trưởng nhóm (Leader) được chỉ định là người chịu trách nhiệm nộp báo cáo hoàn thành lên Admin.
+                      {isLeaderArea
+                        ? 'Tập hợp các nhân sự trong phòng ban cùng làm việc theo nhóm. Hệ thống tự động tạo Nhóm Chat trao đổi. Nhóm trưởng được chỉ định là người chịu trách nhiệm nộp báo cáo hoàn thành.'
+                        : 'Tập hợp nhân sự từ nhiều phòng ban cùng làm việc. Hệ thống tự động tạo Nhóm Chat trao đổi. Trưởng nhóm (Leader) được chỉ định là người chịu trách nhiệm nộp báo cáo hoàn thành lên Admin.'
+                      }
                     </Text>
                   </View>
 
