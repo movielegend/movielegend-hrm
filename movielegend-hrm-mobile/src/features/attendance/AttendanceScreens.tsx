@@ -4,8 +4,8 @@ import { Image, Pressable, Modal, ActivityIndicator } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useMemo, useState, useCallback, type ComponentType } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import {ScrollView, StyleSheet, Text, View, TouchableWithoutFeedback, RefreshControl} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {ScrollView, StyleSheet, Text, View, TouchableWithoutFeedback, RefreshControl, StatusBar, Platform} from 'react-native';
 
 import { uploadFile } from '../../api/uploads.api';
 import { EmptyState } from '../../components/EmptyState';
@@ -395,7 +395,7 @@ export function AttendanceHistoryScreen() {
                       borderRadius: 12,
                       justifyContent: 'center',
                       alignItems: 'center',
-                      backgroundColor: isSelected ? '#0B409C' : 'transparent',
+                      backgroundColor: isSelected ? '#102739' : 'transparent',
                     }}
                   >
                     <Text
@@ -529,7 +529,7 @@ export function AttendanceHistoryScreen() {
               }
             }}
             style={{
-              backgroundColor: '#0B409C',
+              backgroundColor: '#102739',
               borderRadius: 14,
               height: 48,
               justifyContent: 'center',
@@ -551,28 +551,35 @@ export function AttendanceHistoryScreen() {
 
 export function AttendanceDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: detail, isLoading } = useAttendanceDetail(id);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F6FA', justifyContent: 'center', alignItems: 'center' }} edges={['top', 'left', 'right']}>
-        <LoadingState />
-      </SafeAreaView>
+      <View style={{ flex: 1, backgroundColor: '#102739' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <LoadingState />
+        </View>
+      </View>
     );
   }
 
   if (!detail) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F6FA' }} edges={['top', 'left', 'right']}>
-        <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
+      <View style={{ flex: 1, backgroundColor: '#102739' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#102739" />
+        <View style={{ paddingTop: Math.max(insets.top, 16) + 4, paddingHorizontal: 16, paddingBottom: 16 }}>
           <Pressable onPress={() => router.back()} style={{ padding: 4, marginLeft: -4 }} hitSlop={8}>
-            <Ionicons name="chevron-back" size={26} color="#0F172A" />
+            <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
           </Pressable>
         </View>
-        <EmptyState title="Không tìm thấy chi tiết chấm công" />
-      </SafeAreaView>
+        <View style={{ flex: 1, backgroundColor: '#F3F6FA', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' }}>
+          <EmptyState title="Không tìm thấy chi tiết chấm công" />
+        </View>
+      </View>
     );
   }
 
@@ -623,7 +630,7 @@ export function AttendanceDetailScreen() {
   const checkInLat = gps?.checkInLatitude;
   const checkInLng = gps?.checkInLongitude;
   const locationName = gps?.attendanceLocation?.name;
-  const coordsStr = locationName || (checkInLat && checkInLng ? `${checkInLat}, ${checkInLng}` : '21.023043, 105.8389164');
+  const coordsStr = locationName || (checkInLat && checkInLng ? `${checkInLat}, ${checkInLng}` : '21.0230134, 105.8390061');
 
   const checkOutLat = gps?.checkOutLatitude;
   const checkOutLng = gps?.checkOutLongitude;
@@ -632,178 +639,205 @@ export function AttendanceDetailScreen() {
   const photoUrl = getAbsoluteImageUrl((detail as any).photo?.fileUrl);
   const checkOutPhotoUrl = getAbsoluteImageUrl((detail as any).checkOutPhoto?.fileUrl);
 
+  const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8);
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F3F6FA' }} edges={['top', 'left', 'right']}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 6, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingTop: 4 }}>
-          <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 8 }} hitSlop={8}>
-            <Ionicons name="chevron-back" size={26} color="#0F172A" />
-          </Pressable>
-          <Text style={{ fontSize: 20, fontWeight: '800', color: '#0F172A', letterSpacing: -0.3 }}>Chi tiết Check-in</Text>
-        </View>
+    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+      <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
-        {/* User Card */}
-        <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2, marginBottom: 20 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-            <Avatar name={name} uri={avatarUrl} size={64} />
+      {/* Top Header (#102739) */}
+      <View style={{ paddingTop: safeTopInset + 6, paddingBottom: 16, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center' }}>
+        <Pressable onPress={() => router.back()} hitSlop={12} style={{ padding: 4, marginRight: 12 }}>
+          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+        </Pressable>
+        <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 }}>Chi tiết Check-in</Text>
+      </View>
 
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A' }} numberOfLines={1}>{name}</Text>
-              <Text style={{ fontSize: 13, color: '#64748B', marginTop: 2, fontWeight: '500' }}>{role}</Text>
+      {/* Main Curved Body */}
+      <View style={{ flex: 1, backgroundColor: '#F3F6FA', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' }}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
+          {/* 1. User Info Card */}
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1, marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Avatar name={name} uri={avatarUrl} size={58} />
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                <Ionicons name="calendar-outline" size={14} color="#64748B" />
-                <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>{formattedDateStr}</Text>
+              <View style={{ flex: 1, marginLeft: 14 }}>
+                <Text style={{ fontSize: 16.5, fontWeight: '800', color: '#0F172A' }} numberOfLines={1}>{name}</Text>
+                <Text style={{ fontSize: 13, color: '#64748B', marginTop: 2, fontWeight: '500' }}>{role}</Text>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                  <Ionicons name="calendar-outline" size={14} color="#64748B" />
+                  <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>{formattedDateStr}</Text>
+                </View>
+              </View>
+
+              {/* Status Badge */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: badgeBg, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: badgeBorder }}>
+                {isAlertBadge ? (
+                  <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#EA580C', justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '900', lineHeight: 11 }}>!</Text>
+                  </View>
+                ) : isCompleteBadge ? (
+                  <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                ) : null}
+                <Text style={{ fontSize: 11.5, fontWeight: '700', color: badgeColor }}>{badgeText}</Text>
               </View>
             </View>
+          </View>
 
-            {/* Status Badge */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: badgeBg, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: badgeBorder, alignSelf: 'flex-start' }}>
-              {isAlertBadge ? (
-                <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#EA580C', justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '900', lineHeight: 11 }}>!</Text>
+          {/* 2. Section Heading */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <Ionicons name="list-outline" size={22} color="#0F172A" />
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A' }}>Nhật ký chấm công</Text>
+          </View>
+
+          {/* 3. Timeline Items */}
+          {/* Step 1: CHECK-IN */}
+          <View style={{ flexDirection: 'row', gap: 14, marginBottom: 16 }}>
+            {/* Timeline Left Column */}
+            <View style={{ width: 20, alignItems: 'center' }}>
+              {/* Top Node: Bullseye #102739 */}
+              <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#102739', backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#102739' }} />
+              </View>
+              {/* Connecting Line to next node */}
+              <View style={{ width: 1.5, flex: 1, backgroundColor: '#CBD5E1', marginTop: 4, marginBottom: -20 }} />
+            </View>
+
+            {/* Check-in Card */}
+            <View style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 }}>
+              {/* Row 1: Time */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="time-outline" size={22} color="#2563EB" />
                 </View>
-              ) : isCompleteBadge ? (
-                <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+                <View>
+                  <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>Check-in</Text>
+                  <Text style={{ fontSize: 22, fontWeight: '800', color: '#0F172A', marginTop: 2 }}>{checkInTime || '--:--'}</Text>
+                </View>
+              </View>
+
+              <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
+
+              {/* Row 2: Location */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="location-outline" size={22} color="#2563EB" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>Tọa độ ghi nhận</Text>
+                  <Text style={{ fontSize: 14.5, fontWeight: '700', color: '#0F172A', marginTop: 2 }}>{coordsStr}</Text>
+                </View>
+              </View>
+
+              {/* Row 3: Photo */}
+              {photoUrl ? (
+                <>
+                  <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="image-outline" size={22} color="#2563EB" />
+                    </View>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>Ảnh check-in</Text>
+                  </View>
+
+                  <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', width: '100%' }}>
+                    <Pressable onPress={() => setSelectedImage(photoUrl)}>
+                      <Image source={{ uri: photoUrl }} style={{ width: '100%', height: 320, borderRadius: 16, backgroundColor: '#F1F5F9' }} resizeMode="cover" />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setSelectedImage(photoUrl)}
+                      style={{ position: 'absolute', bottom: 12, right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'center', alignItems: 'center' }}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="scan-outline" size={20} color="#FFFFFF" />
+                    </Pressable>
+                  </View>
+                </>
               ) : null}
-              <Text style={{ fontSize: 11, fontWeight: '700', color: badgeColor }}>{badgeText}</Text>
             </View>
           </View>
-        </View>
 
-        {/* Section Heading */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <Ionicons name="list-outline" size={20} color="#0F172A" />
-          <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A' }}>Nhật ký chấm công</Text>
-        </View>
-
-        {/* Timeline Container */}
-        {/* Step 1: CHECK-IN */}
-        <View style={{ flexDirection: 'row', gap: 14 }}>
-          {/* Left Node & Line */}
-          <View style={{ width: 22, alignItems: 'center' }}>
-            <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2.5, borderColor: '#0B409C', backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#0B409C' }} />
-            </View>
-            <View style={{ width: 2, flex: 1, backgroundColor: '#CBD5E1', marginTop: 4 }} />
-          </View>
-
-          {/* Right Card */}
-          <View style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2, marginBottom: 14 }}>
-            <Text style={{ fontSize: 12, fontWeight: '800', color: '#64748B', letterSpacing: 0.5, marginBottom: 12 }}>CHECK-IN</Text>
-
-            {/* Row 1: Time */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
-                <Ionicons name="time-outline" size={18} color="#2563EB" />
-              </View>
-              <Text style={{ fontSize: 20, fontWeight: '800', color: '#0F172A' }}>{checkInTime || '--:--'}</Text>
-            </View>
-
-            <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
-
-            {/* Row 2: Location */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', marginTop: 2 }}>
-                <Ionicons name="location-outline" size={18} color="#2563EB" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>Tọa độ ghi nhận</Text>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginTop: 2 }}>{coordsStr}</Text>
+          {/* Step 2: CHECK-OUT */}
+          <View style={{ flexDirection: 'row', gap: 14 }}>
+            {/* Timeline Left Column */}
+            <View style={{ width: 20, alignItems: 'center' }}>
+              {/* Node: Orange hollow circle if missing, Green if complete */}
+              <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: checkOutTime ? '#10B981' : '#EA580C', backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' }}>
+                {checkOutTime ? <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#10B981' }} /> : null}
               </View>
             </View>
 
-            {/* Row 3: Photo */}
-            {photoUrl ? (
-              <>
-                <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
-                    <Ionicons name="image-outline" size={18} color="#2563EB" />
+            {/* Check-out Card */}
+            <View style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 6, elevation: 1 }}>
+              {checkOutTime ? (
+                <>
+                  {/* Row 1: Time */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="time-outline" size={22} color="#2563EB" />
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>Check-out</Text>
+                      <Text style={{ fontSize: 22, fontWeight: '800', color: '#0F172A', marginTop: 2 }}>{checkOutTime}</Text>
+                    </View>
                   </View>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A' }}>Ảnh check-in</Text>
+
+                  <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
+
+                  {/* Row 2: Location */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                      <Ionicons name="location-outline" size={22} color="#2563EB" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>Tọa độ ghi nhận</Text>
+                      <Text style={{ fontSize: 14.5, fontWeight: '700', color: '#0F172A', marginTop: 2 }}>{checkOutCoordsStr || coordsStr}</Text>
+                    </View>
+                  </View>
+
+                  {/* Row 3: Photo */}
+                  {checkOutPhotoUrl ? (
+                    <>
+                      <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
+                        <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                          <Ionicons name="image-outline" size={22} color="#2563EB" />
+                        </View>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>Ảnh check-out</Text>
+                      </View>
+
+                      <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', width: '100%' }}>
+                        <Pressable onPress={() => setSelectedImage(checkOutPhotoUrl)}>
+                          <Image source={{ uri: checkOutPhotoUrl }} style={{ width: '100%', height: 320, borderRadius: 16, backgroundColor: '#F1F5F9' }} resizeMode="cover" />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setSelectedImage(checkOutPhotoUrl)}
+                          style={{ position: 'absolute', bottom: 12, right: 12, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'center', alignItems: 'center' }}
+                          hitSlop={8}
+                        >
+                          <Ionicons name="scan-outline" size={20} color="#FFFFFF" />
+                        </Pressable>
+                      </View>
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                /* Missing Check-out Row matching template */
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="time-outline" size={22} color="#2563EB" />
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>Check-out</Text>
+                    <Text style={{ fontSize: 17, fontWeight: '800', color: '#0F172A', marginTop: 2 }}>Chưa ghi nhận</Text>
+                  </View>
                 </View>
-
-                <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', alignSelf: 'center', width: '100%', maxWidth: 260 }}>
-                  <Pressable onPress={() => setSelectedImage(photoUrl)}>
-                    <Image source={{ uri: photoUrl }} style={{ width: '100%', height: 220, borderRadius: 16, backgroundColor: '#F1F5F9' }} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setSelectedImage(photoUrl)}
-                    style={{ position: 'absolute', bottom: 10, right: 10, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'center', alignItems: 'center' }}
-                  >
-                    <Ionicons name="scan-outline" size={18} color="#FFFFFF" />
-                  </Pressable>
-                </View>
-              </>
-            ) : null}
-          </View>
-        </View>
-
-        {/* Step 2: Check-out */}
-        <View style={{ flexDirection: 'row', gap: 14 }}>
-          {/* Left Node */}
-          <View style={{ width: 22, alignItems: 'center' }}>
-            <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2.5, borderColor: checkOutTime ? '#10B981' : '#EA580C', backgroundColor: '#FFFFFF' }} />
-          </View>
-
-          {/* Right Card */}
-          <View style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 }}>
-            <Text style={{ fontSize: 12, fontWeight: '800', color: '#64748B', letterSpacing: 0.5, marginBottom: 12 }}>Check-out</Text>
-
-            {/* Row 1: Time */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
-                <Ionicons name="time-outline" size={18} color="#2563EB" />
-              </View>
-              <Text style={{ fontSize: checkOutTime ? 20 : 16, fontWeight: '800', color: '#0F172A' }}>
-                {checkOutTime || 'Chưa ghi nhận'}
-              </Text>
+              )}
             </View>
-
-            {/* If check-out is recorded, show location and photo */}
-            {checkOutTime && (
-              <>
-                <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', marginTop: 2 }}>
-                    <Ionicons name="location-outline" size={18} color="#2563EB" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>Tọa độ ghi nhận</Text>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#0F172A', marginTop: 2 }}>{checkOutCoordsStr || coordsStr}</Text>
-                  </View>
-                </View>
-              </>
-            )}
-
-            {checkOutPhotoUrl ? (
-              <>
-                <View style={{ height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 }} />
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
-                    <Ionicons name="image-outline" size={18} color="#2563EB" />
-                  </View>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A' }}>Ảnh check-out</Text>
-                </View>
-
-                <View style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', alignSelf: 'center', width: '100%', maxWidth: 260 }}>
-                  <Pressable onPress={() => setSelectedImage(checkOutPhotoUrl)}>
-                    <Image source={{ uri: checkOutPhotoUrl }} style={{ width: '100%', height: 220, borderRadius: 16, backgroundColor: '#F1F5F9' }} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setSelectedImage(checkOutPhotoUrl)}
-                    style={{ position: 'absolute', bottom: 10, right: 10, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(15, 23, 42, 0.75)', justifyContent: 'center', alignItems: 'center' }}
-                  >
-                    <Ionicons name="scan-outline" size={18} color="#FFFFFF" />
-                  </Pressable>
-                </View>
-              </>
-            ) : null}
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       {/* Fullscreen Image Modal */}
       {selectedImage && (
@@ -816,7 +850,7 @@ export function AttendanceDetailScreen() {
           </View>
         </Modal>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

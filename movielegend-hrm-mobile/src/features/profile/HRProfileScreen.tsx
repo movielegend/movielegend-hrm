@@ -20,6 +20,7 @@ import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from '../employees/components/AvatarPicker';
 import { formatSeniority } from '../../utils/seniority';
 import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
+import { hasUserRole } from '../../utils/role-routing';
 
 export function HRProfileScreen() {
   const router = useRouter();
@@ -254,12 +255,14 @@ export function HRProfileScreen() {
                         title="Duyệt đơn từ"
                         onPress={() => router.push('/hr/employee-requests' as any)}
                       />
-                      <FeatureItem
-                        icon="receipt"
-                        iconType="ionicons"
-                        title="Duyệt tài chính"
-                        onPress={() => router.push('/hr/financial-requests' as any)}
-                      />
+                      {hasUserRole(user, 'ACCOUNTANT') && (
+                        <FeatureItem
+                          icon="receipt"
+                          iconType="ionicons"
+                          title="Duyệt tài chính"
+                          onPress={() => router.push('/hr/financial-requests' as any)}
+                        />
+                      )}
                       <FeatureItem
                         icon="account-check-outline"
                         iconType="mci"

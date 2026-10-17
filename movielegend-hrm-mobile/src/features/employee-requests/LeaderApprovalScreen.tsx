@@ -1683,7 +1683,7 @@ export function LeaderApprovalScreen() {
                   onPress={handlePickDisbursementProof}
                   style={styles.uploadProofBtn}
                 >
-                  <MaterialCommunityIcons name="file-upload-outline" size={18} color="#1E3E2F" />
+                  <MaterialCommunityIcons name="file-upload-outline" size={18} color="#102739" />
                   <Text style={styles.uploadProofText}>
                     {disbursementProofUri ? 'Đã chọn ảnh ủy nhiệm chi (Bấm đổi)' : 'Tải lên ảnh Ủy nhiệm chi'}
                   </Text>
@@ -1836,7 +1836,7 @@ export function LeaderApprovalScreen() {
                       style={[{
                         flex: 1.4,
                         height: 48,
-                        backgroundColor: '#16A34A',
+                        backgroundColor: '#102739',
                         borderRadius: 12,
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1862,7 +1862,7 @@ export function LeaderApprovalScreen() {
                   </Pressable>
 
                   <Pressable 
-                    style={[styles.approveBtnModern, { backgroundColor: '#16A34A' }, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
+                    style={[styles.approveBtnModern, { backgroundColor: '#102739' }, (approveMutation.isPending || rejectMutation.isPending || isUploadingProof) && { opacity: 0.5 }]} 
                     onPress={() => setIsDisburseModalOpen(true)}
                     disabled={approveMutation.isPending || rejectMutation.isPending || isUploadingProof}
                   >
@@ -1945,7 +1945,7 @@ export function LeaderApprovalScreen() {
                     style={[{
                       flex: 1.4,
                       height: 48,
-                      backgroundColor: '#16A34A',
+                      backgroundColor: '#102739',
                       borderRadius: 12,
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -2086,7 +2086,7 @@ export function LeaderApprovalScreen() {
                         style={styles.billChangeBtn}
                         onPress={handlePickDisbursementProof}
                       >
-                        <MaterialCommunityIcons name="image-edit-outline" size={16} color="#1E3E2F" />
+                        <MaterialCommunityIcons name="image-edit-outline" size={16} color="#102739" />
                         <Text style={styles.billChangeBtnText}>Đổi ảnh</Text>
                       </TouchableOpacity>
                       <TouchableOpacity 
@@ -2104,7 +2104,7 @@ export function LeaderApprovalScreen() {
                       style={styles.billPickerBtn}
                       onPress={handlePickDisbursementProof}
                     >
-                      <MaterialCommunityIcons name="image-plus" size={24} color="#1E3E2F" />
+                      <MaterialCommunityIcons name="image-plus" size={24} color="#102739" />
                       <Text style={styles.billPickerBtnText}>Chọn ảnh từ thư viện</Text>
                     </TouchableOpacity>
 
@@ -2112,7 +2112,7 @@ export function LeaderApprovalScreen() {
                       style={styles.billPickerBtn}
                       onPress={handleTakePhotoDisbursementProof}
                     >
-                      <MaterialCommunityIcons name="camera-plus-outline" size={24} color="#1E3E2F" />
+                      <MaterialCommunityIcons name="camera-plus-outline" size={24} color="#102739" />
                       <Text style={styles.billPickerBtnText}>Chụp ảnh bill</Text>
                     </TouchableOpacity>
                   </View>
@@ -2597,7 +2597,7 @@ export function LeaderApprovalScreen() {
                     <Image source={{ uri: fulfillReceiptUri }} style={styles.billPreviewImage} resizeMode="cover" />
                     <View style={styles.billPreviewActions}>
                       <TouchableOpacity style={styles.billChangeBtn} onPress={handlePickFulfillReceipt}>
-                        <MaterialCommunityIcons name="image-edit-outline" size={16} color="#1E3E2F" />
+                        <MaterialCommunityIcons name="image-edit-outline" size={16} color="#102739" />
                         <Text style={styles.billChangeBtnText}>Đổi ảnh</Text>
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.billRemoveBtn} onPress={() => setFulfillReceiptUri(null)}>
@@ -2609,11 +2609,11 @@ export function LeaderApprovalScreen() {
                 ) : (
                   <View style={styles.billPickerRow}>
                     <TouchableOpacity style={styles.billPickerBtn} onPress={handlePickFulfillReceipt}>
-                      <MaterialCommunityIcons name="image-plus" size={22} color="#1E3E2F" />
+                      <MaterialCommunityIcons name="image-plus" size={22} color="#102739" />
                       <Text style={styles.billPickerBtnText}>Thư viện ảnh</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.billPickerBtn} onPress={handleTakeFulfillReceipt}>
-                      <MaterialCommunityIcons name="camera-plus-outline" size={22} color="#1E3E2F" />
+                      <MaterialCommunityIcons name="camera-plus-outline" size={22} color="#102739" />
                       <Text style={styles.billPickerBtnText}>Chụp ảnh bill</Text>
                     </TouchableOpacity>
                   </View>
@@ -2628,7 +2628,7 @@ export function LeaderApprovalScreen() {
                     <Image source={{ uri: fulfillDeliveryUri }} style={styles.billPreviewImage} resizeMode="cover" />
                     <View style={styles.billPreviewActions}>
                       <TouchableOpacity style={styles.billChangeBtn} onPress={handlePickFulfillDelivery}>
-                        <MaterialCommunityIcons name="image-edit-outline" size={16} color="#1E3E2F" />
+                        <MaterialCommunityIcons name="image-edit-outline" size={16} color="#102739" />
                         <Text style={styles.billChangeBtnText}>Đổi ảnh</Text>
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.billRemoveBtn} onPress={() => setFulfillDeliveryUri(null)}>
@@ -2640,11 +2640,11 @@ export function LeaderApprovalScreen() {
                 ) : (
                   <View style={styles.billPickerRow}>
                     <TouchableOpacity style={styles.billPickerBtn} onPress={handlePickFulfillDelivery}>
-                      <MaterialCommunityIcons name="image-plus" size={22} color="#1E3E2F" />
+                      <MaterialCommunityIcons name="image-plus" size={22} color="#102739" />
                       <Text style={styles.billPickerBtnText}>Thư viện ảnh</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.billPickerBtn} onPress={handleTakeFulfillDelivery}>
-                      <MaterialCommunityIcons name="camera-plus-outline" size={22} color="#1E3E2F" />
+                      <MaterialCommunityIcons name="camera-plus-outline" size={22} color="#102739" />
                       <Text style={styles.billPickerBtnText}>Chụp bàn giao</Text>
                     </TouchableOpacity>
                   </View>
@@ -2810,7 +2810,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   amountBanner: {
-    backgroundColor: '#1E3E2F',
+    backgroundColor: '#102739',
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -2819,7 +2819,7 @@ const styles = StyleSheet.create({
   amountBannerLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#A7F3D0',
+    color: '#93C5FD',
     letterSpacing: 0.8,
     marginBottom: 4,
   },
@@ -3066,7 +3066,7 @@ const styles = StyleSheet.create({
   },
   approveBtnModern: {
     flex: 2,
-    backgroundColor: '#1E3E2F',
+    backgroundColor: '#102739',
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
@@ -3297,7 +3297,7 @@ const styles = StyleSheet.create({
   billChangeBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1E3E2F',
+    color: '#102739',
     marginLeft: 4,
   },
   billRemoveBtn: {
@@ -3324,7 +3324,7 @@ const styles = StyleSheet.create({
   },
   modalConfirmDisburseBtn: {
     flex: 1.6,
-    backgroundColor: '#1E3E2F',
+    backgroundColor: '#102739',
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',

@@ -1,1 +1,1 @@
-export { AdminAttendanceScreen as default } from '../../../src/features/attendance/AttendanceScreens';
+export { AttendanceHomeScreen as default } from '../../../src/features/attendance/AttendanceScreens';

@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, View, Text, Pressable, StatusBar } from 'react-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { RetentionVaultWidget } from '../../../src/features/vault/RetentionVaultWidget';
 
 export default function VaultRoute() {
@@ -11,10 +12,15 @@ export default function VaultRoute() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1B3B2B" />
+      <StatusBar barStyle="light-content" backgroundColor="#071C33" />
 
-      {/* Top Forest Green Header */}
-      <View style={[styles.header, { paddingTop: Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8) }]}>
+      {/* Top Deep Navy Gradient Header matching template */}
+      <LinearGradient
+        colors={['#071C33', '#0A2542', '#0C2D50']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8) }]}
+      >
         <View style={styles.headerTopRow}>
           <Pressable 
             onPress={() => router.canGoBack() ? router.back() : router.replace('/employee')} 
@@ -29,7 +35,7 @@ export default function VaultRoute() {
           </View>
           <View style={{ width: 32 }} />
         </View>
-      </View>
+      </LinearGradient>
 
       <ScrollView 
         style={styles.contentScroll}
@@ -48,11 +54,10 @@ export default function VaultRoute() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
   },
   header: {
-    backgroundColor: '#1B3B2B',
-    paddingBottom: 14,
+    paddingBottom: 16,
     paddingHorizontal: 16,
   },
   headerTopRow: {
@@ -80,8 +85,8 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12.5,
-    color: '#A7D8BE',
-    marginTop: 2,
+    color: 'rgba(224, 242, 254, 0.85)',
+    marginTop: 3,
   },
   contentScroll: {
     flex: 1,

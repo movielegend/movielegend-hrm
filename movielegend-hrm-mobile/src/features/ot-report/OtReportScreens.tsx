@@ -682,6 +682,17 @@ export function CreateOtReportScreen() {
 
 type OtFilterStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
 
+
+const getInitials = (name?: string) => {
+  if (!name) return 'NV';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'NV';
+  const first = parts[0] || '';
+  if (parts.length === 1) return first.slice(0, 2).toUpperCase();
+  const last = parts[parts.length - 1] || '';
+  return ((first[0] || '') + (last[0] || '')).toUpperCase() || 'NV';
+};
+
 export function LeaderOtReviewScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -822,208 +833,278 @@ export function LeaderOtReviewScreen() {
   }
 
   return (
-    <Screen>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-      >
-        <PageHeader
-          title="Duyệt báo cáo OT"
-          subtitle="Quản lý và phê duyệt báo cáo OT nhân viên phòng Live."
-        />
-
-        {/* BỘ LỌC TRẠNG THÁI (Tabs) */}
-        <View style={styles.tabContainer}>
+    <Screen backgroundColor="#102739" statusBarStyle="light">
+      {/* 1. Header with Navy #102739 */}
+      <View style={otReviewStyles.header}>
+        <View style={otReviewStyles.headerTop}>
           <TouchableOpacity
-            style={[styles.tabButton, selectedStatus === 'PENDING' && styles.tabButtonActivePending]}
-            onPress={() => setSelectedStatus('PENDING')}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/leader/(tabs)' as any))}
+            style={otReviewStyles.backBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <MaterialCommunityIcons
-              name="clock-outline"
-              size={15}
-              color={selectedStatus === 'PENDING' ? '#B45309' : '#6B7280'}
-            />
-            <Text style={[styles.tabText, selectedStatus === 'PENDING' && styles.tabTextActivePending]}>
-              Chờ duyệt
-            </Text>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
+          <View style={otReviewStyles.headerTitleWrap}>
+            <Text style={otReviewStyles.headerTitle}>Duyệt báo cáo OT</Text>
+            <Text style={otReviewStyles.headerSubtitle}>Quản lý báo cáo OT • Phòng Live</Text>
+          </View>
+        </View>
+      </View>
 
-          <TouchableOpacity
-            style={[styles.tabButton, selectedStatus === 'APPROVED' && styles.tabButtonActiveApproved]}
-            onPress={() => setSelectedStatus('APPROVED')}
-          >
-            <MaterialCommunityIcons
-              name="check-circle-outline"
-              size={15}
-              color={selectedStatus === 'APPROVED' ? '#047857' : '#6B7280'}
-            />
-            <Text style={[styles.tabText, selectedStatus === 'APPROVED' && styles.tabTextActiveApproved]}>
-              Đã duyệt
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabButton, selectedStatus === 'REJECTED' && styles.tabButtonActiveRejected]}
-            onPress={() => setSelectedStatus('REJECTED')}
-          >
-            <MaterialCommunityIcons
-              name="close-circle-outline"
-              size={15}
-              color={selectedStatus === 'REJECTED' ? '#B91C1C' : '#6B7280'}
-            />
-            <Text style={[styles.tabText, selectedStatus === 'REJECTED' && styles.tabTextActiveRejected]}>
-              Từ chối
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabButton, selectedStatus === 'ALL' && styles.tabButtonActiveAll]}
-            onPress={() => setSelectedStatus('ALL')}
-          >
-            <MaterialCommunityIcons
-              name="format-list-bulleted"
-              size={15}
-              color={selectedStatus === 'ALL' ? '#4338CA' : '#6B7280'}
-            />
-            <Text style={[styles.tabText, selectedStatus === 'ALL' && styles.tabTextActiveAll]}>
-              Tất cả
-            </Text>
-          </TouchableOpacity>
+      {/* 2. Curved White Body Sheet */}
+      <View style={otReviewStyles.sheetContainer}>
+        {/* Status Underline Tabs */}
+        <View style={otReviewStyles.tabsContainer}>
+          {[
+            { key: 'PENDING', label: 'Chờ duyệt', icon: 'clock-outline' },
+            { key: 'APPROVED', label: 'Đã duyệt', icon: 'check-circle-outline' },
+            { key: 'REJECTED', label: 'Từ chối', icon: 'close-circle-outline' },
+            { key: 'ALL', label: 'Tất cả', icon: 'format-list-bulleted' },
+          ].map((tab) => {
+            const isActive = selectedStatus === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={otReviewStyles.tabButton}
+                onPress={() => setSelectedStatus(tab.key as any)}
+                activeOpacity={0.7}
+              >
+                <View style={otReviewStyles.tabContentRow}>
+                  <MaterialCommunityIcons
+                    name={tab.icon as any}
+                    size={16}
+                    color={isActive ? '#102739' : '#64748B'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={[otReviewStyles.tabText, isActive && otReviewStyles.tabTextActive]}>
+                    {tab.label}
+                  </Text>
+                </View>
+                {isActive && <View style={otReviewStyles.tabIndicator} />}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        <SectionCard title={getSectionTitle()}>
-          {(reportsQuery.data?.items ?? []).map((report) => (
-            <View key={report.id} style={styles.card}>
-              <View style={styles.row}>
-                <View style={styles.flex}>
-                  <Text style={styles.employeeName}>
-                    {report.user?.profile?.fullName || report.user?.userCode || 'Nhân viên'}
-                  </Text>
-                  {report.department?.name ? (
-                    <Text style={styles.cardSubText}>{report.department.name}</Text>
+        <ScrollView
+          contentContainerStyle={otReviewStyles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        >
+          {/* Section Heading */}
+          <View style={otReviewStyles.sectionHeader}>
+            <Text style={otReviewStyles.sectionTitle}>{getSectionTitle()}</Text>
+          </View>
+
+          {/* Cards List */}
+          {(reportsQuery.data?.items ?? []).map((report) => {
+            const userName = report.user?.profile?.fullName || report.user?.userCode || 'Nhân viên';
+            const initials = getInitials(userName);
+            const deptName = (report.department?.name || 'LIVESTREAM (MOVIELEGEND-HÀ NỘI)').toUpperCase();
+            const otDateStr = formatDate(report.otDate);
+            const startStr = `${formatTime(report.startTime)} • ${formatDate(report.startTime)}`;
+            const endStr = `${formatTime(report.endTime)} • ${formatDate(report.endTime)}`;
+            const validHours = Math.floor(report.validOtMinutes / 60);
+            const validMins = report.validOtMinutes % 60;
+            const approverName = report.decidedBy?.profile?.fullName || report.decidedBy?.userCode;
+            const decidedStr = report.decidedAt ? `${formatDate(report.decidedAt)} • ${formatTime(report.decidedAt)}` : '';
+            const photos = report.photos || [];
+
+            return (
+              <View key={report.id} style={otReviewStyles.card}>
+                {/* 1. Header: Avatar + Name/Dept & Status Badge */}
+                <View style={otReviewStyles.cardHeader}>
+                  <View style={otReviewStyles.userRowLeft}>
+                    <View style={otReviewStyles.avatarCircle}>
+                      <Text style={otReviewStyles.avatarText}>{initials}</Text>
+                    </View>
+                    <View style={otReviewStyles.userTextCol}>
+                      <Text style={otReviewStyles.userName} numberOfLines={1}>{userName}</Text>
+                      <Text style={otReviewStyles.deptText} numberOfLines={1}>{deptName}</Text>
+                    </View>
+                  </View>
+
+                  {report.status === 'APPROVED' ? (
+                    <View style={otReviewStyles.badgeApproved}>
+                      <MaterialCommunityIcons name="check-circle" size={14} color="#059669" />
+                      <Text style={otReviewStyles.badgeApprovedText}>Đã duyệt</Text>
+                    </View>
+                  ) : report.status === 'REJECTED' ? (
+                    <View style={otReviewStyles.badgeRejected}>
+                      <MaterialCommunityIcons name="close-circle" size={14} color="#DC2626" />
+                      <Text style={otReviewStyles.badgeRejectedText}>Từ chối</Text>
+                    </View>
+                  ) : (
+                    <View style={otReviewStyles.badgePending}>
+                      <MaterialCommunityIcons name="clock-outline" size={14} color="#B45309" />
+                      <Text style={otReviewStyles.badgePendingText}>Chờ duyệt</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* 2. Date */}
+                <View style={otReviewStyles.dateRow}>
+                  <MaterialCommunityIcons name="calendar-month-outline" size={16} color="#64748B" />
+                  <Text style={otReviewStyles.dateRowLabel}>Ngày OT • </Text>
+                  <Text style={otReviewStyles.dateRowValue}>{otDateStr}</Text>
+                </View>
+
+                {/* 3. Start -> End Time Range Box */}
+                <View style={otReviewStyles.timeRangeBox}>
+                  <View style={otReviewStyles.timeCol}>
+                    <Text style={otReviewStyles.timeLabel}>Bắt đầu</Text>
+                    <Text style={otReviewStyles.timeValue}>{startStr}</Text>
+                  </View>
+                  <MaterialCommunityIcons name="arrow-right" size={18} color="#94A3B8" />
+                  <View style={[otReviewStyles.timeCol, { alignItems: 'flex-end' }]}>
+                    <Text style={otReviewStyles.timeLabel}>Kết thúc</Text>
+                    <Text style={otReviewStyles.timeValue}>{endStr}</Text>
+                  </View>
+                </View>
+
+                {/* 4. 3-column Metrics Box */}
+                <View style={otReviewStyles.metricsBox}>
+                  {/* Col 1: Valid OT */}
+                  <View style={otReviewStyles.metricColValid}>
+                    <View style={otReviewStyles.metricHeader}>
+                      <MaterialCommunityIcons name="clock-outline" size={14} color="#0284C7" />
+                      <Text style={otReviewStyles.metricLabel}>OT hợp lệ</Text>
+                    </View>
+                    <Text style={otReviewStyles.metricValueLarge}>{validHours}h {validMins}p</Text>
+                    <Text style={otReviewStyles.metricSub}>Sau mốc 5 giờ</Text>
+                  </View>
+
+                  <View style={otReviewStyles.metricDivider} />
+
+                  {/* Col 2: Proposed % */}
+                  <View style={otReviewStyles.metricCol}>
+                    <View style={otReviewStyles.metricHeader}>
+                      <MaterialCommunityIcons name="percent-outline" size={14} color="#0284C7" />
+                      <Text style={otReviewStyles.metricLabel}>Đề xuất</Text>
+                    </View>
+                    <Text style={[otReviewStyles.metricValueLarge, { color: '#059669' }]}>
+                      {report.proposedPercent}%
+                    </Text>
+                  </View>
+
+                  <View style={otReviewStyles.metricDivider} />
+
+                  {/* Col 3: Approved % */}
+                  <View style={otReviewStyles.metricCol}>
+                    <View style={otReviewStyles.metricHeader}>
+                      <MaterialCommunityIcons name="check-circle-outline" size={14} color="#0284C7" />
+                      <Text style={otReviewStyles.metricLabel}>Được duyệt</Text>
+                    </View>
+                    <Text style={[otReviewStyles.metricValueLarge, { color: report.approvedPercent ? '#059669' : '#64748B' }]}>
+                      {report.approvedPercent ? `${report.approvedPercent}%` : '--'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 5. Decided Info */}
+                {report.status === 'APPROVED' && (approverName || decidedStr) && (
+                  <View style={otReviewStyles.decidedRow}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color="#059669" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={otReviewStyles.decidedText}>
+                        <Text style={{ fontWeight: '700', color: '#059669' }}>{approverName || 'Leader'}</Text> đã duyệt
+                      </Text>
+                      {decidedStr ? <Text style={otReviewStyles.decidedTime}>{decidedStr}</Text> : null}
+                    </View>
+                  </View>
+                )}
+
+                {report.status === 'REJECTED' && (
+                  <View style={otReviewStyles.decidedRow}>
+                    <MaterialCommunityIcons name="close-circle" size={16} color="#DC2626" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={otReviewStyles.decidedText}>
+                        <Text style={{ fontWeight: '700', color: '#DC2626' }}>{approverName || 'Leader'}</Text> từ chối
+                      </Text>
+                      {report.rejectionReason ? (
+                        <Text style={otReviewStyles.rejectReasonText}>Lý do: {report.rejectionReason}</Text>
+                      ) : null}
+                      {decidedStr ? <Text style={otReviewStyles.decidedTime}>{decidedStr}</Text> : null}
+                    </View>
+                  </View>
+                )}
+
+                {/* 6. Reason / Content */}
+                {report.reason ? (
+                  <View style={otReviewStyles.contentRow}>
+                    <MaterialCommunityIcons name="file-document-outline" size={16} color="#64748B" />
+                    <Text style={otReviewStyles.contentText} numberOfLines={2}>
+                      Nội dung: {report.reason}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* 7. Attachments Photos */}
+                {photos.length > 0 && (
+                  <View style={otReviewStyles.photosSection}>
+                    <View style={otReviewStyles.photosHeaderRow}>
+                      <MaterialCommunityIcons name="paperclip" size={16} color="#64748B" />
+                      <Text style={otReviewStyles.photosHeaderText}>Minh chứng • {photos.length} ảnh</Text>
+                    </View>
+                    <View style={otReviewStyles.photosThumbRow}>
+                      {photos.map((p, pIdx) => {
+                        const imgUrl = resolveFileUrl(p.file?.fileUrl);
+                        if (!imgUrl) return null;
+                        return (
+                          <TouchableOpacity
+                            key={p.id}
+                            activeOpacity={0.85}
+                            onPress={() => handleOpenImageViewer(photos, pIdx)}
+                            style={otReviewStyles.thumbWrapper}
+                          >
+                            <Image source={{ uri: imgUrl }} style={otReviewStyles.thumbImage} />
+                            <View style={otReviewStyles.thumbZoomIcon}>
+                              <MaterialCommunityIcons name="magnify-plus-outline" size={12} color="#FFFFFF" />
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                {/* Card Action Buttons */}
+                <View style={otReviewStyles.cardActionsRow}>
+                  {report.status === 'PENDING' ? (
+                    <View style={otReviewStyles.pendingActionBtns}>
+                      <TouchableOpacity
+                        style={otReviewStyles.quickRejectBtn}
+                        onPress={() => handleOpenReject(report)}
+                      >
+                        <Text style={otReviewStyles.quickRejectText}>Từ chối</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={otReviewStyles.quickApproveBtn}
+                        onPress={() => handleOpenApprove(report)}
+                      >
+                        <Text style={otReviewStyles.quickApproveText}>Duyệt</Text>
+                      </TouchableOpacity>
+                    </View>
                   ) : null}
+
+                  <TouchableOpacity
+                    style={otReviewStyles.viewDetailBtn}
+                    onPress={() => setDetailReport(report)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons name="eye-outline" size={16} color="#0F172A" />
+                    <Text style={otReviewStyles.viewDetailText}>Xem chi tiết</Text>
+                  </TouchableOpacity>
                 </View>
-                <StatusBadge
-                  label={report.status === 'APPROVED' ? 'Đã duyệt' : report.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
-                  tone={toneForStatus(report.status)}
-                />
               </View>
+            );
+          })}
 
-              <Text style={styles.cardText}>Ngày OT: <Text style={styles.cardTextHighlight}>{formatDate(report.otDate)}</Text></Text>
-              <Text style={styles.cardText}>
-                Thời gian: {formatDateTime(report.startTime)} - {formatDateTime(report.endTime)}
-              </Text>
-              <Text style={styles.cardText}>
-                % Đề xuất: <Text style={styles.cardTextHighlight}>{report.proposedPercent}%</Text>
-                {report.approvedPercent ? (
-                  <Text style={{ color: '#047857', fontWeight: '700' }}> | % Duyệt: {report.approvedPercent}%</Text>
-                ) : null}
-              </Text>
-              
-              <View style={styles.validOtBox}>
-                <MaterialCommunityIcons name="clock-check-outline" size={18} color="#2563EB" />
-                <Text style={styles.cardTextBold}>
-                  Giờ OT hợp lệ (sau mốc 5h): {Math.floor(report.validOtMinutes / 60)}h {report.validOtMinutes % 60}p
-                </Text>
-              </View>
-
-              {/* Thông tin duyệt / từ chối */}
-              {report.status === 'APPROVED' && (report.decidedBy || report.decidedAt) ? (
-                <View style={styles.approvedInfoBox}>
-                  <MaterialCommunityIcons name="check-decagram" size={16} color="#059669" />
-                  <View style={styles.flex}>
-                    {report.decidedBy ? (
-                      <Text style={styles.approvedInfoText}>
-                        Người duyệt: <Text style={{ fontWeight: '700' }}>{report.decidedBy.profile?.fullName || report.decidedBy.userCode}</Text>
-                      </Text>
-                    ) : null}
-                    {report.decidedAt ? (
-                      <Text style={styles.approvedInfoText}>
-                        Thời gian: {formatDateTime(report.decidedAt)}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
-
-              {report.status === 'REJECTED' ? (
-                <View style={styles.rejectedInfoBox}>
-                  <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#DC2626" />
-                  <View style={styles.flex}>
-                    {report.rejectionReason ? (
-                      <Text style={styles.rejectedInfoText}>
-                        Lý do từ chối: <Text style={{ fontWeight: '700' }}>{report.rejectionReason}</Text>
-                      </Text>
-                    ) : null}
-                    {report.decidedBy ? (
-                      <Text style={styles.rejectedInfoText}>
-                        Người xử lý: {report.decidedBy.profile?.fullName || report.decidedBy.userCode}
-                      </Text>
-                    ) : null}
-                    {report.decidedAt ? (
-                      <Text style={styles.rejectedInfoText}>
-                        Thời gian: {formatDateTime(report.decidedAt)}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
-
-              {report.reason ? (
-                <Text style={styles.cardText} numberOfLines={2}>
-                  Nội dung: {report.reason}
-                </Text>
-              ) : null}
-
-              {/* Ảnh đính kèm (Có thể bấm để phóng to/zoom) */}
-              {report.photos && report.photos.length > 0 ? (
-                <View style={styles.photoThumbWrapper}>
-                  <Text style={styles.photoHintText}>
-                    <MaterialCommunityIcons name="magnify-plus-outline" size={13} color="#6B7280" /> Bấm vào ảnh để phóng to/zoom ({report.photos.length} ảnh)
-                  </Text>
-                  <View style={styles.reviewPhotoRow}>
-                    {report.photos.map((p, pIdx) => {
-                      const imgUrl = resolveFileUrl(p.file?.fileUrl);
-                      if (!imgUrl) return null;
-                      return (
-                        <TouchableOpacity
-                          key={p.id}
-                          activeOpacity={0.8}
-                          onPress={() => handleOpenImageViewer(report.photos || [], pIdx)}
-                          style={styles.reviewThumbnailContainer}
-                        >
-                          <Image source={{ uri: imgUrl }} style={styles.reviewThumbnail} />
-                          <View style={styles.zoomBadge}>
-                            <MaterialCommunityIcons name="arrow-expand" size={12} color="#FFFFFF" />
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              ) : null}
-
-              <View style={styles.buttonRow}>
-                <TouchableOpacity
-                  style={styles.detailButton}
-                  onPress={() => setDetailReport(report)}
-                >
-                  <MaterialCommunityIcons name="eye-outline" size={16} color="#4B5563" />
-                  <Text style={styles.detailButtonText}>Chi tiết</Text>
-                </TouchableOpacity>
-
-                {report.status === 'PENDING' ? (
-                  <View style={styles.flexRowGap}>
-                    <PrimaryButton onPress={() => handleOpenApprove(report)}>Duyệt</PrimaryButton>
-                    <SecondaryButton onPress={() => handleOpenReject(report)}>Từ chối</SecondaryButton>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-          ))}
-          {!reportsQuery.data?.items?.length ? <EmptyState title={getEmptyStateTitle()} /> : null}
-        </SectionCard>
-      </ScrollView>
+          {!reportsQuery.data?.items?.length ? (
+            <EmptyState title={getEmptyStateTitle()} />
+          ) : null}
+        </ScrollView>
+      </View>
 
       {/* Full-screen Image Viewer with Pinch-to-Zoom */}
       <ImageView
@@ -2216,3 +2297,398 @@ const styles = StyleSheet.create({
   },
 });
 
+
+
+const otReviewStyles = StyleSheet.create({
+  header: {
+    backgroundColor: '#102739',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 22,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backBtn: {
+    marginRight: 14,
+    padding: 4,
+  },
+  headerTitleWrap: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.75)',
+    marginTop: 3,
+  },
+  sheetContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingHorizontal: 4,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  tabContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  tabTextActive: {
+    color: '#102739',
+    fontWeight: '800',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: -1,
+    left: 4,
+    right: 4,
+    height: 3,
+    backgroundColor: '#102739',
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 40,
+  },
+  sectionHeader: {
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  userRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  userTextCol: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  deptText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  badgeApproved: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  badgeApprovedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  badgeRejected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  badgeRejectedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  badgePending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  badgePendingText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 4,
+  },
+  dateRowLabel: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  dateRowValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  timeRangeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+  },
+  timeCol: {
+    flex: 1,
+  },
+  timeLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    marginBottom: 3,
+  },
+  timeValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  metricsBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  metricColValid: {
+    flex: 1.2,
+  },
+  metricCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  metricHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  metricValueLarge: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  metricSub: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  metricDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#E0F2FE',
+    marginHorizontal: 6,
+  },
+  decidedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  decidedText: {
+    fontSize: 13,
+    color: '#334155',
+  },
+  decidedTime: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  rejectReasonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginTop: 2,
+  },
+  contentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  contentText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 18,
+  },
+  photosSection: {
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  photosHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  photosHeaderText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  photosThumbRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  thumbWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F1F5F9',
+  },
+  thumbImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  thumbZoomIcon: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 8,
+  },
+  pendingActionBtns: {
+    flexDirection: 'row',
+    gap: 8,
+    flex: 1,
+  },
+  quickRejectBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+  },
+  quickRejectText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  quickApproveBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#102739',
+  },
+  quickApproveText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  viewDetailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: '#FFFFFF',
+  },
+  viewDetailText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+});
