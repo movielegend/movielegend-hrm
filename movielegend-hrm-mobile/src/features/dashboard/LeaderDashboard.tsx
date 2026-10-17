@@ -28,6 +28,7 @@ import { FeedbackStatusBadge } from '../feedback/components/FeedbackStatusBadge'
 import { levelingApi } from '../../api/leveling.api';
 import { LEVEL_DEFAULT_NAMES, LEVEL_COLORS } from '../../components/common/LevelNameBadge';
 import { resolveFileUrl } from '../../utils/url';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Lucide Icons
 import {
@@ -317,14 +318,15 @@ export function LeaderDashboard() {
                 onPress={() => router.push('/leader/ai-chat' as any)}
                 accessibilityLabel="Trợ lý AI"
               >
-                <Sparkles size={20} color="#FFFFFF" strokeWidth={2.2} />
+                <MaterialCommunityIcons name="creation-outline" size={24} color="#FFFFFF" />
               </Pressable>
 
               <Pressable
                 style={styles.bellButton}
                 onPress={() => router.push('/leader/notifications' as any)}
+                accessibilityLabel="Thông báo"
               >
-                <Bell size={21} color="#FFFFFF" strokeWidth={2.2} />
+                <MaterialCommunityIcons name="bell-outline" size={24} color="#FFFFFF" />
                 {unreadNotifications > 0 && (
                   <View style={styles.bellBadge}>
                     <Text style={styles.bellBadgeText}>
@@ -1106,43 +1108,39 @@ const styles = StyleSheet.create({
   headerRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 16,
   },
   aiHeaderButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
   },
   bellButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   bellBadge: {
     position: 'absolute',
-    top: 5,
-    right: 5,
-    backgroundColor: '#EF4444',
-    borderRadius: 9,
-    minWidth: 18,
+    top: -4,
+    right: -8,
+    backgroundColor: '#FA3E3E',
+    borderRadius: 10,
+    minWidth: 19,
     height: 18,
-    paddingHorizontal: 4,
+    paddingHorizontal: 5,
     justifyContent: 'center',
     alignItems: 'center',
   },
   bellBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     textAlign: 'center',
-    lineHeight: 12,
+    lineHeight: 14,
   },
 
   // 2. Overlapping White Hero Card

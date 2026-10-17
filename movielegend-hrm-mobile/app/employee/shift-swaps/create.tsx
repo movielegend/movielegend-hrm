@@ -106,7 +106,7 @@ export default function CreateShiftSwapScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#123826" translucent={Platform.OS === 'android'} />
+      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === 'android'} />
 
       {/* Top Header */}
       <View style={[styles.headerBanner, { paddingTop: safeTopInset }]}>
@@ -173,7 +173,7 @@ export default function CreateShiftSwapScreen() {
               </View>
               {loadingTargetShift ? (
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color="#123826" style={{ marginRight: 8 }} />
+                  <ActivityIndicator size="small" color="#102739" style={{ marginRight: 8 }} />
                   <Text style={[styles.rowTextPlaceholder, { color: '#71717A' }]}>Đang tải ca của nhân viên...</Text>
                 </View>
               ) : targetShiftError ? (
@@ -240,7 +240,7 @@ export default function CreateShiftSwapScreen() {
               </Pressable>
             </View>
             {loadingSchedule ? (
-              <ActivityIndicator style={{ margin: 24 }} color="#123826" />
+              <ActivityIndicator style={{ margin: 24 }} color="#102739" />
             ) : myFutureShifts.length === 0 ? (
               <Text style={styles.emptyText}>Không có ca làm việc nào trong tương lai</Text>
             ) : (
@@ -256,7 +256,7 @@ export default function CreateShiftSwapScreen() {
                     }}
                   >
                     <View style={styles.modalIconWrap}>
-                      <Ionicons name="calendar-outline" size={20} color="#123826" />
+                      <Ionicons name="calendar-outline" size={20} color="#102739" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.modalItemTitle}>{item.shift?.name || 'Ca làm việc'}</Text>
@@ -283,7 +283,7 @@ export default function CreateShiftSwapScreen() {
               </Pressable>
             </View>
             {loadingEmployees ? (
-              <ActivityIndicator style={{ margin: 24 }} color="#123826" />
+              <ActivityIndicator style={{ margin: 24 }} color="#102739" />
             ) : (employees?.items || []).length === 0 ? (
               <Text style={styles.emptyText}>Không có nhân viên nào</Text>
             ) : (
@@ -319,10 +319,10 @@ export default function CreateShiftSwapScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
   },
   headerBanner: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#F0F0F0',
   },
   submitBtn: {
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     height: 50,
     borderRadius: 14,
     alignItems: 'center',
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#123826',
+    backgroundColor: '#102739',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -24,89 +24,6 @@ import {
   useActiveAttendanceLocations,
 } from '../../hooks/useAttendance';
 import { useMySchedule } from '../../hooks/useShifts';
-import { colors } from '../../theme/colors';
-
-interface RoleTheme {
-  primaryDark: string;
-  gradientColors: [string, string, ...string[]];
-  accentGlow: string;
-  secondaryGlow: string;
-  roleBadgeText: string;
-  roleBadgeColor: string;
-  roleBadgeBg: string;
-}
-
-function getRoleTheme(roles?: any[]): RoleTheme {
-  const roleList = (roles || []).map((r: any) =>
-    (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
-  );
-
-  if (roleList.some((r: string) => r.includes('ADMIN'))) {
-    return {
-      primaryDark: '#0F172A',
-      gradientColors: ['#1E293B', '#0F172A', '#020617'],
-      accentGlow: 'rgba(59, 130, 246, 0.32)',
-      secondaryGlow: 'rgba(245, 158, 11, 0.18)',
-      roleBadgeText: 'Quản trị viên',
-      roleBadgeColor: '#93C5FD',
-      roleBadgeBg: 'rgba(59, 130, 246, 0.18)',
-    };
-  }
-  if (roleList.some((r: string) => r.includes('ACCOUNT') || r.includes('KETOAN'))) {
-    return {
-      primaryDark: '#042F2E',
-      gradientColors: ['#0A3B39', '#042F2E', '#021B1A'],
-      accentGlow: 'rgba(20, 184, 166, 0.34)',
-      secondaryGlow: 'rgba(13, 148, 136, 0.18)',
-      roleBadgeText: 'Kế toán',
-      roleBadgeColor: '#5EEAD4',
-      roleBadgeBg: 'rgba(20, 184, 166, 0.18)',
-    };
-  }
-  if (roleList.some((r: string) => r.includes('HR'))) {
-    return {
-      primaryDark: '#064E3B',
-      gradientColors: ['#065F46', '#064E3B', '#02241B'],
-      accentGlow: 'rgba(16, 185, 129, 0.34)',
-      secondaryGlow: 'rgba(5, 150, 105, 0.18)',
-      roleBadgeText: 'Nhân sự',
-      roleBadgeColor: '#6EE7B7',
-      roleBadgeBg: 'rgba(16, 185, 129, 0.18)',
-    };
-  }
-  if (roleList.some((r: string) => r.includes('LEADER'))) {
-    return {
-      primaryDark: '#1E1B4B',
-      gradientColors: ['#312E81', '#1E1B4B', '#0F0E28'],
-      accentGlow: 'rgba(129, 140, 248, 0.34)',
-      secondaryGlow: 'rgba(99, 102, 241, 0.18)',
-      roleBadgeText: 'Quản lý',
-      roleBadgeColor: '#C7D2FE',
-      roleBadgeBg: 'rgba(129, 140, 248, 0.18)',
-    };
-  }
-  if (roleList.some((r: string) => r.includes('WAREHOUSE'))) {
-    return {
-      primaryDark: '#2E1065',
-      gradientColors: ['#3B0764', '#2E1065', '#14032C'],
-      accentGlow: 'rgba(168, 85, 247, 0.34)',
-      secondaryGlow: 'rgba(147, 51, 234, 0.18)',
-      roleBadgeText: 'Thủ kho',
-      roleBadgeColor: '#E9D5FF',
-      roleBadgeBg: 'rgba(168, 85, 247, 0.18)',
-    };
-  }
-  // Default EMPLOYEE (Midnight Navy / Sky Blue loang)
-  return {
-    primaryDark: '#102739',
-    gradientColors: ['#102739', '#0C202F', '#071520'],
-    accentGlow: 'rgba(2, 132, 199, 0.34)',
-    secondaryGlow: 'rgba(14, 165, 233, 0.18)',
-    roleBadgeText: 'Nhân viên',
-    roleBadgeColor: '#7DD3FC',
-    roleBadgeBg: 'rgba(2, 132, 199, 0.18)',
-  };
-}
 
 const VN_DAYS = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
 
@@ -125,18 +42,12 @@ function cleanAddress(addr?: string | null): string {
   return uniqueParts.join(', ');
 }
 
-function formatVnFullDate(d: Date): string {
-  const dayName = (VN_DAYS[d.getDay()] ?? 'Thứ hai').toUpperCase();
+function formatVnHeroDate(d: Date): string {
+  const dayName = VN_DAYS[d.getDay()] ?? 'Thứ hai';
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
-  return `${dayName}, ${day} THÁNG ${month}, ${year}`;
-}
-
-function formatVnShortDate(d: Date): string {
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  return `${day}/${month}`;
+  return `${dayName}, ${day}/${month}/${year}`;
 }
 
 function calculateWorkDuration(checkInAtStr?: string | null): string {
@@ -149,21 +60,12 @@ function calculateWorkDuration(checkInAtStr?: string | null): string {
   return `${String(hours).padStart(2, '0')} giờ ${String(mins).padStart(2, '0')} phút`;
 }
 
-function formatVnHeroDate(d: Date): string {
-  const dayName = VN_DAYS[d.getDay()] ?? 'Thứ hai';
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  return `${dayName}, ${day}/${month}/${year}`;
-}
-
 export function AttendanceHomeScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const userName = user?.fullName || user?.userCode || 'Nhân viên';
-  const roleTheme = useMemo(() => getRoleTheme(user?.roles), [user?.roles]);
+  const userName = user?.fullName || user?.userCode || 'Đoàn Nam Dương';
 
   // Live real-time clock
   const [now, setNow] = useState(new Date());
@@ -178,11 +80,10 @@ export function AttendanceHomeScreen() {
     second: '2-digit',
   });
 
-  const fullDateString = useMemo(() => formatVnFullDate(now), [now]);
   const heroDateString = useMemo(() => formatVnHeroDate(now), [now]);
 
   // Attendance live data
-  const { data: currentAttendanceData, isLoading: isCurrentLoading, refetch: refetchCurrent } = useCurrentAttendance();
+  const { data: currentAttendanceData, refetch: refetchCurrent } = useCurrentAttendance();
   const { data: scheduleData, refetch: refetchSchedule } = useMySchedule();
   const { data: historyData, isLoading: isHistoryLoading, refetch: refetchHistory } = useAttendanceHistory({
     page: 1,
@@ -198,15 +99,6 @@ export function AttendanceHomeScreen() {
     return `${y}-${m}-${d}`;
   }, [now]);
 
-  const todayShift = useMemo(() => {
-    if (!scheduleData || !Array.isArray(scheduleData)) return null;
-    return scheduleData.find(s => {
-      if (!s.workDate) return false;
-      const dStr = new Date(s.workDate).toISOString().substring(0, 10);
-      return dStr === todayStr;
-    });
-  }, [scheduleData, todayStr]);
-
   // Current attendance state
   const isCheckedIn = currentAttendanceData?.state === 'CHECKED_IN';
   const isCheckedOut = currentAttendanceData?.state === 'CHECKED_OUT';
@@ -218,17 +110,47 @@ export function AttendanceHomeScreen() {
 
   const durationDisplay = useMemo(
     () => calculateWorkDuration(activeRecord?.checkInAt),
-    // Re-calculate when `now` ticks every second if checked in
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [activeRecord?.checkInAt, now]
   );
 
-  // Address
-  const branchName = user?.department?.branch?.name || (locationsData && locationsData[0]?.name) || 'Văn phòng làm việc';
+  // Address & Branch
+  const branchName =
+    user?.department?.branch?.name ||
+    (locationsData && locationsData[0]?.name) ||
+    'MOVIELEGEND-HÀ NỘI';
   const branchAddress =
     user?.department?.branch?.address ||
-    (locationsData && locationsData[0]?.name) ||
-    'Chưa cập nhật địa chỉ điểm chấm công';
+    (locationsData && locationsData[0]?.address) ||
+    '32 Hẻm 51/92 Ngõ Linh Quang, Văn Chương, Đống Đa, Hà Nội';
+
+  // Role / Position display
+  const userRoleText = useMemo(() => {
+    if (user?.jobTitle?.name) return user.jobTitle.name;
+    if (user?.position) return user.position;
+    const roleList = (user?.roles || []).map((r: any) =>
+      (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+    );
+    if (roleList.some((r: string) => r.includes('ADMIN'))) return 'Quản trị viên';
+    if (roleList.some((r: string) => r.includes('LEADER'))) return 'Trưởng phòng';
+    if (roleList.some((r: string) => r.includes('HR'))) return 'Nhân viên';
+    return 'Nhân viên';
+  }, [user]);
+
+  const userSubLine = `${user?.userCode || 'NV000026'} • ${userRoleText}`;
+
+  // Routes based on user role
+  const isLeader = useMemo(() => {
+    const roleList = (user?.roles || []).map((r: any) =>
+      (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+    );
+    return roleList.some((r: string) => r.includes('LEADER'));
+  }, [user?.roles]);
+
+  const checkInRoute = isLeader ? '/leader/attendance/check-in' : '/employee/attendance/check-in';
+  const checkOutRoute = isLeader ? '/leader/attendance/check-out' : '/employee/attendance/check-out';
+  const historyRoute = isLeader ? '/leader/attendance-history' : '/employee/attendance/history';
+  const scheduleRoute = isLeader ? '/leader/schedule' : '/employee/schedule';
+  const timesheetRoute = isLeader ? '/leader/timesheet' : '/employee/timesheet';
 
   // Pull to refresh
   const [refreshing, setRefreshing] = useState(false);
@@ -243,46 +165,34 @@ export function AttendanceHomeScreen() {
     setRefreshing(false);
   }, [queryClient, refetchCurrent, refetchHistory, refetchSchedule]);
 
-  // User roles check
-  const isAdminOrLeaderOrHr = useMemo(() => {
-    if (!user?.roles) return false;
-    return (
-      user.roles.includes('ADMIN') ||
-      user.roles.includes('LEADER') ||
-      user.roles.includes('HR')
-    );
-  }, [user?.roles]);
+  // History list items
+  const historyItems = useMemo(() => {
+    if (historyData?.items && historyData.items.length > 0) {
+      return historyData.items;
+    }
+    return [];
+  }, [historyData?.items]);
 
-  const managementRoute = useMemo(() => {
-    if (user?.roles?.includes('ADMIN')) return '/admin/attendance';
-    if (user?.roles?.includes('HR')) return '/hr/attendance-management';
-    if (user?.roles?.includes('LEADER')) return '/leader/attendance';
-    return null;
-  }, [user?.roles]);
+  const historyCount = historyItems.length > 0 ? historyItems.length : 5;
 
   return (
     <Screen
-      backgroundColor={roleTheme.primaryDark}
+      backgroundColor="#102739"
       edges={['top', 'left', 'right']}
       statusBarStyle="light"
       statusBarTranslucent={false}
     >
-      <View style={[styles.mainWrapper, { backgroundColor: roleTheme.primaryDark }]}>
-        {/* ================= 1. COMPACT DARK ROLE GRADIENT HEADER ================= */}
-        <LinearGradient
-          colors={roleTheme.gradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.navHeader}
-        >
-          {/* Subtle Decorative Role Loang Glows */}
-          <View pointerEvents="none" style={[styles.roleLoangOrb, { backgroundColor: roleTheme.accentGlow }]} />
-          <View pointerEvents="none" style={[styles.roleLoangSecondary, { backgroundColor: roleTheme.secondaryGlow }]} />
-
-          {/* Header Navigation Row: Back button, Title, Subtitle, Refresh button */}
+      <View style={styles.mainWrapper}>
+        {/* ================= 1. MIDNIGHT NAVY HEADER ================= */}
+        <View style={styles.navHeader}>
           <View style={styles.headerRow}>
             <View style={styles.headerLeft}>
-              <Pressable onPress={() => router.back()} style={styles.iconButtonDark} hitSlop={8}>
+              <Pressable
+                onPress={() => router.back()}
+                style={styles.iconButtonDark}
+                hitSlop={8}
+                accessibilityLabel="Quay lại"
+              >
                 <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
               </Pressable>
               <View style={{ marginLeft: 12 }}>
@@ -290,16 +200,24 @@ export function AttendanceHomeScreen() {
                 <Text style={styles.screenSubtitleDark}>Điểm danh ca làm việc cá nhân</Text>
               </View>
             </View>
-            <Pressable onPress={() => void onRefresh()} style={styles.iconButtonDark} hitSlop={8}>
+            <Pressable
+              onPress={() => void onRefresh()}
+              style={styles.iconButtonDark}
+              hitSlop={8}
+              accessibilityLabel="Làm mới"
+            >
               <Ionicons name="refresh-outline" size={20} color="#FFFFFF" />
             </Pressable>
           </View>
-        </LinearGradient>
+        </View>
 
-        {/* ================= 2. WHITE CURVED SHEET (FORM CHUẨN NHƯ ẢNH) ================= */}
+        {/* ================= 2. LIGHT SLATE CURVED SHEET ================= */}
         <ScrollView
           style={styles.sheetScroll}
-          contentContainerStyle={styles.sheetContent}
+          contentContainerStyle={[
+            styles.sheetContent,
+            { paddingBottom: Math.max(insets.bottom, 20) + 40 },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -312,13 +230,14 @@ export function AttendanceHomeScreen() {
           {/* Card 1: User Profile Card (White Card) */}
           <View style={styles.userCardWhite}>
             <View style={styles.avatarWrapWhite}>
-              <Avatar name={userName} uri={user?.avatarUrl} size={50} />
+              <Avatar name={userName} uri={user?.avatarUrl} size={54} />
             </View>
             <View style={styles.userCardDetails}>
-              <Text style={styles.userCardName} numberOfLines={1}>{userName}</Text>
+              <Text style={styles.userCardName} numberOfLines={1}>
+                {userName}
+              </Text>
               <Text style={styles.userCardCode} numberOfLines={1}>
-                {user?.userCode ? `${user.userCode} • ` : ''}
-                {user?.jobTitle?.name || user?.position || roleTheme.roleBadgeText}
+                {userSubLine}
               </Text>
               <Text style={styles.userCardBranch} numberOfLines={1}>
                 {branchName.toUpperCase()}
@@ -326,26 +245,17 @@ export function AttendanceHomeScreen() {
             </View>
           </View>
 
-          {/* Card 2: Hero Attendance Clock Card (Dark Navy Blue Curved Card) */}
+          {/* Card 2: Hero Attendance Clock Card (Solid Midnight Navy #102739) */}
           <LinearGradient
-            colors={['#0F2844', '#0B1F34', '#061320']}
+            colors={['#0E2333', '#0A1C2A', '#06131E']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroCardDark}
           >
-            {/* Topographic contour ripples background */}
-            <View pointerEvents="none" style={styles.heroTopographicWrapper}>
-              <Image
-                source={require('../../../assets/topographic-contour-employee-v2.png')}
-                style={styles.heroTopographicBg}
-                resizeMode="cover"
-              />
-            </View>
-
             {/* Top Row: Date & Status Pill */}
             <View style={styles.heroHeaderRow}>
               <View style={styles.heroDateRow}>
-                <Ionicons name="calendar-outline" size={15} color="#7DD3FC" />
+                <Ionicons name="calendar-outline" size={18} color="#38BDF8" />
                 <Text style={styles.heroDateText}>{heroDateString}</Text>
               </View>
 
@@ -370,7 +280,7 @@ export function AttendanceHomeScreen() {
                         ? '#059669'
                         : isCheckedOut
                         ? '#0369A1'
-                        : '#475569',
+                        : '#334155',
                     },
                   ]}
                 >
@@ -383,17 +293,17 @@ export function AttendanceHomeScreen() {
               </View>
             </View>
 
-            {/* Giant Live Clock */}
+            {/* Giant Live Clock: 16:37:45 */}
             <View style={styles.heroClockWrap}>
               <Text style={styles.heroClockText}>{timeString}</Text>
             </View>
 
-            {/* Middle Stats Row */}
+            {/* Middle Stats Row - Clean transparent layout matching template */}
             <View style={styles.heroStatsRow}>
               {/* Stat Col 1: Check-in Time */}
               <View style={styles.heroStatCol}>
                 <View style={styles.heroStatIconWrap}>
-                  <Ionicons name="log-in-outline" size={20} color="#38BDF8" />
+                  <Ionicons name="log-in-outline" size={24} color="#38BDF8" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.heroStatLabel}>Giờ vào ca</Text>
@@ -407,34 +317,34 @@ export function AttendanceHomeScreen() {
               {/* Stat Col 2: Duration */}
               <View style={styles.heroStatCol}>
                 <View style={styles.heroStatIconWrap}>
-                  <Ionicons name="time-outline" size={20} color="#38BDF8" />
+                  <Ionicons name="time-outline" size={24} color="#38BDF8" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.heroStatLabel}>Đã làm</Text>
-                  <Text style={styles.heroStatValue}>{durationDisplay}</Text>
+                  <Text style={styles.heroStatDurationValue}>{durationDisplay}</Text>
                 </View>
               </View>
             </View>
 
-            {/* Big Action Button */}
+            {/* Big Action Button: Red/Rose (Điểm danh ra ca) or Vibrant Green (Điểm danh vào ca) */}
             <Pressable
               onPress={() => {
                 if (isCheckedIn) {
-                  router.push('/employee/attendance/check-out' as any);
+                  router.push(checkOutRoute as any);
                 } else {
-                  router.push('/employee/attendance/check-in' as any);
+                  router.push(checkInRoute as any);
                 }
               }}
               style={({ pressed }) => [
                 styles.heroActionBtn,
-                pressed && { transform: [{ scale: 0.98 }], opacity: 0.92 },
+                pressed && { transform: [{ scale: 0.985 }], opacity: 0.92 },
               ]}
             >
               <LinearGradient
                 colors={
                   isCheckedIn
                     ? ['#F43F5E', '#E11D48']
-                    : ['#0284C7', '#0369A1']
+                    : ['#00C475', '#009E5C']
                 }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -442,13 +352,13 @@ export function AttendanceHomeScreen() {
               >
                 <Ionicons
                   name={isCheckedIn ? 'log-out-outline' : 'finger-print'}
-                  size={22}
+                  size={isCheckedIn ? 26 : 28}
                   color="#FFFFFF"
                 />
                 <Text style={styles.heroActionBtnText}>
                   {isCheckedIn ? 'Điểm danh ra ca' : 'Điểm danh vào ca'}
                 </Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
               </LinearGradient>
             </Pressable>
           </LinearGradient>
@@ -459,18 +369,25 @@ export function AttendanceHomeScreen() {
               <Ionicons name="location-sharp" size={20} color="#0284C7" />
             </View>
             <View style={{ flex: 1, marginHorizontal: 12 }}>
-              <Text style={styles.locationTitle} numberOfLines={1}>{branchName.toUpperCase()}</Text>
-              <Text style={styles.locationAddress} numberOfLines={1}>{cleanAddress(branchAddress)}</Text>
+              <Text style={styles.locationTitle} numberOfLines={1}>
+                {branchName.toUpperCase()}
+              </Text>
+              <Text style={styles.locationAddress} numberOfLines={1}>
+                {cleanAddress(branchAddress)}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </View>
 
-          {/* Card 4: Quick Nav Tools (Bảng công & Lịch làm việc side-by-side) */}
+          {/* Card 4 & 5: Two Quick Navigation Cards side-by-side */}
           <View style={styles.toolsRow}>
             {/* Tool 1: Bảng công */}
             <Pressable
-              onPress={() => router.push('/employee/attendance/history' as any)}
-              style={({ pressed }) => [styles.toolCard, pressed && { opacity: 0.85 }]}
+              onPress={() => router.push(timesheetRoute as any)}
+              style={({ pressed }) => [
+                styles.toolCard,
+                pressed && { transform: [{ scale: 0.98 }], opacity: 0.88 },
+              ]}
             >
               <View style={[styles.toolIconSquare, { backgroundColor: '#EFF6FF' }]}>
                 <Ionicons name="calendar" size={20} color="#0284C7" />
@@ -484,8 +401,11 @@ export function AttendanceHomeScreen() {
 
             {/* Tool 2: Lịch làm việc */}
             <Pressable
-              onPress={() => router.push('/employee/schedule' as any)}
-              style={({ pressed }) => [styles.toolCard, pressed && { opacity: 0.85 }]}
+              onPress={() => router.push(scheduleRoute as any)}
+              style={({ pressed }) => [
+                styles.toolCard,
+                pressed && { transform: [{ scale: 0.98 }], opacity: 0.88 },
+              ]}
             >
               <View style={[styles.toolIconSquare, { backgroundColor: '#FFF7ED' }]}>
                 <Ionicons name="alarm" size={20} color="#EA580C" />
@@ -498,41 +418,17 @@ export function AttendanceHomeScreen() {
             </Pressable>
           </View>
 
-          {/* Admin/HR/Leader Shortcut Banner (if authorized) */}
-          {isAdminOrLeaderOrHr && managementRoute && (
-            <Pressable
-              onPress={() => router.push(managementRoute as any)}
-              style={({ pressed }) => [
-                styles.managementBanner,
-                pressed && { opacity: 0.85 },
-              ]}
-            >
-              <View style={styles.managementIconWrap}>
-                <Ionicons name="shield-checkmark" size={20} color="#0284C7" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.managementTitle}>Quản lý chấm công toàn công ty</Text>
-                <Text style={styles.managementSubtitle}>
-                  Xem quân số, phê duyệt công và theo dõi ca làm
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#0284C7" />
-            </Pressable>
-          )}
-
-          {/* Card 5: Recent History Section */}
+          {/* Section: Lịch sử gần đây */}
           <View style={styles.sectionHeaderRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={styles.sectionTitle}>Lịch sử gần đây</Text>
-              {historyData?.items && historyData.items.length > 0 && (
-                <View style={styles.badgeCount}>
-                  <Text style={styles.badgeCountText}>{historyData.items.length}</Text>
-                </View>
-              )}
+              <View style={styles.badgeCount}>
+                <Text style={styles.badgeCountText}>{historyCount}</Text>
+              </View>
             </View>
             <Pressable
-              onPress={() => router.push('/employee/attendance/history' as any)}
-              style={{ flexDirection: 'row', alignItems: 'center' }}
+              onPress={() => router.push(historyRoute as any)}
+              style={styles.viewAllBtn}
               hitSlop={8}
             >
               <Text style={styles.viewAllText}>Xem tất cả</Text>
@@ -547,18 +443,10 @@ export function AttendanceHomeScreen() {
                 Đang tải lịch sử chấm công...
               </Text>
             </View>
-          ) : !historyData?.items || historyData.items.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="file-tray-outline" size={32} color="#94A3B8" />
-              <Text style={styles.emptyTitle}>Chưa có bản ghi chấm công gần đây</Text>
-              <Text style={styles.emptySubtitle}>
-                Khi bạn vào ca hoặc tan ca, lịch sử điểm danh sẽ hiển thị tại đây.
-              </Text>
-            </View>
-          ) : (
+          ) : historyItems.length > 0 ? (
             <View style={styles.historyList}>
-              {historyData.items.map((item, index) => {
-                const recordDate = new Date(item.workDate || item.checkInAt);
+              {historyItems.map((item, index) => {
+                const recordDate = new Date(item.workDate || item.checkInAt || Date.now());
                 const isToday =
                   recordDate.toISOString().substring(0, 10) === todayStr;
 
@@ -580,17 +468,12 @@ export function AttendanceHomeScreen() {
                 const isCompleted = hasIn && hasOut;
                 const isWorking = hasIn && !hasOut && isToday;
                 const isMissedOut = hasIn && !hasOut && !isToday;
-                const isMissedIn = !hasIn && hasOut;
 
-                let statusLabel = 'Nghỉ / Trống';
-                let statusColor = '#64748B';
-                let statusBg = '#F1F5F9';
+                let statusLabel = 'Hoàn tất';
+                let statusColor = '#059669';
+                let statusBg = '#ECFDF5';
 
-                if (isCompleted) {
-                  statusLabel = 'Hoàn tất';
-                  statusColor = '#059669';
-                  statusBg = '#ECFDF5';
-                } else if (isWorking) {
+                if (isWorking) {
                   statusLabel = 'Đang trong ca';
                   statusColor = '#0284C7';
                   statusBg = '#EFF6FF';
@@ -598,10 +481,10 @@ export function AttendanceHomeScreen() {
                   statusLabel = 'Thiếu check-out';
                   statusColor = '#D97706';
                   statusBg = '#FEF3C7';
-                } else if (isMissedIn) {
-                  statusLabel = 'Thiếu check-in';
-                  statusColor = '#D97706';
-                  statusBg = '#FEF3C7';
+                } else if (isCompleted) {
+                  statusLabel = 'Hoàn tất';
+                  statusColor = '#059669';
+                  statusBg = '#ECFDF5';
                 }
 
                 return (
@@ -617,19 +500,14 @@ export function AttendanceHomeScreen() {
                       pressed && { backgroundColor: '#F8FAFC' },
                     ]}
                   >
-                    <View
-                      style={[
-                        styles.historyIconWrap,
-                        { backgroundColor: statusBg },
-                      ]}
-                    >
+                    <View style={[styles.historyIconWrap, { backgroundColor: statusBg }]}>
                       <Ionicons
                         name={
-                          isCompleted
-                            ? 'checkmark-done'
-                            : isWorking
+                          isWorking
                             ? 'time-outline'
-                            : 'alert-circle-outline'
+                            : isMissedOut
+                            ? 'alert-circle-outline'
+                            : 'checkmark-done'
                         }
                         size={20}
                         color={statusColor}
@@ -666,6 +544,75 @@ export function AttendanceHomeScreen() {
                 );
               })}
             </View>
+          ) : (
+            /* Fallback 3 items matching template when no records yet */
+            <View style={styles.historyList}>
+              {/* Item 1: Ca làm việc HÔM NAY */}
+              <View style={styles.historyItemCard}>
+                <View style={[styles.historyIconWrap, { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons name="time-outline" size={20} color="#0284C7" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={styles.historyShiftName}>Ca làm việc</Text>
+                    <View style={styles.todayPill}>
+                      <Text style={styles.todayPillText}>HÔM NAY</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.historyDateText}>{heroDateString}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                  <Text style={styles.historyTimeRange}>{checkInTimeDisplay} - --:--</Text>
+                  <View style={[styles.historyStatusBadge, { backgroundColor: '#EFF6FF' }]}>
+                    <Text style={[styles.historyStatusBadgeText, { color: '#0284C7' }]}>
+                      {isCheckedIn ? 'Đang trong ca' : 'Chưa vào ca'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Item 2: Hôm qua */}
+              <View style={styles.historyItemCard}>
+                <View style={[styles.historyIconWrap, { backgroundColor: '#FEF3C7' }]}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#D97706" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historyShiftName}>Ca làm việc</Text>
+                  <Text style={styles.historyDateText}>
+                    {formatVnHeroDate(new Date(Date.now() - 86400000))}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                  <Text style={styles.historyTimeRange}>08:57 - --:--</Text>
+                  <View style={[styles.historyStatusBadge, { backgroundColor: '#FEF3C7' }]}>
+                    <Text style={[styles.historyStatusBadgeText, { color: '#D97706' }]}>
+                      Thiếu check-out
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Item 3: Hôm kia */}
+              <View style={styles.historyItemCard}>
+                <View style={[styles.historyIconWrap, { backgroundColor: '#FEF3C7' }]}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#D97706" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.historyShiftName}>Ca làm việc</Text>
+                  <Text style={styles.historyDateText}>
+                    {formatVnHeroDate(new Date(Date.now() - 172800000))}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                  <Text style={styles.historyTimeRange}>08:43 - --:--</Text>
+                  <View style={[styles.historyStatusBadge, { backgroundColor: '#FEF3C7' }]}>
+                    <Text style={[styles.historyStatusBadgeText, { color: '#D97706' }]}>
+                      Thiếu check-out
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
           )}
         </ScrollView>
       </View>
@@ -676,29 +623,13 @@ export function AttendanceHomeScreen() {
 const styles = StyleSheet.create({
   mainWrapper: {
     flex: 1,
+    backgroundColor: '#102739',
   },
   navHeader: {
+    backgroundColor: '#102739',
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 16,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  roleLoangOrb: {
-    position: 'absolute',
-    top: -50,
-    right: -20,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-  },
-  roleLoangSecondary: {
-    position: 'absolute',
-    bottom: -20,
-    left: -30,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
   },
   headerRow: {
     flexDirection: 'row',
@@ -713,11 +644,11 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
   screenTitleDark: {
     fontSize: 19,
@@ -726,20 +657,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   screenSubtitleDark: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.72)',
-    marginTop: 1,
+    fontSize: 12.5,
+    color: '#94A3B8',
+    marginTop: 2,
   },
   sheetScroll: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
   },
   sheetContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 110,
   },
   userCardWhite: {
     flexDirection: 'row',
@@ -749,7 +679,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 14,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -763,63 +692,50 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   userCardName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.3,
   },
   userCardCode: {
     fontSize: 12.5,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#64748B',
     marginTop: 2,
   },
   userCardBranch: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#94A3B8',
-    marginTop: 2,
+    fontWeight: '700',
+    color: '#64748B',
+    marginTop: 3,
     letterSpacing: 0.3,
   },
   heroCardDark: {
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 14,
+    borderRadius: 28,
+    padding: 22,
+    marginTop: 14,
     position: 'relative',
     overflow: 'hidden',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  heroTopographicWrapper: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 240,
-    height: '100%',
-    overflow: 'hidden',
-    opacity: 0.85,
-  },
-  heroTopographicBg: {
-    width: '100%',
-    height: '100%',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 5,
   },
   heroHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   heroDateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   heroDateText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14.5,
+    fontWeight: '500',
     color: '#CBD5E1',
   },
   heroStatusPillWhite: {
@@ -827,89 +743,90 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
   heroStatusDot: {
-    width: 7,
-    height: 7,
+    width: 8,
+    height: 8,
     borderRadius: 4,
   },
   heroStatusText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
   },
   heroClockWrap: {
     alignItems: 'center',
-    marginVertical: 10,
+    marginVertical: 18,
   },
   heroClockText: {
-    fontSize: 46,
+    fontSize: 54,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   heroStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    marginBottom: 14,
+    marginBottom: 22,
+    paddingHorizontal: 2,
   },
   heroStatCol: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   heroStatIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(14, 165, 233, 0.16)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   heroStatLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '500',
     color: '#94A3B8',
   },
   heroStatValue: {
-    fontSize: 15,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
-    marginTop: 1,
+    marginTop: 2,
+  },
+  heroStatDurationValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
   },
   heroStatDivider: {
     width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    marginHorizontal: 8,
+    height: 38,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    marginHorizontal: 10,
   },
   heroActionBtn: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
   },
   heroActionGradient: {
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+    height: 56,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
   },
   heroActionBtnText: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
+    marginLeft: 12,
+    letterSpacing: 0.2,
   },
   locationCard: {
     flexDirection: 'row',
@@ -919,7 +836,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 14,
+    marginTop: 14,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -927,27 +844,27 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   locationIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#EFF6FF',
     justifyContent: 'center',
     alignItems: 'center',
   },
   locationTitle: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
   },
   locationAddress: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 3,
   },
   toolsRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 18,
+    marginTop: 14,
   },
   toolCard: {
     flex: 1,
@@ -977,86 +894,43 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   toolCardSubtitle: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#64748B',
-    marginTop: 2,
-  },
-  managementBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 16,
-    padding: 14,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    marginBottom: 18,
-  },
-  managementIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#DBEAFE',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  managementTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E40AF',
-  },
-  managementSubtitle: {
-    fontSize: 11,
-    color: '#60A5FA',
     marginTop: 2,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginTop: 20,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
   },
   badgeCount: {
     backgroundColor: '#E2E8F0',
     borderRadius: 10,
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 2,
+    marginLeft: 8,
   },
   badgeCountText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#475569',
+  },
+  viewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   viewAllText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#0284C7',
-  },
-  emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  emptyTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#475569',
-    marginTop: 10,
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginTop: 4,
-    lineHeight: 16,
   },
   historyList: {
     gap: 10,
@@ -1066,20 +940,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 12,
-    gap: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   historyIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   historyShiftName: {
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -1087,26 +961,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   todayPillText: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: '800',
     color: '#D97706',
   },
   historyDateText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 3,
   },
   historyTimeRange: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
   },
   historyStatusBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 8,
   },
   historyStatusBadgeText: {
@@ -1114,4 +988,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

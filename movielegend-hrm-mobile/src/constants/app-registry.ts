@@ -1,3 +1,5 @@
+import { hasUserRole } from '../utils/role-routing';
+
 export interface AppRegistryItem {
   key: string;
   title: string;
@@ -35,8 +37,8 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     icon: 'Clock',
     color: '#0284C7',
     bgColor: '#E0F2FE',
-    adminRoute: '/employee/attendance',
-    leaderRoute: '/employee/attendance',
+    adminRoute: '/admin/attendance',
+    leaderRoute: '/leader/attendance',
     employeeRoute: '/employee/attendance',
     hrRoute: '/employee/attendance',
     isCore: true,
@@ -44,7 +46,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   attendance_history: {
     key: 'attendance_history',
     title: 'Lịch sử chấm công',
-    adminTitle: 'Lịch sử chấm công',
     leaderTitle: 'Lịch sử chấm công',
     employeeTitle: 'Lịch sử chấm công',
     hrTitle: 'Lịch sử chấm công',
@@ -52,7 +53,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     icon: 'History',
     color: '#0284C7',
     bgColor: '#E0F2FE',
-    adminRoute: '/employee/attendance/history',
     leaderRoute: '/employee/attendance/history',
     employeeRoute: '/employee/attendance/history',
     hrRoute: '/employee/attendance/history',
@@ -132,7 +132,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     icon: 'Zap',
     color: '#D97706',
     bgColor: '#FEF3C7',
-    adminRoute: '/leader/shift-management?mode=patch',
     leaderRoute: '/leader/shift-management?mode=patch',
     employeeRoute: '/employee/schedule',
     hrRoute: '/leader/shift-management?mode=patch',
@@ -164,15 +163,13 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   attendance_management: {
     key: 'attendance_management',
     title: 'QL Chấm công',
-    adminTitle: 'Quản lý chấm công',
     hrTitle: 'Quản lý chấm công',
     leaderTitle: 'QL Chấm công nhóm',
     category: 'operations',
     icon: 'ClipboardList',
     color: '#0284C7',
     bgColor: '#E0F2FE',
-    adminRoute: '/admin/attendance',
-    leaderRoute: '/leader/attendance',
+    leaderRoute: '/leader/attendance-management',
     hrRoute: '/hr/attendance-management',
   },
   employees: {
@@ -189,12 +186,13 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   },
   departments: {
     key: 'departments',
-    title: 'Cơ cấu PB',
+    title: 'Cơ cấu tổ chức',
+    adminTitle: 'Cơ cấu tổ chức',
     category: 'operations',
     icon: 'Building2',
     color: '#475569',
     bgColor: '#F1F5F9',
-    adminRoute: '/admin/departments',
+    adminRoute: '/admin/branches',
   },
   locations: {
     key: 'locations',
@@ -203,7 +201,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     icon: 'MapPin',
     color: '#E11D48',
     bgColor: '#FFE4E6',
-    adminRoute: '/admin/attendance-locations',
   },
   ot_live: {
     key: 'ot_live',
@@ -250,14 +247,12 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   my_tasks: {
     key: 'my_tasks',
     title: 'Công việc của tôi',
-    adminTitle: 'Công việc của tôi',
     leaderTitle: 'Công việc của tôi',
     hrTitle: 'Công việc của tôi',
     category: 'admin_docs',
     icon: 'ClipboardCheck',
     color: '#0284C7',
     bgColor: '#E0F2FE',
-    adminRoute: '/admin/tasks',
     leaderRoute: '/leader/my-tasks',
     hrRoute: '/hr/my-tasks',
     badgeKey: 'dueTasks',
@@ -287,20 +282,15 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     hrRoute: '/hr/newsfeed',
   },
 
-  // Tài chính & Đãi ngộ
+  // Tài chính & Đãi ngộ (Chỉ Kế toán / ACCOUNTANT mới duyệt tài chính)
   financial: {
     key: 'financial',
     title: 'Duyệt tài chính',
     employeeTitle: 'Đơn tài chính',
-    leaderTitle: 'Duyệt tài chính',
-    adminTitle: 'Duyệt tài chính',
-    hrTitle: 'Duyệt tài chính',
     category: 'finance',
     icon: 'Receipt',
     color: '#16A34A',
     bgColor: '#DCFCE7',
-    adminRoute: '/admin/approvals',
-    leaderRoute: '/leader/financial-requests',
     employeeRoute: '/employee/requests',
     hrRoute: '/hr/financial-requests',
     badgeKey: 'pendingFinancial',
@@ -319,12 +309,13 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   },
   vault: {
     key: 'vault',
-    title: 'Ví Thưởng Tết',
+    title: 'Ví thưởng',
+    adminTitle: 'Ví thưởng',
     category: 'finance',
     icon: 'Coins',
     color: '#F59E0B',
     bgColor: '#FEF3C7',
-    adminRoute: '/admin/vault',
+    adminRoute: '/admin/tet-wallet',
     leaderRoute: '/leader/vault',
     employeeRoute: '/employee/vault',
     hrRoute: '/hr/vault',
@@ -466,6 +457,41 @@ export function isAppAllowedForRole(
     item.key === 'material_issues' ||
     item.key === 'inventory_checks'
   ) {
+    return false;
+  }
+
+  // Admin không có và không dùng "Lịch sử chấm công" cá nhân (Admin chỉ quản lý Dữ liệu chấm công qua /admin/attendance)
+  if (role === 'ADMIN' && item.key === 'attendance_history') {
+    return false;
+  }
+
+  // Admin không hiển thị dịch vụ "Vá ca đột xuất" độc lập (nếu cần Admin thao tác trong Ca làm việc -> Phân ca)
+  if (role === 'ADMIN' && item.key === 'shift_reassign') {
+    return false;
+  }
+
+  // Admin không hiển thị dịch vụ "Điểm chấm công" độc lập trên Dashboard / Dịch vụ
+  if (role === 'ADMIN' && item.key === 'locations') {
+    return false;
+  }
+
+  // Admin không hiển thị dịch vụ "Công việc của tôi" (Admin dùng "Giao việc" để quản trị công việc)
+  if (role === 'ADMIN' && item.key === 'my_tasks') {
+    return false;
+  }
+
+  // Duyệt tài chính: Chỉ hiển thị cho Kế toán (ACCOUNTANT)
+  // Leader và HR thông thường KHÔNG có quyền duyệt tài chính!
+  // Admin duyệt tập trung tại Duyệt đơn từ chứ không hiển thị riêng dịch vụ này
+  if (item.key === 'financial') {
+    if (role === 'ADMIN') return false;
+    if (!hasUserRole(user, 'ACCOUNTANT')) {
+      return false;
+    }
+  }
+
+  // Admin không hiển thị dịch vụ "Quản lý chấm công" (Admin chỉ dùng "Chấm công" để vào Dữ liệu chấm công /admin/attendance)
+  if (role === 'ADMIN' && item.key === 'attendance_management') {
     return false;
   }
 
