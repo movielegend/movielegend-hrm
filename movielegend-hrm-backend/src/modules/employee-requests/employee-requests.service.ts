@@ -1021,10 +1021,6 @@ export class EmployeeRequestsService {
             ? Number(payload.adjustedAmount)
             : amount;
 
-          const quoteUrls = (Array.isArray(payload?.quoteUrls) && payload.quoteUrls.length > 0)
-            ? payload.quoteUrls
-            : (Array.isArray(payload?.images) ? payload.images : []);
-
           const nextStage = 'PENDING_ACCOUNTANT';
           const newStep = {
             stage: 'PENDING_HR',
@@ -1034,14 +1030,12 @@ export class EmployeeRequestsService {
             note: payload?.note || 'HR đã đối chứng báo giá và xác nhận thông tin tài khoản nhận tiền',
             hrBank,
             adjustedAmount: (payload?.adjustedAmount && Number(payload.adjustedAmount) > 0) ? newAmount : undefined,
-            ...(quoteUrls.length > 0 ? { quoteUrls } : {}),
             at: new Date().toISOString(),
           };
 
           const updatedMeta = {
             ...currentMeta,
             hrBank,
-            ...(quoteUrls.length > 0 ? { quoteUrls } : {}),
             stage: nextStage,
             hrApprovedAt: new Date().toISOString(),
             hrApprovedBy: actor.userId,
