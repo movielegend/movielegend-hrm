@@ -286,6 +286,7 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     key: 'financial',
     title: 'Duyệt tài chính',
     employeeTitle: 'Đơn tài chính',
+    hrTitle: 'Đơn tài chính & Mua sắm',
     category: 'finance',
     icon: 'Receipt',
     color: '#16A34A',
@@ -479,12 +480,12 @@ export function isAppAllowedForRole(
     return false;
   }
 
-  // Duyệt tài chính: Chỉ hiển thị cho Kế toán (ACCOUNTANT)
-  // Leader và HR thông thường KHÔNG có quyền duyệt tài chính!
+  // Duyệt tài chính: Hiển thị cho Kế toán (ACCOUNTANT) và Nhân sự (HR phụ trách mua sắm & thanh toán)
+  // Leader thông thường KHÔNG có quyền duyệt tài chính!
   // Admin duyệt tập trung tại Duyệt đơn từ chứ không hiển thị riêng dịch vụ này
   if (item.key === 'financial') {
     if (role === 'ADMIN') return false;
-    if (!hasUserRole(user, 'ACCOUNTANT')) {
+    if (!hasUserRole(user, 'ACCOUNTANT') && role !== 'HR') {
       return false;
     }
   }

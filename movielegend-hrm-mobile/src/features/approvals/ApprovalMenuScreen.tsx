@@ -33,6 +33,16 @@ export function ApprovalMenuScreen() {
     roleCodes.includes('CHIEF_ACCOUNTANT') ||
     (user as any)?.role?.code === 'ACCOUNTANT';
 
+  const isHr =
+    roleCodes.includes('HR') ||
+    roleCodes.includes('HUMAN_RESOURCE') ||
+    roleCodes.includes('HR_MANAGER') ||
+    userDeptName.includes('nhân sự') ||
+    userDeptName.includes('hành chính') ||
+    (user as any)?.role?.code === 'HR';
+
+  const isFinancialReviewer = isAccountantOrAdmin || isHr;
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
@@ -168,8 +178,8 @@ export function ApprovalMenuScreen() {
               <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
             </Pressable>
 
-            {/* Item 4: Duyệt tài chính & Xuất Excel (Chỉ hiện khi là Accountant/Admin) */}
-            {isAccountantOrAdmin && (
+            {/* Item 4: Duyệt tài chính & Mua sắm (Accountant, Admin, HR) */}
+            {isFinancialReviewer && (
               <Pressable
                 style={styles.menuCard}
                 onPress={() => router.push(`${roleBase(user)}/financial-requests` as any)}
@@ -183,9 +193,13 @@ export function ApprovalMenuScreen() {
                   />
                 </View>
                 <View style={styles.menuCardInfo}>
-                  <Text style={styles.menuCardTitle}>Duyệt tài chính & Xuất Excel</Text>
+                  <Text style={styles.menuCardTitle}>
+                    {isAccountantOrAdmin ? 'Duyệt tài chính & Xuất Excel' : 'Đơn tài chính & Mua sắm'}
+                  </Text>
                   <Text style={styles.menuCardSubtitle}>
-                    Thanh toán, mua sắm, tạm ứng & xuất bảng kê 13 cột
+                    {isAccountantOrAdmin
+                      ? 'Thanh toán, mua sắm, tạm ứng & xuất bảng kê 13 cột'
+                      : 'Đối chứng báo giá, nhận tiền & xác nhận hoàn tất mua hàng'}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
