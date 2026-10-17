@@ -158,4 +158,9 @@ export async function fetchGroupMembers(groupId: string) {
   return unwrapData(response);
 }
 
+export async function deleteConversationApi(groupId: string) {
+  const response = await apiClient.delete<ApiResponse<{ success: boolean }>>(`/chat/groups/${groupId}`);
+  return unwrapData(response);
+}
+
 
