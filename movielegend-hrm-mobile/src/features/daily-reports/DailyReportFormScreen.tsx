@@ -26,6 +26,7 @@ import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { PageHeader } from '../../components/PageHeader';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
+import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
 import { useAuth } from '../../providers/AuthProvider';
 import {
   useMyTodayReport,
@@ -151,6 +152,59 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
 
   const toggleTaskExpand = (key: string) => {
     setExpandedTasks((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // Date Picker state cho chọn ngày Hạn chót
+  const [activeDatePicker, setActiveDatePicker] = useState<{
+    type: 'metric' | 'completed' | 'inProgress';
+    index: number;
+    initialDate?: Date;
+  } | null>(null);
+
+  const handleOpenDatePicker = (type: 'metric' | 'completed' | 'inProgress', index: number, currentValue?: string) => {
+    if (isSubmittedToday) return;
+    let parsedDate: Date | undefined;
+    if (currentValue) {
+      const d = new Date(currentValue);
+      if (!isNaN(d.getTime())) {
+        parsedDate = d;
+      } else {
+        const parts = currentValue.split(/[-/]/);
+        if (parts.length === 3) {
+          if (parts[0] && parts[0].length === 4) {
+            const d2 = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            if (!isNaN(d2.getTime())) parsedDate = d2;
+          } else if (parts[2] && parts[2].length === 4) {
+            const d2 = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            if (!isNaN(d2.getTime())) parsedDate = d2;
+          }
+        }
+      }
+    }
+    setActiveDatePicker({
+      type,
+      index,
+      initialDate: parsedDate || new Date(),
+    });
+  };
+
+  const handleSelectDate = (date: Date) => {
+    if (!activeDatePicker) return;
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    const { type, index } = activeDatePicker;
+    if (type === 'metric') {
+      handleUpdateMetric(index, 'deadline', dateStr);
+    } else if (type === 'completed') {
+      handleUpdateCompletedTaskField(index, 'deadline', dateStr);
+    } else if (type === 'inProgress') {
+      handleUpdateInProgressTask(index, 'expectedDate', dateStr);
+      handleUpdateInProgressTask(index, 'deadline', dateStr);
+    }
+    setActiveDatePicker(null);
   };
 
   // STEP 3: XÁC NHẬN
@@ -1023,14 +1077,26 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                           </View>
 
                           <Text style={[styles.inputLabel, { marginTop: 6 }]}>Hạn chót (Deadline)</Text>
-                          <TextInput
-                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                            placeholder="Ví dụ: 17:30, 2026-10-17, Hôm nay…"
-                            placeholderTextColor="#94A3B8"
-                            value={m.deadline || ''}
-                            onChangeText={(v) => handleUpdateMetric(idx, 'deadline', v)}
-                            editable={!isSubmittedToday}
-                          />
+                          <View style={styles.dateInputWrapper}>
+                            <TextInput
+                              style={[styles.textInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
+                              placeholder="Ví dụ: 2026-10-17, 17:30, Hôm nay…"
+                              placeholderTextColor="#94A3B8"
+                              value={m.deadline || ''}
+                              onChangeText={(v) => handleUpdateMetric(idx, 'deadline', v)}
+                              editable={!isSubmittedToday}
+                            />
+                            {!isSubmittedToday && (
+                              <TouchableOpacity
+                                style={styles.datePickerBtn}
+                                onPress={() => handleOpenDatePicker('metric', idx, m.deadline)}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Ionicons name="calendar-outline" size={18} color="#166534" />
+                              </TouchableOpacity>
+                            )}
+                          </View>
 
                           {/* 1. Hạng mục công việc (Nhập tên tự do hoặc chọn gợi ý) */}
                           <Text style={[styles.drawerFieldLabel, { marginTop: 8 }]}>Hạng mục công việc (Nhập tên hoặc chọn gợi ý)</Text>
@@ -1324,14 +1390,26 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                               />
 
                               <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Hạn chót</Text>
-                              <TextInput
-                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Ví dụ: 17:30, 2026-10-17, Hôm nay…"
-                                placeholderTextColor="#94A3B8"
-                                value={t.deadline || ''}
-                                onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'deadline', v)}
-                                editable={!isSubmittedToday}
-                              />
+                              <View style={styles.dateInputWrapper}>
+                                <TextInput
+                                  style={[styles.drawerInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
+                                  placeholder="Ví dụ: 2026-10-17, 17:30, Hôm nay…"
+                                  placeholderTextColor="#94A3B8"
+                                  value={t.deadline || ''}
+                                  onChangeText={(v) => handleUpdateCompletedTaskField(idx, 'deadline', v)}
+                                  editable={!isSubmittedToday}
+                                />
+                                {!isSubmittedToday && (
+                                  <TouchableOpacity
+                                    style={styles.datePickerBtn}
+                                    onPress={() => handleOpenDatePicker('completed', idx, t.deadline)}
+                                    activeOpacity={0.7}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  >
+                                    <Ionicons name="calendar-outline" size={18} color="#166534" />
+                                  </TouchableOpacity>
+                                )}
+                              </View>
 
                               {/* 1. Chọn Hạng mục (Category) */}
                               <Text style={[styles.drawerFieldLabel, { marginTop: 6 }]}>Hạng mục công việc (Nhập tên hoặc chọn gợi ý)</Text>
@@ -1554,17 +1632,29 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                             </View>
                             <View style={{ flex: 1 }}>
                               <Text style={styles.inputLabel}>Dự kiến xong / Hạn chót</Text>
-                              <TextInput
-                                style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Ví dụ: Ngày mai, 22/09…"
-                                placeholderTextColor="#94A3B8"
-                                value={t.expectedDate || t.deadline || ''}
-                                onChangeText={(v) => {
-                                  handleUpdateInProgressTask(idx, 'expectedDate', v);
-                                  handleUpdateInProgressTask(idx, 'deadline', v);
-                                }}
-                                editable={!isSubmittedToday}
-                              />
+                              <View style={styles.dateInputWrapper}>
+                                <TextInput
+                                  style={[styles.textInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
+                                  placeholder="Ví dụ: 2026-10-17, Ngày mai…"
+                                  placeholderTextColor="#94A3B8"
+                                  value={t.expectedDate || t.deadline || ''}
+                                  onChangeText={(v) => {
+                                    handleUpdateInProgressTask(idx, 'expectedDate', v);
+                                    handleUpdateInProgressTask(idx, 'deadline', v);
+                                  }}
+                                  editable={!isSubmittedToday}
+                                />
+                                {!isSubmittedToday && (
+                                  <TouchableOpacity
+                                    style={styles.datePickerBtn}
+                                    onPress={() => handleOpenDatePicker('inProgress', idx, t.expectedDate || t.deadline)}
+                                    activeOpacity={0.7}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  >
+                                    <Ionicons name="calendar-outline" size={18} color="#166534" />
+                                  </TouchableOpacity>
+                                )}
+                              </View>
                             </View>
                           </View>
 
@@ -2569,6 +2659,16 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         title={pdfPreviewTitle}
         onClose={() => setPdfPreviewUrl(null)}
       />
+
+      {/* ========================================================================= */}
+      {/* DATE PICKER MODAL (CHỌN LỊCH HẠN CHÓT)                                    */}
+      {/* ========================================================================= */}
+      <CustomDatePickerModal
+        visible={!!activeDatePicker}
+        onClose={() => setActiveDatePicker(null)}
+        onSelect={handleSelectDate}
+        initialDate={activeDatePicker?.initialDate}
+      />
     </View>
   );
 }
@@ -3016,6 +3116,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderColor: '#E2E8F0',
     color: '#334155',
+  },
+  dateInputWrapper: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  dateInputWithBtn: {
+    paddingRight: 42,
+  },
+  datePickerBtn: {
+    position: 'absolute',
+    right: 8,
+    top: 6,
+    width: 30,
+    height: 30,
+    borderRadius: 7,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   quantPairRow: {
     flexDirection: 'row',
