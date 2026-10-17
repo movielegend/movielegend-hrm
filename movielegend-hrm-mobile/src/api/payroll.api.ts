@@ -57,6 +57,10 @@ export interface MonthlyPayslipData {
   status: string;
   calculatedAt?: string;
   employeeAcknowledgedAt?: string | null;
+  employeeFeedbackStatus?: string | null;
+  employeeFeedbackNote?: string | null;
+  employeeFeedbackAt?: string | null;
+  isDisputed?: boolean;
   employee: {
     fullName: string;
     userCode: string;
@@ -145,6 +149,58 @@ export async function acknowledgePayslip(id: string): Promise<{ success: boolean
   return unwrapData(response);
 }
 
+export interface SubmitPayslipFeedbackPayload {
+  action: 'CONFIRM' | 'REJECT';
+  note?: string;
+  month?: number;
+  year?: number;
+  payrollId?: string;
+}
+
+export async function submitPayslipFeedback(payload: SubmitPayslipFeedbackPayload): Promise<{ success: boolean; message: string; data?: any }> {
+  try {
+    const endpoint = payload.payrollId
+      ? `/payrolls/my/${payload.payrollId}/acknowledge`
+      : `/payrolls/my/feedback`;
+    const response = await apiClient.post<ApiResponse<any>>(endpoint, payload);
+    return unwrapData(response);
+  } catch (err: any) {
+    if (payload.action === 'CONFIRM' && payload.payrollId) {
+      const res = await acknowledgePayslip(payload.payrollId);
+      return { success: true, message: res.message, data: res };
+    }
+    throw err;
+  }
+}
+
+export async function notifyLeaderPayslipDispute(payload: {
+  departmentId: string;
+  userId: string;
+  employeeName: string;
+  note: string;
+  month: number;
+  year: number;
+}): Promise<{ success: boolean; message: string }> {
+  try {
+    await apiClient.post<ApiResponse<any>>('/notifications', {
+      targetDepartmentId: payload.departmentId,
+      title: `Yêu cầu điều chỉnh phiếu lương - ${payload.employeeName}`,
+      body: `Kế toán yêu cầu kiểm tra và điều chỉnh phiếu lương tháng ${payload.month}/${payload.year} cho ${payload.employeeName}: "${payload.note}"`,
+      type: 'PAYSLIP_DISPUTE_FORWARDED',
+      metadata: {
+        screen: 'DepartmentLabeling',
+        departmentId: payload.departmentId,
+        month: payload.month,
+        year: payload.year,
+        disputeUserId: payload.userId,
+      },
+    });
+  } catch (e) {
+    // Không làm gián đoạn luồng nếu notification bị lỗi
+  }
+  return { success: true, message: 'Đã gửi yêu cầu điều chỉnh đến Leader phòng ban' };
+}
+
 export interface UploadPayslipImagePayload {
   userId?: string;
   month: number;
@@ -173,6 +229,13 @@ export interface CompanyPayslipEmployee {
   hasData: boolean;
   finalOfficialImageUrl?: string | null;
   employeeAcknowledgedAt?: string | null;
+  feedbackStatus?: string | null;
+  feedbackNote?: string | null;
+  feedbackAt?: string | null;
+  employeeFeedbackStatus?: string | null;
+  employeeFeedbackNote?: string | null;
+  employeeFeedbackAt?: string | null;
+  isDisputed?: boolean;
 }
 
 export interface CompanyPayslipsResponse {
@@ -201,6 +264,9 @@ export interface DepartmentBatchImage {
   assignedUserName?: string | null;
   labeledById?: string | null;
   labeledAt?: string | null;
+  feedbackStatus?: string | null;
+  feedbackNote?: string | null;
+  isDisputed?: boolean;
 }
 
 export interface DepartmentBatchEmployee {
@@ -212,6 +278,10 @@ export interface DepartmentBatchEmployee {
   hasPayslip: boolean;
   assignedImageId?: string | null;
   assignedImageUrl?: string | null;
+  feedbackStatus?: string | null;
+  feedbackNote?: string | null;
+  feedbackAt?: string | null;
+  isDisputed?: boolean;
 }
 
 export interface DepartmentPayslipBatchResponse {

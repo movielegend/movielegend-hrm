@@ -36,7 +36,10 @@ export function FinancialRequestsScreen() {
   const rolePrefix = getRoleBaseRoute(user);
   const isAccountant = hasUserRole(user, 'ACCOUNTANT');
   const isAdmin = hasUserRole(user, 'ADMIN');
-  const canAccess = isAccountant || isAdmin;
+  const isHr =
+    hasUserRole(user, 'HR') ||
+    (user as any)?.roles?.some((r: any) => String(r?.code || r?.name || r).toUpperCase().includes('HR'));
+  const canAccess = isAccountant || isAdmin || isHr;
   const canExportExcel = isAccountingLeader(user);
 
   const [activeTab, setActiveTab] = useState<EmployeeRequestStatus>('PENDING');

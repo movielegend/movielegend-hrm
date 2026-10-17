@@ -46,6 +46,7 @@ export function DepartmentLabelingModal({
   const [isAssigning, setIsAssigning] = useState(false);
   const [isImageViewerVisible, setIsImageViewerVisible] = useState(false);
   const [filterMode, setFilterMode] = useState<'ALL' | 'UNASSIGNED' | 'ASSIGNED'>('UNASSIGNED');
+  const [disputeOnlyFilter, setDisputeOnlyFilter] = useState(false);
 
   const loadBatch = useCallback(async () => {
     try {
@@ -67,6 +68,7 @@ export function DepartmentLabelingModal({
     if (visible) {
       loadBatch();
       setSelectedImageIndex(0);
+      setDisputeOnlyFilter(false);
     }
   }, [visible, loadBatch]);
 
@@ -83,6 +85,13 @@ export function DepartmentLabelingModal({
 
   const currentImage: DepartmentBatchImage | undefined = allImages[selectedImageIndex];
 
+  const disputeCount = React.useMemo(() => {
+    if (!batchData?.employees) return 0;
+    return batchData.employees.filter(
+      (e) => e.isDisputed || e.feedbackStatus === 'REJECTED'
+    ).length;
+  }, [batchData]);
+
   const handleAssignToUser = async (targetUserId: string, targetUserName: string) => {
     if (!currentImage || !batchData) return;
     try {
@@ -93,6 +102,19 @@ export function DepartmentLabelingModal({
         year,
         imageId: currentImage.id,
         targetUserId,
+      });
+
+      // Optimistically giải tỏa khiếu nại ngay trên giao diện
+      setBatchData((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          employees: prev.employees.map((e) =>
+            e.userId === targetUserId
+              ? { ...e, isDisputed: false, feedbackStatus: null, feedbackNote: null }
+              : e
+          ),
+        };
       });
 
       CustomAlert.alert(
@@ -137,15 +159,19 @@ export function DepartmentLabelingModal({
 
   const filteredEmployees = React.useMemo(() => {
     if (!batchData) return [];
+    let list = batchData.employees;
+    if (disputeOnlyFilter) {
+      list = list.filter((e) => e.isDisputed || e.feedbackStatus === 'REJECTED');
+    }
     const q = searchEmployee.toLowerCase().trim();
-    if (!q) return batchData.employees;
-    return batchData.employees.filter(
+    if (!q) return list;
+    return list.filter(
       (e) =>
         e.fullName.toLowerCase().includes(q) ||
         e.userCode.toLowerCase().includes(q) ||
         e.positionName.toLowerCase().includes(q)
     );
-  }, [batchData, searchEmployee]);
+  }, [batchData, searchEmployee, disputeOnlyFilter]);
 
   const totalAssignedCount = batchData?.assignedImages.length || 0;
   const totalImagesCount = batchData?.totalImages || 0;
@@ -356,6 +382,30 @@ export function DepartmentLabelingModal({
 
               {/* 4. Employee Picker List */}
               <View style={styles.employeeSection}>
+                {disputeCount > 0 && (
+                  <Pressable
+                    style={[
+                      styles.disputeNoticePill,
+                      disputeOnlyFilter && styles.disputeNoticePillActive,
+                    ]}
+                    onPress={() => setDisputeOnlyFilter((prev) => !prev)}
+                  >
+                    <MaterialCommunityIcons
+                      name="alert-circle"
+                      size={15}
+                      color={disputeOnlyFilter ? '#FFFFFF' : '#DC2626'}
+                    />
+                    <Text
+                      style={[
+                        styles.disputeNoticePillText,
+                        disputeOnlyFilter && styles.disputeNoticePillTextActive,
+                      ]}
+                    >
+                      Có {disputeCount} nhân sự khiếu nại {disputeOnlyFilter ? '(Đang lọc)' : '• Bấm để lọc'}
+                    </Text>
+                  </Pressable>
+                )}
+
                 <View style={styles.searchBar}>
                   <MaterialCommunityIcons name="magnify" size={18} color="#94A3B8" />
                   <TextInput
@@ -379,6 +429,7 @@ export function DepartmentLabelingModal({
                     const assignedOtherImage = batchData?.assignedImages.find(
                       (img) => img.assignedUserId === emp.userId && img.id !== currentImage?.id
                     );
+                    const isDisputed = Boolean(emp.isDisputed || emp.feedbackStatus === 'REJECTED');
 
                     return (
                       <View
@@ -386,6 +437,7 @@ export function DepartmentLabelingModal({
                         style={[
                           styles.empRowCard,
                           isAssignedToThisImage && styles.empRowCardCurrent,
+                          isDisputed && styles.empRowCardDisputed,
                         ]}
                       >
                         <View
@@ -393,6 +445,7 @@ export function DepartmentLabelingModal({
                             styles.empAvatar,
                             isAssignedToThisImage && styles.empAvatarCurrent,
                             Boolean(assignedOtherImage) && styles.empAvatarOther,
+                            isDisputed && styles.empAvatarDisputed,
                           ]}
                         >
                           <Text
@@ -400,6 +453,7 @@ export function DepartmentLabelingModal({
                               styles.empAvatarText,
                               isAssignedToThisImage && styles.empAvatarTextCurrent,
                               Boolean(assignedOtherImage) && styles.empAvatarTextOther,
+                              isDisputed && styles.empAvatarTextDisputed,
                             ]}
                           >
                             {emp.fullName.charAt(0).toUpperCase()}
@@ -426,6 +480,24 @@ export function DepartmentLabelingModal({
                           <Text style={styles.empSub}>
                             {emp.userCode} • {emp.positionName}
                           </Text>
+
+                          {/* Dispute note alert */}
+                          {isDisputed && (
+                            <View style={styles.disputeEmpRowBox}>
+                              <View style={styles.disputeEmpRowHeader}>
+                                <MaterialCommunityIcons name="alert-circle" size={13} color="#DC2626" />
+                                <Text style={styles.disputeEmpRowTitle}>Có khiếu nại</Text>
+                              </View>
+                              {emp.feedbackNote ? (
+                                <Text style={styles.disputeEmpRowNote} numberOfLines={2}>
+                                  &ldquo;{emp.feedbackNote}&rdquo;
+                                </Text>
+                              ) : null}
+                              <Text style={styles.disputeEmpRowHint}>
+                                Gán ảnh đúng để giải tỏa khiếu nại
+                              </Text>
+                            </View>
+                          )}
                         </View>
 
                         {isAssignedToThisImage ? (
@@ -965,5 +1037,74 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#059669',
+  },
+
+  /* ── Dispute notice & badges ── */
+  disputeNoticePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
+  disputeNoticePillActive: {
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
+  },
+  disputeNoticePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  disputeNoticePillTextActive: {
+    color: '#FFFFFF',
+  },
+  empRowCardDisputed: {
+    borderColor: '#FCA5A5',
+    borderWidth: 1.5,
+    backgroundColor: '#FFFBFB',
+  },
+  empAvatarDisputed: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
+  },
+  empAvatarTextDisputed: {
+    color: '#DC2626',
+  },
+  disputeEmpRowBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    padding: 6,
+    marginTop: 6,
+  },
+  disputeEmpRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  disputeEmpRowTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  disputeEmpRowNote: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: '#991B1B',
+    marginTop: 2,
+  },
+  disputeEmpRowHint: {
+    fontSize: 10,
+    color: '#B91C1C',
+    marginTop: 2,
+    fontWeight: '600',
   },
 });

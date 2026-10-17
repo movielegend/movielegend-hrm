@@ -120,3 +120,81 @@ export function mapTaskError(code: string, fallback: string): string {
   return map[code] ?? fallback;
 }
 
+export interface TaskMeta {
+  status: string | null;
+  progress: number | null;
+  note: string | null;
+  creatorId: string | null;
+  creatorName: string | null;
+  creatorCode: string | null;
+  cleanDescription: string;
+}
+
+export function extractTaskMeta(description?: string | null): TaskMeta {
+  if (!description) {
+    return {
+      status: null,
+      progress: null,
+      note: null,
+      creatorId: null,
+      creatorName: null,
+      creatorCode: null,
+      cleanDescription: '',
+    };
+  }
+  const match = description.match(/\[META:(.*?)\]/);
+  if (!match) {
+    return {
+      status: null,
+      progress: null,
+      note: null,
+      creatorId: null,
+      creatorName: null,
+      creatorCode: null,
+      cleanDescription: description.trim(),
+    };
+  }
+
+  const rawMeta = match[1] || '';
+  const cleanDescription = description.replace(/\s*\[META:.*?\]\s*/g, '').trim();
+
+  const parts = rawMeta.split(';');
+  const meta: Record<string, string> = {};
+  for (const part of parts) {
+    const [k, v] = part.split('=');
+    if (k && v !== undefined) meta[k] = v;
+  }
+
+  let note: string | null = null;
+  if (meta.NOTE) {
+    try {
+      note = decodeURIComponent(meta.NOTE);
+    } catch {
+      note = meta.NOTE;
+    }
+  }
+
+  let creatorName: string | null = null;
+  if (meta.CREATOR_NAME) {
+    try {
+      creatorName = decodeURIComponent(meta.CREATOR_NAME);
+    } catch {
+      creatorName = meta.CREATOR_NAME;
+    }
+  }
+
+  return {
+    status: meta.STATUS || null,
+    progress: meta.PROGRESS !== undefined && meta.PROGRESS !== null && meta.PROGRESS !== '' ? Number(meta.PROGRESS) : null,
+    note,
+    creatorId: meta.CREATOR_ID || null,
+    creatorName,
+    creatorCode: meta.CREATOR_CODE || null,
+    cleanDescription,
+  };
+}
+
+export function cleanTaskDescription(description?: string | null): string {
+  return extractTaskMeta(description).cleanDescription;
+}
+

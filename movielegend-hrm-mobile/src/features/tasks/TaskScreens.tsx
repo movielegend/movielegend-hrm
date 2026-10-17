@@ -77,7 +77,7 @@ import {
   TaskTimeline,
   translatePriority,
 } from './TaskComponents';
-import { canAcceptAssignment, canStartAssignment, canSubmitAssignment, canUpdateProgress, mapTaskError, myAssignment, canCancelTask, isReadOnlyStatus } from './task.logic';
+import { canAcceptAssignment, canStartAssignment, canSubmitAssignment, canUpdateProgress, mapTaskError, myAssignment, canCancelTask, isReadOnlyStatus, extractTaskMeta, cleanTaskDescription } from './task.logic';
 
 type TaskArea = 'employee' | 'leader' | 'admin' | 'hr';
 
@@ -1044,11 +1044,46 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
             ) : null}
           </View>
 
-          {item.description ? (
-            <Text style={{ fontSize: 14, color: '#475569', marginTop: 10, lineHeight: 20 }}>
-              {item.description}
-            </Text>
-          ) : null}
+          {(() => {
+            const meta = extractTaskMeta(item.description);
+            const isSystemAutoNote = meta.note && [
+              'Duyệt hoàn thành qua kéo thả',
+              'Duyệt hoàn thành công việc',
+              'Nộp kết quả chờ phê duyệt',
+            ].includes(meta.note);
+            const showCustomNote = meta.note && !isSystemAutoNote;
+
+            if (!meta.cleanDescription && !showCustomNote) return null;
+
+            return (
+              <View style={{ marginTop: 10 }}>
+                {meta.cleanDescription ? (
+                  <Text style={{ fontSize: 14, color: '#475569', lineHeight: 20 }}>
+                    {meta.cleanDescription}
+                  </Text>
+                ) : null}
+                {showCustomNote ? (
+                  <View style={{
+                    marginTop: meta.cleanDescription ? 8 : 0,
+                    paddingHorizontal: 10,
+                    paddingVertical: 7,
+                    backgroundColor: '#F8FAFC',
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                    borderRadius: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}>
+                    <MaterialCommunityIcons name="information-outline" size={15} color="#64748B" />
+                    <Text style={{ fontSize: 12.5, color: '#334155', flex: 1, fontWeight: '500' }}>
+                      Ghi chú: {meta.note}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            );
+          })()}
 
           {/* 2-Column Date Box */}
           <View style={{
@@ -2660,9 +2695,44 @@ function AdminTaskDetailScreen({ id }: { id?: string }) {
               </Text>
             </View>
           </View>
-          {item.description ? (
-            <Text style={adminStyles.detailTaskDesc}>{item.description}</Text>
-          ) : null}
+          {(() => {
+            const meta = extractTaskMeta(item.description);
+            const isSystemAutoNote = meta.note && [
+              'Duyệt hoàn thành qua kéo thả',
+              'Duyệt hoàn thành công việc',
+              'Nộp kết quả chờ phê duyệt',
+            ].includes(meta.note);
+            const showCustomNote = meta.note && !isSystemAutoNote;
+
+            if (!meta.cleanDescription && !showCustomNote) return null;
+
+            return (
+              <View style={{ marginTop: 4 }}>
+                {meta.cleanDescription ? (
+                  <Text style={adminStyles.detailTaskDesc}>{meta.cleanDescription}</Text>
+                ) : null}
+                {showCustomNote ? (
+                  <View style={{
+                    marginTop: meta.cleanDescription ? 8 : 0,
+                    paddingHorizontal: 10,
+                    paddingVertical: 7,
+                    backgroundColor: '#F8FAFC',
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                    borderRadius: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}>
+                    <MaterialCommunityIcons name="information-outline" size={15} color="#64748B" />
+                    <Text style={{ fontSize: 12.5, color: '#334155', flex: 1, fontWeight: '500' }}>
+                      Ghi chú: {meta.note}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            );
+          })()}
         </View>
 
         <View style={adminStyles.cardBox}>

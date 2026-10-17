@@ -71,6 +71,7 @@ import {
 import { usePinnedApps } from '../../hooks/usePinnedApps';
 import { APP_REGISTRY, getAppRoute, getAppTitle, AppRegistryItem } from '../../constants/app-registry';
 import { AllServicesModal, renderAppIcon } from './components/AllServicesModal';
+import { DashboardNewsCarousel } from './components/DashboardNewsCarousel';
 import { LiveClockText } from '../../components/common/LiveClockText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -856,55 +857,12 @@ export function EmployeeDashboardScreen() {
             )}
           </View>
 
-          {/* ================= 7. BẢNG TIN NỘI BỘ (Chỉ hiển thị khi có bài viết thật) ================= */}
-          {latestPost && (
-            <View style={styles.sectionContainer}>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionMainTitle}>Bảng tin nội bộ</Text>
-                <Pressable onPress={() => router.push('/employee/newsfeed' as any)}>
-                  <Text style={styles.customizeLink}>Xem tất cả &gt;</Text>
-                </Pressable>
-              </View>
-
-              <Pressable
-                style={styles.newsCard}
-                onPress={() => router.push('/employee/newsfeed' as any)}
-              >
-                <DashboardNewsThumbnail
-                  imageUrl={
-                    (latestPost as any)?.images?.[0] ||
-                    (latestPost as any)?.coverUrl ||
-                    (Array.isArray((latestPost as any)?.attachments)
-                      ? (latestPost as any).attachments.find(
-                          (a: any) => typeof a === 'string' && !a.startsWith('layout:') && /\.(jpg|jpeg|png|webp|gif)/i.test(a)
-                        )
-                      : null)
-                  }
-                  iconSize={28}
-                />
-
-                <View style={styles.newsContent}>
-                  <View style={styles.newsTagPill}>
-                    <Text style={styles.newsTagText}>NỘI BỘ</Text>
-                  </View>
-
-                  <Text style={styles.newsTitle} numberOfLines={2}>
-                    {(latestPost as any)?.title || (latestPost as any)?.content?.substring(0, 50) || 'Tin nội bộ'}
-                  </Text>
-
-                  <Text style={styles.newsSubtitle} numberOfLines={1}>
-                    {(latestPost as any)?.author?.profile?.fullName
-                      ? `Bởi ${(latestPost as any).author.profile.fullName}`
-                      : (latestPost as any)?.author?.userCode
-                      ? `Bởi ${(latestPost as any).author.userCode}`
-                      : 'Bởi Ban Quản Trị'}
-                  </Text>
-                </View>
-
-                <ChevronRight size={18} color="#94A3B8" strokeWidth={2} />
-              </Pressable>
-            </View>
-          )}
+          {/* ================= 7. BẢNG TIN NỘI BỘ (Slider lướt ngang Top 5 bài viết) ================= */}
+          <DashboardNewsCarousel
+            posts={newsPosts}
+            role="EMPLOYEE"
+            newsfeedRoute="/employee/newsfeed"
+          />
         </View>
       </ScrollView>
 
