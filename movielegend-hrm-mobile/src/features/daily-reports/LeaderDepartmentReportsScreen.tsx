@@ -554,7 +554,17 @@ export function LeaderDepartmentReportsScreen() {
           }}>
             <StatusBar barStyle="light-content" backgroundColor="#102739" />
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Pressable onPress={() => router.back()} style={{ padding: 4, marginLeft: -4 }} hitSlop={10}>
+              <Pressable
+                onPress={() => {
+                  if (router.canGoBack()) {
+                    router.back();
+                  } else {
+                    setScope('team');
+                  }
+                }}
+                style={{ padding: 4, marginLeft: -4 }}
+                hitSlop={10}
+              >
                 <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
               </Pressable>
               <Text style={{

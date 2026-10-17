@@ -606,23 +606,22 @@ export class DailyReportsService {
       console.warn('[DailyReports] Auto carryover lookup failed:', e);
     }
 
-    const defaultMetrics = carriedOverMetrics.length > 0
-      ? carriedOverMetrics
-      : [
-          {
-            name: '',
-            value: '',
-            note: '',
-            category: 'Vận hành',
-            taskType: 'THEO_KE_HOACH',
-            priority: 'MEDIUM',
-            status: 'IN_PROGRESS',
-            progress: 50,
-            deadline: '',
-            description: '',
-            isCarriedOver: false,
-          },
-        ];
+    // Mặc định luôn chỉ có 1 nhiệm vụ làm mẫu ban đầu, người dùng muốn thêm sẽ bấm "+ Thêm nhiệm vụ"
+    const defaultMetrics = [
+      {
+        name: '',
+        value: '',
+        note: '',
+        category: 'Vận hành',
+        taskType: 'THEO_KE_HOACH',
+        priority: 'MEDIUM',
+        status: 'IN_PROGRESS',
+        progress: 50,
+        deadline: '',
+        description: '',
+        isCarriedOver: false,
+      },
+    ];
 
     return {
       id: null,

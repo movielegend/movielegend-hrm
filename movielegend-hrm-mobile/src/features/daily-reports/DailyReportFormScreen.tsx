@@ -327,9 +327,13 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
             isCarriedOver: Boolean(m.isCarriedOver),
           }));
 
-        if (validMetrics.length > 0) {
+        if (isSubmittedToday && validMetrics.length > 0) {
+          setMetrics(validMetrics);
+        } else if (reportData.id && validMetrics.some((m: any) => (m.name || '').trim().length > 0)) {
+          // Báo cáo nháp đã được lưu trước đó với nội dung do người dùng nhập
           setMetrics(validMetrics);
         } else if (!isSubmittedToday) {
+          // Mặc định luôn chỉ có 1 nhiệm vụ làm mẫu ban đầu, người dùng muốn thêm sẽ bấm "+ Thêm nhiệm vụ"
           setMetrics([
             {
               name: '',
@@ -417,19 +421,10 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         setSelfReview(reportData.selfReview);
       }
       setIsInitializing(false);
-
-      // Nếu chưa có báo cáo hôm nay và danh sách rỗng -> tự động kéo từ Web
-      if (reportData.status !== 'SUBMITTED' && reportData.status !== 'REVIEWED') {
-        const hasTasks = reportData.metrics?.some((m: any) => (m.name || '').trim().length > 0);
-        if (!hasTasks) {
-          handleSyncFromWeb(true);
-        }
-      }
     } else if (!todayReportQuery.isLoading) {
       setIsInitializing(false);
-      handleSyncFromWeb(true);
     }
-  }, [reportData, todayReportQuery.isLoading]);
+  }, [reportData, todayReportQuery.isLoading, isSubmittedToday]);
 
   // Format ngày tiếng Việt
   const displayDate = useMemo(() => {
