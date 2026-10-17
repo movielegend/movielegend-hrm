@@ -750,7 +750,6 @@ export function EmployeeDashboardScreen() {
             >
               <View style={styles.actionCardLeft}>
                 <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
-                  <View pointerEvents="none" style={styles.actionIconGloss} />
                   <FileText size={22} color="#102739" strokeWidth={2.2} />
                 </View>
                 <View style={styles.actionCardTexts}>
@@ -776,7 +775,6 @@ export function EmployeeDashboardScreen() {
             >
               <View style={styles.actionCardLeft}>
                 <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
-                  <View pointerEvents="none" style={styles.actionIconGloss} />
                   <Clock size={22} color="#102739" strokeWidth={2.2} />
                 </View>
                 <View style={styles.actionCardTexts}>
@@ -1304,16 +1302,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 5,
     elevation: 2,
-  },
-  actionIconGloss: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 18,
-    borderTopLeftRadius: 13,
-    borderTopRightRadius: 13,
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
   },
   actionCardTexts: {
     flex: 1,

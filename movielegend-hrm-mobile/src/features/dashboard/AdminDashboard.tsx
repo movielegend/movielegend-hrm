@@ -1166,16 +1166,6 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 2,
   },
-  actionIconGloss: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 18,
-    borderTopLeftRadius: 13,
-    borderTopRightRadius: 13,
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
-  },
   actionCardTexts: {
     flex: 1,
   },

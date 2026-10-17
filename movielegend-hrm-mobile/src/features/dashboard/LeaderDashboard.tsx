@@ -136,6 +136,14 @@ export function LeaderDashboard() {
   const pendingCount = pendingRequests.length;
   const dueTaskCount = myTasksUncompletedCount;
 
+  const pendingFinancialCount = useMemo(() => {
+    return pendingRequests.filter((r: any) => {
+      const isFin = r.type === 'ADVANCE' || r.type === 'EXPENSE' || r.type === 'PURCHASE';
+      const stage = r.attachmentMetadata?.stage;
+      return isFin && (!stage || stage === 'PENDING_LEADER' || stage === 'PENDING');
+    }).length;
+  }, [pendingRequests]);
+
   // Feedbacks for Leader
   const { data: leaderFeedbacksData } = useFeedbacksForManagement({ limit: 5 });
   const latestFeedback = useMemo(() => {
@@ -745,12 +753,11 @@ export function LeaderDashboard() {
             >
               <View style={styles.actionCardLeft}>
                 <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
-                  <View pointerEvents="none" style={styles.actionIconGloss} />
                   <FileText size={22} color="#102739" strokeWidth={2.2} />
                 </View>
                 <View style={styles.actionCardTexts}>
                   <Text style={styles.actionCardTitle}>Đơn chờ duyệt</Text>
-                  <Text style={styles.actionCardDesc}>Nghỉ phép, tăng ca</Text>
+                  <Text style={styles.actionCardDesc}>Nghỉ phép, tăng ca, tài chính</Text>
                 </View>
               </View>
 
@@ -771,7 +778,6 @@ export function LeaderDashboard() {
             >
               <View style={styles.actionCardLeft}>
                 <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
-                  <View pointerEvents="none" style={styles.actionIconGloss} />
                   <Clock size={22} color="#102739" strokeWidth={2.2} />
                 </View>
                 <View style={styles.actionCardTexts}>
@@ -871,6 +877,7 @@ export function LeaderDashboard() {
         pendingCounts={{
           pendingRequests: pendingCount,
           dueTasks: dueTaskCount,
+          pendingFinancial: pendingFinancialCount,
         }}
       />
     </Screen>
@@ -1393,16 +1400,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 5,
     elevation: 2,
-  },
-  actionIconGloss: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 18,
-    borderTopLeftRadius: 13,
-    borderTopRightRadius: 13,
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
   },
   actionCardTexts: {
     flex: 1,

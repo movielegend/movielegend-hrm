@@ -274,9 +274,12 @@ export function CreateFeedbackScreen() {
       setIsUploading(true);
       let imgUrl = data.img;
       if (imageUri) {
+        const rawName = imageUri.split('/').pop() || 'feedback-img';
+        const hasExt = /\.[a-zA-Z0-9]+$/.test(rawName);
+        const fileName = hasExt ? rawName : `${rawName}.jpg`;
         const uploaded = await uploadFile({
           uri: imageUri,
-          name: imageUri.split('/').pop() || 'feedback-img.jpg',
+          name: fileName,
           mimeType: 'image/jpeg',
           purpose: 'ASSET_INCIDENT',
         });

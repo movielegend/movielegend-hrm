@@ -39,8 +39,18 @@ export function FinancialRequestsScreen() {
   const isHr =
     hasUserRole(user, 'HR') ||
     (user as any)?.roles?.some((r: any) => String(r?.code || r?.name || r).toUpperCase().includes('HR'));
-  const canAccess = isAccountant || isAdmin || isHr;
+  const isLeader =
+    hasUserRole(user, 'LEADER') ||
+    (user as any)?.roles?.some((r: any) => String(r?.code || r?.name || r).toUpperCase().includes('LEADER')) ||
+    Boolean((user as any)?.isDepartmentLeader);
+  const canAccess = isAccountant || isAdmin || isHr || isLeader;
   const canExportExcel = isAccountingLeader(user);
+
+  const headerSubtitle = isAccountant || isAdmin
+    ? 'Kế toán & Ban Giám Đốc'
+    : isHr
+    ? 'Nhân sự & Mua sắm'
+    : 'Trưởng bộ phận phê duyệt';
 
   const [activeTab, setActiveTab] = useState<EmployeeRequestStatus>('PENDING');
   const [selectedType, setSelectedType] = useState<EmployeeRequestType | 'ALL'>('ALL');
@@ -225,7 +235,7 @@ export function FinancialRequestsScreen() {
             </Pressable>
             <View style={styles.headerTitleWrap}>
               <Text style={styles.title} numberOfLines={1}>Duyệt Tài chính</Text>
-              <Text style={styles.subtitle} numberOfLines={1}>Kế toán & Ban Giám Đốc</Text>
+              <Text style={styles.subtitle} numberOfLines={1}>{headerSubtitle}</Text>
             </View>
           </View>
         </View>
