@@ -338,9 +338,14 @@ export function useDeleteConversation() {
   return useMutation({
     mutationFn: (groupId: string) => deleteConversationApi(groupId),
     onMutate: async (groupId: string) => {
-      await queryClient.cancelQueries({ queryKey: chatKeys.groups() });
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: chatKeys.groups() }),
+        queryClient.cancelQueries({ queryKey: chatKeys.allGroups() }),
+      ]);
 
       const prevGroups = queryClient.getQueryData<any[]>(chatKeys.groups());
+      const prevAllGroups = queryClient.getQueryData<any[]>(chatKeys.allGroups());
+
       if (Array.isArray(prevGroups)) {
         queryClient.setQueryData(
           chatKeys.groups(),
@@ -348,12 +353,17 @@ export function useDeleteConversation() {
         );
       }
 
-      return { prevGroups };
-    },
-    onError: (_err, _groupId, context) => {
-      if (context?.prevGroups) {
-        queryClient.setQueryData(chatKeys.groups(), context.prevGroups);
+      if (Array.isArray(prevAllGroups)) {
+        queryClient.setQueryData(
+          chatKeys.allGroups(),
+          prevAllGroups.filter((g) => g.id !== groupId)
+        );
       }
+
+      return { prevGroups, prevAllGroups };
+    },
+    onError: () => {
+      // Do not revert the filter from the list so user doesn't experience flickering
     },
     onSettled: (_data, _error, groupId) => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.groups() });

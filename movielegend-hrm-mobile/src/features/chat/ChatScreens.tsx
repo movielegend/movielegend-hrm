@@ -22,11 +22,13 @@ import {
   Animated,
   RefreshControl,
   StatusBar,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { requestMediaLibraryPermissionWithFallback } from '../../utils/mediaPermissions';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 import LottieView from 'lottie-react-native';
 import ImageViewing from '../../components/ImageViewer/ImageViewer';
 import { EmptyState } from '../../components/EmptyState';
@@ -41,7 +43,7 @@ import { useChatGroups, useAllChatGroups, useChatMessages, useSendMessage, useMa
 import { useScopedEmployees } from '../../hooks/useEmployees';
 import { usePublicDepartments } from '../../hooks/useDepartments';
 import { uploadFile } from '../../api/uploads.api';
-import { createDirectChat } from '../../api/chat.api';
+import { createDirectChat, sendChatMessage } from '../../api/chat.api';
 import { assertSocketUrl } from '../../constants/env';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { useVoiceCall } from '../voice-call/VoiceCallProvider';
@@ -69,6 +71,15 @@ function timeAgo(dateStr: string): string {
   if (hours < 24) return `${hours} giờ trước`;
   const days = Math.floor(hours / 24);
   return `${days} ngày trước`;
+}
+
+function formatMessageTime(dateStr?: string | Date): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
 }
 
 
@@ -232,13 +243,43 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
   const markAsRead = useMarkGroupAsRead();
   const createCustomChatMutation = useCreateCustomChat();
   const deleteConversationMutation = useDeleteConversation();
+  const [deletedConversationIds, setDeletedConversationIds] = useState<string[]>([]);
+
+  const getDeletedKey = (userId?: string) =>
+    `chat_deleted_conversations_${(userId || 'anonymous').replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const key = getDeletedKey(user.id);
+    SecureStore.getItemAsync(key).then((val) => {
+      if (val) {
+        try {
+          const parsed = JSON.parse(val);
+          if (Array.isArray(parsed)) {
+            setDeletedConversationIds(parsed);
+          }
+        } catch (e) {}
+      }
+    }).catch(() => {});
+  }, [user?.id]);
 
   function handlePromptDeleteConversation(group: any, groupName: string) {
     showConfirm({
       title: 'Xóa đoạn chat?',
       message: `Bạn có chắc chắn muốn xóa đoạn chat "${groupName}"? Toàn bộ lịch sử cuộc trò chuyện phía bạn sẽ bị xóa và không thể khôi phục.`,
       confirmLabel: 'Xóa',
+      confirmVariant: 'danger',
       onConfirm: () => {
+        // Optimistically hide conversation immediately
+        const nextDeleted = Array.from(new Set([...deletedConversationIds, group.id]));
+        setDeletedConversationIds(nextDeleted);
+        if (user?.id) {
+          const key = getDeletedKey(user.id);
+          SecureStore.setItemAsync(key, JSON.stringify(nextDeleted)).catch((e) => {
+            console.error('SecureStore error saving deleted conversations:', e);
+          });
+        }
+
         deleteConversationMutation.mutate(group.id, {
           onSuccess: () => {
             showAlert('Thành công', 'Đã xóa đoạn chat.');
@@ -259,16 +300,25 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
         uniqueMap.set(item.id, item);
       }
     }
-    return Array.from(uniqueMap.values()).sort((a: any, b: any) => {
-      const timeA = a.latestMessage?.createdAt
-        ? new Date(a.latestMessage.createdAt).getTime()
-        : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
-      const timeB = b.latestMessage?.createdAt
-        ? new Date(b.latestMessage.createdAt).getTime()
-        : (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
-      return timeB - timeA;
-    });
-  }, [groups.data]);
+    return Array.from(uniqueMap.values())
+      .filter((item: any) => {
+        if (!item?.id) return false;
+        // 1. Hide if deleted by current user
+        if (deletedConversationIds.includes(item.id)) return false;
+        // 2. Hide 1-1 direct chats without any message from Recent Conversations
+        if (item.type === 'DIRECT' && !item.latestMessage) return false;
+        return true;
+      })
+      .sort((a: any, b: any) => {
+        const timeA = a.latestMessage?.createdAt
+          ? new Date(a.latestMessage.createdAt).getTime()
+          : (a.updatedAt ? new Date(a.updatedAt).getTime() : 0);
+        const timeB = b.latestMessage?.createdAt
+          ? new Date(b.latestMessage.createdAt).getTime()
+          : (b.updatedAt ? new Date(b.updatedAt).getTime() : 0);
+        return timeB - timeA;
+      });
+  }, [groups.data, deletedConversationIds]);
 
   const departmentsQuery = usePublicDepartments({ limit: 100 });
   const employeesQuery = useScopedEmployees({ limit: 100 });
@@ -426,13 +476,22 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
         user?.roles?.includes('HR') ? '/hr/chat' :
           user?.roles?.includes('LEADER') ? '/leader/chat' : '/employee/chat';
 
-      // Check if direct chat already exists in user's chat groups
-      const existingGroup = groupItems.find((g: any) => {
+      // Check if direct chat already exists in user's chat groups (check raw data, not filtered groupItems)
+      const rawGroupsList = Array.isArray(groups.data) ? groups.data : [];
+      const existingGroup = rawGroupsList.find((g: any) => {
         if (g.type !== 'DIRECT') return false;
         return g.members?.some((m: any) => m.userId === leader.userId);
       });
 
       if (existingGroup) {
+        if (deletedConversationIds.includes(existingGroup.id)) {
+          const nextDeleted = deletedConversationIds.filter((id) => id !== existingGroup.id);
+          setDeletedConversationIds(nextDeleted);
+          if (user?.id) {
+            const key = getDeletedKey(user.id);
+            SecureStore.setItemAsync(key, JSON.stringify(nextDeleted)).catch(() => {});
+          }
+        }
         setLeaderModalVisible(false);
         router.push(`${basePath}/${existingGroup.id}?name=${encodeURIComponent(leader.fullName)}` as any);
         return;
@@ -441,9 +500,18 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
       // Create new direct chat
       const created = await createDirectChat(leader.userId);
       await queryClient.invalidateQueries({ queryKey: ['chat', 'my-groups'] });
+      await queryClient.invalidateQueries({ queryKey: ['chat', 'all-groups'] });
       setLeaderModalVisible(false);
       const groupId = created?.id || (created as any)?.data?.id;
       if (groupId) {
+        if (deletedConversationIds.includes(groupId)) {
+          const nextDeleted = deletedConversationIds.filter((id) => id !== groupId);
+          setDeletedConversationIds(nextDeleted);
+          if (user?.id) {
+            const key = getDeletedKey(user.id);
+            SecureStore.setItemAsync(key, JSON.stringify(nextDeleted)).catch(() => {});
+          }
+        }
         router.push(`${basePath}/${groupId}?name=${encodeURIComponent(leader.fullName)}` as any);
       }
     } catch (err) {
@@ -705,7 +773,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                         </View>
                       )}
 
-                      {isDirect ? (
+                      {(isDirect || group.type === 'CUSTOM') ? (
                         <TouchableOpacity
                           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                           onPress={(e) => {
@@ -1243,6 +1311,25 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
   const [isRoomMenuVisible, setRoomMenuVisible] = useState(false);
   const [activeActionMessage, setActiveActionMessage] = useState<any | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [localHiddenMessageIds, setLocalHiddenMessageIds] = useState<string[]>([]);
+  const [forwardMessageData, setForwardMessageData] = useState<any | null>(null);
+  const [isForwarding, setIsForwarding] = useState<boolean>(false);
+  const [showEmojiPickerModal, setShowEmojiPickerModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!groupId || !user?.id) return;
+    const storageKey = `@chat_hidden_msgs_${groupId}_${user.id}`;
+    SecureStore.getItemAsync(storageKey).then((val) => {
+      if (val) {
+        try {
+          const parsed = JSON.parse(val);
+          if (Array.isArray(parsed)) {
+            setLocalHiddenMessageIds(parsed);
+          }
+        } catch (e) {}
+      }
+    }).catch(() => {});
+  }, [groupId, user?.id]);
 
   const [replyingMessage, setReplyingMessage] = useState<any | null>(null);
   const [detailMessage, setDetailMessage] = useState<any | null>(null);
@@ -1391,6 +1478,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       title: 'Thu hồi tin nhắn',
       message: 'Bạn có chắc chắn muốn thu hồi tin nhắn này với tất cả mọi người?',
       confirmLabel: 'Thu hồi',
+      confirmVariant: 'danger',
       onConfirm: () => {
         deleteMessageMutation.mutate(msg.id, {
           onError: (err) => {
@@ -1399,6 +1487,60 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         });
       },
     });
+  }
+
+  function handleDeleteForMe(msg: any) {
+    if (!msg?.id) return;
+    setActiveActionMessage(null);
+    showConfirm({
+      title: 'Xóa ở phía bạn',
+      message: 'Tin nhắn này sẽ bị xóa khỏi thiết bị của bạn nhưng vẫn hiển thị với những người khác trong cuộc trò chuyện.',
+      confirmLabel: 'Xóa',
+      confirmVariant: 'danger',
+      onConfirm: async () => {
+        const updated = [...localHiddenMessageIds, msg.id];
+        setLocalHiddenMessageIds(updated);
+        if (groupId && user?.id) {
+          await SecureStore.setItemAsync(
+            `@chat_hidden_msgs_${groupId}_${user.id}`,
+            JSON.stringify(updated)
+          ).catch(() => {});
+        }
+        showAlert('Thành công', 'Đã xóa tin nhắn ở phía bạn');
+      },
+    });
+  }
+
+  function handleReportMessage(msg: any) {
+    setActiveActionMessage(null);
+    showConfirm({
+      title: 'Báo cáo tin nhắn',
+      message: 'Bạn có chắc chắn muốn báo cáo tin nhắn này vì vi phạm quy định tiêu chuẩn cộng đồng hoặc công ty?',
+      confirmLabel: 'Báo cáo',
+      confirmVariant: 'danger',
+      onConfirm: () => {
+        showAlert('Đã gửi báo cáo', 'Cảm ơn bạn. Báo cáo của bạn đã được chuyển tới quản trị viên để xem xét.');
+      },
+    });
+  }
+
+  async function handleForwardToGroup(targetGroupId: string, targetGroupName?: string) {
+    if (!forwardMessageData) return;
+    setIsForwarding(true);
+    try {
+      await sendChatMessage(targetGroupId, {
+        content: forwardMessageData.content,
+        fileUrl: forwardMessageData.fileUrl,
+        fileType: forwardMessageData.fileType,
+        fileName: forwardMessageData.fileName,
+      });
+      setForwardMessageData(null);
+      showAlert('Thành công', `Đã chuyển tiếp tin nhắn đến ${targetGroupName || 'cuộc trò chuyện'}`);
+    } catch (err) {
+      showAlert('Lỗi', 'Không thể chuyển tiếp tin nhắn');
+    } finally {
+      setIsForwarding(false);
+    }
   }
 
   // Sort newest first for inverted list with defensive filtering
@@ -1413,6 +1555,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       if (!m || typeof m !== 'object') return false;
       const key = m.id || m._tempId;
       if (!key || seen.has(key)) return false;
+      if (m.id && localHiddenMessageIds.includes(m.id)) return false;
       seen.add(key);
       return true;
     });
@@ -1422,7 +1565,7 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
       const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return timeB - timeA;
     });
-  }, [messages.data]);
+  }, [messages.data, localHiddenMessageIds]);
 
   const { joinChatRoom } = useSocketStatus();
 
@@ -1726,12 +1869,19 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     </View>
                   )}
                   <Pressable
-                    onLongPress={() => {
+                    onLongPress={(e) => {
                       if (!msg.id?.startsWith('temp-')) {
-                        setActiveActionMessage(msg);
+                        const pageX = e.nativeEvent?.pageX ?? 0;
+                        const pageY = e.nativeEvent?.pageY ?? 0;
+                        setActiveActionMessage({
+                          msg,
+                          touchX: pageX,
+                          touchY: pageY,
+                          isMine,
+                        });
                       }
                     }}
-                    delayLongPress={300}
+                    delayLongPress={250}
                   >
                     <View style={[
                       styles.messageRow,
@@ -1828,12 +1978,19 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                               {/* Stacked Album Deck Effect (Messenger Style) */}
                               <Pressable
                                 onPress={() => setViewingAlbum(albumUrls)}
-                                onLongPress={() => {
+                                onLongPress={(e) => {
                                   if (!msg.id?.startsWith('temp-')) {
-                                    setActiveActionMessage(msg);
+                                    const pageX = e.nativeEvent?.pageX ?? 0;
+                                    const pageY = e.nativeEvent?.pageY ?? 0;
+                                    setActiveActionMessage({
+                                      msg,
+                                      touchX: pageX,
+                                      touchY: pageY,
+                                      isMine,
+                                    });
                                   }
                                 }}
-                                delayLongPress={300}
+                                delayLongPress={250}
                                 style={{ width: 170, height: 180, position: 'relative', marginTop: 6 }}
                               >
                                 {/* Layer 3 (Bottom Stacked Card) */}
@@ -1903,12 +2060,19 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                         })() : (
                           <Pressable 
                             onPress={() => setViewingImage(resolveImageUrl(msg.fileUrl) || '')}
-                            onLongPress={() => {
+                            onLongPress={(e) => {
                               if (!msg.id?.startsWith('temp-')) {
-                                setActiveActionMessage(msg);
+                                const pageX = e.nativeEvent?.pageX ?? 0;
+                                const pageY = e.nativeEvent?.pageY ?? 0;
+                                setActiveActionMessage({
+                                  msg,
+                                  touchX: pageX,
+                                  touchY: pageY,
+                                  isMine,
+                                });
                               }
                             }}
-                            delayLongPress={300}
+                            delayLongPress={250}
                           >
                             <Image
                               source={{ uri: resolveImageUrl(msg.fileUrl) || '' }}
@@ -2210,131 +2374,330 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           }}
         />
 
-        {/* Long Press Message Action Sheet (Zalo Style) */}
+        {/* Floating Messenger Style Context Menu & Reaction Bar */}
+        {(() => {
+          if (!activeActionMessage) return null;
+          const targetMsg = activeActionMessage?.msg || activeActionMessage;
+          const isTargetMine = Boolean(
+            activeActionMessage?.isMine ??
+              (user?.id && (targetMsg?.sender?.id === user.id || targetMsg?.senderId === user.id))
+          );
+
+          const screenDim = Dimensions.get('window');
+          const screenHeight = screenDim.height;
+          const screenWidth = screenDim.width;
+          const touchY = activeActionMessage?.touchY ?? screenHeight / 2;
+
+          // Header time: e.g. "01:13" or "09:11"
+          const msgTime = formatMessageTime(targetMsg?.createdAt);
+
+          // Position calculation: keep menu comfortably on screen
+          const topSafe = insets.top + 60;
+          const bottomSafe = screenHeight - insets.bottom - 40;
+
+          // Calculate where the bubble preview should sit
+          let bubbleTop = touchY - 30;
+          if (bubbleTop + 290 > bottomSafe) {
+            bubbleTop = bottomSafe - 290;
+          }
+          if (bubbleTop - 56 < topSafe) {
+            bubbleTop = topSafe + 56;
+          }
+
+          const reactionTop = bubbleTop - 54;
+          const quickEmojis = ['❤️', '😂', '😮', '😢', '😡', '👍'];
+
+          return (
+            <Modal
+              visible={true}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setActiveActionMessage(null)}
+            >
+              <Pressable
+                style={styles.floatingActionBackdrop}
+                onPress={() => setActiveActionMessage(null)}
+              >
+                <Pressable
+                  style={[
+                    styles.floatingContainer,
+                    {
+                      top: reactionTop,
+                      [isTargetMine ? 'right' : 'left']: 16,
+                      alignItems: isTargetMine ? 'flex-end' : 'flex-start',
+                    },
+                  ]}
+                  onPress={(e) => e.stopPropagation?.()}
+                >
+                  {/* 1. Floating Quick Reactions Capsule */}
+                  <View style={styles.messengerReactionBar}>
+                    {quickEmojis.map((emoji) => {
+                      const isCurrentEmoji =
+                        targetMsg?.reactions &&
+                        user?.id &&
+                        targetMsg.reactions[user.id] === emoji;
+                      return (
+                        <TouchableOpacity
+                          key={emoji}
+                          style={[
+                            styles.messengerReactionItem,
+                            isCurrentEmoji && styles.messengerReactionItemActive,
+                          ]}
+                          onPress={() => {
+                            setActiveActionMessage(null);
+                            if (targetMsg?.id) {
+                              reactMessageMutation.mutate({
+                                messageId: targetMsg.id,
+                                emoji,
+                              });
+                            }
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.messengerReactionEmoji}>{emoji}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {/* Plus Button for more emojis */}
+                    <TouchableOpacity
+                      style={styles.messengerPlusBtn}
+                      onPress={() => {
+                        setShowEmojiPickerModal(true);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="add" size={20} color="#4B5563" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* 2. Highlighted Message Bubble Preview */}
+                  <View
+                    style={[
+                      styles.floatingBubblePreview,
+                      isTargetMine ? styles.floatingBubbleMine : styles.floatingBubbleOther,
+                    ]}
+                  >
+                    {targetMsg.fileUrl && (targetMsg.fileType === 'IMAGE' || targetMsg.fileType === 'IMAGE_ALBUM') && (
+                      <Image
+                        source={{
+                          uri: resolveImageUrl(
+                            targetMsg.fileType === 'IMAGE_ALBUM'
+                              ? (() => {
+                                  try {
+                                    return JSON.parse(targetMsg.fileUrl)[0];
+                                  } catch (e) {
+                                    return targetMsg.fileUrl;
+                                  }
+                                })()
+                              : targetMsg.fileUrl
+                          ) || '',
+                        }}
+                        style={styles.floatingBubbleImage}
+                        resizeMode="cover"
+                      />
+                    )}
+                    {!!targetMsg.content && (
+                      <Text
+                        style={[
+                          styles.floatingBubbleText,
+                          isTargetMine ? styles.floatingBubbleTextMine : styles.floatingBubbleTextOther,
+                        ]}
+                        numberOfLines={4}
+                      >
+                        {targetMsg.content}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* 3. Floating Context Menu Card */}
+                  <View style={styles.messengerMenuCard}>
+                    {/* Timestamp Header */}
+                    {!!msgTime && (
+                      <Text style={styles.messengerMenuTime}>{msgTime}</Text>
+                    )}
+
+                    {/* Trả lời */}
+                    <TouchableOpacity
+                      style={styles.messengerMenuItem}
+                      onPress={() => {
+                        setActiveActionMessage(null);
+                        setReplyingMessage(targetMsg);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="arrow-undo-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
+                      <Text style={styles.messengerMenuLabel}>Trả lời</Text>
+                    </TouchableOpacity>
+
+                    {/* Chuyển tiếp */}
+                    <TouchableOpacity
+                      style={styles.messengerMenuItem}
+                      onPress={() => {
+                        setActiveActionMessage(null);
+                        setForwardMessageData(targetMsg);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="paper-plane-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
+                      <Text style={styles.messengerMenuLabel}>Chuyển tiếp</Text>
+                    </TouchableOpacity>
+
+                    {/* Sao chép (nếu có nội dung) */}
+                    {!!targetMsg?.content &&
+                      targetMsg.content !== 'Tin nhắn đã bị thu hồi' &&
+                      !targetMsg.content.startsWith('LOTTIE_STICKER:') &&
+                      !targetMsg.content.startsWith('STATIC_STICKER:') &&
+                      !targetMsg.content.startsWith('GIPHY_STICKER:') && (
+                        <TouchableOpacity
+                          style={styles.messengerMenuItem}
+                          onPress={() => handleCopyText(targetMsg.content)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="copy-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
+                          <Text style={styles.messengerMenuLabel}>Sao chép</Text>
+                        </TouchableOpacity>
+                      )}
+
+                    {/* Xóa ở phía bạn */}
+                    <TouchableOpacity
+                      style={styles.messengerMenuItem}
+                      onPress={() => handleDeleteForMe(targetMsg)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
+                      <Text style={styles.messengerMenuLabel}>Xóa ở phía bạn</Text>
+                    </TouchableOpacity>
+
+                    {/* Dynamic Red Action: Báo cáo (đối phương) vs Thu hồi (của mình) */}
+                    {isTargetMine ? (
+                      targetMsg?.content !== 'Tin nhắn đã bị thu hồi' && (
+                        <TouchableOpacity
+                          style={styles.messengerMenuItem}
+                          onPress={() => handleRecallMessage(targetMsg)}
+                          activeOpacity={0.7}
+                        >
+                          <Ionicons name="arrow-undo-circle-outline" size={20} color="#EF4444" style={styles.messengerMenuIcon} />
+                          <Text style={[styles.messengerMenuLabel, { color: '#EF4444', fontWeight: '500' }]}>Thu hồi</Text>
+                        </TouchableOpacity>
+                      )
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.messengerMenuItem}
+                        onPress={() => handleReportMessage(targetMsg)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="chatbubble-ellipses-outline" size={20} color="#EF4444" style={styles.messengerMenuIcon} />
+                        <Text style={[styles.messengerMenuLabel, { color: '#EF4444', fontWeight: '500' }]}>Báo cáo</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Khác > */}
+                    <TouchableOpacity
+                      style={styles.messengerMenuItem}
+                      onPress={() => {
+                        setActiveActionMessage(null);
+                        setDetailMessage(targetMsg);
+                        setDetailTab('reactions');
+                        setSelectedReactionFilter('ALL');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="ellipsis-horizontal" size={20} color="#111827" style={styles.messengerMenuIcon} />
+                      <Text style={styles.messengerMenuLabel}>Khác</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  </View>
+                </Pressable>
+              </Pressable>
+            </Modal>
+          );
+        })()}
+
+        {/* Forward Message Modal */}
         <Modal
-          visible={!!activeActionMessage}
+          visible={!!forwardMessageData}
           transparent={true}
-          animationType="fade"
-          onRequestClose={() => setActiveActionMessage(null)}
+          animationType="slide"
+          onRequestClose={() => setForwardMessageData(null)}
         >
-          <Pressable
-            style={styles.actionModalBackdrop}
-            onPress={() => setActiveActionMessage(null)}
-          >
-            <Pressable style={styles.actionModalCard} onPress={(e) => e.stopPropagation?.()}>
-              {/* Floating Quick Reactions Bar (Zalo Style) */}
-              <View style={styles.reactionBar}>
-                {['👍', '❤️', '😂', '😮', '😢', '🔥'].map((emoji) => {
-                  const isCurrentEmoji = activeActionMessage?.reactions && user?.id && activeActionMessage.reactions[user.id] === emoji;
+          <Pressable style={styles.actionModalBackdrop} onPress={() => setForwardMessageData(null)}>
+            <Pressable style={styles.forwardModalCard} onPress={(e) => e.stopPropagation?.()}>
+              <View style={styles.forwardModalHeader}>
+                <Text style={styles.forwardModalTitle}>Chuyển tiếp tin nhắn</Text>
+                <TouchableOpacity onPress={() => setForwardMessageData(null)} style={{ padding: 4 }}>
+                  <MaterialCommunityIcons name="close" size={22} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 380 }}>
+                {myList.filter((g: any) => g.id !== groupId).map((item: any) => {
+                  const targetName = item.name || (item.type === 'DIRECT' ? 'Trò chuyện cá nhân' : 'Nhóm chat');
                   return (
                     <TouchableOpacity
-                      key={emoji}
-                      style={[styles.reactionItem, isCurrentEmoji && styles.reactionItemActive]}
-                      onPress={() => {
-                        const msg = activeActionMessage;
-                        setActiveActionMessage(null);
-                        if (msg?.id) {
-                          reactMessageMutation.mutate({
-                            messageId: msg.id,
-                            emoji,
-                          });
-                        }
-                      }}
+                      key={item.id}
+                      style={styles.forwardGroupItem}
+                      onPress={() => handleForwardToGroup(item.id, targetName)}
+                      disabled={isForwarding}
                     >
-                      <Text style={[styles.reactionEmoji, isCurrentEmoji && { transform: [{ scale: 1.25 }] }]}>{emoji}</Text>
+                      <View style={styles.forwardGroupAvatar}>
+                        <Text style={styles.forwardGroupAvatarText}>{getInitials(targetName)}</Text>
+                      </View>
+                      <Text style={styles.forwardGroupName} numberOfLines={1}>
+                        {targetName}
+                      </Text>
+                      <View style={styles.forwardSendBtn}>
+                        <Text style={styles.forwardSendBtnText}>Gửi</Text>
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
+                {myList.filter((g: any) => g.id !== groupId).length === 0 && (
+                  <View style={{ padding: 24, alignItems: 'center' }}>
+                    <Text style={{ color: '#94A3B8', fontSize: 14 }}>Chưa có cuộc trò chuyện khác để chuyển tiếp</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Extended Emoji Picker Modal (+) */}
+        <Modal
+          visible={showEmojiPickerModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowEmojiPickerModal(false)}
+        >
+          <Pressable style={styles.actionModalBackdrop} onPress={() => setShowEmojiPickerModal(false)}>
+            <Pressable style={styles.emojiPickerCard} onPress={(e) => e.stopPropagation?.()}>
+              <View style={styles.emojiPickerHeader}>
+                <Text style={styles.emojiPickerTitle}>Biểu tượng cảm xúc</Text>
+                <TouchableOpacity onPress={() => setShowEmojiPickerModal(false)} style={{ padding: 4 }}>
+                  <MaterialCommunityIcons name="close" size={22} color="#64748B" />
+                </TouchableOpacity>
               </View>
-
-              {/* Action Menu Grid (Zalo Style) */}
-              <View style={styles.zaloActionGrid}>
-                {/* 1. Trả lời */}
-                <TouchableOpacity
-                  style={styles.zaloActionBtn}
-                  onPress={() => {
-                    const msg = activeActionMessage;
-                    setActiveActionMessage(null);
-                    setReplyingMessage(msg);
-                  }}
-                >
-                  <View style={[styles.zaloActionIconWrap, { backgroundColor: '#EFF6FF' }]}>
-                    <MaterialCommunityIcons name="reply" size={22} color="#2563EB" />
-                  </View>
-                  <Text style={styles.zaloActionLabel}>Trả lời</Text>
-                </TouchableOpacity>
-
-                {/* 2. Sao chép (nếu có nội dung chữ) */}
-                {!!activeActionMessage?.content &&
-                  activeActionMessage.content !== 'Tin nhắn đã bị thu hồi' &&
-                  !activeActionMessage.content.startsWith('LOTTIE_STICKER:') &&
-                  !activeActionMessage.content.startsWith('STATIC_STICKER:') &&
-                  !activeActionMessage.content.startsWith('GIPHY_STICKER:') && (
-                    <TouchableOpacity
-                      style={styles.zaloActionBtn}
-                      onPress={() => handleCopyText(activeActionMessage.content)}
-                    >
-                      <View style={[styles.zaloActionIconWrap, { backgroundColor: '#ECFDF5' }]}>
-                        <MaterialCommunityIcons name="content-copy" size={22} color="#059669" />
-                      </View>
-                      <Text style={styles.zaloActionLabel}>Sao chép</Text>
-                    </TouchableOpacity>
-                  )}
-
-                {/* 3. Lưu ảnh (nếu là ảnh) */}
-                {!!activeActionMessage?.fileUrl &&
-                  (activeActionMessage.fileType === 'IMAGE' || activeActionMessage.fileType === 'IMAGE_ALBUM') && (
-                    <TouchableOpacity
-                      style={styles.zaloActionBtn}
-                      onPress={() => {
-                        let urlToDownload = activeActionMessage.fileUrl;
-                        if (activeActionMessage.fileType === 'IMAGE_ALBUM') {
-                          try {
-                            const urls = JSON.parse(activeActionMessage.fileUrl);
-                            urlToDownload = urls[0];
-                          } catch (e) {}
-                        }
-                        handleDownloadImage(urlToDownload);
-                      }}
-                    >
-                      <View style={[styles.zaloActionIconWrap, { backgroundColor: '#FEF3C7' }]}>
-                        <MaterialCommunityIcons name="download" size={22} color="#D97706" />
-                      </View>
-                      <Text style={styles.zaloActionLabel}>Lưu ảnh</Text>
-                    </TouchableOpacity>
-                  )}
-
-                {/* 4. Xem chi tiết người thả cảm xúc / người xem */}
-                <TouchableOpacity
-                  style={styles.zaloActionBtn}
-                  onPress={() => {
-                    const msg = activeActionMessage;
-                    setActiveActionMessage(null);
-                    setDetailMessage(msg);
-                    setDetailTab('reactions');
-                    setSelectedReactionFilter('ALL');
-                  }}
-                >
-                  <View style={[styles.zaloActionIconWrap, { backgroundColor: '#EEF2FF' }]}>
-                    <MaterialCommunityIcons name="account-eye-outline" size={22} color="#4F46E5" />
-                  </View>
-                  <Text style={styles.zaloActionLabel}>Chi tiết</Text>
-                </TouchableOpacity>
-
-                {/* 5. Thu hồi tin nhắn */}
-                {(Boolean(user?.id && (activeActionMessage?.sender?.id === user.id || activeActionMessage?.senderId === user.id)) ||
-                  user?.roles?.includes('ADMIN')) &&
-                  activeActionMessage?.content !== 'Tin nhắn đã bị thu hồi' && (
-                    <TouchableOpacity
-                      style={styles.zaloActionBtn}
-                      onPress={() => handleRecallMessage(activeActionMessage)}
-                    >
-                      <View style={[styles.zaloActionIconWrap, { backgroundColor: '#FEF2F2' }]}>
-                        <MaterialCommunityIcons name="delete-restore" size={22} color="#EF4444" />
-                      </View>
-                      <Text style={[styles.zaloActionLabel, { color: '#EF4444' }]}>Thu hồi</Text>
-                    </TouchableOpacity>
-                  )}
+              <View style={styles.emojiGrid}>
+                {[
+                  '🔥', '🎉', '🙏', '👏', '🥰', '🤩',
+                  '🥳', '💯', '👀', '💪', '✨', '💔',
+                  '🤔', '🤝', '🙌', '😴', '🚀', '😍',
+                  '😎', '🤤', '🙄', '😇', '🤫', '💩'
+                ].map((em) => (
+                  <TouchableOpacity
+                    key={em}
+                    style={styles.emojiGridItem}
+                    onPress={() => {
+                      const msg = activeActionMessage?.msg || activeActionMessage;
+                      setShowEmojiPickerModal(false);
+                      setActiveActionMessage(null);
+                      if (msg?.id) {
+                        reactMessageMutation.mutate({ messageId: msg.id, emoji: em });
+                      }
+                    }}
+                  >
+                    <Text style={styles.emojiGridText}>{em}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </Pressable>
           </Pressable>
@@ -3644,6 +4007,230 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  // Floating Messenger Style Context Menu Modal
+  floatingActionBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.42)',
+  },
+  floatingContainer: {
+    position: 'absolute',
+    maxWidth: '85%',
+  },
+  messengerReactionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 30,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  messengerReactionItem: {
+    paddingHorizontal: 5,
+    paddingVertical: 3,
+    borderRadius: 18,
+  },
+  messengerReactionItemActive: {
+    backgroundColor: '#EEF2FF',
+    transform: [{ scale: 1.15 }],
+  },
+  messengerReactionEmoji: {
+    fontSize: 26,
+  },
+  messengerPlusBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  floatingBubblePreview: {
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    maxWidth: 260,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  floatingBubbleMine: {
+    backgroundColor: '#8B5CF6',
+    alignSelf: 'flex-end',
+    borderBottomRightRadius: 4,
+  },
+  floatingBubbleOther: {
+    backgroundColor: '#F3F4F6',
+    alignSelf: 'flex-start',
+    borderBottomLeftRadius: 4,
+  },
+  floatingBubbleText: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  floatingBubbleTextMine: {
+    color: '#FFFFFF',
+  },
+  floatingBubbleTextOther: {
+    color: '#111827',
+  },
+  floatingBubbleImage: {
+    width: 180,
+    height: 120,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  messengerMenuCard: {
+    width: 220,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+    paddingVertical: 6,
+  },
+  messengerMenuTime: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '500',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  messengerMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  messengerMenuIcon: {
+    width: 26,
+    textAlign: 'center',
+    marginRight: 12,
+  },
+  messengerMenuLabel: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '400',
+  },
+
+  /* Forward & Extended Emoji Modals */
+  forwardModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '75%',
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  },
+  forwardModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  forwardModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  forwardGroupItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F3F4F6',
+  },
+  forwardGroupAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E0E7FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  forwardGroupAvatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4338CA',
+  },
+  forwardGroupName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+  },
+  forwardSendBtn: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+  },
+  forwardSendBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  /* Emoji Picker Grid Modal */
+  emojiPickerCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+  },
+  emojiPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  emojiPickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  emojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  emojiGridItem: {
+    width: '16.6%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 6,
+  },
+  emojiGridText: {
+    fontSize: 28,
+  },
+
   // Long-press Action Sheet Modal
   actionModalBackdrop: {
     flex: 1,

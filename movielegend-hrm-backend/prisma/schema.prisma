@@ -3609,6 +3609,9 @@ model WorkTask {
   workStatus        String    @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, WAITING, DONE, CANCELLED
   approvalStatus    String    @default("PENDING")     // PENDING, APPROVED, NEED_MORE_INFO
 
+  selfRating        Int?      @default(5)
+  attachments       Json?     @default("[]")
+
   isCarriedOver     Boolean   @default(false) // true = được chuyển tiếp từ ngày trước
   isRecurring       Boolean   @default(false) // công việc lặp định kỳ
 
@@ -3654,6 +3657,8 @@ model WorkTaskUpdate {
   notes                 String?
   obstacles             String?
   supportRequest        String?
+  selfRating            Int?
+  attachments           Json?     @default("[]")
 
   // Người nhập thực tế
   reportedByUserId      String    @db.Uuid

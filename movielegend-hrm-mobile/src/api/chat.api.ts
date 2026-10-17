@@ -159,8 +159,17 @@ export async function fetchGroupMembers(groupId: string) {
 }
 
 export async function deleteConversationApi(groupId: string) {
-  const response = await apiClient.delete<ApiResponse<{ success: boolean }>>(`/chat/groups/${groupId}`);
-  return unwrapData(response);
+  try {
+    const response = await apiClient.delete<ApiResponse<{ success: boolean }>>(`/chat/groups/${groupId}`);
+    return unwrapData(response);
+  } catch (err) {
+    try {
+      const fallbackResponse = await apiClient.post<ApiResponse<{ success: boolean }>>(`/chat/groups/${groupId}/clear-history`);
+      return unwrapData(fallbackResponse);
+    } catch {
+      throw err;
+    }
+  }
 }
 
 

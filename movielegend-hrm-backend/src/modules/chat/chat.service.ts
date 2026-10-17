@@ -498,8 +498,11 @@ export class ChatService {
         }
       }
 
-      // If it is a DIRECT or CUSTOM conversation that was cleared and has no new message, hide from inbox
-      if ((group.type === 'DIRECT' || group.type === 'CUSTOM') && clearedAt && !latestMessage) {
+      // If it is a DIRECT conversation without messages (or cleared), hide from recent list
+      if (group.type === 'DIRECT' && !latestMessage) {
+        continue;
+      }
+      if (group.type === 'CUSTOM' && clearedAt && !latestMessage) {
         continue;
       }
 
@@ -748,7 +751,7 @@ export class ChatService {
     }
 
     const groupIds = groups.map(g => g.id);
-    const [unreadCountByGroup, latestMessages] = await Promise.all([
+    const [unreadCountByGroup, latestMessages, userMemberships] = await Promise.all([
       this.getUnreadCounts(groupIds, actor.userId),
       groupIds.length > 0 ? this.prisma.chatMessage.findMany({
         where: { groupId: { in: groupIds } },
@@ -763,13 +766,34 @@ export class ChatService {
             }
           }
         }
+      }) : [],
+      groupIds.length > 0 ? this.prisma.chatGroupMember.findMany({
+        where: { groupId: { in: groupIds }, userId: actor.userId },
+        select: { groupId: true, clearedAt: true }
       }) : []
     ]);
     const latestMessageMap = Object.fromEntries(latestMessages.map(m => [m.groupId, m]));
+    const userClearedMap = new Map(userMemberships.map(m => [m.groupId, m.clearedAt]));
 
     const resultGroups = [];
     for (const group of groups) {
-      const latestMessage = latestMessageMap[group.id];
+      const clearedAt = userClearedMap.get(group.id);
+      let latestMessage: any = latestMessageMap[group.id];
+
+      // If user has cleared chat, only count latestMessage if sent after clearedAt
+      if (clearedAt && latestMessage) {
+        if (new Date(latestMessage.createdAt) <= new Date(clearedAt)) {
+          latestMessage = undefined;
+        }
+      }
+
+      // If it is a DIRECT conversation without messages (or cleared), hide from recent list
+      if (group.type === 'DIRECT' && !latestMessage) {
+        continue;
+      }
+      if (group.type === 'CUSTOM' && clearedAt && !latestMessage) {
+        continue;
+      }
 
       let finalName = group.name;
       let otherUserId: string | undefined;
@@ -800,7 +824,7 @@ export class ChatService {
         otherUserId,
         otherUserAvatar,
         latestMessage,
-        unreadCount: unreadCountByGroup[group.id] || 0
+        unreadCount: (clearedAt && !latestMessage) ? 0 : (unreadCountByGroup[group.id] || 0)
       });
     }
 

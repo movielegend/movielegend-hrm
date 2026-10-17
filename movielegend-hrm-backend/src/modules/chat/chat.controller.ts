@@ -106,8 +106,8 @@ export class ChatController {
     return this.chatService.markGroupAsRead(groupId, user.userId);
   }
 
-  @ApiOperation({ summary: 'Xóa nhóm chat' })
-  @Delete('groups/:groupId')
+  @ApiOperation({ summary: 'Xóa nhóm chat vĩnh viễn (Admin/Owner)' })
+  @Delete('groups/:groupId/permanent')
   deleteGroup(
     @Param('groupId') groupId: string,
     @CurrentUser() user: AuthenticatedUser
