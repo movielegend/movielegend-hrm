@@ -217,8 +217,8 @@ export class AssetsService {
       const notifyUsers = dto.assignedToUserId ? [dto.assignedToUserId] : [];
       const notify = await this.notifications.createForUsers(tx, notifyUsers, {
         type: NotificationType.ASSET_ASSIGNED,
-        title: 'Asset assigned',
-        body: asset.name,
+        title: 'Bàn giao thiết bị',
+        body: `Bạn đã được bàn giao thiết bị: ${asset.name} (${asset.assetCode})`,
         metadata: { assetId: id, assignmentId: assignment.id },
       });
       return { assignment, notify };

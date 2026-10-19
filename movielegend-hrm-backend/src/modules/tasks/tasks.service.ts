@@ -135,8 +135,8 @@ export class TasksService {
       }
       const notification = await this.notifications.createForUsers(tx, assigneeIds, {
         type: NotificationType.TASK_ASSIGNED,
-        title: 'New task assigned',
-        body: task.title,
+        title: 'Bạn được giao công việc mới',
+        body: `Công việc: ${task.title}`,
         taskId: task.id,
       });
       await tx.auditLog.create({
