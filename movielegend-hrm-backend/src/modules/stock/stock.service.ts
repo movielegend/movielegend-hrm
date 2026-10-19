@@ -418,8 +418,8 @@ export class StockService {
     }
     return this.notifications.createForUsers(tx, userIds, {
       type,
-      title: 'Material issue updated',
-      body: issue.issueCode,
+      title: 'Cập nhật phiếu xuất kho vật tư',
+      body: `Phiếu xuất kho ${issue.issueCode} đã được cập nhật.`,
       metadata: { issueId },
     });
   }

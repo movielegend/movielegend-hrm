@@ -253,6 +253,19 @@ export class ShiftSwapsService {
         this.notificationsService.emitCreated(notif2);
       }
 
+      // Target user rejected => notify requester
+      if (!isLeader && isTargetUser && dto.status === ShiftSwapStatus.REJECTED) {
+        const targetProfile = await tx.employeeProfile.findUnique({ where: { userId: user.userId } });
+        const targetName = targetProfile?.fullName || 'Đồng nghiệp';
+        const notifTargetReject = await this.notificationsService.createForUsers(tx, [swap.requesterUserId], {
+          type: NotificationType.SYSTEM,
+          title: 'Đồng nghiệp từ chối đổi ca',
+          body: `${targetName} đã từ chối yêu cầu đổi ca của bạn.${dto.reason ? ` Lý do: ${dto.reason}` : ''}`,
+          metadata: { swapId: updatedSwap.id },
+        });
+        this.notificationsService.emitCreated(notifTargetReject);
+      }
+
       // If approved by leader, swap the assignments!
       if (dto.status === ShiftSwapStatus.APPROVED && isLeader) {
         const sourceAssignment = await tx.shiftAssignment.findFirst({

@@ -24,6 +24,99 @@ import {
 } from './dto/employee-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
+function getRequestCreateTitle(type: EmployeeRequestType | string, title?: string): string {
+  if (title?.includes('[LÀM BÙ]') || type === 'COMPENSATORY_WORK') return 'Đơn xin làm bù mới';
+  if (title?.includes('[ACCOUNT_DELETION]')) return 'Yêu cầu xóa tài khoản mới';
+  switch (type) {
+    case EmployeeRequestType.PURCHASE:
+      return 'Đề xuất mua sắm mới 🛒';
+    case EmployeeRequestType.ADVANCE:
+      return 'Đơn xin tạm ứng mới 💸';
+    case EmployeeRequestType.EXPENSE:
+      return 'Đơn yêu cầu thanh toán mới 📄';
+    case EmployeeRequestType.LATE_ARRIVAL:
+      return 'Đơn xin đi muộn mới ⏰';
+    case EmployeeRequestType.EARLY_LEAVE:
+      return 'Đơn xin về sớm mới ⏰';
+    case EmployeeRequestType.LEAVE:
+      return 'Đơn xin nghỉ phép mới 📝';
+    case EmployeeRequestType.OVERTIME:
+      return 'Đơn làm thêm giờ mới ⏳';
+    case EmployeeRequestType.ATTENDANCE_ADJUSTMENT:
+      return 'Đơn giải trình/bổ sung công mới 🕒';
+    case EmployeeRequestType.SHIFT_REGISTRATION:
+      return 'Đăng ký ca làm việc mới 📅';
+    case EmployeeRequestType.SHIFT_SWAP:
+      return 'Đơn xin đổi ca mới 🔄';
+    case EmployeeRequestType.BUSINESS_TRIP:
+      return 'Đơn xin đi công tác mới 💼';
+    case EmployeeRequestType.EQUIPMENT:
+      return 'Yêu cầu cấp thiết bị mới 💻';
+    default:
+      return 'Yêu cầu nhân viên mới';
+  }
+}
+
+function getRequestApproveTitle(type: EmployeeRequestType | string, title?: string): string {
+  if (title?.includes('[LÀM BÙ]') || type === 'COMPENSATORY_WORK') return 'Đơn làm bù đã được duyệt ✅';
+  if (title?.includes('[ACCOUNT_DELETION]')) return 'Yêu cầu xóa tài khoản đã được duyệt ✅';
+  switch (type) {
+    case EmployeeRequestType.LATE_ARRIVAL:
+      return 'Đơn xin đi muộn đã được duyệt ✅';
+    case EmployeeRequestType.EARLY_LEAVE:
+      return 'Đơn xin về sớm đã được duyệt ✅';
+    case EmployeeRequestType.LEAVE:
+      return 'Đơn xin nghỉ phép đã được duyệt ✅';
+    case EmployeeRequestType.OVERTIME:
+      return 'Đơn làm thêm giờ đã được duyệt ✅';
+    case EmployeeRequestType.ATTENDANCE_ADJUSTMENT:
+      return 'Đơn giải trình/bổ sung công đã được duyệt ✅';
+    case EmployeeRequestType.SHIFT_REGISTRATION:
+      return 'Đăng ký ca làm việc đã được duyệt ✅';
+    case EmployeeRequestType.SHIFT_SWAP:
+      return 'Đơn đổi ca đã được duyệt ✅';
+    case EmployeeRequestType.BUSINESS_TRIP:
+      return 'Đơn đi công tác đã được duyệt ✅';
+    case EmployeeRequestType.EQUIPMENT:
+      return 'Yêu cầu cấp thiết bị đã được duyệt ✅';
+    default:
+      return 'Yêu cầu đã được duyệt ✅';
+  }
+}
+
+function getRequestRejectTitle(type: EmployeeRequestType | string, title?: string): string {
+  if (title?.includes('[LÀM BÙ]') || type === 'COMPENSATORY_WORK') return 'Đơn làm bù bị từ chối ❌';
+  if (title?.includes('[ACCOUNT_DELETION]')) return 'Yêu cầu xóa tài khoản bị từ chối ❌';
+  switch (type) {
+    case EmployeeRequestType.PURCHASE:
+      return 'Đề xuất mua sắm bị từ chối ❌';
+    case EmployeeRequestType.ADVANCE:
+      return 'Yêu cầu tạm ứng bị từ chối ❌';
+    case EmployeeRequestType.EXPENSE:
+      return 'Yêu cầu thanh toán bị từ chối ❌';
+    case EmployeeRequestType.LATE_ARRIVAL:
+      return 'Đơn xin đi muộn bị từ chối ❌';
+    case EmployeeRequestType.EARLY_LEAVE:
+      return 'Đơn xin về sớm bị từ chối ❌';
+    case EmployeeRequestType.LEAVE:
+      return 'Đơn xin nghỉ phép bị từ chối ❌';
+    case EmployeeRequestType.OVERTIME:
+      return 'Đơn làm thêm giờ bị từ chối ❌';
+    case EmployeeRequestType.ATTENDANCE_ADJUSTMENT:
+      return 'Đơn giải trình/bổ sung công bị từ chối ❌';
+    case EmployeeRequestType.SHIFT_REGISTRATION:
+      return 'Đăng ký ca làm việc bị từ chối ❌';
+    case EmployeeRequestType.SHIFT_SWAP:
+      return 'Đơn đổi ca bị từ chối ❌';
+    case EmployeeRequestType.BUSINESS_TRIP:
+      return 'Đơn công tác bị từ chối ❌';
+    case EmployeeRequestType.EQUIPMENT:
+      return 'Yêu cầu thiết bị bị từ chối ❌';
+    default:
+      return 'Đơn yêu cầu bị từ chối ❌';
+  }
+}
+
 @Injectable()
 export class EmployeeRequestsService {
   constructor(
@@ -346,7 +439,7 @@ export class EmployeeRequestsService {
           targetUserIds,
           {
             type: 'SYSTEM' as NotificationType,
-            title: isFinancial ? `Đơn ${dto.type === 'ADVANCE' ? 'ứng lương' : 'thanh toán'} mới` : 'Yêu cầu mới',
+            title: getRequestCreateTitle(dto.type, request.title),
             body: `${request.user?.profile?.fullName || 'Nhân viên'} vừa gửi yêu cầu: ${request.title}`,
             metadata: { requestId: request.id },
           },
@@ -917,7 +1010,7 @@ export class EmployeeRequestsService {
 
         const notif = await this.notifications.createForUsers(tx, [request.userId], {
           type: NotificationType.SYSTEM,
-          title: 'Yêu cầu đã được duyệt',
+          title: getRequestApproveTitle(request.type, request.title),
           body: `Yêu cầu "${request.title}" của bạn đã được duyệt.`,
           metadata: { requestId: id },
         });
@@ -980,12 +1073,13 @@ export class EmployeeRequestsService {
             this.notifications.emitCreated(notif);
           }
         } else {
+          const isAdvance = request.type === EmployeeRequestType.ADVANCE;
           // Thông báo đến toàn bộ Kế toán
           const accountantUserIds = await this.findAccountantUserIds(tx);
           if (accountantUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Đơn thanh toán chuyển Kế toán',
+              title: isAdvance ? 'Đơn tạm ứng chuyển Kế toán' : 'Đơn thanh toán chuyển Kế toán',
               body: `Leader đã duyệt đơn "${request.title}". Chuyển Kế toán xem xét xử lý.`,
               metadata: { requestId: id },
             });
@@ -1205,10 +1299,11 @@ export class EmployeeRequestsService {
           },
         });
 
+        const isAdvance = request.type === EmployeeRequestType.ADVANCE;
         // Thông báo cho người tạo là đã giải ngân thành công
         const notif = await this.notifications.createForUsers(tx, [request.userId], {
           type: NotificationType.SYSTEM,
-          title: 'Đã thanh toán thành công 💸',
+          title: isAdvance ? 'Đã giải ngân tạm ứng thành công 💸' : 'Đã thanh toán thành công 💸',
           body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) đã được Ban Giám Đốc duyệt và giải ngân thành công.`,
           metadata: { requestId: id, disbursementProofUrl: payload?.disbursementProofUrl },
         });
@@ -1336,12 +1431,13 @@ export class EmployeeRequestsService {
             data: { attachmentMetadata: updatedMeta as Prisma.InputJsonValue },
           });
 
+          const isAdvance = request.type === EmployeeRequestType.ADVANCE;
           const adminUserIds = await this.findRelevantAdminUserIds(request.departmentId, tx);
           if (adminUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, adminUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Đơn thanh toán cần Ban Giám Đốc duyệt',
-              body: `Kế toán đã duyệt chờ thanh toán đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ). Chuyển Ban Giám Đốc duyệt.`,
+              title: isAdvance ? 'Đơn tạm ứng cần Ban Giám Đốc duyệt' : 'Đơn thanh toán cần Ban Giám Đốc duyệt',
+              body: `Kế toán đã duyệt chờ ${isAdvance ? 'tạm ứng' : 'thanh toán'} đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ). Chuyển Ban Giám Đốc duyệt.`,
               metadata: { requestId: id },
             });
             this.notifications.emitCreated(notif);
@@ -1380,11 +1476,12 @@ export class EmployeeRequestsService {
           },
         });
 
+        const isAdvance = request.type === EmployeeRequestType.ADVANCE;
         // Notify the creator that money has been disbursed!
         const notif = await this.notifications.createForUsers(tx, [request.userId], {
           type: NotificationType.SYSTEM,
-          title: 'Đã thanh toán thành công 💸',
-          body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) của bạn đã được Kế toán trưởng thanh toán thành công.`,
+          title: isAdvance ? 'Đã giải ngân tạm ứng thành công 💸' : 'Đã thanh toán thành công 💸',
+          body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) của bạn đã được Kế toán trưởng ${isAdvance ? 'giải ngân tạm ứng' : 'thanh toán'} thành công.`,
           metadata: { requestId: id, disbursementProofUrl: payload?.disbursementProofUrl },
         });
         this.notifications.emitCreated(notif);
@@ -1552,7 +1649,7 @@ export class EmployeeRequestsService {
 
       const notif = await this.notifications.createForUsers(tx, [request.userId], {
         type: NotificationType.SYSTEM,
-        title: isPurchase ? 'Đề xuất mua sắm bị từ chối ❌' : 'Yêu cầu thanh toán bị từ chối ❌',
+        title: getRequestRejectTitle(request.type, request.title),
         body: `Đơn "${request.title}" của bạn đã bị từ chối bởi ${actorName}. Lý do: ${payload.reason.trim()}`,
         metadata: { requestId: id, reason: payload.reason.trim() },
       });
