@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsDateString, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsArray, IsBoolean, IsDateString, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
 
 export class AssignShiftDto {
   @ApiProperty()
@@ -72,4 +73,54 @@ export class DepartmentAssignmentsQueryDto {
   @IsDateString()
   endDate!: string;
 }
+
+export class ShiftCellDeleteItemDto {
+  @ApiProperty()
+  @IsUUID()
+  userId!: string;
+
+  @ApiProperty({ type: String, format: 'date' })
+  @IsDateString()
+  workDate!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  id?: string;
+}
+
+export class BatchDeleteShiftCellsDto {
+  @ApiProperty({ type: [ShiftCellDeleteItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ShiftCellDeleteItemDto)
+  items!: ShiftCellDeleteItemDto[];
+}
+
+export class ShiftCellUpsertItemDto {
+  @ApiProperty()
+  @IsUUID()
+  userId!: string;
+
+  @ApiProperty()
+  @IsUUID()
+  departmentId!: string;
+
+  @ApiProperty()
+  @IsUUID()
+  shiftId!: string;
+
+  @ApiProperty({ type: String, format: 'date' })
+  @IsDateString()
+  workDate!: string;
+}
+
+export class BatchUpsertShiftCellsDto {
+  @ApiProperty({ type: [ShiftCellUpsertItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ShiftCellUpsertItemDto)
+  items!: ShiftCellUpsertItemDto[];
+}
+
 

@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { AssignShiftDto, BatchAssignShiftDto, DepartmentAssignmentsQueryDto } from './dto/shift-assignment.dto';
+import { AssignShiftDto, BatchAssignShiftDto, DepartmentAssignmentsQueryDto, BatchDeleteShiftCellsDto, BatchUpsertShiftCellsDto } from './dto/shift-assignment.dto';
 import { ShiftRegistrationDto, ShiftSwapDto } from './dto/shift-request.dto';
 import { ShiftAssignmentsService } from './shift-assignments.service';
 
@@ -50,6 +50,18 @@ export class ShiftAssignmentsController {
   @Post('swaps')
   swap(@Body() dto: ShiftSwapDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.shiftAssignmentsService.requestSwap(dto, actor);
+  }
+
+  @Permissions('shift.assign')
+  @Post('cells/batch-delete')
+  batchDeleteCells(@Body() dto: BatchDeleteShiftCellsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.shiftAssignmentsService.batchDeleteCells(dto, actor);
+  }
+
+  @Permissions('shift.assign')
+  @Post('cells/batch-upsert')
+  batchUpsertCells(@Body() dto: BatchUpsertShiftCellsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.shiftAssignmentsService.batchUpsertCells(dto, actor);
   }
 
   @Permissions('shift.assign')
