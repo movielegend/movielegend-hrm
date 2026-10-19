@@ -11,8 +11,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.28.183:3001/api/v1",
-        "EXPO_PUBLIC_SOCKET_URL": "http://192.168.28.183:3001"
+        "EXPO_PUBLIC_API_URL": "http://192.168.28.184:3001/api/v1",
+        "EXPO_PUBLIC_SOCKET_URL": "http://192.168.28.184:3001"
       }
     },
     "preview": {

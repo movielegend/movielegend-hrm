@@ -35,7 +35,6 @@ export function MyFeedbackListScreen({ basePath = '/employee' }: { basePath?: st
   const filterOptions: { label: string; value: FeedbackStatus | undefined }[] = [
     { label: 'Tất cả', value: undefined },
     { label: 'Đã gửi', value: 'SEND' },
-    { label: 'Đang xem xét', value: 'REVIEWED' },
     { label: 'Đã giải quyết', value: 'RESOLVED' },
     { label: 'Từ chối', value: 'REJECTED' },
   ];
