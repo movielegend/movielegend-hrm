@@ -2545,19 +2545,49 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
           const msgTime = formatMessageTime(targetMsg?.createdAt);
 
           // Position calculation: keep menu comfortably on screen
-          const topSafe = insets.top + 60;
-          const bottomSafe = screenHeight - insets.bottom - 40;
+          const topSafe = insets.top + 50;
+          const bottomSafe = screenHeight - insets.bottom - 24;
 
-          // Calculate where the bubble preview should sit
-          let bubbleTop = touchY - 30;
-          if (bubbleTop + 290 > bottomSafe) {
-            bubbleTop = bottomSafe - 290;
-          }
-          if (bubbleTop - 56 < topSafe) {
-            bubbleTop = topSafe + 56;
+          const hasImage = Boolean(
+            targetMsg?.fileUrl &&
+              (targetMsg?.fileType === 'IMAGE' || targetMsg?.fileType === 'IMAGE_ALBUM')
+          );
+          const hasText = Boolean(targetMsg?.content);
+          const hasCopy = Boolean(
+            hasText &&
+              targetMsg.content !== 'Tin nhắn đã bị thu hồi' &&
+              !targetMsg.content.startsWith('LOTTIE_STICKER:') &&
+              !targetMsg.content.startsWith('STATIC_STICKER:') &&
+              !targetMsg.content.startsWith('GIPHY_STICKER:')
+          );
+
+          // Dynamic calculation of bubble height
+          let bubbleHeight = 44;
+          if (hasImage && hasText) {
+            bubbleHeight = 190;
+          } else if (hasImage) {
+            bubbleHeight = 145;
+          } else if (hasText) {
+            const lines = Math.min(4, Math.ceil((targetMsg.content?.length || 0) / 28));
+            bubbleHeight = 36 + lines * 20;
           }
 
-          const reactionTop = bubbleTop - 54;
+          // Dynamic calculation of menu card height (header + items + padding)
+          const menuItemsCount = hasCopy ? 6 : 5;
+          const menuCardHeight = menuItemsCount * 44 + 36;
+          const reactionBarHeight = 56;
+          const totalPopupHeight = reactionBarHeight + bubbleHeight + menuCardHeight + 16;
+
+          // Adjust position so the entire popup stays strictly within [topSafe, bottomSafe]
+          let reactionTop = touchY - 40;
+          if (reactionTop + totalPopupHeight > bottomSafe) {
+            reactionTop = bottomSafe - totalPopupHeight;
+          }
+          if (reactionTop < topSafe) {
+            reactionTop = topSafe;
+          }
+
+          const maxMenuCardHeight = Math.max(180, bottomSafe - reactionTop - reactionBarHeight - bubbleHeight - 16);
           const quickEmojis = ['❤️', '😂', '😮', '😢', '😡', '👍'];
 
           return (
@@ -2663,102 +2693,108 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                   </View>
 
                   {/* 3. Floating Context Menu Card */}
-                  <View style={styles.messengerMenuCard}>
-                    {/* Timestamp Header */}
-                    {!!msgTime && (
-                      <Text style={styles.messengerMenuTime}>{msgTime}</Text>
-                    )}
-
-                    {/* Trả lời */}
-                    <TouchableOpacity
-                      style={styles.messengerMenuItem}
-                      onPress={() => {
-                        setActiveActionMessage(null);
-                        setReplyingMessage(targetMsg);
-                      }}
-                      activeOpacity={0.7}
+                  <View style={[styles.messengerMenuCard, { maxHeight: maxMenuCardHeight }]}>
+                    <ScrollView
+                      showsVerticalScrollIndicator={false}
+                      bounces={false}
+                      contentContainerStyle={{ paddingVertical: 2 }}
                     >
-                      <Ionicons name="arrow-undo-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
-                      <Text style={styles.messengerMenuLabel}>Trả lời</Text>
-                    </TouchableOpacity>
+                      {/* Timestamp Header */}
+                      {!!msgTime && (
+                        <Text style={styles.messengerMenuTime}>{msgTime}</Text>
+                      )}
 
-                    {/* Chuyển tiếp */}
-                    <TouchableOpacity
-                      style={styles.messengerMenuItem}
-                      onPress={() => {
-                        setActiveActionMessage(null);
-                        setForwardMessageData(targetMsg);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="paper-plane-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
-                      <Text style={styles.messengerMenuLabel}>Chuyển tiếp</Text>
-                    </TouchableOpacity>
+                      {/* Trả lời */}
+                      <TouchableOpacity
+                        style={styles.messengerMenuItem}
+                        onPress={() => {
+                          setActiveActionMessage(null);
+                          setReplyingMessage(targetMsg);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="arrow-undo-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
+                        <Text style={styles.messengerMenuLabel}>Trả lời</Text>
+                      </TouchableOpacity>
 
-                    {/* Sao chép (nếu có nội dung) */}
-                    {!!targetMsg?.content &&
-                      targetMsg.content !== 'Tin nhắn đã bị thu hồi' &&
-                      !targetMsg.content.startsWith('LOTTIE_STICKER:') &&
-                      !targetMsg.content.startsWith('STATIC_STICKER:') &&
-                      !targetMsg.content.startsWith('GIPHY_STICKER:') && (
+                      {/* Chuyển tiếp */}
+                      <TouchableOpacity
+                        style={styles.messengerMenuItem}
+                        onPress={() => {
+                          setActiveActionMessage(null);
+                          setForwardMessageData(targetMsg);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="paper-plane-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
+                        <Text style={styles.messengerMenuLabel}>Chuyển tiếp</Text>
+                      </TouchableOpacity>
+
+                      {/* Sao chép (nếu có nội dung) */}
+                      {!!targetMsg?.content &&
+                        targetMsg.content !== 'Tin nhắn đã bị thu hồi' &&
+                        !targetMsg.content.startsWith('LOTTIE_STICKER:') &&
+                        !targetMsg.content.startsWith('STATIC_STICKER:') &&
+                        !targetMsg.content.startsWith('GIPHY_STICKER:') && (
+                          <TouchableOpacity
+                            style={styles.messengerMenuItem}
+                            onPress={() => handleCopyText(targetMsg.content)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="copy-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
+                            <Text style={styles.messengerMenuLabel}>Sao chép</Text>
+                          </TouchableOpacity>
+                        )}
+
+                      {/* Xóa ở phía bạn */}
+                      <TouchableOpacity
+                        style={styles.messengerMenuItem}
+                        onPress={() => handleDeleteForMe(targetMsg)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
+                        <Text style={styles.messengerMenuLabel}>Xóa ở phía bạn</Text>
+                      </TouchableOpacity>
+
+                      {/* Dynamic Red Action: Báo cáo (đối phương) vs Thu hồi (của mình) */}
+                      {isTargetMine ? (
+                        targetMsg?.content !== 'Tin nhắn đã bị thu hồi' && (
+                          <TouchableOpacity
+                            style={styles.messengerMenuItem}
+                            onPress={() => handleRecallMessage(targetMsg)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="arrow-undo-circle-outline" size={20} color="#EF4444" style={styles.messengerMenuIcon} />
+                            <Text style={[styles.messengerMenuLabel, { color: '#EF4444', fontWeight: '500' }]}>Thu hồi</Text>
+                          </TouchableOpacity>
+                        )
+                      ) : (
                         <TouchableOpacity
                           style={styles.messengerMenuItem}
-                          onPress={() => handleCopyText(targetMsg.content)}
+                          onPress={() => handleReportMessage(targetMsg)}
                           activeOpacity={0.7}
                         >
-                          <Ionicons name="copy-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
-                          <Text style={styles.messengerMenuLabel}>Sao chép</Text>
+                          <Ionicons name="chatbubble-ellipses-outline" size={20} color="#EF4444" style={styles.messengerMenuIcon} />
+                          <Text style={[styles.messengerMenuLabel, { color: '#EF4444', fontWeight: '500' }]}>Báo cáo</Text>
                         </TouchableOpacity>
                       )}
 
-                    {/* Xóa ở phía bạn */}
-                    <TouchableOpacity
-                      style={styles.messengerMenuItem}
-                      onPress={() => handleDeleteForMe(targetMsg)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="trash-outline" size={20} color="#111827" style={styles.messengerMenuIcon} />
-                      <Text style={styles.messengerMenuLabel}>Xóa ở phía bạn</Text>
-                    </TouchableOpacity>
-
-                    {/* Dynamic Red Action: Báo cáo (đối phương) vs Thu hồi (của mình) */}
-                    {isTargetMine ? (
-                      targetMsg?.content !== 'Tin nhắn đã bị thu hồi' && (
-                        <TouchableOpacity
-                          style={styles.messengerMenuItem}
-                          onPress={() => handleRecallMessage(targetMsg)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="arrow-undo-circle-outline" size={20} color="#EF4444" style={styles.messengerMenuIcon} />
-                          <Text style={[styles.messengerMenuLabel, { color: '#EF4444', fontWeight: '500' }]}>Thu hồi</Text>
-                        </TouchableOpacity>
-                      )
-                    ) : (
+                      {/* Khác > */}
                       <TouchableOpacity
                         style={styles.messengerMenuItem}
-                        onPress={() => handleReportMessage(targetMsg)}
+                        onPress={() => {
+                          setActiveActionMessage(null);
+                          setDetailMessage(targetMsg);
+                          setDetailTab('reactions');
+                          setSelectedReactionFilter('ALL');
+                        }}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="chatbubble-ellipses-outline" size={20} color="#EF4444" style={styles.messengerMenuIcon} />
-                        <Text style={[styles.messengerMenuLabel, { color: '#EF4444', fontWeight: '500' }]}>Báo cáo</Text>
+                        <Ionicons name="ellipsis-horizontal" size={20} color="#111827" style={styles.messengerMenuIcon} />
+                        <Text style={styles.messengerMenuLabel}>Khác</Text>
+                        <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
                       </TouchableOpacity>
-                    )}
-
-                    {/* Khác > */}
-                    <TouchableOpacity
-                      style={styles.messengerMenuItem}
-                      onPress={() => {
-                        setActiveActionMessage(null);
-                        setDetailMessage(targetMsg);
-                        setDetailTab('reactions');
-                        setSelectedReactionFilter('ALL');
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="ellipsis-horizontal" size={20} color="#111827" style={styles.messengerMenuIcon} />
-                      <Text style={styles.messengerMenuLabel}>Khác</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-                    </TouchableOpacity>
+                    </ScrollView>
                   </View>
                 </Pressable>
               </Pressable>

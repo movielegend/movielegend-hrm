@@ -17,6 +17,19 @@ if (Platform.OS !== 'web' && Constants.executionEnvironment !== ExecutionEnviron
   }
 }
 
+let LiveKitModule: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    LiveKitModule = require('@livekit/react-native');
+  } catch (e) {
+    // Ignore if not supported
+  }
+}
+const LiveKitRoom = LiveKitModule?.LiveKitRoom;
+const useRoomContext = LiveKitModule?.useRoomContext;
+const useLocalParticipant = LiveKitModule?.useLocalParticipant;
+const AudioSession = LiveKitModule?.AudioSession;
+
 // ── Types ──
 interface VoiceCallContextType {
   initiateCall: (targetUserId: string, targetName: string, targetAvatar?: string | null) => void;
@@ -85,6 +98,21 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
 
   // ── Reset call ──
   const resetCall = useCallback(() => {
+    if (roomRef.current) {
+      try {
+        roomRef.current.disconnect?.();
+      } catch (e) {
+        // ignore
+      }
+      roomRef.current = null;
+    }
+    try {
+      if (AudioSession?.stopAudioSession) {
+        void AudioSession.stopAudioSession();
+      }
+    } catch (e) {
+      // ignore
+    }
     setCallState('IDLE');
     setCallId(null);
     setCallerId(null);
@@ -479,6 +507,151 @@ export function VoiceCallProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ── Props for Active Call Content ──
+interface ActiveCallContentProps {
+  peerName: string;
+  peerAvatar?: string | null;
+  isMuted: boolean;
+  isSpeaker: boolean;
+  onToggleMute: () => void;
+  onToggleSpeaker: () => void;
+  onEndCall: (duration?: number) => void;
+  roomRef: React.MutableRefObject<any>;
+}
+
+// ── Standalone Active Call Content (Never unmounted during re-render) ──
+function ActiveCallContent(props: ActiveCallContentProps) {
+  const room = useRoomContext?.() || { state: 'connected' };
+  const { localParticipant } = useLocalParticipant?.() || { localParticipant: null };
+
+  useEffect(() => {
+    if (room) {
+      props.roomRef.current = room;
+    }
+  }, [room]);
+
+  // ── 1. Khởi tạo AudioSession Native khi cuộc gọi ACTIVE ──
+  useEffect(() => {
+    let isMounted = true;
+    const initAudio = async () => {
+      try {
+        if (AudioSession?.startAudioSession) {
+          await AudioSession.startAudioSession();
+        }
+        if (AudioSession?.selectAudioOutput && isMounted) {
+          if (Platform.OS === 'ios') {
+            await AudioSession.selectAudioOutput(props.isSpeaker ? 'force_speaker' : 'default');
+          } else {
+            await AudioSession.selectAudioOutput(props.isSpeaker ? 'speaker' : 'earpiece');
+          }
+        }
+      } catch (e) {
+        console.warn('[LiveKit] AudioSession init error:', e);
+      }
+    };
+
+    void initAudio();
+
+    return () => {
+      isMounted = false;
+      try {
+        if (AudioSession?.stopAudioSession) {
+          void AudioSession.stopAudioSession();
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+  }, []);
+
+  // ── 2. Đồng bộ Mic (Tắt / Bật Mic cả ở tầng LiveKit SDK và WebRTC Hardware Track) ──
+  useEffect(() => {
+    const syncMute = async () => {
+      try {
+        if (localParticipant) {
+          await localParticipant.setMicrophoneEnabled(!props.isMuted);
+        }
+        // Ép phần cứng mediaStreamTrack tắt/bật trực tiếp để ngắt âm thanh triệt để
+        if (room?.localParticipant?.audioTrackPublications) {
+          room.localParticipant.audioTrackPublications.forEach((pub: any) => {
+            if (pub.track?.mediaStreamTrack) {
+              pub.track.mediaStreamTrack.enabled = !props.isMuted;
+            }
+            if (props.isMuted && typeof pub.mute === 'function') {
+              void pub.mute();
+            } else if (!props.isMuted && typeof pub.unmute === 'function') {
+              void pub.unmute();
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('[LiveKit] Failed to sync mute state:', e);
+      }
+    };
+
+    void syncMute();
+  }, [localParticipant, room, props.isMuted]);
+
+  // ── 3. Đồng bộ Loa ngoài / Loa trong xuống phần cứng thiết bị ──
+  useEffect(() => {
+    const syncSpeaker = async () => {
+      try {
+        if (AudioSession?.selectAudioOutput) {
+          if (Platform.OS === 'ios') {
+            await AudioSession.selectAudioOutput(props.isSpeaker ? 'force_speaker' : 'default');
+          } else {
+            await AudioSession.selectAudioOutput(props.isSpeaker ? 'speaker' : 'earpiece');
+          }
+        }
+      } catch (e) {
+        console.warn('[LiveKit] Failed to toggle audio output:', e);
+      }
+    };
+
+    void syncSpeaker();
+  }, [props.isSpeaker]);
+
+  // ── 4. Re-sync khi phòng gọi kết nối thành công (Room connected event) ──
+  useEffect(() => {
+    if (!room || typeof room.on !== 'function') return;
+
+    const onConnected = () => {
+      if (AudioSession?.selectAudioOutput) {
+        if (Platform.OS === 'ios') {
+          void AudioSession.selectAudioOutput(props.isSpeaker ? 'force_speaker' : 'default');
+        } else {
+          void AudioSession.selectAudioOutput(props.isSpeaker ? 'speaker' : 'earpiece');
+        }
+      }
+      if (props.isMuted && room.localParticipant) {
+        void room.localParticipant.setMicrophoneEnabled(false);
+        room.localParticipant.audioTrackPublications?.forEach((pub: any) => {
+          if (pub.track?.mediaStreamTrack) pub.track.mediaStreamTrack.enabled = false;
+          if (typeof pub.mute === 'function') void pub.mute();
+        });
+      }
+    };
+
+    room.on('connected', onConnected);
+    return () => {
+      room.off?.('connected', onConnected);
+    };
+  }, [room, props.isSpeaker, props.isMuted]);
+
+  return (
+    <ActiveCallScreen
+      peerName={props.peerName}
+      peerAvatar={props.peerAvatar}
+      isMuted={props.isMuted}
+      isSpeaker={props.isSpeaker}
+      onToggleMute={props.onToggleMute}
+      onToggleSpeaker={props.onToggleSpeaker}
+      onEndCall={props.onEndCall}
+      connectionState={room?.state}
+    />
+  );
+}
+
 // ── Active call dynamic wrapper ──
 function ActiveCallLiveKitWrapper(props: {
   serverUrl: string;
@@ -492,14 +665,7 @@ function ActiveCallLiveKitWrapper(props: {
   onEndCall: (duration?: number) => void;
   roomRef: React.MutableRefObject<any>;
 }) {
-  let LiveKitModule: any = null;
-  try {
-    LiveKitModule = require('@livekit/react-native');
-  } catch (e) {
-    console.warn('LiveKit not available:', e);
-  }
-
-  if (!LiveKitModule?.LiveKitRoom) {
+  if (!LiveKitRoom) {
     return (
       <ActiveCallScreen
         peerName={props.peerName}
@@ -509,80 +675,6 @@ function ActiveCallLiveKitWrapper(props: {
         onToggleMute={props.onToggleMute}
         onToggleSpeaker={props.onToggleSpeaker}
         onEndCall={props.onEndCall}
-      />
-    );
-  }
-
-  const { LiveKitRoom, useRoomContext, useLocalParticipant, AudioSession } = LiveKitModule;
-
-  function ActiveCallContent() {
-    const room = useRoomContext?.() || { state: 'connected' };
-    const { localParticipant } = useLocalParticipant?.() || { localParticipant: null };
-
-    useEffect(() => {
-      if (room) {
-        props.roomRef.current = room;
-      }
-    }, [room]);
-
-    useEffect(() => {
-      try {
-        if (localParticipant) {
-          localParticipant.setMicrophoneEnabled(!props.isMuted);
-        }
-      } catch (e) {
-        console.warn('Failed to sync mute state:', e);
-      }
-    }, [localParticipant, props.isMuted]);
-
-    // ── Đồng bộ loa ngoài / loa trong xuống phần cứng thiết bị ──
-    useEffect(() => {
-      const syncSpeaker = async () => {
-        try {
-          if (AudioSession?.selectAudioOutput) {
-            if (Platform.OS === 'ios') {
-              // Trên iOS: 'force_speaker' ép phát ra loa ngoài, 'default' phát loa thoại áp tai
-              await AudioSession.selectAudioOutput(props.isSpeaker ? 'force_speaker' : 'default');
-            } else {
-              // Trên Android: 'speaker' phát loa ngoài, 'earpiece' phát loa thoại áp tai
-              await AudioSession.selectAudioOutput(props.isSpeaker ? 'speaker' : 'earpiece');
-            }
-          }
-        } catch (e) {
-          console.warn('[LiveKit] Failed to toggle audio output:', e);
-        }
-      };
-
-      void syncSpeaker();
-    }, [props.isSpeaker]);
-
-    // ── Khôi phục về chế độ mặc định khi kết thúc cuộc gọi ──
-    useEffect(() => {
-      return () => {
-        try {
-          if (AudioSession?.selectAudioOutput) {
-            if (Platform.OS === 'ios') {
-              void AudioSession.selectAudioOutput('default');
-            } else {
-              void AudioSession.selectAudioOutput('earpiece');
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-      };
-    }, []);
-
-    return (
-      <ActiveCallScreen
-        peerName={props.peerName}
-        peerAvatar={props.peerAvatar}
-        isMuted={props.isMuted}
-        isSpeaker={props.isSpeaker}
-        onToggleMute={props.onToggleMute}
-        onToggleSpeaker={props.onToggleSpeaker}
-        onEndCall={props.onEndCall}
-        connectionState={room?.state}
       />
     );
   }
@@ -592,11 +684,20 @@ function ActiveCallLiveKitWrapper(props: {
       serverUrl={props.serverUrl}
       token={props.token}
       connect={true}
-      audio={true}
+      audio={!props.isMuted}
       video={false}
       onConnected={(room: any) => { props.roomRef.current = room; }}
     >
-      <ActiveCallContent />
+      <ActiveCallContent
+        peerName={props.peerName}
+        peerAvatar={props.peerAvatar}
+        isMuted={props.isMuted}
+        isSpeaker={props.isSpeaker}
+        onToggleMute={props.onToggleMute}
+        onToggleSpeaker={props.onToggleSpeaker}
+        onEndCall={props.onEndCall}
+        roomRef={props.roomRef}
+      />
     </LiveKitRoom>
   );
 }

@@ -260,18 +260,16 @@ export class NotificationsService {
 
   async registerDevice(dto: RegisterDeviceTokenDto, actor: AuthenticatedUser) {
     const tokenHash = this.hashToken(dto.token);
-    // Revoke any previous active tokens for this user on the same physical device
-    if (dto.deviceId) {
-      await this.prisma.deviceToken.updateMany({
-        where: {
-          userId: actor.userId,
-          deviceId: dto.deviceId,
-          tokenHash: { not: tokenHash },
-          revokedAt: null,
-        },
-        data: { revokedAt: new Date() },
-      });
-    }
+    // Revoke any previous active tokens for this user on the same platform to eliminate duplicate tokens
+    await this.prisma.deviceToken.updateMany({
+      where: {
+        userId: actor.userId,
+        platform: dto.platform,
+        tokenHash: { not: tokenHash },
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    });
 
     return this.prisma.deviceToken.upsert({
       where: { tokenHash },
