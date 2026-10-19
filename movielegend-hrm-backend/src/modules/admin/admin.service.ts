@@ -1942,7 +1942,7 @@ export class AdminService {
       // 5.2 Notify Employee
       const notif = await this.notifications.createForUsers(tx as any, [userId], {
         type: 'SYSTEM' as NotificationType,
-        title: 'Yêu cầu rút điểm Ví Tết đã được gửi',
+        title: 'Yêu cầu rút điểm Ví Thưởng đã được gửi',
         body: `Bạn đã gửi yêu cầu rút toàn bộ ${pointsToWithdraw.toLocaleString('vi-VN')} điểm (~${totalCash.toLocaleString('vi-VN')} VNĐ)${dto.bankName ? ` về tài khoản ${dto.bankName}` : ''}. Yêu cầu đang được chuyển đến Ban Giám Đốc để phê duyệt.`,
       });
       if (notif) this.notifications.emitCreated(notif);

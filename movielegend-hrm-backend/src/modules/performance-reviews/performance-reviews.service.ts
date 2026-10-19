@@ -150,8 +150,8 @@ export class PerformanceReviewsService {
       const userIds = cycle.reviews.map((review) => review.userId);
       const notification = await this.notifications.createForUsers(tx, userIds, {
         type: to === PerformanceReviewCycleStatus.OPEN ? NotificationType.PERFORMANCE_REVIEW_OPENED : NotificationType.PERFORMANCE_REVIEW_STAGE_CHANGED,
-        title: 'Performance review updated',
-        body: cycle.name,
+        title: to === PerformanceReviewCycleStatus.OPEN ? 'Kỳ đánh giá nhân sự đã mở' : 'Cập nhật kỳ đánh giá nhân sự',
+        body: `Kỳ đánh giá "${cycle.name}" đã được cập nhật sang trạng thái mới.`,
         metadata: { cycleId: id, status: to },
       });
       return { cycle, notification };
@@ -177,8 +177,8 @@ export class PerformanceReviewsService {
       });
       const notification = await this.notifications.createForUsers(tx, [review.userId], {
         type: to === PerformanceReviewStatus.FINALIZED ? NotificationType.PERFORMANCE_REVIEW_FINALIZED : NotificationType.PERFORMANCE_REVIEW_STAGE_CHANGED,
-        title: 'Performance review updated',
-        body: review.cycle.name,
+        title: to === PerformanceReviewStatus.FINALIZED ? 'Kết quả đánh giá nhân sự hoàn tất' : 'Cập nhật đánh giá nhân sự',
+        body: `Đánh giá của bạn trong kỳ "${review.cycle.name}" đã được cập nhật.`,
         metadata: { reviewId: id, status: to },
       });
       return { review, notification };

@@ -134,31 +134,8 @@ export function SocketProvider({ children }: PropsWithChildren) {
           }
         }
 
-        // 3. For non-chat notifications, or when app is in background, schedule native OS notification
-        if (payload && payload.title && Platform.OS !== 'web' && Notifications?.scheduleNotificationAsync) {
-          try {
-            Notifications.scheduleNotificationAsync({
-              content: {
-                title: payload.title,
-                body: payload.body || '',
-                sound: true,
-                priority: Notifications?.AndroidNotificationPriority?.MAX ?? 'max',
-                data: {
-                  notificationId: payload.id,
-                  type: payload.type,
-                  taskId: payload.taskId,
-                  metadata: payload.metadata,
-                },
-                ...(Platform.OS === 'android' ? { channelId: 'default' } : {}),
-              },
-              trigger: null,
-            }).catch(() => {
-              // Ignore local schedule failure
-            });
-          } catch (e) {
-            // Ignore notification error in dev/Expo Go
-          }
-        }
+        // Remote push notification is already dispatched by the backend via Firebase/Expo Push.
+        // We do not schedule a local notification here to avoid duplicate notifications on the device.
       });
       const updateGroupDataOptimistic = (groupId: string, latestMsg?: any) => {
         const updateList = (old: any) => {

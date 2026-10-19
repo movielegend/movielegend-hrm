@@ -24,6 +24,99 @@ import {
 } from './dto/employee-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
+function getRequestCreateTitle(type: EmployeeRequestType | string, title?: string): string {
+  if (title?.includes('[LÀM BÙ]') || type === 'COMPENSATORY_WORK') return 'Đơn xin làm bù mới';
+  if (title?.includes('[ACCOUNT_DELETION]')) return 'Yêu cầu xóa tài khoản mới';
+  switch (type) {
+    case EmployeeRequestType.PURCHASE:
+      return 'Đề xuất mua sắm mới';
+    case EmployeeRequestType.ADVANCE:
+      return 'Đơn xin tạm ứng mới';
+    case EmployeeRequestType.EXPENSE:
+      return 'Đơn yêu cầu thanh toán mới';
+    case EmployeeRequestType.LATE_ARRIVAL:
+      return 'Đơn xin đi muộn mới';
+    case EmployeeRequestType.EARLY_LEAVE:
+      return 'Đơn xin về sớm mới';
+    case EmployeeRequestType.LEAVE:
+      return 'Đơn xin nghỉ phép mới';
+    case EmployeeRequestType.OVERTIME:
+      return 'Đơn làm thêm giờ mới';
+    case EmployeeRequestType.ATTENDANCE_ADJUSTMENT:
+      return 'Đơn giải trình/bổ sung công mới';
+    case EmployeeRequestType.SHIFT_REGISTRATION:
+      return 'Đăng ký ca làm việc mới';
+    case EmployeeRequestType.SHIFT_SWAP:
+      return 'Đơn xin đổi ca mới';
+    case EmployeeRequestType.BUSINESS_TRIP:
+      return 'Đơn xin đi công tác mới';
+    case EmployeeRequestType.EQUIPMENT:
+      return 'Yêu cầu cấp thiết bị mới';
+    default:
+      return 'Yêu cầu nhân viên mới';
+  }
+}
+
+function getRequestApproveTitle(type: EmployeeRequestType | string, title?: string): string {
+  if (title?.includes('[LÀM BÙ]') || type === 'COMPENSATORY_WORK') return 'Đơn làm bù đã được duyệt';
+  if (title?.includes('[ACCOUNT_DELETION]')) return 'Yêu cầu xóa tài khoản đã được duyệt';
+  switch (type) {
+    case EmployeeRequestType.LATE_ARRIVAL:
+      return 'Đơn xin đi muộn đã được duyệt';
+    case EmployeeRequestType.EARLY_LEAVE:
+      return 'Đơn xin về sớm đã được duyệt';
+    case EmployeeRequestType.LEAVE:
+      return 'Đơn xin nghỉ phép đã được duyệt';
+    case EmployeeRequestType.OVERTIME:
+      return 'Đơn làm thêm giờ đã được duyệt';
+    case EmployeeRequestType.ATTENDANCE_ADJUSTMENT:
+      return 'Đơn giải trình/bổ sung công đã được duyệt';
+    case EmployeeRequestType.SHIFT_REGISTRATION:
+      return 'Đăng ký ca làm việc đã được duyệt';
+    case EmployeeRequestType.SHIFT_SWAP:
+      return 'Đơn đổi ca đã được duyệt';
+    case EmployeeRequestType.BUSINESS_TRIP:
+      return 'Đơn đi công tác đã được duyệt';
+    case EmployeeRequestType.EQUIPMENT:
+      return 'Yêu cầu cấp thiết bị đã được duyệt';
+    default:
+      return 'Yêu cầu đã được duyệt';
+  }
+}
+
+function getRequestRejectTitle(type: EmployeeRequestType | string, title?: string): string {
+  if (title?.includes('[LÀM BÙ]') || type === 'COMPENSATORY_WORK') return 'Đơn làm bù bị từ chối';
+  if (title?.includes('[ACCOUNT_DELETION]')) return 'Yêu cầu xóa tài khoản bị từ chối';
+  switch (type) {
+    case EmployeeRequestType.PURCHASE:
+      return 'Đề xuất mua sắm bị từ chối';
+    case EmployeeRequestType.ADVANCE:
+      return 'Yêu cầu tạm ứng bị từ chối';
+    case EmployeeRequestType.EXPENSE:
+      return 'Yêu cầu thanh toán bị từ chối';
+    case EmployeeRequestType.LATE_ARRIVAL:
+      return 'Đơn xin đi muộn bị từ chối';
+    case EmployeeRequestType.EARLY_LEAVE:
+      return 'Đơn xin về sớm bị từ chối';
+    case EmployeeRequestType.LEAVE:
+      return 'Đơn xin nghỉ phép bị từ chối';
+    case EmployeeRequestType.OVERTIME:
+      return 'Đơn làm thêm giờ bị từ chối';
+    case EmployeeRequestType.ATTENDANCE_ADJUSTMENT:
+      return 'Đơn giải trình/bổ sung công bị từ chối';
+    case EmployeeRequestType.SHIFT_REGISTRATION:
+      return 'Đăng ký ca làm việc bị từ chối';
+    case EmployeeRequestType.SHIFT_SWAP:
+      return 'Đơn đổi ca bị từ chối';
+    case EmployeeRequestType.BUSINESS_TRIP:
+      return 'Đơn công tác bị từ chối';
+    case EmployeeRequestType.EQUIPMENT:
+      return 'Yêu cầu thiết bị bị từ chối';
+    default:
+      return 'Đơn yêu cầu bị từ chối';
+  }
+}
+
 @Injectable()
 export class EmployeeRequestsService {
   constructor(
@@ -346,7 +439,7 @@ export class EmployeeRequestsService {
           targetUserIds,
           {
             type: 'SYSTEM' as NotificationType,
-            title: isFinancial ? `Đơn ${dto.type === 'ADVANCE' ? 'ứng lương' : 'thanh toán'} mới` : 'Yêu cầu mới',
+            title: getRequestCreateTitle(dto.type, request.title),
             body: `${request.user?.profile?.fullName || 'Nhân viên'} vừa gửi yêu cầu: ${request.title}`,
             metadata: { requestId: request.id },
           },
@@ -917,7 +1010,7 @@ export class EmployeeRequestsService {
 
         const notif = await this.notifications.createForUsers(tx, [request.userId], {
           type: NotificationType.SYSTEM,
-          title: 'Yêu cầu đã được duyệt',
+          title: getRequestApproveTitle(request.type, request.title),
           body: `Yêu cầu "${request.title}" của bạn đã được duyệt.`,
           metadata: { requestId: id },
         });
@@ -973,19 +1066,20 @@ export class EmployeeRequestsService {
           if (hrUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, hrUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Đề xuất mua sắm cần HR xử lý 🛒',
+              title: 'Đề xuất mua sắm cần HR xử lý',
               body: `Leader đã duyệt đề xuất "${request.title}" của ${request.user?.profile?.fullName || 'nhân viên'}. Chuyển HR đối chứng và cung cấp STK nhận tiền mua sắm.`,
               metadata: { requestId: id },
             });
             this.notifications.emitCreated(notif);
           }
         } else {
+          const isAdvance = request.type === EmployeeRequestType.ADVANCE;
           // Thông báo đến toàn bộ Kế toán
           const accountantUserIds = await this.findAccountantUserIds(tx);
           if (accountantUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Đơn thanh toán chuyển Kế toán',
+              title: isAdvance ? 'Đơn tạm ứng chuyển Kế toán' : 'Đơn thanh toán chuyển Kế toán',
               body: `Leader đã duyệt đơn "${request.title}". Chuyển Kế toán xem xét xử lý.`,
               metadata: { requestId: id },
             });
@@ -1054,7 +1148,7 @@ export class EmployeeRequestsService {
           if (accountantUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Đề xuất mua sắm chờ Kế toán chuyển tiền 💳',
+              title: 'Đề xuất mua sắm chờ Kế toán chuyển tiền',
               body: `HR đã duyệt đề xuất "${request.title}" (${newAmount.toLocaleString('vi-VN')} VNĐ) và cung cấp STK nhận tiền. Chuyển Kế toán giải ngân.`,
               metadata: { requestId: id },
             });
@@ -1155,7 +1249,7 @@ export class EmployeeRequestsService {
           if (hrUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, hrUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Ban Giám Đốc đã duyệt mua sắm 💰',
+              title: 'Ban Giám Đốc đã duyệt mua sắm',
               body: `Ban Giám Đốc đã duyệt đơn "${request.title}". Tiền đã chuyển vào tài khoản HR. Mời HR tiến hành mua hàng.`,
               metadata: { requestId: id, disbursementProofUrl: payload?.disbursementProofUrl },
             });
@@ -1165,7 +1259,7 @@ export class EmployeeRequestsService {
           // Thông báo cho người tạo
           const notif = await this.notifications.createForUsers(tx, [request.userId], {
             type: NotificationType.SYSTEM,
-            title: 'Đề xuất mua sắm đã được duyệt 📦',
+            title: 'Đề xuất mua sắm đã được duyệt',
             body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) đã được Ban Giám Đốc duyệt cấp kinh phí. HR đang tiến hành mua hàng.`,
             metadata: { requestId: id },
           });
@@ -1205,10 +1299,11 @@ export class EmployeeRequestsService {
           },
         });
 
+        const isAdvance = request.type === EmployeeRequestType.ADVANCE;
         // Thông báo cho người tạo là đã giải ngân thành công
         const notif = await this.notifications.createForUsers(tx, [request.userId], {
           type: NotificationType.SYSTEM,
-          title: 'Đã thanh toán thành công 💸',
+          title: isAdvance ? 'Đã giải ngân tạm ứng thành công' : 'Đã thanh toán thành công',
           body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) đã được Ban Giám Đốc duyệt và giải ngân thành công.`,
           metadata: { requestId: id, disbursementProofUrl: payload?.disbursementProofUrl },
         });
@@ -1251,7 +1346,7 @@ export class EmployeeRequestsService {
             if (adminUserIds.length > 0) {
               const notif = await this.notifications.createForUsers(tx, adminUserIds, {
                 type: NotificationType.SYSTEM,
-                title: 'Đề xuất mua sắm cần Ban Giám Đốc duyệt 🛒',
+                title: 'Đề xuất mua sắm cần Ban Giám Đốc duyệt',
                 body: `Kế toán đã chuyển Ban Giám Đốc duyệt đơn mua sắm "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ).`,
                 metadata: { requestId: id },
               });
@@ -1295,7 +1390,7 @@ export class EmployeeRequestsService {
           if (hrUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, hrUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Tiền mua sắm đã được giải ngân 💰',
+              title: 'Tiền mua sắm đã được giải ngân',
               body: `Kế toán đã chuyển tiền cho đề xuất "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ). Mời HR kiểm tra tài khoản và tiến hành mua hàng.`,
               metadata: { requestId: id, disbursementProofUrl: payload?.disbursementProofUrl },
             });
@@ -1305,7 +1400,7 @@ export class EmployeeRequestsService {
           // Thông báo cho người đề xuất
           const notif = await this.notifications.createForUsers(tx, [request.userId], {
             type: NotificationType.SYSTEM,
-            title: 'Đề xuất mua sắm đã được cấp ngân sách 📦',
+            title: 'Đề xuất mua sắm đã được cấp ngân sách',
             body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) đã được Kế toán duyệt cấp kinh phí. HR đang tiến hành mua hàng.`,
             metadata: { requestId: id },
           });
@@ -1336,12 +1431,13 @@ export class EmployeeRequestsService {
             data: { attachmentMetadata: updatedMeta as Prisma.InputJsonValue },
           });
 
+          const isAdvance = request.type === EmployeeRequestType.ADVANCE;
           const adminUserIds = await this.findRelevantAdminUserIds(request.departmentId, tx);
           if (adminUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, adminUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Đơn thanh toán cần Ban Giám Đốc duyệt',
-              body: `Kế toán đã duyệt chờ thanh toán đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ). Chuyển Ban Giám Đốc duyệt.`,
+              title: isAdvance ? 'Đơn tạm ứng cần Ban Giám Đốc duyệt' : 'Đơn thanh toán cần Ban Giám Đốc duyệt',
+              body: `Kế toán đã duyệt chờ ${isAdvance ? 'tạm ứng' : 'thanh toán'} đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ). Chuyển Ban Giám Đốc duyệt.`,
               metadata: { requestId: id },
             });
             this.notifications.emitCreated(notif);
@@ -1380,11 +1476,12 @@ export class EmployeeRequestsService {
           },
         });
 
+        const isAdvance = request.type === EmployeeRequestType.ADVANCE;
         // Notify the creator that money has been disbursed!
         const notif = await this.notifications.createForUsers(tx, [request.userId], {
           type: NotificationType.SYSTEM,
-          title: 'Đã thanh toán thành công 💸',
-          body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) của bạn đã được Kế toán trưởng thanh toán thành công.`,
+          title: isAdvance ? 'Đã giải ngân tạm ứng thành công' : 'Đã thanh toán thành công',
+          body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) của bạn đã được Kế toán trưởng ${isAdvance ? 'giải ngân tạm ứng' : 'thanh toán'} thành công.`,
           metadata: { requestId: id, disbursementProofUrl: payload?.disbursementProofUrl },
         });
         this.notifications.emitCreated(notif);
@@ -1503,7 +1600,7 @@ export class EmployeeRequestsService {
         if (hrUserIds.length > 0) {
           const notif = await this.notifications.createForUsers(tx, hrUserIds, {
             type: NotificationType.SYSTEM,
-            title: 'Đề xuất mua hàng bị trả về HR ⚠️',
+            title: 'Đề xuất mua hàng bị trả về HR',
             body: `${actorName} đã từ chối duyệt đơn "${request.title}" và trả về HR điều chỉnh. Lý do: ${payload.reason.trim()}`,
             metadata: { requestId: id, reason: payload.reason.trim() },
           });
@@ -1552,7 +1649,7 @@ export class EmployeeRequestsService {
 
       const notif = await this.notifications.createForUsers(tx, [request.userId], {
         type: NotificationType.SYSTEM,
-        title: isPurchase ? 'Đề xuất mua sắm bị từ chối ❌' : 'Yêu cầu thanh toán bị từ chối ❌',
+        title: getRequestRejectTitle(request.type, request.title),
         body: `Đơn "${request.title}" của bạn đã bị từ chối bởi ${actorName}. Lý do: ${payload.reason.trim()}`,
         metadata: { requestId: id, reason: payload.reason.trim() },
       });
@@ -1661,7 +1758,7 @@ export class EmployeeRequestsService {
       await this.prisma.$transaction(async (tx) => {
         const notif = await this.notifications.createForUsers(tx as any, targetUserIds, {
           type: NotificationType.SYSTEM,
-          title: 'Yêu cầu hủy ca làm bù ⚠️',
+          title: 'Yêu cầu hủy ca làm bù',
           body: `${request.user?.profile?.fullName || 'Nhân viên'} xin hủy ca làm bù ngày ${compDatesDisplay}. Lý do: ${payload.reason.trim()}`,
           metadata: { requestId: id, isCompensatoryCancel: true },
         });
@@ -1749,7 +1846,7 @@ export class EmployeeRequestsService {
 
       const notif = await this.notifications.createForUsers(tx as any, [request.userId], {
         type: NotificationType.SYSTEM,
-        title: 'Đã duyệt hủy ca làm bù ✅',
+        title: 'Đã duyệt hủy ca làm bù',
         body: `Leader ${actorName} đã đồng ý hủy ca làm bù${compDates.length > 0 ? ` ngày ${compDates.map((d) => moment.tz(d, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')).join(', ')}` : ''}. Ca làm bù đã được gỡ bỏ khỏi lịch và bạn có thể tạo lại lịch làm bù khác.`,
         metadata: { requestId: id, status: 'CANCELLED' },
       });
@@ -1812,7 +1909,7 @@ export class EmployeeRequestsService {
     await this.prisma.$transaction(async (tx) => {
       const notif = await this.notifications.createForUsers(tx as any, [request.userId], {
         type: NotificationType.SYSTEM,
-        title: 'Từ chối hủy ca làm bù ❌',
+        title: 'Từ chối hủy ca làm bù',
         body: `Leader ${actorName} đã từ chối yêu cầu hủy ca làm bù của bạn. Lý do: ${payload?.note?.trim() || 'Không chấp thuận'}. Ca làm bù vẫn giữ nguyên theo lịch.`,
         metadata: { requestId: id },
       });
@@ -1918,7 +2015,7 @@ export class EmployeeRequestsService {
       if (accountantUserIds.length > 0) {
         const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
           type: NotificationType.SYSTEM,
-          title: 'Đề xuất mua sắm đã được HR trình lại 🛒',
+          title: 'Đề xuất mua sắm đã được HR trình lại',
           body: `HR đã điều chỉnh và trình lại đề xuất "${request.title}" (${newAmount.toLocaleString('vi-VN')} VNĐ). Mời Kế toán xem xét giải ngân.`,
           metadata: { requestId: id },
         });
@@ -1927,7 +2024,7 @@ export class EmployeeRequestsService {
 
       const reqNotif = await this.notifications.createForUsers(tx, [request.userId], {
         type: NotificationType.SYSTEM,
-        title: 'Đề xuất mua sắm đã được trình lại 📄',
+        title: 'Đề xuất mua sắm đã được trình lại',
         body: `Đề xuất "${request.title}" đã được HR cập nhật thông tin và trình lại cho Kế toán giải ngân.`,
         metadata: { requestId: id },
       });
@@ -2016,7 +2113,7 @@ export class EmployeeRequestsService {
       // Thông báo cho người đề xuất (kèm thông báo bàn giao thành công)
       const reqNotif = await this.notifications.createForUsers(tx, [request.userId], {
         type: NotificationType.SYSTEM,
-        title: 'Mua sắm & Bàn giao thành công 🎉',
+        title: 'Mua sắm và bàn giao thành công',
         body: `Đề xuất mua sắm "${request.title}" đã được HR mua hàng và hoàn tất bàn giao. Vui lòng kiểm tra và tiếp nhận sản phẩm!`,
         metadata: {
           requestId: id,
@@ -2031,7 +2128,7 @@ export class EmployeeRequestsService {
       if (accountantUserIds.length > 0) {
         const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
           type: NotificationType.SYSTEM,
-          title: 'Đề xuất mua sắm đã hoàn tất mua hàng 🧾',
+          title: 'Đề xuất mua sắm đã hoàn tất mua hàng',
           body: `HR đã hoàn tất mua hàng cho đơn "${request.title}" và tải lên chứng từ/hóa đơn.`,
           metadata: { requestId: id },
         });
@@ -2817,7 +2914,7 @@ export class EmployeeRequestsService {
       if (accountantUserIds.length > 0) {
         const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
           type: NotificationType.SYSTEM,
-          title: 'Đơn thanh toán mua hàng từ HR 💸',
+          title: 'Đơn thanh toán mua hàng từ HR',
           body: `HR ${hrName} đã mua hàng cho ${requesterName} và gửi yêu cầu thanh toán "${newExpense.title}" (${amountVal.toLocaleString('vi-VN')} VNĐ).`,
           metadata: { requestId: newExpense.id },
         });
@@ -2827,7 +2924,7 @@ export class EmployeeRequestsService {
       // Thông báo cho nhân viên yêu cầu mua hàng ban đầu
       const requesterNotif = await this.notifications.createForUsers(tx, [purchaseReq.userId], {
         type: NotificationType.SYSTEM,
-        title: 'Đơn mua hàng đã được HR thực hiện 🛒',
+        title: 'Đơn mua hàng đã được HR thực hiện',
         body: `HR ${hrName} đã hoàn tất mua hàng cho đơn "${purchaseReq.title}" và đang chuyển Kế toán thanh toán.`,
         metadata: { requestId: newExpense.id },
       });
@@ -2980,7 +3077,7 @@ export class EmployeeRequestsService {
       await this.prisma.$transaction(async (tx) => {
         const notif = await this.notifications.createForUsers(tx, [req.userId], {
           type: NotificationType.SYSTEM,
-          title: 'Đã thanh toán thành công 💸',
+          title: 'Đã thanh toán thành công',
           body: `Đơn "${req.title}" đã được thanh toán thành công qua ngân hàng.`,
           metadata: { requestId: req.id, bankRefCode: item.bankRefCode },
         });

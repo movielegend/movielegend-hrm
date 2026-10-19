@@ -47,8 +47,8 @@ export class ViolationsService {
       await tx.auditLog.create({ data: { actorUserId: actor.userId, action: 'VIOLATION_CONFIRMED', entityType: 'Violation', entityId: id } });
       const notify = await this.notifications.createForUsers(tx, [violation.userId], {
         type: NotificationType.VIOLATION_CONFIRMED,
-        title: 'Violation confirmed',
-        body: violation.title,
+        title: 'Xác nhận biên bản vi phạm',
+        body: `Biên bản vi phạm: ${violation.title}`,
         metadata: { violationId: id },
       });
       return { updated, notify };
@@ -110,8 +110,8 @@ export class ViolationsService {
       await tx.auditLog.create({ data: { actorUserId: actor.userId, action: 'DISCIPLINARY_ACTION_APPROVED', entityType: 'DisciplinaryAction', entityId: id } });
       const notify = await this.notifications.createForUsers(tx, [action.violation.userId], {
         type: NotificationType.DISCIPLINARY_ACTION_APPROVED,
-        title: 'Disciplinary action approved',
-        body: action.description,
+        title: 'Quyết định kỷ luật đã được phê duyệt',
+        body: `Hình thức xử lý kỷ luật: ${action.description}`,
         metadata: { disciplinaryActionId: id },
       });
       return { updated, notify, userId: action.violation.userId };

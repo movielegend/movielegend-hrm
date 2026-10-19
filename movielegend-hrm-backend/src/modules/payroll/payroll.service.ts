@@ -1799,7 +1799,7 @@ export class PayrollService {
       if (leaderIds.length > 0) {
         const notif = await this.notifications.createForUsers(this.prisma, leaderIds, {
           type: NotificationType.PAYSLIP_AVAILABLE,
-          title: `Lô ảnh phiếu lương phòng ${dept.name} 📑`,
+          title: `Lô ảnh phiếu lương phòng ${dept.name}`,
           body: `Kế toán đã tải lên ${newImageItems.length} ảnh phiếu lương tháng ${month}/${year}. Vui lòng vào gán nhãn cho từng nhân viên.`,
           metadata: {
             screen: 'DepartmentPayslipLabeling',

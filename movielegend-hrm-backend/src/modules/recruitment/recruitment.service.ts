@@ -1012,7 +1012,7 @@ export class RecruitmentService {
       experienceYears: application.experienceYears,
       educationLevel: application.educationLevel,
       createdAt: application.createdAt,
-      title: '📄 Ứng viên mới nộp hồ sơ',
+      title: 'Ứng viên mới nộp hồ sơ',
       message: `Ứng viên ${application.fullName} vừa nộp hồ sơ ứng tuyển vị trí "${job.name}".`,
     };
 
@@ -1061,7 +1061,7 @@ export class RecruitmentService {
       candidateName: application.fullName,
       interviewDate: application.interviewDate,
       interviewDateFormatted: timeFormatted,
-      title: '📅 Đã lên lịch phỏng vấn',
+      title: 'Đã lên lịch phỏng vấn',
       message: `Lịch phỏng vấn ứng viên ${application.fullName} (${application.job?.name || ''}) đã được lên lịch vào lúc ${timeFormatted}.`,
     };
 
@@ -1144,7 +1144,7 @@ export class RecruitmentService {
           jobName: app.job?.name || '',
           interviewDate: app.interviewDate,
           interviewDateFormatted: timeFormatted,
-          title: '⏰ Nhắc lịch phỏng vấn sắp diễn ra',
+          title: 'Nhắc lịch phỏng vấn sắp diễn ra',
           message: `Sắp đến giờ phỏng vấn ứng viên ${app.fullName} cho vị trí "${app.job?.name || ''}" lúc ${timeFormatted}.`,
         };
 
@@ -1156,7 +1156,7 @@ export class RecruitmentService {
         if (hrUserIds.length > 0) {
           const notifData = await this.notificationsService.createForUsers(this.prisma, hrUserIds, {
             type: NotificationType.SYSTEM,
-            title: '⏰ Nhắc lịch phỏng vấn',
+            title: 'Nhắc lịch phỏng vấn',
             body: `Sắp đến giờ phỏng vấn ứng viên ${app.fullName} (${app.job?.name || ''}) lúc ${timeFormatted}.`,
             dedupKey,
             metadata: {
@@ -1205,7 +1205,7 @@ export class RecruitmentService {
       jobName: app.job?.name || '',
       interviewDate: app.interviewDate,
       interviewDateFormatted: timeFormatted,
-      title: '⏰ Nhắc lịch phỏng vấn',
+      title: 'Nhắc lịch phỏng vấn',
       message: `Nhắc lịch phỏng vấn ứng viên ${app.fullName} (${app.job?.name || ''}) vào lúc ${timeFormatted}.`,
     };
 
@@ -1216,7 +1216,7 @@ export class RecruitmentService {
     if (hrUserIds.length > 0) {
       const notifData = await this.notificationsService.createForUsers(this.prisma, hrUserIds, {
         type: NotificationType.SYSTEM,
-        title: '⏰ Nhắc lịch phỏng vấn',
+        title: 'Nhắc lịch phỏng vấn',
         body: `Nhắc lịch phỏng vấn ứng viên ${app.fullName} (${app.job?.name || ''}) vào lúc ${timeFormatted}.`,
         metadata: {
           type: 'RECRUITMENT_INTERVIEW_REMINDER',

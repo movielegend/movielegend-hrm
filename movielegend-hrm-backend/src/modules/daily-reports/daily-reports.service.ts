@@ -887,7 +887,7 @@ export class DailyReportsService {
         await this.prisma.$transaction(async (tx) => {
           const payload = await this.notifications.createForUsers(tx as any, [report.userId], {
             type: 'TASK_ASSIGNED',
-            title: 'Nhiệm vụ mới cho ngày mai 📋',
+            title: 'Nhiệm vụ mới cho ngày mai',
             body: `Leader đã duyệt kế hoạch và giao ${createdTasks.length} nhiệm vụ cho bạn.`,
             metadata: {
               reportId: report.id,
@@ -1020,7 +1020,7 @@ export class DailyReportsService {
         await this.prisma.$transaction(async (tx) => {
           const payload = await this.notifications.createForUsers(tx as any, [report.userId], {
             type: 'TASK_UPDATED',
-            title: `Báo cáo ngày ${report.reportDate} đã được đánh giá ⭐`,
+            title: `Báo cáo ngày ${report.reportDate} đã được đánh giá`,
             body: `${adminName} đã đánh giá ${dto.adminRating}/5 sao: "${dto.adminReview || 'Đã duyệt'}"`,
             metadata: {
               reportId: report.id,
