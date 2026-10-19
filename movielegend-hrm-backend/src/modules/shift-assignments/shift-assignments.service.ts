@@ -4,7 +4,7 @@ import type { AuthenticatedUser } from '../../common/interfaces/authenticated-us
 import { badRequest, conflict, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
-import { AssignShiftDto, BatchAssignShiftDto, DepartmentAssignmentsQueryDto } from './dto/shift-assignment.dto';
+import { AssignShiftDto, BatchAssignShiftDto, DepartmentAssignmentsQueryDto, BatchDeleteShiftCellsDto, BatchUpsertShiftCellsDto } from './dto/shift-assignment.dto';
 import { ShiftRegistrationDto, ShiftSwapDto } from './dto/shift-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
@@ -353,4 +353,118 @@ export class ShiftAssignmentsService {
     await this.prisma.shiftAssignment.delete({ where: { id } });
     return { success: true };
   }
+
+  async batchDeleteCells(dto: BatchDeleteShiftCellsDto, actor: AuthenticatedUser) {
+    if (!dto.items || dto.items.length === 0) {
+      return { count: 0 };
+    }
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const orConditions: any[] = [];
+    for (const item of dto.items) {
+      if (item.id && uuidRegex.test(item.id)) {
+        orConditions.push({ id: item.id });
+      } else if (item.userId && item.workDate) {
+        orConditions.push({
+          userId: item.userId,
+          workDate: new Date(item.workDate),
+        });
+      }
+    }
+
+    if (orConditions.length === 0) {
+      return { count: 0 };
+    }
+
+    const assignments = await this.prisma.shiftAssignment.findMany({
+      where: {
+        OR: orConditions,
+        status: ShiftAssignmentStatus.ASSIGNED,
+      },
+    });
+
+    if (assignments.length === 0) {
+      return { count: 0 };
+    }
+
+    const deptIds = Array.from(new Set(assignments.map((a) => a.departmentId)));
+    for (const dId of deptIds) {
+      await this.scope.assertDepartmentAccessAsync(actor, dId);
+    }
+
+    const assignmentIds = assignments.map((a) => a.id);
+    const checkedInRecords = await this.prisma.attendanceRecord.findMany({
+      where: {
+        shiftAssignmentId: { in: assignmentIds },
+      },
+      select: { shiftAssignmentId: true },
+    });
+    const checkedInSet = new Set(checkedInRecords.map((r) => r.shiftAssignmentId));
+    const deletableIds = assignmentIds.filter((id) => !checkedInSet.has(id));
+
+    if (deletableIds.length === 0) {
+      return { count: 0 };
+    }
+
+    const deleteResult = await this.prisma.shiftAssignment.deleteMany({
+      where: {
+        id: { in: deletableIds },
+      },
+    });
+
+    return { count: deleteResult.count };
+  }
+
+  async batchUpsertCells(dto: BatchUpsertShiftCellsDto, actor: AuthenticatedUser) {
+    if (!dto.items || dto.items.length === 0) {
+      return { count: 0 };
+    }
+
+    const deptIds = Array.from(new Set(dto.items.map((i) => i.departmentId)));
+    for (const dId of deptIds) {
+      await this.scope.assertDepartmentAccessAsync(actor, dId);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      let count = 0;
+      for (const item of dto.items) {
+        await this.scope.assertUserInDepartment(item.userId, item.departmentId);
+        const workDate = new Date(item.workDate);
+
+        const existing = await tx.shiftAssignment.findUnique({
+          where: { userId_workDate: { userId: item.userId, workDate } },
+        });
+
+        if (existing) {
+          const checkedIn = await tx.attendanceRecord.findFirst({
+            where: { userId: item.userId, workDate },
+          });
+          if (!checkedIn) {
+            await tx.shiftAssignment.update({
+              where: { id: existing.id },
+              data: {
+                departmentId: item.departmentId,
+                shiftId: item.shiftId,
+                assignedByUserId: actor.userId,
+              },
+            });
+            count++;
+          }
+        } else {
+          await tx.shiftAssignment.create({
+            data: {
+              userId: item.userId,
+              departmentId: item.departmentId,
+              shiftId: item.shiftId,
+              workDate,
+              assignedByUserId: actor.userId,
+            },
+          });
+          count++;
+        }
+      }
+      return { count };
+    });
+  }
 }
+

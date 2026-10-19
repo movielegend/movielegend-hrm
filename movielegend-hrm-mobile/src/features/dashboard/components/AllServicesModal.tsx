@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Toast from 'react-native-toast-message';
+import { ToastWrapper } from '../../../components/AppToast';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   X,
@@ -469,6 +470,7 @@ export function AllServicesModal({
           </ScrollView>
         </View>
       </View>
+      <ToastWrapper />
     </Modal>
   );
 }

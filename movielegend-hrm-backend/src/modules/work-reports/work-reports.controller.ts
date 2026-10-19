@@ -63,15 +63,15 @@ export class WorkReportsController {
   // ─── Leader APIs ─────────────────────────────────────────────────────────
 
   @Get('department')
-  @Roles('LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'ADMIN', 'SUPER_ADMIN')
-  @ApiOperation({ summary: 'Leader: Lấy báo cáo phòng ban' })
+  @Roles('LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'ADMIN', 'SUPER_ADMIN', 'HR', 'ACCOUNTANT', 'ACCOUNTANT_LEAD')
+  @ApiOperation({ summary: 'Leader / HR / Kế toán: Lấy báo cáo phòng ban' })
   async getDepartmentTasks(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryWorkTasksDto) {
     return this.workReportsService.getDepartmentTasks(user, query);
   }
 
   @Get('submission-status')
-  @Roles('LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'ADMIN', 'SUPER_ADMIN')
-  @ApiOperation({ summary: 'Leader: Tình hình nộp báo cáo' })
+  @Roles('LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'ADMIN', 'SUPER_ADMIN', 'HR', 'ACCOUNTANT', 'ACCOUNTANT_LEAD')
+  @ApiOperation({ summary: 'Leader / HR / Kế toán: Tình hình nộp báo cáo' })
   async getSubmissionStatus(
     @CurrentUser() user: AuthenticatedUser, 
     @Query('departmentId') departmentId?: string,
@@ -93,8 +93,8 @@ export class WorkReportsController {
   }
 
   @Post('tasks/:id/transfer')
-  @Roles('LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'ADMIN', 'SUPER_ADMIN')
-  @ApiOperation({ summary: 'Leader: Chuyển người phụ trách' })
+  @Roles('LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'ADMIN', 'SUPER_ADMIN', 'HR', 'ACCOUNTANT_LEAD')
+  @ApiOperation({ summary: 'Leader / HR / Kế toán trưởng: Chuyển người phụ trách' })
   async transferTask(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
@@ -106,8 +106,8 @@ export class WorkReportsController {
   // ─── Admin APIs ──────────────────────────────────────────────────────────
 
   @Get('admin/tasks')
-  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')
-  @ApiOperation({ summary: 'Admin: Xem toàn bộ công việc' })
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'HR')
+  @ApiOperation({ summary: 'Admin / HR: Xem toàn bộ công việc' })
   async adminGetAllTasks(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryWorkTasksDto) {
     return this.workReportsService.adminGetAllTasks(user, query);
   }

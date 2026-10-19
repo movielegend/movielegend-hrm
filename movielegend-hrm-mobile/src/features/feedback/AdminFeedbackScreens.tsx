@@ -43,8 +43,7 @@ export function AdminFeedbackListScreen() {
 
   const filterOptions: { label: string; value: FeedbackStatus | undefined }[] = [
     { label: 'Tất cả', value: undefined },
-    { label: 'Chờ duyệt', value: 'SEND' },
-    { label: 'Đang xem xét', value: 'REVIEWED' },
+    { label: 'Chờ xử lý', value: 'SEND' },
     { label: 'Đã giải quyết', value: 'RESOLVED' },
     { label: 'Từ chối', value: 'REJECTED' },
   ];
@@ -60,7 +59,7 @@ export function AdminFeedbackListScreen() {
 
   const totalCount = statsQuery.data?.total ?? (feedbacksQuery.data?.items?.length || 0);
   const pendingCount = statsQuery.data?.byStatus?.SEND ?? 0;
-  const reviewingCount = statsQuery.data?.byStatus?.REVIEWED ?? 0;
+  const resolvedCount = statsQuery.data?.byStatus?.RESOLVED ?? 0;
 
   return (
     <View style={styles.screen}>
@@ -79,13 +78,13 @@ export function AdminFeedbackListScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statCol}>
-            <Text style={styles.statNumber}>{pendingCount}</Text>
-            <Text style={styles.statLabel}>Chờ duyệt</Text>
+            <Text style={[styles.statNumber, { color: '#F59E0B' }]}>{pendingCount}</Text>
+            <Text style={styles.statLabel}>Chờ xử lý</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statCol}>
-            <Text style={[styles.statNumber, { color: '#F59E0B' }]}>{reviewingCount}</Text>
-            <Text style={styles.statLabel}>Đang xem xét</Text>
+            <Text style={[styles.statNumber, { color: '#10B981' }]}>{resolvedCount}</Text>
+            <Text style={styles.statLabel}>Đã giải quyết</Text>
           </View>
         </View>
       </View>
@@ -173,7 +172,7 @@ export function AdminFeedbackDetailScreen() {
   );
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<FeedbackStatus>('REVIEWED');
+  const [selectedStatus, setSelectedStatus] = useState<FeedbackStatus>('RESOLVED');
   const [reason, setReason] = useState('');
   const [viewerVisible, setViewerVisible] = useState(false);
   const { showAlert } = useAppAlert();
