@@ -45,6 +45,9 @@ import { usePublicDepartments } from '../../hooks/useDepartments';
 import { uploadFile } from '../../api/uploads.api';
 import { createDirectChat, sendChatMessage } from '../../api/chat.api';
 import { assertSocketUrl } from '../../constants/env';
+import { chatKeys } from '../../constants/queryKeys';
+import { CustomAlert } from '../../components/CustomAlert';
+import Toast from 'react-native-toast-message';
 import { useSocketStatus } from '../../providers/SocketProvider';
 import { useVoiceCall } from '../voice-call/VoiceCallProvider';
 import * as Clipboard from 'expo-clipboard';
@@ -408,11 +411,25 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
     return Array.from(map.values());
   }, [departmentsQuery.data, employeesQuery.data, user?.id]);
 
-  const leaderUserIds = useMemo(() => departmentLeaders.map((l) => l.userId), [departmentLeaders]);
-  const { getStatus: getLeaderPresence } = useBatchPresence(leaderUserIds);
+  const allPresenceUserIds = useMemo(() => {
+    const ids = new Set<string>(departmentLeaders.map((l) => l.userId));
+    const rawGroupsList = Array.isArray(groups.data) ? groups.data : [];
+    for (const g of rawGroupsList) {
+      if (g.otherUserId) ids.add(g.otherUserId);
+      if (Array.isArray(g.members)) {
+        for (const m of g.members) {
+          const mId = m.userId || m.user?.id || m.id;
+          if (mId && mId !== user?.id) ids.add(mId);
+        }
+      }
+    }
+    return Array.from(ids);
+  }, [departmentLeaders, groups.data, user?.id]);
+
+  const { getStatus: getUserPresence } = useBatchPresence(allPresenceUserIds);
   const onlineLeadersCount = useMemo(() => {
-    return departmentLeaders.filter((l) => getLeaderPresence(l.userId).isOnline).length;
-  }, [departmentLeaders, getLeaderPresence]);
+    return departmentLeaders.filter((l) => getUserPresence(l.userId).isOnline).length;
+  }, [departmentLeaders, getUserPresence]);
 
   const filteredLeaders = useMemo(() => {
     if (!leaderSearch.trim()) return departmentLeaders;
@@ -650,7 +667,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                         )}
 
                         {/* Online Green Badge */}
-                        {getLeaderPresence(leader.userId).isOnline ? (
+                        {getUserPresence(leader.userId).isOnline ? (
                           <View style={adminChatStyles.activeOnlineDot} />
                         ) : null}
 
@@ -729,6 +746,43 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                     : `${group._count?.members ?? group.members?.length ?? 0} thành viên`;
                   const unreadCount = group.unreadCount || 0;
 
+                  // Resolve Avatar & Online Status
+                  let avatarUri: string | undefined = undefined;
+                  let directUserId: string | undefined = undefined;
+
+                  if (isDirect) {
+                    const otherMember = group.members?.find((m: any) => {
+                      const mId = m.userId || m.user?.id || m.id;
+                      return mId && mId !== user?.id;
+                    });
+                    directUserId = group.otherUserId || otherMember?.userId || otherMember?.user?.id || otherMember?.id;
+
+                    const matchedEmployee = directUserId
+                      ? candidateEmployees.find((e: any) => e.id === directUserId)
+                      : candidateEmployees.find((e: any) => {
+                          const n = e.fullName || e.profile?.fullName || '';
+                          return n.trim().toLowerCase() === groupName.trim().toLowerCase();
+                        });
+
+                    if (!directUserId && matchedEmployee?.id) {
+                      directUserId = matchedEmployee.id;
+                    }
+
+                    const rawAvatar = group.otherUserAvatar ||
+                      otherMember?.user?.profile?.avatarUrl ||
+                      otherMember?.user?.avatarUrl ||
+                      otherMember?.avatarUrl ||
+                      matchedEmployee?.profile?.avatarUrl ||
+                      matchedEmployee?.avatarUrl;
+
+                    avatarUri = resolveImageUrl(rawAvatar);
+                  } else if (group.avatarUrl) {
+                    avatarUri = resolveImageUrl(group.avatarUrl);
+                  }
+
+                  const colorScheme = getAvatarColor(groupName);
+                  const isUserOnline = directUserId ? getUserPresence(directUserId).isOnline : false;
+
                   return (
                     <TouchableOpacity
                       key={group.id}
@@ -749,11 +803,30 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                       }}
                     >
                       <View style={adminChatStyles.recentGroupAvatar}>
-                        <MaterialCommunityIcons
-                          name={isDirect ? 'account' : 'account-group'}
-                          size={22}
-                          color="#102739"
-                        />
+                        {avatarUri ? (
+                          <Image
+                            source={{ uri: avatarUri }}
+                            style={adminChatStyles.recentGroupAvatarImg}
+                          />
+                        ) : isDirect ? (
+                          <View style={[adminChatStyles.recentGroupAvatarPlaceholder, { backgroundColor: colorScheme.bg }]}>
+                            <Text style={[adminChatStyles.recentGroupAvatarInitials, { color: colorScheme.text }]}>
+                              {getInitials(groupName)}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={[adminChatStyles.recentGroupAvatarPlaceholder, { backgroundColor: isCompany ? '#E0F2FE' : '#F1F5F9' }]}>
+                            <MaterialCommunityIcons
+                              name={isCompany ? 'domain' : 'account-group'}
+                              size={22}
+                              color="#102739"
+                            />
+                          </View>
+                        )}
+
+                        {isDirect && isUserOnline && (
+                          <View style={adminChatStyles.recentGroupOnlineDot} />
+                        )}
                       </View>
 
                       <View style={adminChatStyles.recentGroupInfo}>
@@ -1262,6 +1335,17 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     return [];
   }, [groupMembersQuery.data, currentGroup?.members, employees.data]);
 
+  const otherUserAvatar = useMemo(() => {
+    const cg = currentGroup as any;
+    if (cg?.otherUserAvatar) return resolveImageUrl(cg.otherUserAvatar);
+    if (cg?.type === 'DIRECT') {
+      const other = availableMembers.find((m: any) => m.id !== user?.id);
+      if (other?.avatarUrl) return resolveImageUrl(other.avatarUrl);
+    }
+    if (cg?.avatarUrl) return resolveImageUrl(cg.avatarUrl);
+    return undefined;
+  }, [currentGroup, availableMembers, user?.id]);
+
   const mentionCandidates = useMemo(() => {
     return availableMembers;
   }, [availableMembers]);
@@ -1641,8 +1725,61 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
     setShowMentions(false);
   }
 
+  function handleRetryMessage(failedMsg: any) {
+    if (!failedMsg) return;
+    CustomAlert.alert(
+      'Không thể gửi tin nhắn',
+      'Tin nhắn chưa được gửi đi. Bạn muốn làm gì?',
+      [
+        {
+          text: 'Xóa tin',
+          style: 'destructive',
+          onPress: () => {
+            queryClient.setQueryData(chatKeys.messages(groupId), (old: any) => {
+              if (!old) return old;
+              const filterOut = (list: any[]) => list.filter((m: any) => m.id !== failedMsg.id && m._tempId !== failedMsg._tempId);
+              if (old.items && Array.isArray(old.items)) {
+                return { ...old, items: filterOut(old.items) };
+              }
+              if (Array.isArray(old)) return filterOut(old);
+              return old;
+            });
+          },
+        },
+        {
+          text: 'Gửi lại',
+          onPress: () => {
+            const payload = failedMsg._payload || {
+              content: failedMsg.content,
+              fileUrl: failedMsg.fileUrl,
+              fileType: failedMsg.fileType,
+              fileName: failedMsg.fileName,
+              mentions: failedMsg.mentions,
+              replyToId: failedMsg.replyToId,
+              replyTo: failedMsg.replyTo,
+            };
+            queryClient.setQueryData(chatKeys.messages(groupId), (old: any) => {
+              if (!old) return old;
+              const filterOut = (list: any[]) => list.filter((m: any) => m.id !== failedMsg.id && m._tempId !== failedMsg._tempId);
+              if (old.items && Array.isArray(old.items)) {
+                return { ...old, items: filterOut(old.items) };
+              }
+              if (Array.isArray(old)) return filterOut(old);
+              return old;
+            });
+            sendMessage.mutate(payload);
+          },
+        },
+        {
+          text: 'Đóng',
+          style: 'cancel',
+        },
+      ]
+    );
+  }
+
   async function handleSend() {
-    if (isUploading || sendMessage.isPending) return;
+    if (isUploading) return;
     if (!text.trim() && selectedImages.length === 0) return;
     const content = text.trim();
     const currentMentions = [...mentions];
@@ -1687,30 +1824,21 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
         });
       } catch (error) {
         const normalized = normalizeApiError(error);
-        showAlert('Lỗi', normalized.message);
-        setText(content);
-        setSelectedImages(currentImages);
-        setReplyingMessage(currentReplyTo);
+        Toast.show({
+          type: 'error',
+          text1: 'Lỗi gửi ảnh',
+          text2: normalized.message || 'Không thể gửi ảnh, vui lòng thử lại.',
+        });
       } finally {
         setIsUploading(false);
       }
     } else {
-      sendMessage.mutate(
-        {
-          content: content || undefined,
-          mentions: currentMentions.length > 0 ? currentMentions : undefined,
-          replyToId: currentReplyTo?.id,
-          replyTo: currentReplyTo,
-        },
-        {
-          onError: error => {
-            const normalized = normalizeApiError(error);
-            showAlert('Lỗi', normalized.message);
-            setText(content);
-            setReplyingMessage(currentReplyTo);
-          },
-        }
-      );
+      sendMessage.mutate({
+        content: content || undefined,
+        mentions: currentMentions.length > 0 ? currentMentions : undefined,
+        replyToId: currentReplyTo?.id,
+        replyTo: currentReplyTo,
+      });
     }
   }
 
@@ -1733,11 +1861,24 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
             </TouchableOpacity>
 
             <View style={adminChatStyles.roomAvatarCircle}>
-              <MaterialCommunityIcons
-                name={currentGroup?.type === 'DIRECT' ? 'account' : 'account-group'}
-                size={20}
-                color="#102739"
-              />
+              {otherUserAvatar ? (
+                <Image
+                  source={{ uri: otherUserAvatar }}
+                  style={{ width: 38, height: 38, borderRadius: 19 }}
+                />
+              ) : currentGroup?.type === 'DIRECT' ? (
+                <View style={[adminChatStyles.roomAvatarCircle, { backgroundColor: getAvatarColor((decodeURIComponent(groupName || '') || currentGroup?.name || 'User').replace('NV000001', 'Admin')).bg }]}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: getAvatarColor((decodeURIComponent(groupName || '') || currentGroup?.name || 'User').replace('NV000001', 'Admin')).text }}>
+                    {getInitials((decodeURIComponent(groupName || '') || currentGroup?.name || 'User').replace('NV000001', 'Admin'))}
+                  </Text>
+                </View>
+              ) : (
+                <MaterialCommunityIcons
+                  name="account-group"
+                  size={20}
+                  color="#102739"
+                />
+              )}
             </View>
 
             <View style={adminChatStyles.roomHeaderInfo}>
@@ -1906,7 +2047,9 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                     !!msg.replyTo && styles.messageBubbleWithReply,
                     msg.id === highlightedMessageId && (isMine ? styles.messageBubbleHighlightedMine : styles.messageBubbleHighlightedOther),
                     msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? styles.messageBubbleImageOnly : {},
-                    msg.fileType === 'IMAGE_ALBUM' || msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:') ? { backgroundColor: 'transparent', padding: 0, elevation: 0, shadowOpacity: 0 } : {}
+                    msg.fileType === 'IMAGE_ALBUM' || msg.content?.startsWith('LOTTIE_STICKER:') || msg.content?.startsWith('STATIC_STICKER:') || msg.content?.startsWith('GIPHY_STICKER:') ? { backgroundColor: 'transparent', padding: 0, elevation: 0, shadowOpacity: 0 } : {},
+                    Boolean((msg as any)._hasError) && { opacity: 0.8 },
+                    (msg as any)._status === 'sending' && { opacity: 0.7 },
                   ]}>
                     {!isMine && !msg.content?.startsWith('LOTTIE_STICKER:') && !msg.content?.startsWith('STATIC_STICKER:') && !msg.content?.startsWith('GIPHY_STICKER:') && (
                       <Text style={[styles.messageSender, msg.fileUrl && msg.fileType === 'IMAGE' && !msg.content ? { paddingHorizontal: 16, paddingTop: 10 } : {}]}>{senderName}</Text>
@@ -2156,6 +2299,16 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                       );
                     })()}
                   </View>
+                  {isMine && Boolean((msg as any)._hasError) && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      style={{ alignSelf: 'center', padding: 4 }}
+                      onPress={() => handleRetryMessage(msg)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  )}
                 </View>
               </Pressable>
             </View>
@@ -2308,13 +2461,13 @@ export function ChatRoomScreen({ groupId, groupName }: { groupId: string; groupN
                   <Pressable
                     style={[
                       styles.chatSendBtn,
-                      (isUploading || sendMessage.isPending) && styles.chatSendBtnDisabled,
+                      isUploading && styles.chatSendBtnDisabled,
                     ]}
                     onPress={handleSend}
-                    disabled={isUploading || sendMessage.isPending}
+                    disabled={isUploading}
                   >
                     <MaterialCommunityIcons
-                      name={isUploading || sendMessage.isPending ? 'loading' : 'send'}
+                      name={isUploading ? 'loading' : 'send'}
                       size={20}
                       color="#fff"
                     />
@@ -3310,6 +3463,34 @@ const adminChatStyles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  recentGroupAvatarImg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  recentGroupAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recentGroupAvatarInitials: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  recentGroupOnlineDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#22C55E',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   recentGroupInfo: {
     flex: 1,

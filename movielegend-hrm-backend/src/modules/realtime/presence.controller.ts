@@ -2,7 +2,11 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PresenceService } from './presence.service';
 
+import { IsArray, IsString } from 'class-validator';
+
 export class BatchPresenceDto {
+  @IsArray()
+  @IsString({ each: true })
   userIds!: string[];
 }
 

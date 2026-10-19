@@ -43,7 +43,7 @@ export function AdminFeedbackListScreen() {
 
   const filterOptions: { label: string; value: FeedbackStatus | undefined }[] = [
     { label: 'Tất cả', value: undefined },
-    { label: 'Chờ duyệt', value: 'SEND' },
+    { label: 'Chờ xử lý', value: 'SEND' },
     { label: 'Đã giải quyết', value: 'RESOLVED' },
     { label: 'Từ chối', value: 'REJECTED' },
   ];
@@ -78,8 +78,8 @@ export function AdminFeedbackListScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statCol}>
-            <Text style={styles.statNumber}>{pendingCount}</Text>
-            <Text style={styles.statLabel}>Chờ duyệt</Text>
+            <Text style={[styles.statNumber, { color: '#F59E0B' }]}>{pendingCount}</Text>
+            <Text style={styles.statLabel}>Chờ xử lý</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statCol}>

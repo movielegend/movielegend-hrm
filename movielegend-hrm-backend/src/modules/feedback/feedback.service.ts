@@ -358,9 +358,12 @@ export class FeedbackService {
         });
 
         const statusMap: Record<string, string> = {
-            'PROCESSING': 'Đang xử lý',
-            'APPROVED': 'Đã duyệt',
+            'SEND': 'Đã gửi',
+            'REVIEWED': 'Đang xử lý',
+            'RESOLVED': 'Đã giải quyết',
             'REJECTED': 'Đã từ chối',
+            'PROCESSING': 'Đang xử lý',
+            'APPROVED': 'Đã giải quyết',
         };
         const statusText = statusMap[dto.status] || dto.status;
 

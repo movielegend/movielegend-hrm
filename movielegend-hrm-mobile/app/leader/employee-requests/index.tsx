@@ -40,6 +40,15 @@ export default function LeaderRequestsScreen() {
 
   const canExportExcel = isAccountingLeader(user);
 
+  const rawRoles = user?.roles || [];
+  const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+  const roleCodes = userRoles.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase());
+  const isAdmin =
+    roleCodes.includes('ADMIN') ||
+    roleCodes.includes('SUPER_ADMIN') ||
+    (user as any)?.role?.code === 'ADMIN' ||
+    user?.phone === '0900000000';
+
   const { data: allRequests = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['leader-employee-requests'],
     queryFn: () => getEmployeeRequests()
@@ -180,13 +189,15 @@ export default function LeaderRequestsScreen() {
                 )}
               </Pressable>
             )}
-            <Pressable 
-              style={styles.headerCreateBtn} 
-              onPress={() => router.push('/employee/requests/create' as any)}
-            >
-              <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
-              <Text style={styles.headerCreateText}>Tạo đơn</Text>
-            </Pressable>
+            {!isAdmin && (
+              <Pressable 
+                style={styles.headerCreateBtn} 
+                onPress={() => router.push('/employee/requests/create' as any)}
+              >
+                <MaterialCommunityIcons name="plus" size={16} color="#FFFFFF" />
+                <Text style={styles.headerCreateText}>Tạo đơn</Text>
+              </Pressable>
+            )}
           </View>
         </View>
       </View>
