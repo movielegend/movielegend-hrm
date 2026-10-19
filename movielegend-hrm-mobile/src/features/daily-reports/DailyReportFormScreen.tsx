@@ -19,6 +19,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Linking from 'expo-linking';
@@ -135,6 +136,10 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
 
   // Detailed view of an approved report
   const [selectedApprovedReport, setSelectedApprovedReport] = useState<DailyReport | null>(null);
+
+  // Status and Attachment Picker Modals
+  const [activeStatusPickerIdx, setActiveStatusPickerIdx] = useState<number | null>(null);
+  const [activeAttachPickerIdx, setActiveAttachPickerIdx] = useState<number | null>(null);
 
   // STEP 1: HÔM NAY (Danh sách công việc & nhiệm vụ hợp nhất)
   const [metrics, setMetrics] = useState<DailyReportMetricItem[]>([
@@ -683,6 +688,50 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
     }
   };
 
+  const handleTakePhotoForTask = async (taskIndex: number) => {
+    if (isSubmittedToday) return;
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Quyền truy cập', 'Cần cấp quyền truy cập máy ảnh để chụp hình.');
+        return;
+      }
+      const res = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      if (res.canceled || !res.assets || res.assets.length === 0) return;
+      const asset = res.assets[0];
+      if (!asset) return;
+      setUploadingMetricIdx(taskIndex);
+      const uploaded: any = await uploadFile({
+        uri: asset.uri,
+        name: asset.fileName || `camera_${taskIndex + 1}_${Date.now()}.jpg`,
+        mimeType: asset.mimeType || 'image/jpeg',
+        purpose: 'TASK_ATTACHMENT' as any,
+      });
+      const newAttachment: DailyReportAttachmentItem = {
+        url: uploaded.fileUrl || uploaded.url,
+        fileName: uploaded.originalName || asset.fileName || `Ảnh chụp ${taskIndex + 1}`,
+        size: uploaded.size || asset.fileSize,
+        fileType: 'IMAGE',
+      };
+      setMetrics((prev) => {
+        const next = [...prev];
+        const task = { ...next[taskIndex] };
+        task.attachments = [...(task.attachments || []), newAttachment];
+        next[taskIndex] = task;
+        return next;
+      });
+    } catch (e: any) {
+      console.error('Take photo for task error:', e);
+      Alert.alert('Lỗi', e?.message || 'Không thể chụp ảnh');
+    } finally {
+      setUploadingMetricIdx(null);
+    }
+  };
+
   const handlePickImageForTask = async (taskIndex: number) => {
     if (isSubmittedToday) return;
     try {
@@ -855,41 +904,47 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
       // Phục vụ tương thích ngược với các phiên bản cũ
       const derivedCompleted = cleanTasks
         .filter((t) => t.status === 'DONE')
-        .map((t) => ({
-          taskId: t.taskId,
-          taskCode: t.taskCode,
-          title: t.name,
-          description: t.description,
-          category: t.category,
-          taskType: t.taskType,
-          priority: t.priority,
-          deadline: t.deadline,
-          status: 'COMPLETED',
-          progress: 100,
-          isSelected: true,
-          notes: t.notes || t.note,
-          obstacles: t.obstacles,
-          supportRequest: t.supportRequest,
-        }));
+        .map((t) => {
+          const fullTitle = t.value ? `${t.name}: ${t.value} ${t.unit || ''}`.trim() : t.name;
+          return {
+            taskId: t.taskId,
+            taskCode: t.taskCode,
+            title: fullTitle,
+            description: t.description,
+            category: t.category,
+            taskType: t.taskType,
+            priority: t.priority,
+            deadline: t.deadline,
+            status: 'COMPLETED',
+            progress: 100,
+            isSelected: true,
+            notes: t.notes || t.note,
+            obstacles: t.obstacles,
+            supportRequest: t.supportRequest,
+          };
+        });
 
       const derivedInProgress = cleanTasks
         .filter((t) => t.status !== 'DONE')
-        .map((t) => ({
-          taskId: t.taskId,
-          taskCode: t.taskCode,
-          title: t.name,
-          description: t.description,
-          category: t.category,
-          taskType: t.taskType,
-          priority: t.priority,
-          deadline: t.deadline,
-          status: t.status,
-          progress: t.progress,
-          expectedDate: t.deadline,
-          notes: t.notes || t.note,
-          obstacles: t.obstacles,
-          supportRequest: t.supportRequest,
-        }));
+        .map((t) => {
+          const fullTitle = t.value ? `${t.name}: ${t.value} ${t.unit || ''}`.trim() : t.name;
+          return {
+            taskId: t.taskId,
+            taskCode: t.taskCode,
+            title: fullTitle,
+            description: t.description,
+            category: t.category,
+            taskType: t.taskType,
+            priority: t.priority,
+            deadline: t.deadline,
+            status: t.status,
+            progress: t.progress,
+            expectedDate: t.deadline,
+            notes: t.notes || t.note,
+            obstacles: t.obstacles,
+            supportRequest: t.supportRequest,
+          };
+        });
 
       // Tổng hợp attachments & tự đánh giá từ các nhiệm vụ
       const taskAttachments = cleanTasks.flatMap((t) => t.attachments || []);
@@ -1147,22 +1202,15 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         {/* ========================================================================= */}
         {activeTab === 'write' && (
           <View>
-            {/* Person Card with Avatar, Info, Date & Status */}
+            {/* Person Card with Avatar, Info & Status Badge */}
             <View style={styles.personCard}>
-              <View style={styles.personCardTop}>
+              <View style={styles.personCardInner}>
                 <View style={styles.personAvatar}>
                   <Text style={styles.avatarInitialsText}>{avatarInitials}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.personName}>{employeeName}</Text>
-                  <Text style={styles.personRole}>{departmentName} · {roleName}</Text>
-                </View>
-              </View>
-              <View style={styles.personCardDivider} />
-              <View style={styles.personCardBottom}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="calendar-outline" size={15} color="#64748B" />
-                  <Text style={styles.personCardDate}>{displayDate}</Text>
+                  <Text style={styles.personRole}>{departmentName} • {roleName}</Text>
                 </View>
                 <View
                   style={[
@@ -1316,20 +1364,20 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                   )}
                 </View>
 
-                {/* KHỐI CÔNG VIỆC & NHIỆM VỤ HÔM NAY (HỢP NHẤT) */}
+                {/* KHỐI CÔNG VIỆC HÔM NAY */}
                 <View style={styles.sectionCard}>
                   <View style={styles.sectionCardHeaderRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.sectionCardTitle}>Công việc & Nhiệm vụ hôm nay</Text>
+                      <Text style={styles.sectionCardTitle}>Công việc hôm nay</Text>
                       <Text style={styles.sectionCardSubtitle}>
                         {isSubmittedToday
                           ? 'Danh sách công việc và trạng thái đã ghi nhận hôm nay.'
-                          : 'Ghi nhận tiến độ công việc trong ngày. Việc chưa hoàn thành sẽ tự động chuyển sang ngày mai.'}
+                          : 'Ghi nhận tiến độ công việc trong ngày. Việc chưa xong sẽ chuyển sang ngày mai.'}
                       </Text>
                     </View>
                     <View style={styles.countBadge}>
                       <Text style={styles.countBadgeText}>
-                        {metrics.filter((m) => (m.name || '').trim().length > 0).length} việc
+                        {metrics.filter((m) => (m.name || '').trim().length > 0).length || metrics.length} nhiệm vụ
                       </Text>
                     </View>
                   </View>
@@ -1342,11 +1390,9 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                   ) : (
                     metrics.map((m, idx) => {
                       const metricKey = `m_${idx}`;
-                      const isExpanded = !!expandedTasks[metricKey];
-                      const typeObj = TASK_TYPES.find((tt) => tt.value === m.taskType) || TASK_TYPES[0];
-                      const prioObj = TASK_PRIORITIES.find((tp) => tp.value === m.priority) || TASK_PRIORITIES[1];
+                      const isExpanded = expandedTasks[metricKey] !== false; // Mặc định mở
                       const currentStatus = m.status || (Number(m.progress) === 100 ? 'DONE' : 'IN_PROGRESS');
-                      const currentStatusObj = TASK_STATUSES.find((st) => st.value === currentStatus) || TASK_STATUSES[1];
+                      const currentStatusObj = TASK_STATUSES.find((st) => st.value === currentStatus) || TASK_STATUSES[1]!;
                       const currentProgress =
                         typeof m.progress === 'number' && !isNaN(m.progress)
                           ? Math.max(0, Math.min(100, m.progress))
@@ -1357,11 +1403,15 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                           : 50;
 
                       return (
-                        <View key={idx} style={styles.quantItemBox}>
-                          {/* Item Header */}
-                          <View style={styles.quantItemHeader}>
+                        <View key={idx} style={styles.taskCardContainer}>
+                          {/* Task Card Header: NHIỆM VỤ 01, Badges, Collapse Toggle & Delete */}
+                          <View style={styles.taskCardHeader}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1 }}>
-                              <Text style={styles.quantNumberText}>NHIỆM VỤ {String(idx + 1).padStart(2, '0')}</Text>
+                              <View style={styles.taskNumberBadge}>
+                                <Text style={styles.taskNumberBadgeText}>
+                                  NHIỆM VỤ {String(idx + 1).padStart(2, '0')}
+                                </Text>
+                              </View>
 
                               {m.isCarriedOver && (
                                 <View style={styles.carriedOverBadge}>
@@ -1378,16 +1428,16 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                               ) : null}
                             </View>
 
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                               <TouchableOpacity
                                 style={styles.expandToggleBtn}
                                 onPress={() => toggleTaskExpand(metricKey)}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               >
                                 <Ionicons
-                                  name={isExpanded ? 'chevron-up-circle' : 'chevron-down-circle-outline'}
-                                  size={20}
-                                  color={isExpanded ? '#166534' : '#64748B'}
+                                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                  size={18}
+                                  color="#64748B"
                                 />
                               </TouchableOpacity>
 
@@ -1395,7 +1445,6 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 <TouchableOpacity
                                   onPress={() => handleDeleteMetric(idx)}
                                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                                  style={{ marginLeft: 4 }}
                                 >
                                   <Ionicons name="trash-outline" size={18} color="#EF4444" />
                                 </TouchableOpacity>
@@ -1403,541 +1452,316 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                             </View>
                           </View>
 
-                          {/* Tên công việc / nhiệm vụ */}
-                          <Text style={styles.inputLabel}>Tên công việc / Nhiệm vụ</Text>
-                          <TextInput
-                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                            placeholder="Ví dụ: Gọi điện khách hàng, hoàn thiện báo giá, fix bug..."
-                            placeholderTextColor="#94A3B8"
-                            value={m.name || m.title || ''}
-                            onChangeText={(v) => {
-                              handleUpdateMetric(idx, 'name', v);
-                              handleUpdateMetric(idx, 'title', v);
-                            }}
-                            editable={!isSubmittedToday}
-                          />
-
-                          {/* Bộ chọn trạng thái 4 nút (Lưới 2x2 thông thoáng, rõ chữ, chuẩn mobile) */}
-                          <View style={styles.statusSectionHeader}>
-                            <Text style={[styles.inputLabel, { marginTop: 0, marginBottom: 0 }]}>
-                              Trạng thái công việc
-                            </Text>
-                            {currentStatusObj && (
-                              <View
-                                style={[
-                                  styles.statusActiveBadge,
-                                  {
-                                    backgroundColor: currentStatusObj.bg,
-                                    borderColor: currentStatusObj.border,
-                                  },
-                                ]}
-                              >
-                                <Ionicons name={currentStatusObj.icon} size={13} color={currentStatusObj.color} />
-                                <Text style={[styles.statusActiveBadgeText, { color: currentStatusObj.color }]}>
+                          {/* THỂ HIỆN KHI THU GỌN: CARD TỔNG QUAN THEO MOCKUP */}
+                          {!isExpanded ? (
+                            <TouchableOpacity
+                              style={styles.taskSummaryCard}
+                              onPress={() => toggleTaskExpand(metricKey)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={styles.taskSummaryTitle} numberOfLines={1}>
+                                  {m.name || m.title || `Nhiệm vụ ${idx + 1}`}
+                                </Text>
+                                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+                              </View>
+                              <View style={styles.taskSummaryMetaRow}>
+                                <View style={[styles.statusDotSmall, { backgroundColor: currentStatusObj.color }]} />
+                                <Text style={[styles.taskSummaryStatusText, { color: currentStatusObj.color }]}>
                                   {currentStatusObj.label}
                                 </Text>
-                              </View>
-                            )}
-                          </View>
-
-                          <View style={styles.statusGridContainer}>
-                            {TASK_STATUSES.map((st) => {
-                              const isActive = currentStatus === st.value;
-                              return (
-                                <TouchableOpacity
-                                  key={st.value}
-                                  style={[
-                                    styles.statusGridItem,
-                                    isActive
-                                      ? {
-                                          backgroundColor: st.bg,
-                                          borderColor: st.border,
-                                          borderWidth: 1.5,
-                                        }
-                                      : styles.statusGridItemInactive,
-                                  ]}
-                                  onPress={() => handleSetMetricStatus(idx, st.value)}
-                                  disabled={isSubmittedToday}
-                                  activeOpacity={0.7}
-                                >
-                                  <View
-                                    style={[
-                                      styles.statusIconWrap,
-                                      isActive && { backgroundColor: '#FFFFFF' },
-                                    ]}
-                                  >
-                                    <Ionicons
-                                      name={st.icon}
-                                      size={16}
-                                      color={isActive ? st.color : '#64748B'}
-                                    />
-                                  </View>
-                                  <Text
-                                    style={[
-                                      styles.statusGridLabel,
-                                      isActive
-                                        ? { color: st.color, fontWeight: '700' }
-                                        : { color: '#334155', fontWeight: '500' },
-                                    ]}
-                                    numberOfLines={1}
-                                  >
-                                    {st.label}
-                                  </Text>
-                                  {isActive && (
-                                    <View style={[styles.statusCheckIndicator, { backgroundColor: st.color }]}>
-                                      <Ionicons name="checkmark" size={10} color="#FFFFFF" />
-                                    </View>
-                                  )}
-                                </TouchableOpacity>
-                              );
-                            })}
-                          </View>
-
-                          {/* Khối tiến độ công việc hiện đại, trực quan */}
-                          <View style={styles.progressCard}>
-                            {/* Header: Label + dynamic % badge */}
-                            <View style={styles.progressHeaderRow}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                <Ionicons name="trending-up-outline" size={15} color="#2563EB" />
-                                <Text style={styles.progressHeaderLabel}>Tiến độ hoàn thành</Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.progressPercentBadge,
-                                  {
-                                    backgroundColor:
-                                      currentProgress === 100
-                                        ? '#DCFCE7'
-                                        : currentProgress >= 50
-                                        ? '#DBEAFE'
-                                        : currentProgress > 0
-                                        ? '#FEF3C7'
-                                        : '#F1F5F9',
-                                    borderColor:
-                                      currentProgress === 100
-                                        ? '#86EFAC'
-                                        : currentProgress >= 50
-                                        ? '#93C5FD'
-                                        : currentProgress > 0
-                                        ? '#FDE68A'
-                                        : '#CBD5E1',
-                                  },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.progressPercentBadgeText,
-                                    {
-                                      color:
-                                        currentProgress === 100
-                                          ? '#15803D'
-                                          : currentProgress >= 50
-                                          ? '#1D4ED8'
-                                          : currentProgress > 0
-                                          ? '#B45309'
-                                          : '#64748B',
-                                    },
-                                  ]}
-                                >
-                                  {currentProgress}%
+                                <Text style={styles.taskSummaryDeadlineText}>
+                                  • {m.deadline ? `Hạn: ${m.deadline}` : 'Hạn hôm nay'}
                                 </Text>
                               </View>
-                            </View>
-
-                            {/* Thanh Progress Bar trực quan */}
-                            <View style={styles.progressBarTrack}>
-                              <View
-                                style={[
-                                  styles.progressBarFill,
-                                  {
-                                    width: `${Math.min(100, Math.max(0, currentProgress))}%`,
-                                    backgroundColor:
-                                      currentProgress === 100
-                                        ? '#16A34A'
-                                        : currentProgress >= 50
-                                        ? '#2563EB'
-                                        : currentProgress > 0
-                                        ? '#F59E0B'
-                                        : '#94A3B8',
-                                  },
-                                ]}
+                              {/* Progress bar preview */}
+                              <View style={styles.taskSummaryProgressRow}>
+                                <View style={styles.taskSummaryProgressBarTrack}>
+                                  <View
+                                    style={[
+                                      styles.taskSummaryProgressBarFill,
+                                      { width: `${currentProgress}%` },
+                                    ]}
+                                  />
+                                </View>
+                                <Text style={styles.taskSummaryProgressPercent}>{currentProgress}%</Text>
+                              </View>
+                            </TouchableOpacity>
+                          ) : (
+                            /* THỂ HIỆN ĐẦY ĐỦ CÁC TRƯỜNG NHẬP LIỆU (CỘT 02 & CỘT 03) */
+                            <View style={styles.taskFormBody}>
+                              {/* 1. Tên công việc / Nhiệm vụ */}
+                              <Text style={styles.inputFieldLabel}>Tên công việc / Nhiệm vụ</Text>
+                              <TextInput
+                                style={[styles.formInput, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Ví dụ: Gọi điện chăm sóc khách hàng..."
+                                placeholderTextColor="#94A3B8"
+                                value={m.name || m.title || ''}
+                                onChangeText={(v) => {
+                                  handleUpdateMetric(idx, 'name', v);
+                                  handleUpdateMetric(idx, 'title', v);
+                                }}
+                                editable={!isSubmittedToday}
                               />
-                            </View>
 
-                            {/* Nút bấm chọn nhanh mức tiến độ (0% - 25% - 50% - 75% - 100%) */}
-                            <View style={styles.progressPresetRow}>
-                              {[0, 25, 50, 75, 100].map((pct) => {
-                                const isPctActive = currentProgress === pct;
-                                return (
+                              {/* 2. Trạng thái (Dropdown) */}
+                              <Text style={styles.inputFieldLabel}>Trạng thái</Text>
+                              <TouchableOpacity
+                                style={[styles.dropdownSelectBox, isSubmittedToday && styles.readOnlyInput]}
+                                onPress={() => !isSubmittedToday && setActiveStatusPickerIdx(idx)}
+                                activeOpacity={0.7}
+                                disabled={isSubmittedToday}
+                              >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                  <View style={[styles.statusCircleDot, { backgroundColor: currentStatusObj.color }]} />
+                                  <Text style={styles.dropdownValueText}>{currentStatusObj.label}</Text>
+                                </View>
+                                <Ionicons name="chevron-down" size={18} color="#64748B" />
+                              </TouchableOpacity>
+
+                              {/* 3. Tiến độ hoàn thành (Header + Slider + Presets) */}
+                              <View style={styles.progressRowHeader}>
+                                <Text style={styles.inputFieldLabelNoMargin}>Tiến độ hoàn thành</Text>
+                                <Text style={styles.progressPercentLarge}>{currentProgress}%</Text>
+                              </View>
+                              <View style={styles.sliderWrapper}>
+                                <Slider
+                                  style={{ width: '100%', height: 36 }}
+                                  minimumValue={0}
+                                  maximumValue={100}
+                                  step={5}
+                                  value={currentProgress}
+                                  onValueChange={(val) => handleSetMetricProgress(idx, Math.round(val))}
+                                  minimumTrackTintColor="#102739"
+                                  maximumTrackTintColor="#E2E8F0"
+                                  thumbTintColor="#102739"
+                                  disabled={isSubmittedToday}
+                                />
+                              </View>
+                              <View style={styles.presetChipsRow}>
+                                {[0, 25, 50, 75, 100].map((pct) => (
                                   <TouchableOpacity
                                     key={pct}
                                     style={[
-                                      styles.progressPresetPill,
-                                      isPctActive && styles.progressPresetPillActive,
+                                      styles.presetChip,
+                                      currentProgress === pct && styles.presetChipActive,
                                     ]}
-                                    onPress={() => handleSetMetricProgress(idx, pct)}
+                                    onPress={() => !isSubmittedToday && handleSetMetricProgress(idx, pct)}
                                     disabled={isSubmittedToday}
                                     activeOpacity={0.7}
                                   >
                                     <Text
                                       style={[
-                                        styles.progressPresetPillText,
-                                        isPctActive && styles.progressPresetPillTextActive,
+                                        styles.presetChipText,
+                                        currentProgress === pct && styles.presetChipTextActive,
                                       ]}
                                     >
                                       {pct}%
                                     </Text>
                                   </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-
-                            {/* Bộ tinh chỉnh tăng / giảm hoặc nhập số tùy chỉnh */}
-                            <View style={styles.progressFineTuneRow}>
-                              <Text style={styles.progressFineTuneLabel}>Tinh chỉnh:</Text>
-
-                              <TouchableOpacity
-                                style={[styles.progressStepperBtn, currentProgress <= 0 && styles.progressStepperBtnDisabled]}
-                                onPress={() => handleSetMetricProgress(idx, Math.max(0, currentProgress - 10))}
-                                disabled={isSubmittedToday || currentProgress <= 0}
-                                activeOpacity={0.7}
-                              >
-                                <Ionicons name="remove" size={14} color={currentProgress <= 0 ? '#CBD5E1' : '#334155'} />
-                                <Text style={[styles.progressStepperText, currentProgress <= 0 && { color: '#CBD5E1' }]}>-10%</Text>
-                              </TouchableOpacity>
-
-                              <View style={styles.progressInputBox}>
-                                <TextInput
-                                  style={[
-                                    styles.progressNumericInput,
-                                    isSubmittedToday && styles.readOnlyInput,
-                                  ]}
-                                  placeholder="0"
-                                  placeholderTextColor="#94A3B8"
-                                  keyboardType="numeric"
-                                  value={m.progress !== undefined && m.progress !== null ? String(m.progress) : '0'}
-                                  onChangeText={(v) => {
-                                    const num = parseInt(v, 10);
-                                    handleSetMetricProgress(idx, isNaN(num) ? 0 : num);
-                                  }}
-                                  editable={!isSubmittedToday}
-                                  maxLength={3}
-                                />
-                                <Text style={styles.progressInputSuffix}>%</Text>
-                              </View>
-
-                              <TouchableOpacity
-                                style={[styles.progressStepperBtn, currentProgress >= 100 && styles.progressStepperBtnDisabled]}
-                                onPress={() => handleSetMetricProgress(idx, Math.min(100, currentProgress + 10))}
-                                disabled={isSubmittedToday || currentProgress >= 100}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={[styles.progressStepperText, currentProgress >= 100 && { color: '#CBD5E1' }]}>+10%</Text>
-                                <Ionicons name="add" size={14} color={currentProgress >= 100 ? '#CBD5E1' : '#334155'} />
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-
-                          {/* Chi tiết công việc & Hạn chót */}
-                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>Chi tiết công việc</Text>
-                          <TextInput
-                            style={[styles.textAreaInput, isSubmittedToday && styles.readOnlyInput, { minHeight: 48, marginBottom: 4 }]}
-                            placeholder="Mô tả cụ thể nội dung công việc thực hiện…"
-                            placeholderTextColor="#94A3B8"
-                            multiline
-                            numberOfLines={2}
-                            value={m.description || ''}
-                            onChangeText={(v) => handleUpdateMetric(idx, 'description', v)}
-                            editable={!isSubmittedToday}
-                          />
-
-                          <View style={styles.quantPairRow}>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.inputLabel}>Kết quả (nếu có số liệu)</Text>
-                              <TextInput
-                                style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Ví dụ: 10, 500k…"
-                                placeholderTextColor="#94A3B8"
-                                value={String(m.value ?? '')}
-                                onChangeText={(v) => handleUpdateMetric(idx, 'value', v)}
-                                editable={!isSubmittedToday}
-                              />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.inputLabel}>Đơn vị tính</Text>
-                              <TextInput
-                                style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Khách, Đơn, Lỗi…"
-                                placeholderTextColor="#94A3B8"
-                                value={m.unit || ''}
-                                onChangeText={(v) => handleUpdateMetric(idx, 'unit', v)}
-                                editable={!isSubmittedToday}
-                              />
-                            </View>
-                          </View>
-
-                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>Hạn chót (Deadline)</Text>
-                          <View style={styles.dateInputWrapper}>
-                            <TextInput
-                              style={[styles.textInput, styles.dateInputWithBtn, isSubmittedToday && styles.readOnlyInput]}
-                              placeholder="Ví dụ: 2026-10-17, 17:30, Hôm nay…"
-                              placeholderTextColor="#94A3B8"
-                              value={m.deadline || ''}
-                              onChangeText={(v) => handleUpdateMetric(idx, 'deadline', v)}
-                              editable={!isSubmittedToday}
-                            />
-                            {!isSubmittedToday && (
-                              <TouchableOpacity
-                                style={styles.datePickerBtn}
-                                onPress={() => handleOpenDatePicker('metric', idx, m.deadline)}
-                                activeOpacity={0.7}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                              >
-                                <Ionicons name="calendar-outline" size={18} color="#166534" />
-                              </TouchableOpacity>
-                            )}
-                          </View>
-
-                          {/* Badges / Chips hàng ngang tóm tắt */}
-                          <View style={[styles.taskMetaRow, { marginTop: 8 }]}>
-                            <View style={[styles.metaChip, { backgroundColor: '#F1F5F9' }]}>
-                              <Text style={styles.metaChipText}>{m.category || 'Vận hành'}</Text>
-                            </View>
-                            <View style={[styles.metaChip, { backgroundColor: typeObj?.bg || '#F1F5F9' }]}>
-                              <Text style={[styles.metaChipText, { color: typeObj?.color || '#334155' }]}>
-                                {typeObj?.label || 'Kế hoạch'}
-                              </Text>
-                            </View>
-                            <View style={[styles.metaChip, { backgroundColor: prioObj?.bg || '#FEF3C7' }]}>
-                              <Text style={[styles.metaChipText, { color: prioObj?.color || '#D97706' }]}>
-                                {prioObj?.label || 'Trung bình'}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* 1. Khó khăn / Vướng mắc */}
-                          <Text style={[styles.inputLabel, { marginTop: 8 }]}>
-                            Khó khăn & vướng mắc <Text style={styles.optionalText}>· Tùy chọn</Text>
-                          </Text>
-                          <TextInput
-                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                            placeholder="Mô tả khó khăn hoặc trở ngại khi làm nhiệm vụ này…"
-                            placeholderTextColor="#94A3B8"
-                            value={m.obstacles || ''}
-                            onChangeText={(v) => handleUpdateMetric(idx, 'obstacles', v)}
-                            editable={!isSubmittedToday}
-                          />
-
-                          {/* 2. Đề xuất hỗ trợ */}
-                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>
-                            Đề xuất hỗ trợ <Text style={styles.optionalText}>· Tùy chọn</Text>
-                          </Text>
-                          <TextInput
-                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                            placeholder="Cần Leader hoặc bộ phận khác hỗ trợ gì…"
-                            placeholderTextColor="#94A3B8"
-                            value={m.supportRequest || ''}
-                            onChangeText={(v) => handleUpdateMetric(idx, 'supportRequest', v)}
-                            editable={!isSubmittedToday}
-                          />
-
-                          {/* 3. Ghi chú */}
-                          <Text style={[styles.inputLabel, { marginTop: 6 }]}>
-                            Ghi chú <Text style={styles.optionalText}>· Tùy chọn</Text>
-                          </Text>
-                          <TextInput
-                            style={[styles.textInput, isSubmittedToday && styles.readOnlyInput]}
-                            placeholder="Ghi chú thêm về nhiệm vụ này…"
-                            placeholderTextColor="#94A3B8"
-                            value={m.notes || m.note || ''}
-                            onChangeText={(v) => {
-                              handleUpdateMetric(idx, 'note', v);
-                              handleUpdateMetric(idx, 'notes', v);
-                            }}
-                            editable={!isSubmittedToday}
-                          />
-
-                          {/* 4. Tự đánh giá nhiệm vụ */}
-                          <View style={{ marginTop: 10 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                              <Text style={styles.inputLabel}>
-                                Tự đánh giá nhiệm vụ <Text style={styles.optionalText}>· {m.selfRating ?? 5}/5 sao</Text>
-                              </Text>
-                              <Text style={{ fontSize: 11, fontWeight: '700', color: '#D97706' }}>
-                                {ASSESSMENT_LEVELS.find((l) => l.level === (m.selfRating ?? 5))?.title || 'Đạt kế hoạch'}
-                              </Text>
-                            </View>
-                            <View style={styles.taskStarRow}>
-                              {[1, 2, 3, 4, 5].map((lvl) => {
-                                const isStarActive = lvl <= (m.selfRating ?? 5);
-                                return (
-                                  <TouchableOpacity
-                                    key={lvl}
-                                    style={styles.taskStarBtn}
-                                    onPress={() => !isSubmittedToday && handleUpdateMetric(idx, 'selfRating', lvl)}
-                                    activeOpacity={0.7}
-                                    disabled={isSubmittedToday}
-                                  >
-                                    <Ionicons
-                                      name={isStarActive ? 'star' : 'star-outline'}
-                                      size={22}
-                                      color={isStarActive ? '#F59E0B' : '#CBD5E1'}
-                                    />
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-                          </View>
-
-                          {/* 5. Đính kèm hình ảnh & tệp cho nhiệm vụ */}
-                          <View style={{ marginTop: 10 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                              <Text style={styles.inputLabel}>
-                                Hình ảnh & tệp đính kèm <Text style={styles.optionalText}>· {(m.attachments || []).length} tệp</Text>
-                              </Text>
-                              {!isSubmittedToday && (
-                                <View style={{ flexDirection: 'row', gap: 6 }}>
-                                  <TouchableOpacity
-                                    style={styles.taskAttachMiniBtn}
-                                    onPress={() => handlePickImageForTask(idx)}
-                                    disabled={uploadingMetricIdx === idx}
-                                    activeOpacity={0.7}
-                                  >
-                                    <Ionicons name="image-outline" size={13} color="#166534" />
-                                    <Text style={styles.taskAttachMiniBtnText}>Thêm ảnh</Text>
-                                  </TouchableOpacity>
-                                  <TouchableOpacity
-                                    style={styles.taskAttachMiniBtn}
-                                    onPress={() => handlePickDocumentForTask(idx)}
-                                    disabled={uploadingMetricIdx === idx}
-                                    activeOpacity={0.7}
-                                  >
-                                    <Ionicons name="document-text-outline" size={13} color="#166534" />
-                                    <Text style={styles.taskAttachMiniBtnText}>Tệp</Text>
-                                  </TouchableOpacity>
-                                </View>
-                              )}
-                            </View>
-
-                            {uploadingMetricIdx === idx && (
-                              <View style={styles.taskUploadingRow}>
-                                <ActivityIndicator size="small" color="#166534" />
-                                <Text style={styles.taskUploadingText}>Đang tải tệp lên nhiệm vụ này…</Text>
-                              </View>
-                            )}
-
-                            {/* Danh sách ảnh/tệp của nhiệm vụ */}
-                            {(m.attachments || []).length > 0 && (
-                              <View style={styles.taskAttachmentList}>
-                                {(m.attachments || []).map((att, aIdx) => (
-                                  <View key={aIdx} style={styles.taskAttachmentItem}>
-                                    <TouchableOpacity
-                                      style={styles.taskAttachmentClickable}
-                                      onPress={() => handlePreviewAttachment(att)}
-                                      activeOpacity={0.7}
-                                    >
-                                      <MaterialCommunityIcons
-                                        name={att.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
-                                        size={18}
-                                        color="#166534"
-                                      />
-                                      <Text style={styles.taskAttachmentName} numberOfLines={1}>
-                                        {att.fileName || `Tệp ${aIdx + 1}`}
-                                      </Text>
-                                      <Ionicons name="eye-outline" size={15} color="#166534" />
-                                    </TouchableOpacity>
-                                    {!isSubmittedToday && (
-                                      <TouchableOpacity
-                                        onPress={() => handleDeleteTaskAttachment(idx, aIdx)}
-                                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                                        style={{ paddingLeft: 6 }}
-                                      >
-                                        <Ionicons name="close-circle" size={16} color="#EF4444" />
-                                      </TouchableOpacity>
-                                    )}
-                                  </View>
                                 ))}
                               </View>
-                            )}
-                          </View>
 
-                          {/* Chi tiết mở rộng (Drawer) */}
-                          {isExpanded && (
-                            <View style={styles.expandedDetailsDrawer}>
-                              {/* 1. Hạng mục */}
-                              <Text style={styles.drawerFieldLabel}>Hạng mục công việc (Nhập tên hoặc chọn gợi ý)</Text>
+                              {/* 4. Chi tiết công việc */}
+                              <Text style={styles.inputFieldLabel}>Chi tiết công việc</Text>
                               <TextInput
-                                style={[styles.drawerInput, isSubmittedToday && styles.readOnlyInput, { marginBottom: 6 }]}
-                                placeholder="Nhập tên hạng mục tự do…"
+                                style={[styles.formTextarea, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Liên hệ khách hàng và cập nhật nhu cầu..."
                                 placeholderTextColor="#94A3B8"
-                                value={m.category || ''}
-                                onChangeText={(v) => handleUpdateMetric(idx, 'category', v)}
+                                multiline
+                                numberOfLines={3}
+                                value={m.description || ''}
+                                onChangeText={(v) => handleUpdateMetric(idx, 'description', v)}
                                 editable={!isSubmittedToday}
                               />
-                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
-                                <View style={styles.chipScrollInner}>
-                                  {TASK_CATEGORIES.map((cat) => {
-                                    const isCatActive = (m.category || '') === cat;
-                                    return (
-                                      <TouchableOpacity
-                                        key={cat}
-                                        style={[styles.drawerPill, isCatActive && styles.drawerPillActive]}
-                                        onPress={() => handleUpdateMetric(idx, 'category', cat)}
-                                        disabled={isSubmittedToday}
-                                      >
-                                        <Text style={[styles.drawerPillText, isCatActive && styles.drawerPillTextActive]}>
-                                          {cat}
-                                        </Text>
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                                </View>
-                              </ScrollView>
 
-                              {/* 2. Loại việc */}
-                              <Text style={styles.drawerFieldLabel}>Loại việc</Text>
-                              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
-                                <View style={styles.chipScrollInner}>
-                                  {TASK_TYPES.map((tt) => {
-                                    const isTypeActive = (m.taskType || 'THEO_KE_HOACH') === tt.value;
-                                    return (
-                                      <TouchableOpacity
-                                        key={tt.value}
-                                        style={[styles.drawerPill, isTypeActive && { backgroundColor: tt.bg, borderColor: tt.color }]}
-                                        onPress={() => handleUpdateMetric(idx, 'taskType', tt.value)}
-                                        disabled={isSubmittedToday}
-                                      >
-                                        <Text style={[styles.drawerPillText, isTypeActive && { color: tt.color, fontWeight: '700' }]}>
-                                          {tt.label}
-                                        </Text>
-                                      </TouchableOpacity>
-                                    );
-                                  })}
+                              {/* 5. Hai cột: Kết quả (nếu có số liệu) & Đơn vị tính */}
+                              <View style={styles.twoColumnRow}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.inputFieldLabel}>Kết quả (nếu có số liệu)</Text>
+                                  <TextInput
+                                    style={[styles.formInput, isSubmittedToday && styles.readOnlyInput]}
+                                    placeholder="10"
+                                    placeholderTextColor="#94A3B8"
+                                    value={String(m.value ?? '')}
+                                    onChangeText={(v) => handleUpdateMetric(idx, 'value', v)}
+                                    editable={!isSubmittedToday}
+                                  />
                                 </View>
-                              </ScrollView>
-
-                              {/* 3. Mức độ ưu tiên */}
-                              <Text style={styles.drawerFieldLabel}>Mức độ ưu tiên</Text>
-                              <View style={styles.priorityRowContainer}>
-                                {TASK_PRIORITIES.map((tp) => {
-                                  const isPrioActive = (m.priority || 'MEDIUM') === tp.value;
-                                  return (
-                                    <TouchableOpacity
-                                      key={tp.value}
-                                      style={[
-                                        styles.priorityPillItem,
-                                        isPrioActive && { backgroundColor: tp.bg, borderColor: tp.color, borderWidth: 1.5 },
-                                      ]}
-                                      onPress={() => handleUpdateMetric(idx, 'priority', tp.value)}
-                                      disabled={isSubmittedToday}
-                                    >
-                                      <Text style={[styles.priorityPillText, isPrioActive && { color: tp.color, fontWeight: '700' }]}>
-                                        {tp.label}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  );
-                                })}
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.inputFieldLabel}>Đơn vị tính</Text>
+                                  <TextInput
+                                    style={[styles.formInput, isSubmittedToday && styles.readOnlyInput]}
+                                    placeholder="Khách hàng"
+                                    placeholderTextColor="#94A3B8"
+                                    value={m.unit || ''}
+                                    onChangeText={(v) => handleUpdateMetric(idx, 'unit', v)}
+                                    editable={!isSubmittedToday}
+                                  />
+                                </View>
                               </View>
+
+                              {/* 6. Hạn chót (Deadline) */}
+                              <Text style={styles.inputFieldLabel}>Hạn chót (Deadline)</Text>
+                              <View style={styles.datePickerInputWrap}>
+                                <TextInput
+                                  style={[styles.formInput, styles.dateInputPadding, isSubmittedToday && styles.readOnlyInput]}
+                                  placeholder="19/10/2026 · 17:30"
+                                  placeholderTextColor="#94A3B8"
+                                  value={m.deadline || ''}
+                                  onChangeText={(v) => handleUpdateMetric(idx, 'deadline', v)}
+                                  editable={!isSubmittedToday}
+                                />
+                                {!isSubmittedToday && (
+                                  <TouchableOpacity
+                                    style={styles.calendarTriggerBtn}
+                                    onPress={() => handleOpenDatePicker('metric', idx, m.deadline)}
+                                    activeOpacity={0.7}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  >
+                                    <Ionicons name="calendar-outline" size={18} color="#102739" />
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+
+                              {/* 7. Thông tin bổ sung (03 / Thông tin bổ sung) */}
+                              <View style={styles.additionalInfoDivider} />
+                              <View style={styles.additionalInfoHeader}>
+                                <MaterialCommunityIcons name="file-document-outline" size={18} color="#102739" />
+                                <View style={{ flex: 1, marginLeft: 8 }}>
+                                  <Text style={styles.additionalInfoTitle}>Thông tin bổ sung</Text>
+                                  <Text style={styles.additionalInfoSub}>Khó khăn, hỗ trợ, ghi chú · Không bắt buộc</Text>
+                                </View>
+                              </View>
+
+                              {/* Khó khăn & vướng mắc */}
+                              <Text style={styles.inputFieldLabel}>Khó khăn & vướng mắc</Text>
+                              <TextInput
+                                style={[styles.formTextareaSmall, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Mô tả trở ngại khi thực hiện..."
+                                placeholderTextColor="#94A3B8"
+                                multiline
+                                numberOfLines={2}
+                                value={m.obstacles || ''}
+                                onChangeText={(v) => handleUpdateMetric(idx, 'obstacles', v)}
+                                editable={!isSubmittedToday}
+                              />
+
+                              {/* Đề xuất hỗ trợ */}
+                              <Text style={styles.inputFieldLabel}>Đề xuất hỗ trợ</Text>
+                              <TextInput
+                                style={[styles.formTextareaSmall, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Bạn cần hỗ trợ điều gì?"
+                                placeholderTextColor="#94A3B8"
+                                multiline
+                                numberOfLines={2}
+                                value={m.supportRequest || ''}
+                                onChangeText={(v) => handleUpdateMetric(idx, 'supportRequest', v)}
+                                editable={!isSubmittedToday}
+                              />
+
+                              {/* Ghi chú */}
+                              <Text style={styles.inputFieldLabel}>Ghi chú</Text>
+                              <TextInput
+                                style={[styles.formTextareaSmall, isSubmittedToday && styles.readOnlyInput]}
+                                placeholder="Thông tin khác về nhiệm vụ..."
+                                placeholderTextColor="#94A3B8"
+                                multiline
+                                numberOfLines={2}
+                                value={m.notes || m.note || ''}
+                                onChangeText={(v) => {
+                                  handleUpdateMetric(idx, 'note', v);
+                                  handleUpdateMetric(idx, 'notes', v);
+                                }}
+                                editable={!isSubmittedToday}
+                              />
+
+                              {/* Tự đánh giá */}
+                              <Text style={styles.inputFieldLabel}>Tự đánh giá</Text>
+                              <View style={styles.ratingStarsBox}>
+                                <View style={styles.ratingStarsRow}>
+                                  {[1, 2, 3, 4, 5].map((star) => {
+                                    const isActive = star <= (m.selfRating ?? 5);
+                                    return (
+                                      <TouchableOpacity
+                                        key={star}
+                                        onPress={() => !isSubmittedToday && handleUpdateMetric(idx, 'selfRating', star)}
+                                        disabled={isSubmittedToday}
+                                        activeOpacity={0.7}
+                                        hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                                      >
+                                        <Ionicons
+                                          name={isActive ? 'star' : 'star-outline'}
+                                          size={28}
+                                          color={isActive ? '#F59E0B' : '#CBD5E1'}
+                                        />
+                                      </TouchableOpacity>
+                                    );
+                                  })}
+                                </View>
+                                <Text style={styles.ratingLabelText}>
+                                  {(m.selfRating ?? 5)}/5 • {ASSESSMENT_LEVELS.find((l) => l.level === (m.selfRating ?? 5))?.title || 'Đạt kế hoạch'}
+                                </Text>
+                              </View>
+
+                              {/* Hình ảnh & tệp đính kèm */}
+                              <Text style={styles.inputFieldLabel}>Hình ảnh & tệp đính kèm</Text>
+                              <TouchableOpacity
+                                style={styles.dashedAttachmentDropzone}
+                                onPress={() => !isSubmittedToday && setActiveAttachPickerIdx(idx)}
+                                activeOpacity={0.7}
+                                disabled={isSubmittedToday}
+                              >
+                                <Ionicons name="attach" size={24} color="#102739" />
+                                <Text style={styles.dashedAttachmentText}>Thêm ảnh hoặc tệp</Text>
+                                <Text style={styles.dashedAttachmentSubtext}>
+                                  {(m.attachments || []).length > 0
+                                    ? `Đã chọn ${m.attachments?.length || 0} tệp đính kèm`
+                                    : 'Chưa có tệp đính kèm'}
+                                </Text>
+                              </TouchableOpacity>
+
+                              {/* Loading indicator */}
+                              {uploadingMetricIdx === idx && (
+                                <View style={styles.taskUploadingRow}>
+                                  <ActivityIndicator size="small" color="#102739" />
+                                  <Text style={styles.taskUploadingText}>Đang tải tệp lên nhiệm vụ này...</Text>
+                                </View>
+                              )}
+
+                              {/* Danh sách tệp đính kèm của nhiệm vụ */}
+                              {(m.attachments || []).length > 0 && (
+                                <View style={styles.attachmentsListContainer}>
+                                  {(m.attachments || []).map((att, aIdx) => (
+                                    <View key={aIdx} style={styles.attachmentItemCard}>
+                                      <TouchableOpacity
+                                        style={styles.attachmentItemClickable}
+                                        onPress={() => handlePreviewAttachment(att)}
+                                        activeOpacity={0.7}
+                                      >
+                                        <MaterialCommunityIcons
+                                          name={att.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
+                                          size={20}
+                                          color="#102739"
+                                        />
+                                        <Text style={styles.attachmentItemName} numberOfLines={1}>
+                                          {att.fileName || `Tệp ${aIdx + 1}`}
+                                        </Text>
+                                        <Ionicons name="eye-outline" size={16} color="#102739" />
+                                      </TouchableOpacity>
+                                      {!isSubmittedToday && (
+                                        <TouchableOpacity
+                                          onPress={() => handleDeleteTaskAttachment(idx, aIdx)}
+                                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                          style={{ paddingLeft: 6 }}
+                                        >
+                                          <Ionicons name="close-circle" size={18} color="#EF4444" />
+                                        </TouchableOpacity>
+                                      )}
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
                             </View>
                           )}
                         </View>
@@ -1947,10 +1771,14 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
 
                   {!isSubmittedToday && (
                     <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddMetric} activeOpacity={0.7}>
-                      <Ionicons name="add" size={18} color="#166534" />
+                      <Ionicons name="add" size={18} color="#102739" />
                       <Text style={styles.dashedAddBtnText}>Thêm nhiệm vụ</Text>
                     </TouchableOpacity>
                   )}
+
+                  <Text style={styles.carriedOverNoticeText}>
+                    ⓘ Công việc chưa xong sẽ chuyển sang ngày mai.
+                  </Text>
                 </View>
               </View>
             )}
@@ -2242,101 +2070,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
               </View>
             )}
 
-            {/* FOOTER ACTIONS */}
-            <View style={styles.footerContainer}>
-              {isSubmittedToday ? (
-                <View style={{ gap: 10 }}>
-                  <View style={styles.footerBtnRow}>
-                    {currentStep > 0 && (
-                      <TouchableOpacity
-                        style={styles.footerSecondaryBtn}
-                        onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
-                      >
-                        <Text style={styles.footerSecondaryBtnText}>Quay lại</Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {currentStep < 2 && (
-                      <TouchableOpacity
-                        style={styles.footerPrimaryBtn}
-                        onPress={() => setCurrentStep((prev) => Math.min(2, prev + 1))}
-                      >
-                        <Text style={styles.footerPrimaryBtnText}>
-                          {currentStep === 1 ? 'Xem lại báo cáo →' : 'Tiếp tục →'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  <View style={[styles.lockedDayBtn, isReviewedToday && styles.lockedDayBtnReviewed]}>
-                    <MaterialCommunityIcons
-                      name={isReviewedToday ? 'check-decagram' : 'check-circle-outline'}
-                      size={20}
-                      color={isReviewedToday ? '#15803D' : '#315DE5'}
-                    />
-                    <Text style={[styles.lockedDayBtnText, isReviewedToday && styles.lockedDayBtnTextReviewed]}>
-                      {isReviewedToday ? 'Báo cáo hôm nay đã được Admin duyệt' : 'Đã nộp báo cáo hôm nay (1 lần / ngày)'}
-                    </Text>
-                  </View>
-                  <Text style={styles.footerNoticeText}>
-                    {isReviewedToday
-                      ? 'Bạn có thể xem điểm số và đánh giá tại tab "Đã duyệt" ở trên.'
-                      : 'Bạn đã hoàn tất nộp báo cáo cho ngày hôm nay.'}
-                  </Text>
-                </View>
-              ) : (
-                <View>
-                  <View style={styles.footerBtnRow}>
-                    {currentStep > 0 && (
-                      <TouchableOpacity
-                        style={styles.footerSecondaryBtn}
-                        onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
-                      >
-                        <Text style={styles.footerSecondaryBtnText}>Quay lại</Text>
-                      </TouchableOpacity>
-                    )}
-
-                    <TouchableOpacity
-                      style={styles.footerSecondaryBtn}
-                      onPress={() => handleSave(true)}
-                      disabled={saveReportMutation.isPending}
-                    >
-                      {saveReportMutation.isPending ? (
-                        <ActivityIndicator size="small" color="#697586" />
-                      ) : (
-                        <Text style={styles.footerSecondaryBtnText}>Lưu nháp</Text>
-                      )}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.footerPrimaryBtn,
-                        currentStep === 2 && !isConfirmed && styles.footerPrimaryBtnDisabled,
-                        saveReportMutation.isPending && styles.footerPrimaryBtnDisabled,
-                      ]}
-                      onPress={() => {
-                        if (currentStep < 2) {
-                          setCurrentStep((prev) => prev + 1);
-                        } else {
-                          handleSave(false);
-                        }
-                      }}
-                      disabled={(currentStep === 2 && !isConfirmed) || saveReportMutation.isPending}
-                    >
-                      {saveReportMutation.isPending ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <Text style={styles.footerPrimaryBtnText}>
-                          {currentStep === 2 ? 'Gửi báo cáo' : currentStep === 1 ? 'Xem lại báo cáo →' : 'Tiếp tục →'}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-
-                  <Text style={styles.footerNoticeText}>{noticeText}</Text>
-                </View>
-              )}
-            </View>
+            {/* Khoảng trống đệm cuối trang để không bị che bởi sticky footer */}
+            <View style={{ height: 24 }} />
           </View>
         )}
 
@@ -2630,8 +2365,224 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
           </View>
         )}
           </ScrollView>
+
+          {/* STICKY BOTTOM ACTION FOOTER BAR */}
+          {activeTab === 'write' && (
+            <View style={[styles.stickyFooterBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+              {isSubmittedToday ? (
+                <View style={styles.stickyFooterBtnRow}>
+                  {currentStep > 0 && (
+                    <TouchableOpacity
+                      style={styles.stickyFooterSecondaryBtn}
+                      onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
+                    >
+                      <Text style={styles.stickyFooterSecondaryBtnText}>Quay lại</Text>
+                    </TouchableOpacity>
+                  )}
+                  {currentStep < 2 && (
+                    <TouchableOpacity
+                      style={styles.stickyFooterPrimaryBtn}
+                      onPress={() => setCurrentStep((prev) => Math.min(2, prev + 1))}
+                    >
+                      <Text style={styles.stickyFooterPrimaryBtnText}>
+                        {currentStep === 1 ? 'Xem lại báo cáo →' : 'Tiếp tục →'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.stickyFooterBtnRow}>
+                  {currentStep > 0 && (
+                    <TouchableOpacity
+                      style={styles.stickyFooterSecondaryBtn}
+                      onPress={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
+                    >
+                      <Text style={styles.stickyFooterSecondaryBtnText}>Quay lại</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.stickyFooterSecondaryBtn}
+                    onPress={() => handleSave(true)}
+                    disabled={saveReportMutation.isPending}
+                    activeOpacity={0.7}
+                  >
+                    {saveReportMutation.isPending ? (
+                      <ActivityIndicator size="small" color="#102739" />
+                    ) : (
+                      <Text style={styles.stickyFooterSecondaryBtnText}>Lưu nháp</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.stickyFooterPrimaryBtn,
+                      currentStep === 2 && !isConfirmed && styles.stickyFooterPrimaryBtnDisabled,
+                      saveReportMutation.isPending && styles.stickyFooterPrimaryBtnDisabled,
+                    ]}
+                    onPress={() => {
+                      if (currentStep < 2) {
+                        setCurrentStep((prev) => prev + 1);
+                      } else {
+                        handleSave(false);
+                      }
+                    }}
+                    disabled={(currentStep === 2 && !isConfirmed) || saveReportMutation.isPending}
+                    activeOpacity={0.8}
+                  >
+                    {saveReportMutation.isPending ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.stickyFooterPrimaryBtnText}>
+                        {currentStep === 2 ? 'Gửi báo cáo' : currentStep === 1 ? 'Xem lại báo cáo →' : 'Tiếp tục →'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
         </KeyboardAvoidingView>
       </View>
+
+      {/* ========================================================================= */}
+      {/* STATUS PICKER BOTTOM SHEET MODAL                                          */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={activeStatusPickerIdx !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setActiveStatusPickerIdx(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setActiveStatusPickerIdx(null)}>
+          <Pressable style={styles.bottomSheetContainer} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeaderRow}>
+              <Text style={styles.sheetTitle}>Chọn trạng thái công việc</Text>
+              <TouchableOpacity onPress={() => setActiveStatusPickerIdx(null)} hitSlop={10}>
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ gap: 8, marginTop: 12 }}>
+              {TASK_STATUSES.map((st) => {
+                const currentVal = activeStatusPickerIdx !== null
+                  ? (metrics[activeStatusPickerIdx]?.status || (Number(metrics[activeStatusPickerIdx]?.progress) === 100 ? 'DONE' : 'IN_PROGRESS'))
+                  : '';
+                const isSelected = currentVal === st.value;
+                return (
+                  <TouchableOpacity
+                    key={st.value}
+                    style={[
+                      styles.sheetOptionItem,
+                      isSelected && { backgroundColor: st.bg, borderColor: st.border, borderWidth: 1.5 },
+                    ]}
+                    onPress={() => {
+                      if (activeStatusPickerIdx !== null) {
+                        handleSetMetricStatus(activeStatusPickerIdx, st.value);
+                        setActiveStatusPickerIdx(null);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.statusDotLarge, { backgroundColor: st.color }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.sheetOptionTitle, isSelected && { color: st.color, fontWeight: '700' }]}>
+                        {st.label}
+                      </Text>
+                    </View>
+                    {isSelected && <Ionicons name="checkmark-circle" size={20} color={st.color} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* ATTACHMENT ACTION SHEET (CHỌN NGUỒN TỆP / MÁY ẢNH)                         */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={activeAttachPickerIdx !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setActiveAttachPickerIdx(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setActiveAttachPickerIdx(null)}>
+          <Pressable style={styles.bottomSheetContainer} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeaderRow}>
+              <Text style={styles.sheetTitle}>Thêm ảnh hoặc tệp</Text>
+              <TouchableOpacity onPress={() => setActiveAttachPickerIdx(null)} hitSlop={10}>
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.sheetSubtitle}>
+              Đính kèm minh chứng hình ảnh hoặc tài liệu kết quả công việc.
+            </Text>
+
+            <View style={{ gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                style={styles.attachActionItem}
+                onPress={() => {
+                  const idx = activeAttachPickerIdx;
+                  setActiveAttachPickerIdx(null);
+                  if (idx !== null) handleTakePhotoForTask(idx);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.attachActionIconBox, { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons name="camera-outline" size={22} color="#102739" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.attachActionTitle}>Chụp ảnh mới</Text>
+                  <Text style={styles.attachActionDesc}>Mở máy ảnh và chụp hình trực tiếp</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.attachActionItem}
+                onPress={() => {
+                  const idx = activeAttachPickerIdx;
+                  setActiveAttachPickerIdx(null);
+                  if (idx !== null) handlePickImageForTask(idx);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.attachActionIconBox, { backgroundColor: '#F0FDF4' }]}>
+                  <Ionicons name="images-outline" size={22} color="#16A34A" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.attachActionTitle}>Chọn từ thư viện ảnh</Text>
+                  <Text style={styles.attachActionDesc}>Tải lên ảnh có sẵn trong máy</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.attachActionItem}
+                onPress={() => {
+                  const idx = activeAttachPickerIdx;
+                  setActiveAttachPickerIdx(null);
+                  if (idx !== null) handlePickDocumentForTask(idx);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.attachActionIconBox, { backgroundColor: '#FEF3C7' }]}>
+                  <Ionicons name="document-text-outline" size={22} color="#D97706" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.attachActionTitle}>Chọn tài liệu / PDF</Text>
+                  <Text style={styles.attachActionDesc}>Hỗ trợ PDF, Word, Excel và các loại file</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* ========================================================================= */}
       {/* FULLSCREEN IMAGE PREVIEW MODAL                                            */}
@@ -2867,14 +2818,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E9EDF2',
-    shadowColor: '#000',
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
   },
-  personCardTop: {
+  personCardInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -2895,27 +2846,12 @@ const styles = StyleSheet.create({
   personName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#192232',
+    color: '#0F172A',
   },
   personRole: {
     fontSize: 12,
-    color: '#697586',
+    color: '#64748B',
     marginTop: 2,
-    fontWeight: '500',
-  },
-  personCardDivider: {
-    height: 1,
-    backgroundColor: '#F1F4F9',
-    marginVertical: 10,
-  },
-  personCardBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  personCardDate: {
-    fontSize: 13,
-    color: '#475569',
     fontWeight: '500',
   },
   statusBadge: {
@@ -3083,12 +3019,12 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
 
-  // QUANT ITEM
-  quantItemBox: {
+  // TASK CARD & MODERN FORM FIELDS
+  taskCardContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 14,
+    padding: 16,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
@@ -3097,92 +3033,330 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  quantItemHeader: {
+  taskCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 10,
   },
-  quantNumberText: {
-    fontSize: 10,
+  taskNumberBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  taskNumberBadgeText: {
+    fontSize: 10.5,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#102739',
     letterSpacing: 0.5,
   },
-  removeText: {
-    fontSize: 11,
-    color: '#EF4444',
-    fontWeight: '600',
+  taskSummaryCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
   },
-  inputLabel: {
+  taskSummaryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    flex: 1,
+  },
+  taskSummaryMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDotSmall: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  taskSummaryStatusText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
-    marginBottom: 4,
-    marginTop: 6,
   },
-  optionalText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '400',
+  taskSummaryDeadlineText: {
+    fontSize: 12,
+    color: '#64748B',
   },
-  textInput: {
+  taskSummaryProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  taskSummaryProgressBarTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  taskSummaryProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#102739',
+    borderRadius: 3,
+  },
+  taskSummaryProgressPercent: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#102739',
+  },
+  taskFormBody: {
+    gap: 2,
+  },
+  inputFieldLabel: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  inputFieldLabelNoMargin: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  formInput: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 13,
-    color: '#1E293B',
+    paddingVertical: 10,
+    fontSize: 13.5,
+    color: '#0F172A',
   },
   readOnlyInput: {
     backgroundColor: '#F8FAFC',
     borderColor: '#E2E8F0',
-    color: '#334155',
+    color: '#64748B',
   },
-  dateInputWrapper: {
+  formTextarea: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13.5,
+    color: '#0F172A',
+    minHeight: 70,
+    textAlignVertical: 'top',
+  },
+  formTextareaSmall: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#0F172A',
+    minHeight: 56,
+    textAlignVertical: 'top',
+  },
+  dropdownSelectBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  statusCircleDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+  },
+  dropdownValueText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  progressRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  progressPercentLarge: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#102739',
+  },
+  sliderWrapper: {
+    marginVertical: 2,
+  },
+  presetChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  presetChip: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  presetChipActive: {
+    backgroundColor: '#F0F4F8',
+    borderColor: '#102739',
+    borderWidth: 1.5,
+  },
+  presetChipText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  presetChipTextActive: {
+    color: '#102739',
+    fontWeight: '800',
+  },
+  twoColumnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  datePickerInputWrap: {
     position: 'relative',
     justifyContent: 'center',
   },
-  dateInputWithBtn: {
-    paddingRight: 42,
+  dateInputPadding: {
+    paddingRight: 40,
   },
-  datePickerBtn: {
+  calendarTriggerBtn: {
     position: 'absolute',
     right: 8,
-    top: 6,
     width: 30,
     height: 30,
     borderRadius: 7,
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
+    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
   },
-  quantPairRow: {
+  additionalInfoDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  additionalInfoHeader: {
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  additionalInfoTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  additionalInfoSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  ratingStarsBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
+  },
+  ratingStarsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ratingLabelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  dashedAttachmentDropzone: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    gap: 4,
+  },
+  dashedAttachmentText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#102739',
+  },
+  dashedAttachmentSubtext: {
+    fontSize: 11.5,
+    color: '#64748B',
+  },
+  attachmentsListContainer: {
+    marginTop: 10,
+    gap: 8,
+  },
+  attachmentItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  attachmentItemClickable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  attachmentItemName: {
+    fontSize: 12.5,
+    color: '#1E293B',
+    flex: 1,
+  },
+  carriedOverNoticeText: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 12,
   },
   dashedAddBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#F0F4F8',
     borderWidth: 1.5,
-    borderColor: '#166534',
+    borderColor: '#102739',
     borderStyle: 'dashed',
     borderRadius: 12,
     paddingVertical: 12,
-    marginTop: 8,
+    marginTop: 10,
     gap: 6,
   },
   dashedAddBtnText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
-    color: '#166534',
+    color: '#102739',
   },
   emptyContainerDashed: {
     alignItems: 'center',
@@ -3195,6 +3369,141 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     marginVertical: 8,
     gap: 8,
+  },
+
+  // STICKY FOOTER
+  stickyFooterBar: {
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  stickyFooterBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  stickyFooterSecondaryBtn: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stickyFooterSecondaryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#102739',
+  },
+  stickyFooterPrimaryBtn: {
+    flex: 1.4,
+    backgroundColor: '#102739',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stickyFooterPrimaryBtnDisabled: {
+    backgroundColor: '#94A3B8',
+  },
+  stickyFooterPrimaryBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // BOTTOM SHEET MODALS
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheetContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 28,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  sheetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  sheetSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  sheetOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    gap: 12,
+  },
+  statusDotLarge: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  sheetOptionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  attachActionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  attachActionIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachActionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  attachActionDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
   },
 
   // SYNC BANNER

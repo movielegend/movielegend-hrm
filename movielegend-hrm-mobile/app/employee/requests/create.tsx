@@ -1,9 +1,10 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useAppAlert } from '../../../src/contexts/AlertContext';
 import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { requestCameraPermissionWithFallback } from '../../../src/utils/mediaPermissions';
@@ -64,7 +65,9 @@ export default function CreateRequestScreen() {
   const { showAlert } = useAppAlert();
   const router = useRouter();
   const { user } = useAuth();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
+  const modalTopInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 44);
+  const scrollViewRef = useRef<any>(null);
   
   const userFullName = user?.fullName || (user as any)?.profile?.fullName || 'Admin Movie Legend';
   const userInitials = React.useMemo(() => {
@@ -366,8 +369,10 @@ export default function CreateRequestScreen() {
         ...(currentDeptId ? { departmentId: currentDeptId } : {}),
       });
       const rawList = res?.items || (Array.isArray(res) ? res : []);
-      // BẮT BUỘC: Chỉ lấy đúng nhân sự thuộc phòng ban của người tạo đơn
+      // BẮT BUỘC: Chỉ lấy đúng nhân sự thuộc phòng ban của người tạo đơn, LOẠI TRỪ chính bản thân người tạo đơn
       const validList = rawList.filter((e: any) => {
+        const isMe = e.id === user?.id || (e as any).userId === user?.id;
+        if (isMe) return false;
         if (!currentDeptId) return true;
         const empDeptId = e.department?.id || e.departmentId || e.departmentLinks?.[0]?.departmentId;
         return empDeptId === currentDeptId;
@@ -380,6 +385,13 @@ export default function CreateRequestScreen() {
       setIsLoadingEmployees(false);
     }
   }, [user?.id, user?.department?.id, (user as any)?.departmentId]);
+
+  // Nếu người bàn giao vô tình là chính mình, tự động reset về null
+  useEffect(() => {
+    if (handoverEmployee && (handoverEmployee.id === user?.id || (handoverEmployee as any).userId === user?.id)) {
+      setHandoverEmployee(null);
+    }
+  }, [user?.id, handoverEmployee]);
 
   React.useEffect(() => {
     if (isLateOrEarly || isExplanation || isOvertime || isCompensatory) {
@@ -723,6 +735,33 @@ export default function CreateRequestScreen() {
       }
     } else {
       setShift(selectedShift);
+      if (isOvertime) {
+        const base = fromDate || new Date();
+        if (selectedShift.startTime) {
+          const parts = selectedShift.startTime.split(':');
+          if (parts.length >= 2) {
+            const h = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10);
+            if (!isNaN(h) && !isNaN(m)) {
+              const sDate = new Date(base);
+              sDate.setHours(h, m, 0, 0);
+              setStartTime(sDate);
+            }
+          }
+        }
+        if (selectedShift.endTime) {
+          const parts = selectedShift.endTime.split(':');
+          if (parts.length >= 2) {
+            const h = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10);
+            if (!isNaN(h) && !isNaN(m)) {
+              const eDate = new Date(base);
+              eDate.setHours(h, m, 0, 0);
+              setEndTime(eDate);
+            }
+          }
+        }
+      }
     }
     setShowShiftModal(false);
   };
@@ -921,6 +960,11 @@ export default function CreateRequestScreen() {
             );
             return;
           }
+        }
+
+        if (handoverEmployee && (handoverEmployee.id === user?.id || (handoverEmployee as any).userId === user?.id)) {
+          showAlert('Không hợp lệ', 'Người bàn giao công việc không thể là chính bản thân bạn. Vui lòng chọn một đồng nghiệp khác trong phòng ban.');
+          return;
         }
       }
     }
@@ -1234,10 +1278,19 @@ export default function CreateRequestScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
 
-      <ScrollView 
+      <KeyboardAwareScrollView 
         ref={scrollViewRef}
-        contentContainerStyle={styles.content} 
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: Math.max(insets.bottom, 24) + 140 },
+        ]} 
         showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        enableAutomaticScroll={true}
+        extraScrollHeight={Platform.OS === 'ios' ? 120 : 150}
+        extraHeight={150}
+        keyboardOpeningTime={0}
         keyboardShouldPersistTaps="handled"
       >
         {/* 01 CHỌN LOẠI ĐƠN */}
@@ -1383,7 +1436,7 @@ export default function CreateRequestScreen() {
                     onChangeText={setContent}
                     textAlignVertical="top"
                     onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
                     }}
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
@@ -1904,7 +1957,7 @@ export default function CreateRequestScreen() {
                     onChangeText={setContent}
                     textAlignVertical="top"
                     onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
                     }}
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
@@ -2159,7 +2212,14 @@ export default function CreateRequestScreen() {
 
               {/* Người bàn giao */}
               <View style={styles.formItem}>
-                <Text style={styles.formLabel}>Người bàn giao</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={[styles.formLabel, { marginBottom: 0 }]}>Người bàn giao</Text>
+                  {handoverEmployee && (
+                    <TouchableOpacity onPress={() => setHandoverEmployee(null)}>
+                      <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '600' }}>Bỏ chọn</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <Pressable
                   style={styles.inputBox}
                   onPress={() => {
@@ -2190,7 +2250,7 @@ export default function CreateRequestScreen() {
                     onChangeText={setContent}
                     textAlignVertical="top"
                     onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
                     }}
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
@@ -2268,7 +2328,7 @@ export default function CreateRequestScreen() {
                     onChangeText={setContent}
                     textAlignVertical="top"
                     onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
                     }}
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
@@ -2442,7 +2502,7 @@ export default function CreateRequestScreen() {
                     onChangeText={setContent}
                     textAlignVertical="top"
                     onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
                     }}
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
@@ -2553,7 +2613,7 @@ export default function CreateRequestScreen() {
                     onChangeText={setContent}
                     textAlignVertical="top"
                     onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
                     }}
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
@@ -2709,7 +2769,7 @@ export default function CreateRequestScreen() {
                     onChangeText={setContent}
                     textAlignVertical="top"
                     onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
                     }}
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
@@ -2826,7 +2886,7 @@ export default function CreateRequestScreen() {
                     onChangeText={setContent}
                     textAlignVertical="top"
                     onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
                     }}
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
@@ -2957,7 +3017,7 @@ export default function CreateRequestScreen() {
                     onChangeText={setContent}
                     textAlignVertical="top"
                     onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
                     }}
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
@@ -2991,7 +3051,7 @@ export default function CreateRequestScreen() {
             </>
           )}
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* VAT Type Picker Modal */}
       <Modal visible={showVatModal} transparent animationType="slide" onRequestClose={() => setShowVatModal(false)}>
@@ -3342,8 +3402,8 @@ export default function CreateRequestScreen() {
       </Modal>
 
       {/* Leave Duration Type Modal */}
-      <Modal visible={showLeaveDurationModal} transparent animationType="slide">
-        <View style={styles.fullScreenModalOverlay}>
+      <Modal visible={showLeaveDurationModal} transparent animationType="slide" onRequestClose={() => setShowLeaveDurationModal(false)}>
+        <View style={[styles.fullScreenModalOverlay, { paddingTop: modalTopInset }]}>
           <View style={styles.fullScreenModalContent}>
             <View style={styles.fullScreenModalHeader}>
               <Pressable onPress={() => setShowLeaveDurationModal(false)} style={{ padding: 8, marginRight: 8 }}>
@@ -3368,8 +3428,8 @@ export default function CreateRequestScreen() {
       </Modal>
 
       {/* Leave Type Modal */}
-      <Modal visible={showLeaveTypeModal} transparent animationType="slide">
-        <View style={styles.fullScreenModalOverlay}>
+      <Modal visible={showLeaveTypeModal} transparent animationType="slide" onRequestClose={() => setShowLeaveTypeModal(false)}>
+        <View style={[styles.fullScreenModalOverlay, { paddingTop: modalTopInset }]}>
           <View style={styles.fullScreenModalContent}>
             <View style={styles.fullScreenModalHeader}>
               <Pressable onPress={() => setShowLeaveTypeModal(false)} style={{ padding: 8, marginRight: 8 }}>
@@ -3394,8 +3454,8 @@ export default function CreateRequestScreen() {
       </Modal>
 
       {/* Compensatory Type Modal */}
-      <Modal visible={showCompensatoryTypeModal} transparent animationType="slide">
-        <View style={styles.fullScreenModalOverlay}>
+      <Modal visible={showCompensatoryTypeModal} transparent animationType="slide" onRequestClose={() => setShowCompensatoryTypeModal(false)}>
+        <View style={[styles.fullScreenModalOverlay, { paddingTop: modalTopInset }]}>
           <View style={styles.fullScreenModalContent}>
             <View style={styles.fullScreenModalHeader}>
               <Pressable onPress={() => setShowCompensatoryTypeModal(false)} style={{ padding: 8, marginRight: 8 }}>
@@ -3420,8 +3480,8 @@ export default function CreateRequestScreen() {
       </Modal>
 
       {/* Approved Leaves Modal */}
-      <Modal visible={showApprovedLeavesModal} transparent animationType="slide">
-        <View style={styles.fullScreenModalOverlay}>
+      <Modal visible={showApprovedLeavesModal} transparent animationType="slide" onRequestClose={() => setShowApprovedLeavesModal(false)}>
+        <View style={[styles.fullScreenModalOverlay, { paddingTop: modalTopInset }]}>
           <View style={styles.fullScreenModalContent}>
             <View style={styles.fullScreenModalHeader}>
               <Pressable onPress={() => setShowApprovedLeavesModal(false)} style={{ padding: 8, marginRight: 8 }}>
@@ -3495,8 +3555,8 @@ export default function CreateRequestScreen() {
       </Modal>
 
       {/* Explanation Type Modal */}
-      <Modal visible={showExplanationTypeModal} transparent animationType="slide">
-        <View style={styles.fullScreenModalOverlay}>
+      <Modal visible={showExplanationTypeModal} transparent animationType="slide" onRequestClose={() => setShowExplanationTypeModal(false)}>
+        <View style={[styles.fullScreenModalOverlay, { paddingTop: modalTopInset }]}>
           <View style={styles.fullScreenModalContent}>
             <View style={styles.fullScreenModalHeader}>
               <Pressable onPress={() => setShowExplanationTypeModal(false)} style={{ padding: 8, marginRight: 8 }}>
@@ -3521,8 +3581,8 @@ export default function CreateRequestScreen() {
       </Modal>
 
       {/* Employee Selector Modal */}
-      <Modal visible={showEmployeeModal} transparent animationType="slide">
-        <View style={styles.fullScreenModalOverlay}>
+      <Modal visible={showEmployeeModal} transparent animationType="slide" onRequestClose={() => { setShowEmployeeModal(false); setEmployeeSearchQuery(''); }}>
+        <View style={[styles.fullScreenModalOverlay, { paddingTop: modalTopInset }]}>
           <View style={styles.fullScreenModalContent}>
             <View style={styles.fullScreenModalHeader}>
               <Pressable onPress={() => { setShowEmployeeModal(false); setEmployeeSearchQuery(''); }} style={{ padding: 8, marginRight: 8 }}>
@@ -3584,6 +3644,8 @@ export default function CreateRequestScreen() {
             ) : (() => {
               const cleanQ = normalizeSearchText(employeeSearchQuery);
               const filteredList = apiEmployees.filter((item: any) => {
+                const isMe = item.id === user?.id || (item as any).userId === user?.id;
+                if (isMe) return false;
                 if (!cleanQ) return true;
                 const name = normalizeSearchText(item.fullName || item.profile?.fullName || '');
                 const code = normalizeSearchText(item.userCode || '');
@@ -3627,9 +3689,7 @@ export default function CreateRequestScreen() {
                   keyExtractor={(item) => item.id}
                   keyboardShouldPersistTaps="handled"
                   renderItem={({ item }: { item: any }) => {
-                    const isMe = item.id === user?.id;
-                    const rawName = item.fullName || item.profile?.fullName || item.userCode || 'Nhân sự';
-                    const dispName = isMe ? `${rawName} (Bạn)` : rawName;
+                    const dispName = item.fullName || item.profile?.fullName || item.userCode || 'Nhân sự';
                     const deptName = item.department?.name;
                     const posName = item.position?.name;
                     const subtitle = [item.userCode, deptName, posName].filter(Boolean).join(' • ');
@@ -4603,7 +4663,7 @@ const styles = StyleSheet.create({
   fullScreenModalOverlay: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'ios' ? 44 : 0,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 44,
   },
   fullScreenModalContent: {
     flex: 1,

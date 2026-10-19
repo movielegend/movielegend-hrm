@@ -433,8 +433,8 @@ export class WorkReportsService {
       }
     }
 
-    if (isProxy && !actor.roles.includes('LEADER') && !isAdmin) {
-      throw new ForbiddenException('Chỉ Leader/Admin mới được nhập báo cáo thay');
+    if (isProxy && !actor.roles.some(r => ['LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'HR', 'ACCOUNTANT_LEAD'].includes(r)) && !isAdmin) {
+      throw new ForbiddenException('Chỉ Leader/HR/Admin mới được nhập báo cáo thay');
     }
 
     const departmentId = await this.getUserDeptId(userId);
@@ -502,7 +502,7 @@ export class WorkReportsService {
 
     const isAdmin = actor.roles.some(r => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r));
     const isOwner = task.userId === actor.userId;
-    const isLeader = actor.roles.includes('LEADER');
+    const isLeader = actor.roles.some(r => ['LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'HR', 'ACCOUNTANT_LEAD'].includes(r));
 
     if (!isAdmin && !isLeader && !this.isInReportingWindow() && !dto.isTestBypass) {
       if (!dto.isDraft) {
@@ -1231,7 +1231,7 @@ export class WorkReportsService {
 
   async bulkSaveTasks(actor: AuthenticatedUser, dto: BulkSaveWorkReportsDto) {
     const isAdmin = actor.roles.some(r => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r));
-    const isLeader = actor.roles.includes('LEADER');
+    const isLeader = actor.roles.some(r => ['LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'HR', 'ACCOUNTANT_LEAD'].includes(r));
     const inWindow = this.isInReportingWindow();
     const date = dto.date || this.getTodayVN();
 

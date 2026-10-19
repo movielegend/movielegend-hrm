@@ -328,8 +328,8 @@ function parseNotificationContent(target: NotificationTargetDto) {
       }
     }
 
-    // Clean description to avoid repeating name on line 3
-    const cleanedDesc = rawBody.replace(/^(?:Nhân viên|Người dùng)\s+[^(.]+?(?:\s*\([^)]*\))?\s*/i, '').trim();
+    // Strip leading "Nhân viên" / "Người dùng" if present, keeping full name and text intact
+    const cleanedDesc = rawBody.replace(/^(?:Nhân viên|Người dùng)\s+/i, '').trim();
     if (cleanedDesc) {
       description = cleanedDesc.charAt(0).toUpperCase() + cleanedDesc.slice(1);
     } else {
@@ -360,7 +360,8 @@ function parseNotificationContent(target: NotificationTargetDto) {
       }
     }
 
-    const cleanedDesc = rawBody.replace(/^Ứng viên\s+[^(.]+?(?:\s*\([^)]*\))?\s*/i, '').trim();
+    // Strip leading "Ứng viên" if present, keeping candidate name and text intact
+    const cleanedDesc = rawBody.replace(/^Ứng viên\s+/i, '').trim();
     if (cleanedDesc) {
       description = cleanedDesc.charAt(0).toUpperCase() + cleanedDesc.slice(1);
     } else {

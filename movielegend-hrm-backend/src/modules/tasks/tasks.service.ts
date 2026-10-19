@@ -942,7 +942,8 @@ export class TasksService {
       (assignment.assignmentDueAt && new Date(assignment.assignmentDueAt) < new Date()) ||
       ((assignment as any).task?.dueAt && new Date((assignment as any).task.dueAt) < new Date())
     );
-    if (isOverdue && status !== TaskAssignmentStatus.CANCELLED) {
+    const isReceivingTask = assignment.status === TaskAssignmentStatus.NEW;
+    if (isOverdue && status !== TaskAssignmentStatus.CANCELLED && !isReceivingTask) {
       throw badRequest('TASK_OVERDUE_LOCKED', 'Công việc đã quá hạn nên đã bị khóa. Vui lòng xin gia hạn và chờ được duyệt trước khi thực hiện.');
     }
     this.policy.assertAssignmentTransition(assignment.status, status);

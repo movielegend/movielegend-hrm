@@ -57,6 +57,9 @@ export function useSendMessage(groupId: string) {
         fileName: payload.fileName,
         mentions: payload.mentions ?? [],
         createdAt: new Date().toISOString(),
+        _status: 'sending',
+        _hasError: false,
+        _payload: payload,
         sender: {
           id: user?.id,
           userCode: user?.userCode,
@@ -110,10 +113,23 @@ export function useSendMessage(groupId: string) {
 
       return { previousMessages, tempId };
     },
-    onError: (_err, _payload, context: any) => {
-      if (context?.previousMessages) {
-        queryClient.setQueryData(chatKeys.messages(groupId), context.previousMessages);
-      }
+    onError: (_err, payload, context: any) => {
+      queryClient.setQueryData(chatKeys.messages(groupId), (old: any) => {
+        if (!old) return old;
+        const markFailed = (list: any[]) => {
+          return list.map((m: any) => {
+            if (m.id === context?.tempId || m._tempId === context?.tempId) {
+              return { ...m, _hasError: true, _status: 'error', _payload: payload };
+            }
+            return m;
+          });
+        };
+        if (old.items && Array.isArray(old.items)) {
+          return { ...old, items: markFailed(old.items) };
+        }
+        if (Array.isArray(old)) return markFailed(old);
+        return old;
+      });
     },
     onSuccess: (serverMsg: any, _payload, context: any) => {
       queryClient.setQueryData(chatKeys.messages(groupId), (old: any) => {

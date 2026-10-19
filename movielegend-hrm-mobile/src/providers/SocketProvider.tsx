@@ -204,7 +204,8 @@ export function SocketProvider({ children }: PropsWithChildren) {
                 m.senderId === message.senderId &&
                 (
                   (message.fileUrl && m.fileUrl === message.fileUrl) ||
-                  (message.content && m.content === message.content)
+                  (message.content && m.content === message.content) ||
+                  (Date.now() - new Date(m.createdAt || 0).getTime() < 20000)
                 )
               );
               if (tempIdx !== -1) {
