@@ -40,7 +40,7 @@ export class ExpoPushService {
 
     const messages: ExpoPushMessage[] = [];
     const seenTokens = new Set<string>();
-    const seenUserDevices = new Set<string>();
+    const seenUserPlatforms = new Set<string>();
 
     for (const device of devices) {
       if (!Expo.isExpoPushToken(device.token)) {
@@ -53,22 +53,23 @@ export class ExpoPushService {
         continue;
       }
 
-      // 2. If deviceId is available, only send to the newest active token for that device
-      if (device.deviceId) {
-        const userDeviceKey = `${device.userId}:${device.deviceId}`;
-        if (seenUserDevices.has(userDeviceKey)) {
-          continue;
-        }
-        seenUserDevices.add(userDeviceKey);
-      } else {
-        // If deviceId is null, only send to the newest active token per user + platform
-        const userPlatformKey = `${device.userId}:${device.platform}`;
-        if (seenUserDevices.has(userPlatformKey)) {
-          continue;
-        }
-        seenUserDevices.add(userPlatformKey);
+      // 2. Strict deduplication: Only send to the single newest active token per user per platform
+      // Since devices is sorted by lastSeenAt DESC, the first encountered is always the newest active device token.
+      const userPlatformKey = `${device.userId}:${String(device.platform || 'ANDROID').toUpperCase()}`;
+      if (seenUserPlatforms.has(userPlatformKey)) {
+        // Automatically revoke older duplicate token in DB to prevent future clutter
+        this.prisma.deviceToken.updateMany({
+          where: {
+            userId: device.userId,
+            token: device.token,
+            revokedAt: null,
+          },
+          data: { revokedAt: new Date() },
+        }).catch(() => {});
+        continue;
       }
 
+      seenUserPlatforms.add(userPlatformKey);
       seenTokens.add(device.token);
       
       messages.push({
