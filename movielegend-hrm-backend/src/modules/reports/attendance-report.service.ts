@@ -168,6 +168,10 @@ export class AttendanceReportService {
         workDate: o.workDate,
         startAt: o.startAt,
         endAt: o.endAt,
+        startTimeStr: undefined,
+        endTimeStr: undefined,
+        proposedPercent: 150,
+        reason: o.reason,
       })),
       ...overtimesRaw.filter(o => {
         if (!o.attachmentMetadata || typeof o.attachmentMetadata !== 'object') return false;
@@ -180,8 +184,13 @@ export class AttendanceReportService {
         return {
           userId: o.userId,
           workDate: new Date(meta.fromDate),
-          startAt: new Date(meta.startTime),
-          endAt: new Date(meta.endTime),
+          startAt: meta.startTime ? new Date(meta.startTime) : undefined,
+          endAt: meta.endTime ? new Date(meta.endTime) : undefined,
+          startTimeStr: meta.startTimeStr || meta.fromTime,
+          endTimeStr: meta.endTimeStr || meta.toTime,
+          proposedPercent: Number(meta.proposedPercent || meta.approvedPercent || meta.percent) || 100,
+          reason: o.content || meta.reason,
+          title: o.title,
         };
       }),
     ];
@@ -280,7 +289,8 @@ export class AttendanceReportService {
 
         const otRequest = overtimes.find(o => o.userId === user.id && (
           moment(o.workDate).format('YYYY-MM-DD') === dateStr ||
-          moment.utc(o.workDate).format('YYYY-MM-DD') === dateStr
+          moment.utc(o.workDate).format('YYYY-MM-DD') === dateStr ||
+          moment.tz(o.workDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') === dateStr
         ));
 
         const lateRequest = lateRequests.find(o => o.userId === user.id && (
@@ -328,6 +338,7 @@ export class AttendanceReportService {
         let ot100 = 0;
         let ot150 = 0;
         let ot200 = 0;
+        let otMins = 0;
         let nightAllowance = 0;
         let lateDeduction = 0;
         let attendance = 0;
@@ -432,7 +443,7 @@ export class AttendanceReportService {
           const isPastDate = currDate.isBefore(moment().tz('Asia/Ho_Chi_Minh'), 'day');
           const isMissCheckout = Boolean(checkIn && !checkOut && isPastDate && !isApprovedAdjustment);
 
-          let otMins = 0;
+          otMins = 0;
           if (record) {
             if (isMissCheckout) {
               // Miss Checkout (qua 0:00 mà không check-out và chưa có đơn được duyệt): 0 CÔNG
@@ -494,7 +505,9 @@ export class AttendanceReportService {
           }
 
           if (otMins > 0) {
-            if (isHoliday || isWeekend) ot200 = otMins;
+            const pct = Number(otRequest?.proposedPercent) || (isHoliday || isWeekend ? 200 : 150);
+            if (pct === 100) ot100 = otMins;
+            else if (pct === 200) ot200 = otMins;
             else ot150 = otMins;
           }
         }
@@ -637,6 +650,42 @@ export class AttendanceReportService {
           noteParts.push(`Nghỉ theo giờ: ${leaveTypeName}${leaveReason ? ` (${leaveReason})` : ''}`);
         }
 
+        // Ghi chú đơn làm thêm giờ (OT) khi làm đúng logic
+        const formatOtTime = (timeVal: any, timeStr?: string): string => {
+          if (timeStr && /^\d{1,2}:\d{2}$/.test(timeStr.trim())) {
+            const parts = timeStr.trim().split(':');
+            return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+          }
+          if (!timeVal) return '';
+          if (typeof timeVal === 'string' && /^\d{1,2}:\d{2}$/.test(timeVal.trim())) {
+            const parts = timeVal.trim().split(':');
+            return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+          }
+          const m = moment(timeVal);
+          if (m.isValid()) {
+            return m.tz('Asia/Ho_Chi_Minh').format('HH:mm');
+          }
+          return '';
+        };
+
+        if (isLiveDepartment && liveOt && liveOt.validOtMinutes > 0) {
+          const pct = liveOt.approvedPercent || liveOt.proposedPercent || 100;
+          const sTime = formatOtTime(liveOt.startTime);
+          const eTime = formatOtTime(liveOt.endTime);
+          const timeRange = sTime && eTime ? ` từ ${sTime} - ${eTime}` : (sTime ? ` từ ${sTime}` : '');
+          noteParts.push(`Đơn OT ca Live${timeRange} (${pct}%) đã được duyệt`);
+        }
+        if (otMins > 0 && otRequest) {
+          const pct = Number(otRequest.proposedPercent) || (isHoliday || isWeekend ? 200 : 150);
+          const sTime = formatOtTime(otRequest.startAt, (otRequest as any).startTimeStr);
+          const eTime = formatOtTime(otRequest.endAt, (otRequest as any).endTimeStr);
+          const timeRange = sTime && eTime ? ` từ ${sTime} - ${eTime}` : (sTime ? ` từ ${sTime}` : '');
+          const reason = otRequest.reason?.trim();
+          const hasCustomReason = reason && !['làm thêm giờ', 'tăng ca', 'ot'].includes(reason.toLowerCase()) && !reason.startsWith('Làm thêm giờ');
+          const reasonSuffix = hasCustomReason ? ` (${reason})` : '';
+          noteParts.push(`Đơn OT${timeRange} (${pct}%) đã được duyệt${reasonSuffix}`);
+        }
+
         // 1. Kiểm tra ngày hiện tại có phải là Ngày nghỉ được bù (targetLeaveDate - Ngày A) không
         const approvedCompForTarget = allCompRequests.find(r => {
           if (r.userId !== user.id) return false;
@@ -762,7 +811,7 @@ export class AttendanceReportService {
           attendance: (dayRecords.length > 0 || businessTrip || isDailyLeave) ? attendance : 0,
           totalHours: formatHrs(totalMinutes),
           overtime100: formatHrs(ot100),
-          overtime150: formatHrs(ot150),
+          overtime150: formatHrs(ot150 + ot200),
           overtime200: formatHrs(ot200),
           lateMorning: checkIn && checkIn.hour() < 12 ? formatHrs(lateMins) : '0:00:00',
           lateAfternoon: checkIn && checkIn.hour() >= 12 ? formatHrs(lateMins) : '0:00:00',

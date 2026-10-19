@@ -15,8 +15,8 @@ import { shadows } from '../../../src/theme/shadows';
 import { createEmployeeRequest, getMyEmployeeRequests } from '../../../src/api/employee-requests.api';
 import type { EmployeeRequestType, EmployeeRequest } from '../../../src/types/request.types';
 import { useAuth } from '../../../src/providers/AuthProvider';
-import { getShifts } from '../../../src/api/shifts.api';
-import type { Shift } from '../../../src/types/shift.types';
+import { getShifts, getMySchedule } from '../../../src/api/shifts.api';
+import type { Shift, ShiftAssignment } from '../../../src/types/shift.types';
 import { getScopedEmployees } from '../../../src/api/employees.api';
 import { getDepartment } from '../../../src/api/departments.api';
 import type { EmployeeUser } from '../../../src/types/employee.types';
@@ -61,6 +61,70 @@ function normalizeSearchText(str?: string | null): string {
     .trim();
 }
 
+function parseTimeToMinutes(t: string | Date): number {
+  if (t instanceof Date) {
+    return t.getHours() * 60 + t.getMinutes();
+  }
+  const parts = (t || '').split(':');
+  return parseInt(parts[0] || '0', 10) * 60 + parseInt(parts[1] || '0', 10);
+}
+
+function validateShiftTime(
+  shift: Shift | null,
+  time: Date | string | null,
+  type: 'LATE_ARRIVAL' | 'EARLY_LEAVE'
+): { valid: boolean; message?: string } {
+  if (!shift || !shift.startTime || !shift.endTime || !time) {
+    return { valid: true };
+  }
+
+  const shiftStartMins = parseTimeToMinutes(shift.startTime);
+  const shiftEndMins = parseTimeToMinutes(shift.endTime);
+  const isOvernight = shiftEndMins <= shiftStartMins;
+  const shiftEndNorm = isOvernight ? shiftEndMins + 1440 : shiftEndMins;
+
+  const rawMins = parseTimeToMinutes(time);
+  let timeNorm = rawMins;
+  if (isOvernight && rawMins <= shiftEndMins) {
+    timeNorm = rawMins + 1440;
+  }
+
+  const timeDisplay =
+    typeof time === 'string'
+      ? time
+      : `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+
+  if (type === 'LATE_ARRIVAL') {
+    if (timeNorm <= shiftStartMins) {
+      return {
+        valid: false,
+        message: `Giờ vào thực tế (${timeDisplay}) phải sau giờ bắt đầu ca (${shift.startTime}). Bạn đến trước hoặc đúng giờ ca làm nên không phải đi muộn.`,
+      };
+    }
+    if (timeNorm >= shiftEndNorm) {
+      return {
+        valid: false,
+        message: `Giờ vào thực tế (${timeDisplay}) phải trước giờ kết thúc ca (${shift.endTime}). Giờ vào thực tế phải nằm trong khung giờ ca làm việc.`,
+      };
+    }
+  } else if (type === 'EARLY_LEAVE') {
+    if (timeNorm <= shiftStartMins) {
+      return {
+        valid: false,
+        message: `Giờ ra thực tế (${timeDisplay}) phải sau giờ bắt đầu ca (${shift.startTime}). Giờ ra không thể trước khi ca bắt đầu.`,
+      };
+    }
+    if (timeNorm >= shiftEndNorm) {
+      return {
+        valid: false,
+        message: `Giờ ra thực tế (${timeDisplay}) phải trước giờ kết thúc ca (${shift.endTime}). Bạn về đúng hoặc sau giờ kết thúc ca nên không phải về sớm.`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
 export default function CreateRequestScreen() {
   const { showAlert } = useAppAlert();
   const router = useRouter();
@@ -98,9 +162,10 @@ export default function CreateRequestScreen() {
   const [purchaseItemName, setPurchaseItemName] = useState('');
   const [purchaseQuantity, setPurchaseQuantity] = useState('');
   
-  // Specific fields for Late/Early Leave
+  // Specific fields for Late/Early Leave & Overtime
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
+  const [otProposedPercent, setOtProposedPercent] = useState<number>(100);
   const [shift, setShift] = useState<Shift | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [hasVat, setHasVat] = useState(false);
@@ -232,6 +297,8 @@ export default function CreateRequestScreen() {
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [isFullScreenPhoto, setIsFullScreenPhoto] = useState(false);
   const [apiShifts, setApiShifts] = useState<Shift[]>([]);
+  const [mySchedule, setMySchedule] = useState<ShiftAssignment[]>([]);
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
   const [apiEmployees, setApiEmployees] = useState<any[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
@@ -256,11 +323,56 @@ export default function CreateRequestScreen() {
   };
 
   const handleOpenTimePicker = (mode: 'start' | 'end') => {
+    if (isLateOrEarly) {
+      if (!fromDate) {
+        showAlert('Chưa chọn ngày', 'Vui lòng chọn ngày áp dụng trước khi chọn giờ.');
+        return;
+      }
+      if (assignedShiftsForDate.length === 0) {
+        showAlert(
+          'Không có ca làm việc',
+          `Bạn không được phân ca làm việc vào ngày ${formatDate(fromDate)}. Không thể tạo đơn xin đi muộn/về sớm.`
+        );
+        return;
+      }
+      if (!shift) {
+        showAlert('Chưa chọn ca làm', 'Vui lòng chọn ca làm việc trước khi chọn giờ.');
+        return;
+      }
+    }
+    if (isExplanation && ['Check-in muộn', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType)) {
+      if (!fromDate) {
+        showAlert('Chưa chọn ngày', 'Vui lòng chọn ngày áp dụng trước khi chọn giờ.');
+        return;
+      }
+      if (assignedShiftsForDate.length === 0) {
+        showAlert(
+          'Không có ca làm việc',
+          `Bạn không được phân ca làm việc vào ngày ${formatDate(fromDate)}.`
+        );
+        return;
+      }
+      if (!shift) {
+        showAlert('Chưa chọn ca làm', 'Vui lòng chọn ca làm việc trước khi chọn giờ.');
+        return;
+      }
+    }
+
     const existing = mode === 'start' ? startTime : endTime;
     const baseDate = (mode === 'start' ? fromDate : (toDate || fromDate)) || new Date();
     const initialTime = existing ? new Date(existing) : new Date(baseDate);
     if (!existing) {
-      initialTime.setHours(mode === 'start' ? 8 : 17, mode === 'start' ? 0 : 30, 0, 0);
+      if (shift) {
+        const timeStr = mode === 'start' ? shift.startTime : shift.endTime;
+        if (timeStr) {
+          const [sH, sM] = timeStr.split(':').map(Number);
+          initialTime.setHours(sH ?? 8, sM ?? 0, 0, 0);
+        } else {
+          initialTime.setHours(mode === 'start' ? 8 : 17, mode === 'start' ? 0 : 30, 0, 0);
+        }
+      } else {
+        initialTime.setHours(mode === 'start' ? 8 : 17, mode === 'start' ? 0 : 30, 0, 0);
+      }
     }
 
     // Trên điện thoại Android: Sử dụng trực tiếp Dialog Đồng hồ mặc định của hệ thống
@@ -276,8 +388,36 @@ export default function CreateRequestScreen() {
               const res = new Date(baseDate);
               res.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
               if (mode === 'start') {
+                if (selectedType === 'LATE_ARRIVAL' && shift) {
+                  const check = validateShiftTime(shift, res, 'LATE_ARRIVAL');
+                  if (!check.valid) {
+                    showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+                    return;
+                  }
+                }
+                if (isExplanation && ['Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) && shift) {
+                  const check = validateShiftTime(shift, res, 'LATE_ARRIVAL');
+                  if (!check.valid) {
+                    showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+                    return;
+                  }
+                }
                 setStartTime(res);
               } else {
+                if (selectedType === 'EARLY_LEAVE' && shift) {
+                  const check = validateShiftTime(shift, res, 'EARLY_LEAVE');
+                  if (!check.valid) {
+                    showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+                    return;
+                  }
+                }
+                if (isExplanation && ['Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && shift) {
+                  const check = validateShiftTime(shift, res, 'EARLY_LEAVE');
+                  if (!check.valid) {
+                    showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+                    return;
+                  }
+                }
                 setEndTime(res);
               }
             }
@@ -394,13 +534,58 @@ export default function CreateRequestScreen() {
   }, [user?.id, handoverEmployee]);
 
   React.useEffect(() => {
-    if (isLateOrEarly || isExplanation || isOvertime || isCompensatory) {
+    if (isOvertime || isCompensatory) {
       getShifts()
         .then(setApiShifts)
         .catch(err => console.log('Error fetching shifts', err));
     }
+    if (isLateOrEarly || isExplanation) {
+      setIsLoadingSchedule(true);
+      getMySchedule()
+        .then((res) => {
+          setMySchedule(res || []);
+        })
+        .catch(err => console.log('Error fetching my schedule', err))
+        .finally(() => setIsLoadingSchedule(false));
+    }
     void fetchEmployeesList();
   }, [isLateOrEarly, isLeave, isExplanation, isOvertime, isCompensatory, fetchEmployeesList]);
+
+  const assignedShiftsForDate = useMemo(() => {
+    if (!fromDate) return [];
+    const targetDateStr = formatLocalDateYMD(fromDate);
+    const matches = mySchedule.filter(item => {
+      if (!item.workDate) return false;
+      const dStr = formatLocalDateYMD(new Date(item.workDate));
+      return dStr === targetDateStr && (item.status === 'ASSIGNED' || !item.status);
+    });
+    const result: Shift[] = [];
+    matches.forEach(m => {
+      if (m.shift && !result.some(s => s.id === m.shift!.id)) {
+        result.push(m.shift);
+      }
+    });
+    return result;
+  }, [mySchedule, fromDate]);
+
+  useEffect(() => {
+    if (isLateOrEarly || isExplanation) {
+      if (assignedShiftsForDate.length === 1) {
+        setShift(assignedShiftsForDate[0] || null);
+      } else if (assignedShiftsForDate.length === 0) {
+        setShift(null);
+      } else if (shift && !assignedShiftsForDate.some(s => s.id === shift.id)) {
+        setShift(null);
+      }
+    }
+  }, [isLateOrEarly, isExplanation, assignedShiftsForDate]);
+
+  const displayedShifts = useMemo(() => {
+    if (isLateOrEarly || isExplanation) {
+      return assignedShiftsForDate;
+    }
+    return apiShifts;
+  }, [isLateOrEarly, isExplanation, assignedShiftsForDate, apiShifts]);
 
   // Tự động tìm nạp các đơn nghỉ phép đã duyệt trong 14 ngày gần nhất khi tạo đơn Làm bù
   React.useEffect(() => {
@@ -674,8 +859,36 @@ export default function CreateRequestScreen() {
       resultTime.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
 
       if (showTimeModal === 'start') {
+        if (selectedType === 'LATE_ARRIVAL' && shift) {
+          const check = validateShiftTime(shift, resultTime, 'LATE_ARRIVAL');
+          if (!check.valid) {
+            showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+            return;
+          }
+        }
+        if (isExplanation && explanationType === 'Check-in muộn' && shift) {
+          const check = validateShiftTime(shift, resultTime, 'LATE_ARRIVAL');
+          if (!check.valid) {
+            showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+            return;
+          }
+        }
         setStartTime(resultTime);
       } else if (showTimeModal === 'end') {
+        if (selectedType === 'EARLY_LEAVE' && shift) {
+          const check = validateShiftTime(shift, resultTime, 'EARLY_LEAVE');
+          if (!check.valid) {
+            showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+            return;
+          }
+        }
+        if (isExplanation && explanationType === 'Check-out sớm' && shift) {
+          const check = validateShiftTime(shift, resultTime, 'EARLY_LEAVE');
+          if (!check.valid) {
+            showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+            return;
+          }
+        }
         setEndTime(resultTime);
       }
     }
@@ -686,8 +899,36 @@ export default function CreateRequestScreen() {
     const resultTime = new Date(baseDate);
     resultTime.setHours(selectedHour, selectedMinute, 0, 0);
     if (showTimeModal === 'start') {
+      if (selectedType === 'LATE_ARRIVAL' && shift) {
+        const check = validateShiftTime(shift, resultTime, 'LATE_ARRIVAL');
+        if (!check.valid) {
+          showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+          return;
+        }
+      }
+      if (isExplanation && ['Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) && shift) {
+        const check = validateShiftTime(shift, resultTime, 'LATE_ARRIVAL');
+        if (!check.valid) {
+          showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+          return;
+        }
+      }
       setStartTime(resultTime);
     } else {
+      if (selectedType === 'EARLY_LEAVE' && shift) {
+        const check = validateShiftTime(shift, resultTime, 'EARLY_LEAVE');
+        if (!check.valid) {
+          showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+          return;
+        }
+      }
+      if (isExplanation && ['Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && shift) {
+        const check = validateShiftTime(shift, resultTime, 'EARLY_LEAVE');
+        if (!check.valid) {
+          showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+          return;
+        }
+      }
       setEndTime(resultTime);
     }
     setShowTimeModal(null);
@@ -700,8 +941,36 @@ export default function CreateRequestScreen() {
     const resultTime = new Date(baseDate);
     resultTime.setHours(h, m, 0, 0);
     if (showTimeModal === 'start') {
+      if (selectedType === 'LATE_ARRIVAL' && shift) {
+        const check = validateShiftTime(shift, resultTime, 'LATE_ARRIVAL');
+        if (!check.valid) {
+          showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+          return;
+        }
+      }
+      if (isExplanation && ['Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) && shift) {
+        const check = validateShiftTime(shift, resultTime, 'LATE_ARRIVAL');
+        if (!check.valid) {
+          showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+          return;
+        }
+      }
       setStartTime(resultTime);
     } else {
+      if (selectedType === 'EARLY_LEAVE' && shift) {
+        const check = validateShiftTime(shift, resultTime, 'EARLY_LEAVE');
+        if (!check.valid) {
+          showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+          return;
+        }
+      }
+      if (isExplanation && ['Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && shift) {
+        const check = validateShiftTime(shift, resultTime, 'EARLY_LEAVE');
+        if (!check.valid) {
+          showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+          return;
+        }
+      }
       setEndTime(resultTime);
     }
     setShowTimeModal(null);
@@ -726,6 +995,23 @@ export default function CreateRequestScreen() {
     return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
+  const handleOpenShiftModal = () => {
+    if (isLateOrEarly || (isExplanation && ['Check-in muộn', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType))) {
+      if (!fromDate) {
+        showAlert('Chưa chọn ngày', 'Vui lòng chọn ngày áp dụng trước.');
+        return;
+      }
+      if (assignedShiftsForDate.length === 0) {
+        showAlert(
+          'Không có ca làm việc',
+          `Bạn không được phân ca làm việc trong ngày ${formatDate(fromDate)}. Vui lòng kiểm tra lại lịch làm việc hoặc chọn ngày khác.`
+        );
+        return;
+      }
+    }
+    setShowShiftModal(true);
+  };
+
   const handleSelectShift = (selectedShift: Shift) => {
     if (isCompensatory) {
       if (activeCompSlot === 2) {
@@ -735,13 +1021,37 @@ export default function CreateRequestScreen() {
       }
     } else {
       setShift(selectedShift);
+      if (selectedType === 'LATE_ARRIVAL' && startTime) {
+        const check = validateShiftTime(selectedShift, startTime, 'LATE_ARRIVAL');
+        if (!check.valid) {
+          setStartTime(null);
+        }
+      }
+      if (selectedType === 'EARLY_LEAVE' && endTime) {
+        const check = validateShiftTime(selectedShift, endTime, 'EARLY_LEAVE');
+        if (!check.valid) {
+          setEndTime(null);
+        }
+      }
+      if (isExplanation && ['Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) && startTime) {
+        const check = validateShiftTime(selectedShift, startTime, 'LATE_ARRIVAL');
+        if (!check.valid) {
+          setStartTime(null);
+        }
+      }
+      if (isExplanation && ['Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && endTime) {
+        const check = validateShiftTime(selectedShift, endTime, 'EARLY_LEAVE');
+        if (!check.valid) {
+          setEndTime(null);
+        }
+      }
       if (isOvertime) {
         const base = fromDate || new Date();
         if (selectedShift.startTime) {
           const parts = selectedShift.startTime.split(':');
           if (parts.length >= 2) {
-            const h = parseInt(parts[0], 10);
-            const m = parseInt(parts[1], 10);
+            const h = parseInt(parts[0] || '0', 10);
+            const m = parseInt(parts[1] || '0', 10);
             if (!isNaN(h) && !isNaN(m)) {
               const sDate = new Date(base);
               sDate.setHours(h, m, 0, 0);
@@ -752,8 +1062,8 @@ export default function CreateRequestScreen() {
         if (selectedShift.endTime) {
           const parts = selectedShift.endTime.split(':');
           if (parts.length >= 2) {
-            const h = parseInt(parts[0], 10);
-            const m = parseInt(parts[1], 10);
+            const h = parseInt(parts[0] || '0', 10);
+            const m = parseInt(parts[1] || '0', 10);
             if (!isNaN(h) && !isNaN(m)) {
               const eDate = new Date(base);
               eDate.setHours(h, m, 0, 0);
@@ -802,7 +1112,7 @@ export default function CreateRequestScreen() {
       } else if (isOvertime) {
         const datePart = fromDate ? formatDate(fromDate) : '';
         const timePart = startTime && endTime ? ` (${formatTime(startTime)} - ${formatTime(endTime)})` : '';
-        generatedTitle = `[LÀM THÊM GIỜ]${datePart ? ` Ngày ${datePart}` : ''}${timePart}`;
+        generatedTitle = `[LÀM THÊM GIỜ]${datePart ? ` Ngày ${datePart}` : ''}${timePart} (${otProposedPercent || 100}%)`;
       } else {
         generatedTitle = `${typeLabel} - ${dateStr}`;
       }
@@ -1019,17 +1329,42 @@ export default function CreateRequestScreen() {
       }
     }
     if (isLateOrEarly) {
+      if (!fromDate) {
+        showAlert('Lỗi', 'Vui lòng chọn Ngày áp dụng.');
+        return;
+      }
+      if (assignedShiftsForDate.length === 0) {
+        showAlert(
+          'Không có ca làm việc',
+          `Bạn không được phân ca làm việc vào ngày ${formatDate(fromDate)}. Không thể tạo đơn xin đi muộn/về sớm.`
+        );
+        return;
+      }
       if (!shift) {
         showAlert('Lỗi', 'Vui lòng Chọn ca làm.');
         return;
       }
-      if (selectedType === 'LATE_ARRIVAL' && !startTime) {
-        showAlert('Lỗi', 'Vui lòng nhập Giờ bắt đầu.');
-        return;
+      if (selectedType === 'LATE_ARRIVAL') {
+        if (!startTime) {
+          showAlert('Lỗi', 'Vui lòng nhập Giờ vào thực tế.');
+          return;
+        }
+        const timeCheck = validateShiftTime(shift, startTime, 'LATE_ARRIVAL');
+        if (!timeCheck.valid) {
+          showAlert('Giờ không hợp lệ', timeCheck.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+          return;
+        }
       }
-      if (selectedType === 'EARLY_LEAVE' && !endTime) {
-        showAlert('Lỗi', 'Vui lòng nhập Giờ kết thúc.');
-        return;
+      if (selectedType === 'EARLY_LEAVE') {
+        if (!endTime) {
+          showAlert('Lỗi', 'Vui lòng nhập Giờ ra thực tế.');
+          return;
+        }
+        const timeCheck = validateShiftTime(shift, endTime, 'EARLY_LEAVE');
+        if (!timeCheck.valid) {
+          showAlert('Giờ không hợp lệ', timeCheck.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+          return;
+        }
       }
       
       if (selectedType === 'LATE_ARRIVAL' && fromDate) {
@@ -1075,17 +1410,41 @@ export default function CreateRequestScreen() {
         showAlert('Lỗi', 'Vui lòng chọn Ngày áp dụng.');
         return;
       }
+      if (['Check-in muộn', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType)) {
+        if (assignedShiftsForDate.length === 0) {
+          showAlert('Không có ca làm việc', `Bạn không được phân ca làm việc vào ngày ${formatDate(fromDate)}.`);
+          return;
+        }
+      }
       if (!shift) {
         showAlert('Lỗi', 'Vui lòng chọn Ca làm việc.');
         return;
       }
-      if (['Quên Check-in', 'Quên cả In & Out', 'Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) && !startTime) {
-        showAlert('Lỗi', 'Vui lòng chọn Giờ vào thực tế.');
-        return;
+      if (['Quên Check-in', 'Quên cả In & Out', 'Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType)) {
+        if (!startTime) {
+          showAlert('Lỗi', 'Vui lòng chọn Giờ vào thực tế.');
+          return;
+        }
+        if (['Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType)) {
+          const check = validateShiftTime(shift, startTime, 'LATE_ARRIVAL');
+          if (!check.valid) {
+            showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+            return;
+          }
+        }
       }
-      if (['Quên Check-out', 'Quên cả In & Out', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && !endTime) {
-        showAlert('Lỗi', 'Vui lòng chọn Giờ ra thực tế.');
-        return;
+      if (['Quên Check-out', 'Quên cả In & Out', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType)) {
+        if (!endTime) {
+          showAlert('Lỗi', 'Vui lòng chọn Giờ ra thực tế.');
+          return;
+        }
+        if (['Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType)) {
+          const check = validateShiftTime(shift, endTime, 'EARLY_LEAVE');
+          if (!check.valid) {
+            showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+            return;
+          }
+        }
       }
       if (['Quên cả In & Out', 'Check-in muộn & Check-out sớm'].includes(explanationType) && startTime && endTime) {
         if (endTime.getTime() <= startTime.getTime()) {
@@ -1166,9 +1525,16 @@ export default function CreateRequestScreen() {
             return d.toISOString();
           })(),
         } : (endTime ? { endTime: endTime.toISOString() } : {})),
-        ...(isOvertime && otDuration ? {
-          estimatedOtMinutes: otDuration.totalMinutes,
-          estimatedOtHours: otDuration.hoursDecimal,
+        ...(isOvertime ? {
+          proposedPercent: otProposedPercent || 100,
+          percent: otProposedPercent || 100,
+          rate: (otProposedPercent || 100) / 100,
+          ...(startTime ? { startTimeStr: `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}` } : {}),
+          ...(endTime ? { endTimeStr: `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}` } : {}),
+          ...(otDuration ? {
+            estimatedOtMinutes: otDuration.totalMinutes,
+            estimatedOtHours: otDuration.hoursDecimal,
+          } : {}),
         } : {}),
         ...(shift ? { shiftName: shift.name, shiftId: shift.id } : {}),
         ...(explanationType ? { explanationType } : {}),
@@ -1369,12 +1735,37 @@ export default function CreateRequestScreen() {
                 <Text style={styles.formLabel}>
                   Ca làm việc <Text style={styles.required}>*</Text>
                 </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowShiftModal(true)}>
-                  <Text style={[styles.inputText, !shift && styles.inputPlaceholder]}>
-                    {shift ? shift.name : 'Chọn ca làm việc'}
+                <Pressable
+                  style={[
+                    styles.inputBox,
+                    fromDate && ['Check-in muộn', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && assignedShiftsForDate.length === 0 && { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }
+                  ]}
+                  onPress={handleOpenShiftModal}
+                >
+                  <Text
+                    style={[
+                      styles.inputText,
+                      !shift && styles.inputPlaceholder,
+                      fromDate && ['Check-in muộn', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && assignedShiftsForDate.length === 0 && { color: '#EF4444' }
+                    ]}
+                  >
+                    {shift
+                      ? `${shift.name} (${shift.startTime} - ${shift.endTime})`
+                      : fromDate && assignedShiftsForDate.length === 0
+                      ? 'Không có ca trong ngày này'
+                      : 'Chọn ca làm việc'}
                   </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  <MaterialCommunityIcons
+                    name={fromDate && ['Check-in muộn', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && assignedShiftsForDate.length === 0 ? 'alert-circle-outline' : 'chevron-down'}
+                    size={20}
+                    color={fromDate && ['Check-in muộn', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && assignedShiftsForDate.length === 0 ? '#EF4444' : '#64748B'}
+                  />
                 </Pressable>
+                {fromDate && ['Check-in muộn', 'Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && assignedShiftsForDate.length === 0 && (
+                  <Text style={{ fontSize: 12, color: '#DC2626', marginTop: 4, lineHeight: 16 }}>
+                    ⚠️ Bạn chưa được phân ca làm việc vào ngày {formatDate(fromDate)}.
+                  </Text>
+                )}
               </View>
 
               {/* Loại giải trình */}
@@ -2277,12 +2668,37 @@ export default function CreateRequestScreen() {
                 <Text style={styles.formLabel}>
                   Ca làm việc <Text style={styles.required}>*</Text>
                 </Text>
-                <Pressable style={styles.inputBox} onPress={() => setShowShiftModal(true)}>
-                  <Text style={[styles.inputText, !shift && styles.inputPlaceholder]}>
-                    {shift ? `${shift.name} (${shift.startTime} - ${shift.endTime})` : 'Chọn ca làm việc'}
+                <Pressable
+                  style={[
+                    styles.inputBox,
+                    fromDate && assignedShiftsForDate.length === 0 && { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }
+                  ]}
+                  onPress={handleOpenShiftModal}
+                >
+                  <Text
+                    style={[
+                      styles.inputText,
+                      !shift && styles.inputPlaceholder,
+                      fromDate && assignedShiftsForDate.length === 0 && { color: '#EF4444' }
+                    ]}
+                  >
+                    {shift
+                      ? `${shift.name} (${shift.startTime} - ${shift.endTime})`
+                      : fromDate && assignedShiftsForDate.length === 0
+                      ? 'Không có ca trong ngày này'
+                      : 'Chọn ca làm việc'}
                   </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  <MaterialCommunityIcons
+                    name={fromDate && assignedShiftsForDate.length === 0 ? 'alert-circle-outline' : 'chevron-down'}
+                    size={20}
+                    color={fromDate && assignedShiftsForDate.length === 0 ? '#EF4444' : '#64748B'}
+                  />
                 </Pressable>
+                {fromDate && assignedShiftsForDate.length === 0 && (
+                  <Text style={{ fontSize: 12, color: '#DC2626', marginTop: 4, lineHeight: 16 }}>
+                    ⚠️ Bạn chưa được phân ca làm việc vào ngày {formatDate(fromDate)}. Không thể tạo đơn xin đi muộn/về sớm cho ngày này.
+                  </Text>
+                )}
               </View>
 
               {/* Giờ vào / ra */}
@@ -2485,6 +2901,51 @@ export default function CreateRequestScreen() {
                   </Text>
                 </View>
               )}
+
+              {/* Mức % lương đề xuất */}
+              <View style={styles.formItem}>
+                <Text style={styles.formLabel}>
+                  Mức % lương đề xuất <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {[
+                    { pct: 100, label: '100%\nNgày thường' },
+                    { pct: 150, label: '150%\nCuối tuần / Đêm' },
+                    { pct: 200, label: '200%\nLễ / Mega' },
+                  ].map((item) => {
+                    const isSelected = otProposedPercent === item.pct;
+                    return (
+                      <TouchableOpacity
+                        key={item.pct}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 10,
+                          paddingHorizontal: 4,
+                          borderRadius: 12,
+                          borderWidth: isSelected ? 2 : 1,
+                          borderColor: isSelected ? '#2563EB' : '#E2E8F0',
+                          backgroundColor: isSelected ? '#EFF6FF' : '#F8FAFC',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        onPress={() => setOtProposedPercent(item.pct)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            fontWeight: isSelected ? '700' : '500',
+                            color: isSelected ? '#1D4ED8' : '#334155',
+                            textAlign: 'center',
+                          }}
+                        >
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
 
               {/* Lý do chi tiết */}
               <View style={styles.formItem}>
@@ -3113,11 +3574,21 @@ export default function CreateRequestScreen() {
                 <MaterialCommunityIcons name="close" size={20} color="#6B7280" />
               </Pressable>
             </View>
-            {apiShifts.length === 0 ? (
-              <Text style={{ textAlign: 'center', padding: 20, color: '#9CA3AF' }}>Đang tải danh sách ca...</Text>
+            {displayedShifts.length === 0 ? (
+              <View style={{ padding: 28, alignItems: 'center', justifyContent: 'center' }}>
+                <MaterialCommunityIcons name="calendar-remove-outline" size={44} color="#94A3B8" />
+                <Text style={{ textAlign: 'center', marginTop: 12, fontSize: 14, color: '#475569', fontWeight: '600', lineHeight: 20 }}>
+                  {isLateOrEarly || isExplanation
+                    ? `Không có ca làm việc nào được xếp cho bạn vào ngày ${fromDate ? formatDate(fromDate) : 'này'}.`
+                    : 'Không tìm thấy ca làm việc.'}
+                </Text>
+                <Text style={{ textAlign: 'center', marginTop: 6, fontSize: 12, color: '#94A3B8', lineHeight: 18 }}>
+                  Vui lòng kiểm tra lại lịch làm việc hoặc liên hệ quản lý để được phân ca.
+                </Text>
+              </View>
             ) : (
               <FlatList
-                data={apiShifts}
+                data={displayedShifts}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 renderItem={({ item }) => {
