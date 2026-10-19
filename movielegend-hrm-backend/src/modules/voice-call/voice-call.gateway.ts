@@ -96,7 +96,7 @@ export class VoiceCallGateway implements OnGatewayDisconnect {
     // Log missed call
     this.chatService.createDirectChat(session.callerId, session.targetUserId).then((group) => {
       this.chatService.sendMessage({ userId: session.callerId, roles: [] } as any, group.id, {
-        content: '📞 Cuộc gọi thoại nhỡ',
+        content: 'Cuộc gọi thoại nhỡ',
       });
     }).catch((e) => console.error('Failed to log timeout missed call', e));
   }
@@ -282,7 +282,7 @@ export class VoiceCallGateway implements OnGatewayDisconnect {
       try {
         const group = await this.chatService.createDirectChat(payload.callerId, receiverId);
         await this.chatService.sendMessage({ userId: payload.callerId, roles: [] } as any, group.id, {
-          content: '📞 Cuộc gọi thoại nhỡ',
+          content: 'Cuộc gọi thoại nhỡ',
         });
       } catch (e) {
         console.error('Failed to log missed call to chat', e);
@@ -320,14 +320,14 @@ export class VoiceCallGateway implements OnGatewayDisconnect {
     // Log call duration to chat
     try {
       const group = await this.chatService.createDirectChat(userId, payload.targetUserId);
-      let content = '📞 Cuộc gọi thoại';
+      let content = 'Cuộc gọi thoại';
       if (payload.duration !== undefined && payload.duration > 0) {
         const m = Math.floor(payload.duration / 60);
         const s = payload.duration % 60;
         const formatted = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        content = `📞 Cuộc gọi thoại (${formatted})`;
+        content = `Cuộc gọi thoại (${formatted})`;
       } else {
-        content = '📞 Cuộc gọi thoại nhỡ';
+        content = 'Cuộc gọi thoại nhỡ';
       }
       
       await this.chatService.sendMessage({ userId, roles: [] } as any, group.id, {

@@ -1005,10 +1005,10 @@ export class LevelingService {
 
       let rewardSummaryParts: string[] = [];
       if (cashAmount > 0) {
-        rewardSummaryParts.push(`💵 ${cashAmount.toLocaleString('vi-VN')} VNĐ (Chia theo hệ số Level)`);
+        rewardSummaryParts.push(`${cashAmount.toLocaleString('vi-VN')} VNĐ (Chia theo hệ số Level)`);
       }
       if (physicalItems.length > 0) {
-        rewardSummaryParts.push(`🎁 ${physicalItems.join(', ')} (Hiện vật chung)`);
+        rewardSummaryParts.push(`${physicalItems.join(', ')} (Hiện vật chung)`);
       }
       const rewardItem = rewardSummaryParts.length > 0
         ? rewardSummaryParts.join(' + ')
@@ -1123,7 +1123,7 @@ export class LevelingService {
         const memberIds = members.map((m) => m.userId);
         void this.sendLevelNotification(
           memberIds,
-          'Dự án cấp bậc mới được cập nhật 🏆',
+          'Dự án cấp bậc mới được cập nhật',
           `Ban Giám Đốc đã cập nhật cấu hình dự án và danh mục công việc cho phòng ${departmentName || 'ban'}.`,
           {
             type: 'LEVEL_CONFIG_UPDATED',
@@ -1191,7 +1191,7 @@ export class LevelingService {
     if (assignedUserId) {
       void this.sendLevelNotification(
         [assignedUserId],
-        'Giao việc dự án mới 📋',
+        'Giao việc dự án mới',
         `Bạn vừa được giao đầu việc "${subTask.title}" thuộc ${project.projectName || project.levelName}.`,
         {
           type: 'LEVEL_PROJECT_ASSIGNED',
@@ -1239,7 +1239,7 @@ export class LevelingService {
       const targetUserIds = [...new Set(roleHolders.map((r) => r.userId))];
       void this.sendLevelNotification(
         targetUserIds,
-        'Nhân sự nộp báo cáo dự án 📑',
+        'Nhân sự nộp báo cáo dự án',
         `${subTask.assignedUserName || 'Nhân sự'} đã nộp báo cáo việc con "${subTask.title}" (${project.projectName || project.levelName}).`,
         {
           type: 'LEVEL_PROJECT_SUBMITTED',
@@ -1283,7 +1283,7 @@ export class LevelingService {
       if (status === 'LEADER_APPROVED') {
         void this.sendLevelNotification(
           [subTask.assignedUserId],
-          'Duyệt hoàn thành việc con 🎉',
+          'Duyệt hoàn thành việc con',
           `Leader ${reviewerName || ''} đã duyệt Vòng 1 việc con "${subTask.title}" (${project.projectName || project.levelName}).`,
           {
             type: 'LEVEL_PROJECT_APPROVED',
@@ -1296,7 +1296,7 @@ export class LevelingService {
       } else {
         void this.sendLevelNotification(
           [subTask.assignedUserId],
-          'Yêu cầu bổ sung báo cáo ⚠️',
+          'Yêu cầu bổ sung báo cáo',
           `Leader yêu cầu bạn kiểm tra và sửa lại báo cáo việc con "${subTask.title}" (${project.projectName || project.levelName}).`,
           {
             type: 'LEVEL_PROJECT_REWORK',
@@ -1348,7 +1348,7 @@ export class LevelingService {
       const targetUserIds = [...new Set(roleHolders.map((r) => r.userId))];
       void this.sendLevelNotification(
         targetUserIds,
-        'Nghiệm thu dự án cấp bậc 📑',
+        'Nghiệm thu dự án cấp bậc',
         `Trưởng bộ phận phòng ${departmentName || project.departmentName || 'ban'} đã nộp báo cáo nghiệm thu dự án "${project.projectName || project.levelName}". Vui lòng kiểm tra và phê duyệt!`,
         {
           type: 'LEVEL_PROJECT_SUBMITTED_TO_ADMIN',
@@ -1429,7 +1429,7 @@ export class LevelingService {
         if (status === 'ADMIN_APPROVED') {
           void this.sendLevelNotification(
             memberIds,
-            'Nghiệm thu dự án thành công 🏆🎉',
+            'Nghiệm thu dự án thành công',
             `Ban Giám Đốc (${reviewerName || 'Admin'}) đã chính thức phê duyệt nghiệm thu dự án "${project.projectName || project.levelName}" cho phòng ${departmentName || project.departmentName}!`,
             {
               type: 'LEVEL_PROJECT_ADMIN_APPROVED',
@@ -1441,7 +1441,7 @@ export class LevelingService {
         } else {
           void this.sendLevelNotification(
             memberIds,
-            'Yêu cầu bổ sung/chỉnh sửa dự án ⚠️',
+            'Yêu cầu bổ sung/chỉnh sửa dự án',
             `Ban Giám Đốc yêu cầu hoàn thiện lại dự án "${project.projectName || project.levelName}": ${adminFeedback || 'Vui lòng kiểm tra lại các đầu việc con'}`,
             {
               type: 'LEVEL_PROJECT_ADMIN_REJECTED',
@@ -1494,7 +1494,7 @@ export class LevelingService {
     // Notify user about promotion
     void this.sendLevelNotification(
       [userId],
-      'Chúc mừng thăng cấp bậc mới 🌟🎖️',
+      'Chúc mừng thăng cấp bậc mới',
       `Bạn đã được xét duyệt nâng lên Level ${levelNumber} thành công!`,
       {
         type: 'LEVEL_PROMOTED',

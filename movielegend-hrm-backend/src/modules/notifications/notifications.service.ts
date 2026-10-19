@@ -8,10 +8,10 @@ import { RealtimeEventsService } from '../realtime/realtime-events.service';
 import { RegisterDeviceTokenDto } from './dto/notification.dto';
 import { ExpoPushService } from './expo-push.service';
 
-function stripEmojis(str?: string): string {
+export function stripEmojis(str?: string): string {
   if (!str) return str || '';
   return str
-    .replace(/[\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '')
+    .replace(/[\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{2B55}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -123,23 +123,23 @@ export class NotificationsService {
 
       switch (payload.eventType) {
         case 'NEW_EMPLOYEE':
-          title = 'Biến động nhân sự: Tiếp nhận nhân viên mới 👤';
+          title = 'Biến động nhân sự: Tiếp nhận nhân viên mới';
           body = `Nhân viên mới: ${payload.employeeName} - Mã NV: ${payload.userCode}${deptInfo} vừa được tiếp nhận vào hệ thống. Kế toán lưu ý cập nhật hồ sơ & bảng lương.`;
           break;
         case 'RESIGNED_EMPLOYEE':
-          title = 'Biến động nhân sự: Nhân viên nghỉ việc 📋';
+          title = 'Biến động nhân sự: Nhân viên nghỉ việc';
           body = `Nhân viên: ${payload.employeeName} - Mã NV: ${payload.userCode}${deptInfo} đã chuyển sang trạng thái Nghỉ việc.${payload.reason ? ` Lý do: ${payload.reason}.` : ''} Kế toán vui lòng kiểm tra công và quyết toán các khoản tồn đọng.`;
           break;
         case 'SUSPENDED_EMPLOYEE':
-          title = 'Biến động nhân sự: Khóa tài khoản nhân viên 🔒';
+          title = 'Biến động nhân sự: Khóa tài khoản nhân viên';
           body = `Tài khoản của nhân viên: ${payload.employeeName} - Mã NV: ${payload.userCode}${deptInfo} đã bị tạm khóa${actorInfo}.${payload.reason ? ` Lý do: ${payload.reason}.` : ''}`;
           break;
         case 'ACTIVATED_EMPLOYEE':
-          title = 'Biến động nhân sự: Kích hoạt / Mở khóa tài khoản 🔓';
+          title = 'Biến động nhân sự: Kích hoạt / Mở khóa tài khoản';
           body = `Tài khoản của nhân viên: ${payload.employeeName} - Mã NV: ${payload.userCode}${deptInfo} đã được mở khóa và kích hoạt lại${actorInfo}.`;
           break;
         case 'DELETED_EMPLOYEE':
-          title = 'Biến động nhân sự: Xóa nhân viên khỏi hệ thống ⚠️';
+          title = 'Biến động nhân sự: Xóa nhân viên khỏi hệ thống';
           body = `Nhân viên: ${payload.employeeName} - Mã NV: ${payload.userCode}${deptInfo} đã bị xóa/đặt lịch xóa khỏi hệ thống${actorInfo}.`;
           break;
       }
@@ -258,8 +258,21 @@ export class NotificationsService {
     });
   }
 
-  registerDevice(dto: RegisterDeviceTokenDto, actor: AuthenticatedUser) {
+  async registerDevice(dto: RegisterDeviceTokenDto, actor: AuthenticatedUser) {
     const tokenHash = this.hashToken(dto.token);
+    // Revoke any previous active tokens for this user on the same physical device
+    if (dto.deviceId) {
+      await this.prisma.deviceToken.updateMany({
+        where: {
+          userId: actor.userId,
+          deviceId: dto.deviceId,
+          tokenHash: { not: tokenHash },
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      });
+    }
+
     return this.prisma.deviceToken.upsert({
       where: { tokenHash },
       update: {

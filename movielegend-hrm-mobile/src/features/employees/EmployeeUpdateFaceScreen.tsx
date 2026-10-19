@@ -10,13 +10,14 @@ import {
   Vibration,
   ActivityIndicator,
   Platform,
+  Easing,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Defs, Mask, Rect } from 'react-native-svg';
+import Svg, { Defs, Mask, Rect, Circle } from 'react-native-svg';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -94,6 +95,28 @@ export function EmployeeUpdateFaceScreen() {
 
   // Animations
   const successScale = useRef(new Animated.Value(0.7)).current;
+  const spinAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (step === 'UPLOADING') {
+      spinAnim.setValue(0);
+      const loop = Animated.loop(
+        Animated.timing(spinAnim, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [step, spinAnim]);
+
+  const spinInterpolate = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   // Handle snapping and intelligent validation on shutter press
   const handleCapturePose = useCallback(async (pose: FacePose) => {
@@ -433,15 +456,11 @@ export function EmployeeUpdateFaceScreen() {
         ) : null}
       </View>
 
-      {/* 4. Top Header with Scrim Gradient & Stepper */}
-      <LinearGradient
-        colors={['rgba(0, 0, 0, 0.90)', 'rgba(0, 0, 0, 0.55)', 'rgba(0, 0, 0, 0.15)', 'transparent']}
-        style={[styles.topScrim, { paddingTop: insets.top + (Platform.OS === 'ios' ? 8 : 12) }]}
-        pointerEvents="box-none"
-      >
-        <View style={styles.topHeaderBar}>
+      {/* 4. Top Header & Stepper */}
+      <View style={styles.topContainer} pointerEvents="box-none">
+        <View style={[styles.topHeaderBar, { paddingTop: insets.top + (Platform.OS === 'ios' ? 6 : 10) }]}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-            <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </Pressable>
 
           <View style={styles.headerTitleBox}>
@@ -452,139 +471,139 @@ export function EmployeeUpdateFaceScreen() {
         </View>
 
         {/* Stepper Card matching user design */}
-        <View style={styles.stepperCard}>
-          <Text style={styles.stepCounterText}>Bước {activePoseIndex + 1} / 3</Text>
+        <LinearGradient
+          colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.75)', 'rgba(255, 255, 255, 0.15)', 'transparent']}
+          style={styles.stepperScrim}
+          pointerEvents="box-none"
+        >
+          <View style={styles.stepperCard}>
+            <Text style={styles.stepCounterText}>Bước {activePoseIndex + 1} / 3</Text>
 
-          <View style={styles.stepperRow}>
-            {/* Step 1: Nhìn thẳng */}
-            <View style={styles.stepCol}>
+            <View style={styles.stepperRow}>
+              {/* Step 1: Nhìn thẳng */}
+              <View style={styles.stepCol}>
+                <View
+                  style={[
+                    styles.stepCircle,
+                    capturedPhotos.FRONT || activePoseIndex > 0
+                      ? styles.stepCircleDone
+                      : activePoseIndex === 0
+                      ? styles.stepCircleActive
+                      : styles.stepCircleInactive,
+                  ]}
+                >
+                  {capturedPhotos.FRONT || activePoseIndex > 0 ? (
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.stepCircleText,
+                        activePoseIndex === 0 ? styles.stepCircleTextActive : styles.stepCircleTextInactive,
+                      ]}
+                    >
+                      1
+                    </Text>
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.stepLabelText,
+                    activePoseIndex === 0 ? styles.stepLabelTextActive : styles.stepLabelTextInactive,
+                  ]}
+                >
+                  Nhìn thẳng
+                </Text>
+              </View>
+
+              {/* Connecting line 1 -> 2 */}
               <View
                 style={[
-                  styles.stepCircle,
-                  activePoseIndex === 0
-                    ? styles.stepCircleActive
-                    : capturedPhotos.FRONT
-                    ? styles.stepCircleDone
-                    : styles.stepCircleInactive,
+                  styles.stepLine,
+                  (capturedPhotos.FRONT || activePoseIndex >= 1) && styles.stepLineActive,
                 ]}
-              >
-                {capturedPhotos.FRONT && activePoseIndex !== 0 ? (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                ) : (
-                  <Text
-                    style={[
-                      styles.stepCircleText,
-                      activePoseIndex === 0 || capturedPhotos.FRONT
-                        ? styles.stepCircleTextActive
-                        : styles.stepCircleTextInactive,
-                    ]}
-                  >
-                    1
-                  </Text>
-                )}
+              />
+
+              {/* Step 2: Nghiêng trái */}
+              <View style={styles.stepCol}>
+                <View
+                  style={[
+                    styles.stepCircle,
+                    capturedPhotos.LEFT || activePoseIndex > 1
+                      ? styles.stepCircleDone
+                      : activePoseIndex === 1
+                      ? styles.stepCircleActive
+                      : styles.stepCircleInactive,
+                  ]}
+                >
+                  {capturedPhotos.LEFT || activePoseIndex > 1 ? (
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.stepCircleText,
+                        activePoseIndex === 1 ? styles.stepCircleTextActive : styles.stepCircleTextInactive,
+                      ]}
+                    >
+                      2
+                    </Text>
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.stepLabelText,
+                    activePoseIndex === 1 ? styles.stepLabelTextActive : styles.stepLabelTextInactive,
+                  ]}
+                >
+                  Nghiêng trái
+                </Text>
               </View>
-              <Text
-                style={[
-                  styles.stepLabelText,
-                  activePoseIndex === 0 ? styles.stepLabelTextActive : styles.stepLabelTextInactive,
-                ]}
-              >
-                Nhìn thẳng
-              </Text>
-            </View>
 
-            {/* Connecting line 1 -> 2 */}
-            <View
-              style={[
-                styles.stepLine,
-                (activePoseIndex >= 1 || capturedPhotos.FRONT) && styles.stepLineActive,
-              ]}
-            />
-
-            {/* Step 2: Nghiêng trái */}
-            <View style={styles.stepCol}>
+              {/* Connecting line 2 -> 3 */}
               <View
                 style={[
-                  styles.stepCircle,
-                  activePoseIndex === 1
-                    ? styles.stepCircleActive
-                    : capturedPhotos.LEFT
-                    ? styles.stepCircleDone
-                    : styles.stepCircleInactive,
+                  styles.stepLine,
+                  Boolean(capturedPhotos.LEFT && capturedPhotos.RIGHT) && styles.stepLineActive,
                 ]}
-              >
-                {capturedPhotos.LEFT && activePoseIndex !== 1 ? (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                ) : (
-                  <Text
-                    style={[
-                      styles.stepCircleText,
-                      activePoseIndex === 1 || capturedPhotos.LEFT
-                        ? styles.stepCircleTextActive
-                        : styles.stepCircleTextInactive,
-                    ]}
-                  >
-                    2
-                  </Text>
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.stepLabelText,
-                  activePoseIndex === 1 ? styles.stepLabelTextActive : styles.stepLabelTextInactive,
-                ]}
-              >
-                Nghiêng trái
-              </Text>
-            </View>
+              />
 
-            {/* Connecting line 2 -> 3 */}
-            <View
-              style={[
-                styles.stepLine,
-                (activePoseIndex >= 2 || capturedPhotos.LEFT) && styles.stepLineActive,
-              ]}
-            />
-
-            {/* Step 3: Nghiêng phải */}
-            <View style={styles.stepCol}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  activePoseIndex === 2
-                    ? styles.stepCircleActive
-                    : capturedPhotos.RIGHT
-                    ? styles.stepCircleDone
-                    : styles.stepCircleInactive,
-                ]}
-              >
-                {capturedPhotos.RIGHT && activePoseIndex !== 2 ? (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                ) : (
-                  <Text
-                    style={[
-                      styles.stepCircleText,
-                      activePoseIndex === 2 || capturedPhotos.RIGHT
-                        ? styles.stepCircleTextActive
-                        : styles.stepCircleTextInactive,
-                    ]}
-                  >
-                    3
-                  </Text>
-                )}
+              {/* Step 3: Nghiêng phải */}
+              <View style={styles.stepCol}>
+                <View
+                  style={[
+                    styles.stepCircle,
+                    capturedPhotos.RIGHT
+                      ? styles.stepCircleDone
+                      : activePoseIndex === 2
+                      ? styles.stepCircleActive
+                      : styles.stepCircleInactive,
+                  ]}
+                >
+                  {capturedPhotos.RIGHT ? (
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.stepCircleText,
+                        activePoseIndex === 2 ? styles.stepCircleTextActive : styles.stepCircleTextInactive,
+                      ]}
+                    >
+                      3
+                    </Text>
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.stepLabelText,
+                    activePoseIndex === 2 ? styles.stepLabelTextActive : styles.stepLabelTextInactive,
+                  ]}
+                >
+                  Nghiêng phải
+                </Text>
               </View>
-              <Text
-                style={[
-                  styles.stepLabelText,
-                  activePoseIndex === 2 ? styles.stepLabelTextActive : styles.stepLabelTextInactive,
-                ]}
-              >
-                Nghiêng phải
-              </Text>
             </View>
           </View>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
+      </View>
 
       {/* 5. Bottom Guidance & Shutter Controls */}
       <View
@@ -659,13 +678,54 @@ export function EmployeeUpdateFaceScreen() {
       {step === 'UPLOADING' && (
         <View style={styles.fullscreenModalBackdrop}>
           <View style={styles.uploadCard}>
-            <ActivityIndicator size="large" color="#22C55E" style={{ marginBottom: 20 }} />
+            {/* Spinning Face Recognition Icon */}
+            <View style={styles.modalIconRingWrapper}>
+              <Animated.View
+                style={[
+                  styles.modalSvgSpinner,
+                  { transform: [{ rotate: spinInterpolate }] },
+                ]}
+              >
+                <Svg width={78} height={78} viewBox="0 0 78 78">
+                  <Circle
+                    cx={39}
+                    cy={39}
+                    r={35}
+                    stroke="#E2E8F0"
+                    strokeWidth={3.5}
+                    fill="none"
+                  />
+                  <Circle
+                    cx={39}
+                    cy={39}
+                    r={35}
+                    stroke="#102739"
+                    strokeWidth={3.5}
+                    strokeLinecap="round"
+                    strokeDasharray="140, 85"
+                    fill="none"
+                  />
+                </Svg>
+              </Animated.View>
+              <MaterialCommunityIcons name="face-recognition" size={36} color="#102739" />
+            </View>
+
             <Text style={styles.uploadModalTitle}>Đang đăng ký khuôn mặt</Text>
-            <Text style={styles.uploadModalDesc}>{uploadStatusText}</Text>
+            <Text style={styles.uploadModalDesc}>Đang lưu dữ liệu khuôn mặt vào hệ thống...</Text>
+
+            {/* Progress Track */}
             <View style={styles.uploadProgressTrack}>
               <View style={[styles.uploadProgressFill, { width: `${uploadPercent}%` }]} />
             </View>
-            <Text style={styles.uploadPercentText}>{uploadPercent}%</Text>
+
+            {/* Status Row */}
+            <View style={styles.uploadStatusRow}>
+              <Text style={styles.uploadProcessingText}>Đang xử lý</Text>
+              <Text style={styles.uploadPercentNumber}>{uploadPercent}%</Text>
+            </View>
+
+            {/* Footnote */}
+            <Text style={styles.uploadFootnote}>Vui lòng giữ ứng dụng mở trong giây lát.</Text>
           </View>
         </View>
       )}
@@ -844,31 +904,27 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  // Top Scrim & Step Indicators
-  topScrim: {
+  // Top Container & Stepper
+  topContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    paddingBottom: 24,
-    paddingHorizontal: 16,
     zIndex: 20,
   },
   topHeaderBar: {
+    backgroundColor: '#102739',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'flex-start',
   },
   headerTitleBox: {
     flex: 1,
@@ -877,95 +933,83 @@ const styles = StyleSheet.create({
   headerMainTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0.2,
   },
+  stepperScrim: {
+    paddingTop: 14,
+    paddingBottom: 22,
+    paddingHorizontal: 16,
+  },
   stepperCard: {
-    backgroundColor: 'transparent',
-    paddingTop: 4,
-    paddingBottom: 4,
     paddingHorizontal: 8,
-    marginHorizontal: 12,
   },
   stepCounterText: {
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 10,
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.6)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    marginBottom: 12,
   },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
   },
   stepCol: {
     alignItems: 'center',
-    minWidth: 70,
+    minWidth: 72,
   },
   stepCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepCircleActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    backgroundColor: '#102739',
   },
   stepCircleDone: {
-    backgroundColor: '#22C55E',
+    backgroundColor: '#16A34A',
   },
   stepCircleInactive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: '#E2E8F0',
   },
   stepCircleText: {
     fontSize: 13,
     fontWeight: '700',
   },
   stepCircleTextActive: {
-    color: '#0F172A',
-    fontWeight: '800',
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   stepCircleTextInactive: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: '#64748B',
   },
   stepLine: {
     flex: 1,
-    height: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginBottom: 20,
-    marginHorizontal: 6,
+    height: 2.5,
+    backgroundColor: '#CBD5E1',
+    marginBottom: 22,
+    marginHorizontal: 8,
+    borderRadius: 2,
   },
   stepLineActive: {
-    backgroundColor: '#22C55E',
+    backgroundColor: '#16A34A',
   },
   stepLabelText: {
     fontSize: 12,
     marginTop: 6,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.7)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   stepLabelTextActive: {
-    color: '#FFFFFF',
+    color: '#102739',
     fontWeight: '700',
   },
   stepLabelTextInactive: {
-    color: 'rgba(255, 255, 255, 0.55)',
+    color: '#475569',
     fontWeight: '500',
   },
 
@@ -1105,53 +1149,91 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 50,
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
   },
   uploadCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 24,
-    paddingVertical: 32,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    paddingTop: 36,
+    paddingBottom: 28,
     paddingHorizontal: 24,
     alignItems: 'center',
     width: '100%',
-    maxWidth: 320,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    maxWidth: 340,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  modalIconRingWrapper: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    position: 'relative',
+  },
+  modalSvgSpinner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   uploadModalTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
+    color: '#102739',
+    fontSize: 20,
+    fontWeight: '700',
     marginBottom: 6,
     textAlign: 'center',
   },
   uploadModalDesc: {
-    color: '#94A3B8',
-    fontSize: 13,
+    color: '#64748B',
+    fontSize: 14,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
+    lineHeight: 20,
   },
   uploadProgressTrack: {
     width: '100%',
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 3,
+    height: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 10,
   },
   uploadProgressFill: {
     height: '100%',
-    backgroundColor: '#22C55E',
-    borderRadius: 3,
+    backgroundColor: '#102739',
+    borderRadius: 4,
   },
-  uploadPercentText: {
-    color: '#22C55E',
+  uploadStatusRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 28,
+  },
+  uploadProcessingText: {
+    color: '#64748B',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '500',
+  },
+  uploadPercentNumber: {
+    color: '#102739',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  uploadFootnote: {
+    color: '#64748B',
+    fontSize: 13,
+    textAlign: 'center',
   },
 
   // Success Card
