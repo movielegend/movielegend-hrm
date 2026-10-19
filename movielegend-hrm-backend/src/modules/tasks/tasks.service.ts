@@ -731,7 +731,7 @@ export class TasksService {
       return `${idx + 1}. Task: ${child.title}\n   • Trạng thái: ${statusText}\n${assigneeDetails}`;
     });
 
-    return `📋 TỔNG HỢP TIẾN ĐỘ & BÁO CÁO CÁC VIỆC CON:\n\n${items.join('\n\n')}\n\n---------------------------------\n💬 Ý kiến & Kết luận của Leader:\n- Đã nghiệm thu toàn bộ các việc con và hoàn tất dự án.`;
+    return `TỔNG HỢP TIẾN ĐỘ & BÁO CÁO CÁC VIỆC CON:\n\n${items.join('\n\n')}\n\n---------------------------------\nÝ kiến & Kết luận của Leader:\n- Đã nghiệm thu toàn bộ các việc con và hoàn tất dự án.`;
   }
 
   async approveAssignment(assignmentId: string, dto: ReviewTaskDto, actor: AuthenticatedUser) {

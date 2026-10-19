@@ -2,6 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Expo, ExpoPushMessage } from 'expo-server-sdk';
 import { PrismaService } from '../../database/prisma.service';
 
+function cleanNotificationText(str?: string): string {
+  if (!str) return str || '';
+  return str
+    .replace(/[\p{Extended_Pictographic}\u{1F300}-\u{1FAFF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{2B55}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 @Injectable()
 export class ExpoPushService {
   private readonly logger = new Logger(ExpoPushService.name);
@@ -12,10 +20,16 @@ export class ExpoPushService {
   async sendPushNotification(userIds: string[], title: string, body: string, data: any = {}, options?: { categoryId?: string; priority?: 'default' | 'normal' | 'high'; channelId?: string; sound?: string }) {
     if (!userIds || userIds.length === 0) return;
 
+    const cleanTitle = cleanNotificationText(title);
+    const cleanBody = cleanNotificationText(body);
+
     const devices = await this.prisma.deviceToken.findMany({
       where: {
         userId: { in: userIds },
         revokedAt: null,
+      },
+      orderBy: {
+        lastSeenAt: 'desc',
       },
     });
 
@@ -25,18 +39,43 @@ export class ExpoPushService {
     }
 
     const messages: ExpoPushMessage[] = [];
+    const seenTokens = new Set<string>();
+    const seenUserDevices = new Set<string>();
 
     for (const device of devices) {
       if (!Expo.isExpoPushToken(device.token)) {
         this.logger.warn(`Push token ${device.token} for user ${device.userId} is not a valid Expo push token`);
         continue;
       }
+
+      // 1. Prevent duplicate pushes to the same token
+      if (seenTokens.has(device.token)) {
+        continue;
+      }
+
+      // 2. If deviceId is available, only send to the newest active token for that device
+      if (device.deviceId) {
+        const userDeviceKey = `${device.userId}:${device.deviceId}`;
+        if (seenUserDevices.has(userDeviceKey)) {
+          continue;
+        }
+        seenUserDevices.add(userDeviceKey);
+      } else {
+        // If deviceId is null, only send to the newest active token per user + platform
+        const userPlatformKey = `${device.userId}:${device.platform}`;
+        if (seenUserDevices.has(userPlatformKey)) {
+          continue;
+        }
+        seenUserDevices.add(userPlatformKey);
+      }
+
+      seenTokens.add(device.token);
       
       messages.push({
         to: device.token,
         sound: options?.sound ? (options.sound as any) : 'default',
-        title,
-        body,
+        title: cleanTitle,
+        body: cleanBody,
         data,
         categoryId: options?.categoryId,
         priority: options?.priority || 'high',
