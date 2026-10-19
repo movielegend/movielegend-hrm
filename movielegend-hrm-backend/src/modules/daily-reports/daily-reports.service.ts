@@ -78,6 +78,8 @@ export class DailyReportsService {
     notes?: string | null;
     obstacles?: string | null;
     supportRequest?: string | null;
+    attachments?: any;
+    selfRating?: number;
     reportDate: string;
     isDraft?: boolean;
     metricName?: string;
@@ -87,16 +89,26 @@ export class DailyReportsService {
       task = await this.prisma.workTask.findUnique({ where: { id: data.taskId } });
     }
     if (!task) {
-      task = await this.prisma.workTask.findFirst({
+      // Chuẩn hóa tên nhiệm vụ để so khớp thông minh, chống sinh 2 dòng trùng
+      const rawBase = (data.metricName || data.title.split(':')[0]).trim().toLowerCase();
+
+      const existingTasks = await this.prisma.workTask.findMany({
         where: {
           userId: data.userId,
           reportDate: data.reportDate,
-          OR: [
-            { title: data.title },
-            ...(data.metricName ? [{ title: { startsWith: data.metricName } }] : []),
-          ],
           isDeleted: false,
-        }
+        },
+      });
+
+      task = existingTasks.find((t) => {
+        const tTitle = (t.title || '').trim().toLowerCase();
+        const tBase = tTitle.split(':')[0].trim();
+        return (
+          tTitle === data.title.trim().toLowerCase() ||
+          tBase === rawBase ||
+          tTitle.startsWith(rawBase) ||
+          rawBase.startsWith(tBase)
+        );
       });
     }
 
@@ -126,6 +138,10 @@ export class DailyReportsService {
             notes: data.notes || existingUpdate.notes,
             obstacles: data.obstacles || existingUpdate.obstacles,
             supportRequest: data.supportRequest || existingUpdate.supportRequest,
+            selfRating: data.selfRating ?? existingUpdate.selfRating,
+            attachments: (data.attachments && Array.isArray(data.attachments) && data.attachments.length > 0)
+              ? (data.attachments as any)
+              : undefined,
             isDraft: data.isDraft ?? existingUpdate.isDraft,
           }
         });
@@ -139,6 +155,8 @@ export class DailyReportsService {
             notes: data.notes,
             obstacles: data.obstacles,
             supportRequest: data.supportRequest,
+            selfRating: data.selfRating ?? 5,
+            attachments: (data.attachments as any) || [],
             reportedByUserId: data.userId,
             isDraft: data.isDraft ?? false,
           }
@@ -170,6 +188,8 @@ export class DailyReportsService {
               notes: data.notes || null,
               obstacles: data.obstacles || null,
               supportRequest: data.supportRequest || null,
+              selfRating: data.selfRating ?? 5,
+              attachments: (data.attachments as any) || [],
               reportedByUserId: data.userId,
               isDraft: data.isDraft ?? false,
             }
@@ -182,10 +202,57 @@ export class DailyReportsService {
 
   private async syncToWorkTasks(userId: string, departmentId: string, reportDate: string, dto: CreateDailyReportDto, isDraft: boolean) {
     try {
-      // 1. Sync completedTasks
+      const syncedTaskIds = new Set<string>();
+      const syncedBaseTitles = new Set<string>();
+
+      // 1. Sync metrics trước (Danh sách nhiệm vụ chuẩn hóa đầy đủ số lượng, file đính kèm & đánh giá)
+      const metrics = Array.isArray(dto.metrics) ? dto.metrics : [];
+      for (const m of metrics as any[]) {
+        if (!m) continue;
+        const taskTitle = (m.name || m.title || '').trim();
+        if (!taskTitle) continue;
+
+        const title = m.value ? `${taskTitle}: ${m.value} ${m.unit || ''}`.trim() : taskTitle;
+        const workStatus = m.status || (m.progress === 100 ? 'DONE' : 'IN_PROGRESS');
+        const progress = workStatus === 'DONE' ? 100 : (m.progress ?? (workStatus === 'NOT_STARTED' ? 0 : 50));
+
+        const task = await this.upsertSingleWorkTask({
+          taskId: m.taskId,
+          metricName: m.name || m.title,
+          userId,
+          departmentId,
+          category: m.category || 'Vận hành',
+          title,
+          description: m.description || m.notes || null,
+          taskType: m.taskType || 'THEO_KE_HOACH',
+          priority: m.priority || 'MEDIUM',
+          deadline: m.deadline || null,
+          workStatus,
+          progress,
+          notes: m.notes || m.note || null,
+          obstacles: m.obstacles || null,
+          supportRequest: m.supportRequest || null,
+          attachments: m.attachments,
+          selfRating: m.selfRating,
+          reportDate,
+          isDraft,
+        });
+
+        if (task?.id) syncedTaskIds.add(task.id);
+        if (m.taskId) syncedTaskIds.add(m.taskId);
+        syncedBaseTitles.add(taskTitle.toLowerCase());
+        syncedBaseTitles.add(title.toLowerCase());
+      }
+
+      // 2. Sync completedTasks (chỉ sync những task chưa có trong metrics để chống trùng lặp)
       const completed = Array.isArray(dto.completedTasks) ? dto.completedTasks : [];
       for (const t of completed as any[]) {
         if (!t || !t.title || t.isSelected === false) continue;
+        const cleanTitle = t.title.trim().toLowerCase();
+        const baseTitle = cleanTitle.split(':')[0].trim();
+        if (t.taskId && syncedTaskIds.has(t.taskId)) continue;
+        if (syncedBaseTitles.has(cleanTitle) || syncedBaseTitles.has(baseTitle)) continue;
+
         await this.upsertSingleWorkTask({
           taskId: t.taskId,
           userId,
@@ -206,10 +273,15 @@ export class DailyReportsService {
         });
       }
 
-      // 2. Sync inProgressTasks
+      // 3. Sync inProgressTasks (chỉ sync những task chưa có trong metrics để chống trùng lặp)
       const inProgress = Array.isArray(dto.inProgressTasks) ? dto.inProgressTasks : [];
       for (const t of inProgress as any[]) {
         if (!t || !t.title) continue;
+        const cleanTitle = t.title.trim().toLowerCase();
+        const baseTitle = cleanTitle.split(':')[0].trim();
+        if (t.taskId && syncedTaskIds.has(t.taskId)) continue;
+        if (syncedBaseTitles.has(cleanTitle) || syncedBaseTitles.has(baseTitle)) continue;
+
         await this.upsertSingleWorkTask({
           taskId: t.taskId,
           userId,
@@ -225,38 +297,6 @@ export class DailyReportsService {
           notes: t.notes || t.note || null,
           obstacles: t.obstacles || null,
           supportRequest: t.supportRequest || null,
-          reportDate,
-          isDraft,
-        });
-      }
-
-      // 3. Sync metrics (nhiệm vụ / công việc chuẩn hóa)
-      const metrics = Array.isArray(dto.metrics) ? dto.metrics : [];
-      for (const m of metrics as any[]) {
-        if (!m) continue;
-        const taskTitle = (m.name || m.title || '').trim();
-        if (!taskTitle) continue;
-
-        const title = m.value ? `${taskTitle}: ${m.value} ${m.unit || ''}`.trim() : taskTitle;
-        const workStatus = m.status || (m.progress === 100 ? 'DONE' : 'IN_PROGRESS');
-        const progress = workStatus === 'DONE' ? 100 : (m.progress ?? (workStatus === 'NOT_STARTED' ? 0 : 50));
-
-        await this.upsertSingleWorkTask({
-          taskId: m.taskId,
-          metricName: m.name,
-          userId,
-          departmentId,
-          category: m.category || 'Vận hành',
-          title,
-          description: m.description || m.notes || null,
-          taskType: m.taskType || 'THEO_KE_HOACH',
-          priority: m.priority || 'MEDIUM',
-          deadline: m.deadline || null,
-          workStatus,
-          progress,
-          notes: m.notes || m.note || null,
-          obstacles: m.obstacles || null,
-          supportRequest: m.supportRequest || null,
           reportDate,
           isDraft,
         });
