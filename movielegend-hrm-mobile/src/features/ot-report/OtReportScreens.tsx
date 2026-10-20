@@ -47,6 +47,16 @@ import { normalizeApiError } from '../../utils/api-error';
 import { useAuth } from '../../providers/AuthProvider';
 import { isUserInLiveDepartment } from '../../constants/app-registry';
 
+const getInitials = (name?: string) => {
+  if (!name) return 'NV';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'NV';
+  const first = parts[0] || '';
+  if (parts.length === 1) return first.slice(0, 2).toUpperCase();
+  const last = parts[parts.length - 1] || '';
+  return ((first[0] || '') + (last[0] || '')).toUpperCase() || 'NV';
+};
+
 export function OtReportHomeScreen() {
   const router = useRouter();
   const [selectedStatus, setSelectedStatus] = useState<OtReportStatus | 'ALL'>('ALL');
@@ -54,103 +64,160 @@ export function OtReportHomeScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
+  // Modal detail & image viewer
+  const [detailReport, setDetailReport] = useState<OtReport | null>(null);
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [isViewerVisible, setIsViewerVisible] = useState(false);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await queryClient.invalidateQueries({ queryKey: ['ot-reports'] });
     setRefreshing(false);
   }, [queryClient]);
 
-  return (
-    <Screen>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
-      >
-        <PageHeader
-          title="Báo cáo OT - Phòng Live"
-          subtitle="Tích lũy đủ 5 giờ thực tế mới đủ điều kiện tính OT."
-        />
-        <PrimaryButton onPress={() => router.push('/employee/ot-report/create' as any)}>
-          + Tạo báo cáo OT mới
-        </PrimaryButton>
+  const handleOpenImageViewer = (photos: any[], idx: number = 0) => {
+    const urls = photos
+      .map((p) => resolveFileUrl(p.file?.fileUrl))
+      .filter(Boolean)
+      .map((uri) => ({ uri: uri as string }));
+    if (urls.length > 0) {
+      setViewerImages(urls);
+      setViewerIndex(idx);
+      setIsViewerVisible(true);
+    }
+  };
 
-        {/* Tab bộ lọc trạng thái */}
-        <View style={[styles.tabContainer, { marginTop: spacing.md }]}>
+  const getSectionTitle = () => {
+    switch (selectedStatus) {
+      case 'PENDING':
+        return 'Danh sách chờ duyệt';
+      case 'APPROVED':
+        return 'Danh sách đã duyệt';
+      case 'REJECTED':
+        return 'Danh sách từ chối';
+      case 'ALL':
+      default:
+        return 'Báo cáo OT của tôi';
+    }
+  };
+
+  return (
+    <Screen backgroundColor="#102739" statusBarStyle="light">
+      {/* 1. Header with Navy #102739 */}
+      <View style={otReviewStyles.header}>
+        <View style={otReviewStyles.headerTop}>
           <TouchableOpacity
-            style={[styles.tabButton, selectedStatus === 'ALL' && styles.tabButtonActiveAll]}
-            onPress={() => setSelectedStatus('ALL')}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/employee/(tabs)' as any))}
+            style={otReviewStyles.backBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <MaterialCommunityIcons
-              name="format-list-bulleted"
-              size={15}
-              color={selectedStatus === 'ALL' ? '#4338CA' : '#6B7280'}
-            />
-            <Text style={[styles.tabText, selectedStatus === 'ALL' && styles.tabTextActiveAll]}>
-              Tất cả
-            </Text>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabButton, selectedStatus === 'PENDING' && styles.tabButtonActivePending]}
-            onPress={() => setSelectedStatus('PENDING')}
-          >
-            <MaterialCommunityIcons
-              name="clock-outline"
-              size={15}
-              color={selectedStatus === 'PENDING' ? '#B45309' : '#6B7280'}
-            />
-            <Text style={[styles.tabText, selectedStatus === 'PENDING' && styles.tabTextActivePending]}>
-              Chờ duyệt
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabButton, selectedStatus === 'APPROVED' && styles.tabButtonActiveApproved]}
-            onPress={() => setSelectedStatus('APPROVED')}
-          >
-            <MaterialCommunityIcons
-              name="check-circle-outline"
-              size={15}
-              color={selectedStatus === 'APPROVED' ? '#047857' : '#6B7280'}
-            />
-            <Text style={[styles.tabText, selectedStatus === 'APPROVED' && styles.tabTextActiveApproved]}>
-              Đã duyệt
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabButton, selectedStatus === 'REJECTED' && styles.tabButtonActiveRejected]}
-            onPress={() => setSelectedStatus('REJECTED')}
-          >
-            <MaterialCommunityIcons
-              name="close-circle-outline"
-              size={15}
-              color={selectedStatus === 'REJECTED' ? '#B91C1C' : '#6B7280'}
-            />
-            <Text style={[styles.tabText, selectedStatus === 'REJECTED' && styles.tabTextActiveRejected]}>
-              Từ chối
-            </Text>
-          </TouchableOpacity>
+          <View style={otReviewStyles.headerTitleWrap}>
+            <Text style={otReviewStyles.headerTitle}>Báo cáo OT - Phòng Live</Text>
+            <Text style={otReviewStyles.headerSubtitle}>Tích lũy đủ 5 giờ thực tế mới đủ điều kiện tính OT</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* 2. Curved White Body Sheet */}
+      <View style={otReviewStyles.sheetContainer}>
+        {/* Status Underline Tabs */}
+        <View style={otReviewStyles.tabsContainer}>
+          {[
+            { key: 'PENDING', label: 'Chờ duyệt', icon: 'clock-outline' },
+            { key: 'APPROVED', label: 'Đã duyệt', icon: 'check-circle-outline' },
+            { key: 'REJECTED', label: 'Từ chối', icon: 'close-circle-outline' },
+            { key: 'ALL', label: 'Tất cả', icon: 'format-list-bulleted' },
+          ].map((tab) => {
+            const isActive = selectedStatus === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={otReviewStyles.tabButton}
+                onPress={() => setSelectedStatus(tab.key as any)}
+                activeOpacity={0.7}
+              >
+                <View style={otReviewStyles.tabContentRow}>
+                  <MaterialCommunityIcons
+                    name={tab.icon as any}
+                    size={16}
+                    color={isActive ? '#102739' : '#64748B'}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={[otReviewStyles.tabText, isActive && otReviewStyles.tabTextActive]}>
+                    {tab.label}
+                  </Text>
+                </View>
+                {isActive && <View style={otReviewStyles.tabIndicator} />}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        <SectionCard title={
-          selectedStatus === 'PENDING' ? 'Báo cáo chờ duyệt'
-          : selectedStatus === 'APPROVED' ? 'Báo cáo đã duyệt'
-          : selectedStatus === 'REJECTED' ? 'Báo cáo bị từ chối'
-          : 'Báo cáo OT của tôi'
-        }>
+        <ScrollView
+          contentContainerStyle={otReviewStyles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
+        >
+          {/* Action Button: Tạo báo cáo OT mới */}
+          <TouchableOpacity
+            style={otReviewStyles.createReportBtn}
+            onPress={() => router.push('/employee/ot-report/create' as any)}
+            activeOpacity={0.85}
+          >
+            <MaterialCommunityIcons name="plus-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={otReviewStyles.createReportBtnText}>Tạo báo cáo OT mới</Text>
+          </TouchableOpacity>
+
+          {/* Section Heading */}
+          <View style={otReviewStyles.sectionHeader}>
+            <Text style={otReviewStyles.sectionTitle}>{getSectionTitle()}</Text>
+          </View>
+
+          {/* Cards List */}
           {(reports.data?.items ?? []).map((report) => (
-            <OtReportCard key={report.id} report={report} />
+            <OtReportCard
+              key={report.id}
+              report={report}
+              onOpenDetail={(r) => setDetailReport(r)}
+              onOpenImageViewer={handleOpenImageViewer}
+            />
           ))}
+
           {!reports.data?.items?.length ? (
             <EmptyState
               title={
-                selectedStatus === 'PENDING' ? 'Không có báo cáo chờ duyệt'
-                : selectedStatus === 'APPROVED' ? 'Chưa có báo cáo nào được duyệt'
-                : selectedStatus === 'REJECTED' ? 'Không có báo cáo bị từ chối'
-                : 'Chưa có báo cáo OT nào'
+                selectedStatus === 'PENDING'
+                  ? 'Không có báo cáo chờ duyệt'
+                  : selectedStatus === 'APPROVED'
+                  ? 'Chưa có báo cáo nào được duyệt'
+                  : selectedStatus === 'REJECTED'
+                  ? 'Không có báo cáo bị từ chối'
+                  : 'Chưa có báo cáo OT nào'
               }
             />
           ) : null}
-        </SectionCard>
-      </ScrollView>
+        </ScrollView>
+      </View>
+
+      {/* ImageViewer */}
+      <ImageView
+        images={viewerImages}
+        imageIndex={viewerIndex}
+        visible={isViewerVisible}
+        onRequestClose={() => setIsViewerVisible(false)}
+      />
+
+      {/* Detail Modal */}
+      {detailReport ? (
+        <OtReportDetailModal
+          report={detailReport}
+          onClose={() => setDetailReport(null)}
+          onOpenPhoto={handleOpenImageViewer}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -407,12 +474,26 @@ export function CreateOtReportScreen() {
   }
 
   return (
-    <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <PageHeader
-          title="Tạo báo cáo OT - Đội Live"
-          subtitle="Chỉ dành cho các ca làm việc có check-in trong 7 ngày gần nhất."
-        />
+    <Screen backgroundColor="#102739" statusBarStyle="light">
+      <View style={otReviewStyles.header}>
+        <View style={otReviewStyles.headerTop}>
+          <TouchableOpacity
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/employee/ot-report' as any))}
+            style={otReviewStyles.backBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={otReviewStyles.headerTitleWrap}>
+            <Text style={otReviewStyles.headerTitle}>Tạo báo cáo OT - Đội Live</Text>
+            <Text style={otReviewStyles.headerSubtitle}>
+              Chỉ dành cho các ca làm việc có check-in trong 7 ngày gần nhất
+            </Text>
+          </View>
+        </View>
+      </View>
+      <View style={otReviewStyles.sheetContainer}>
+        <ScrollView contentContainerStyle={otReviewStyles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* 1. Danh sách ca làm có check-in trong 7 ngày */}
         <SectionCard title="1. Chọn ca làm việc đã check-in (7 ngày)">
@@ -644,12 +725,30 @@ export function CreateOtReportScreen() {
               </View>
             </View>
 
-            <PrimaryButton onPress={submit} disabled={mutation.isPending}>
-              {mutation.isPending ? 'Đang gửi...' : 'Gửi báo cáo OT'}
-            </PrimaryButton>
+            <TouchableOpacity
+              style={[
+                otReviewStyles.createReportBtn,
+                { marginTop: 18, marginBottom: 20 },
+                mutation.isPending && { opacity: 0.6 },
+              ]}
+              disabled={mutation.isPending}
+              onPress={() => void submit()}
+              activeOpacity={0.85}
+            >
+              <MaterialCommunityIcons
+                name="send-check-outline"
+                size={18}
+                color="#FFFFFF"
+                style={{ marginRight: 6 }}
+              />
+              <Text style={otReviewStyles.createReportBtnText}>
+                {mutation.isPending ? 'Đang gửi...' : 'Gửi báo cáo OT'}
+              </Text>
+            </TouchableOpacity>
           </SectionCard>
         )}
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       {/* Start Time Picker Modal */}
       <CustomTimePickerModal
@@ -681,17 +780,6 @@ export function CreateOtReportScreen() {
 }
 
 type OtFilterStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
-
-
-const getInitials = (name?: string) => {
-  if (!name) return 'NV';
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return 'NV';
-  const first = parts[0] || '';
-  if (parts.length === 1) return first.slice(0, 2).toUpperCase();
-  const last = parts[parts.length - 1] || '';
-  return ((first[0] || '') + (last[0] || '')).toUpperCase() || 'NV';
-};
 
 export function LeaderOtReviewScreen() {
   const router = useRouter();
@@ -1378,118 +1466,206 @@ function OtReportDetailModal({
   );
 }
 
-function OtReportCard({ report }: { report: OtReport }) {
+function OtReportCard({
+  report,
+  onOpenDetail,
+  onOpenImageViewer,
+}: {
+  report: OtReport;
+  onOpenDetail: (report: OtReport) => void;
+  onOpenImageViewer: (photos: any[], idx: number) => void;
+}) {
   const router = useRouter();
-  const otHours = Math.floor(report.validOtMinutes / 60);
-  const otMinutes = report.validOtMinutes % 60;
-
-  // Image viewer state for individual card
-  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
-  const [viewerIndex, setViewerIndex] = useState(0);
-  const [isViewerVisible, setIsViewerVisible] = useState(false);
-  const [isDetailVisible, setIsDetailVisible] = useState(false);
-
-  const handleOpenPhoto = (photos: any[], idx: number = 0) => {
-    const urls = photos
-      .map((p) => resolveFileUrl(p.file?.fileUrl))
-      .filter(Boolean)
-      .map((uri) => ({ uri: uri as string }));
-    if (urls.length > 0) {
-      setViewerImages(urls);
-      setViewerIndex(idx);
-      setIsViewerVisible(true);
-    }
-  };
+  const userName = report.user?.profile?.fullName || report.user?.userCode || 'Nhân viên';
+  const initials = getInitials(userName);
+  const deptName = (report.department?.name || 'LIVESTREAM (MOVIELEGEND-HÀ NỘI)').toUpperCase();
+  const otDateStr = formatDate(report.otDate);
+  const startStr = `${formatTime(report.startTime)} • ${formatDate(report.startTime)}`;
+  const endStr = `${formatTime(report.endTime)} • ${formatDate(report.endTime)}`;
+  const validHours = Math.floor(report.validOtMinutes / 60);
+  const validMins = report.validOtMinutes % 60;
+  const approverName = report.decidedBy?.profile?.fullName || report.decidedBy?.userCode;
+  const decidedStr = report.decidedAt ? `${formatDate(report.decidedAt)} • ${formatTime(report.decidedAt)}` : '';
+  const photos = report.photos || [];
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={() => setIsDetailVisible(true)}
-      style={styles.card}
-    >
-      <View style={styles.row}>
-        <Text style={styles.cardTitle}>{formatDate(report.otDate)}</Text>
-        <StatusBadge
-          label={report.status === 'APPROVED' ? 'Đã duyệt' : report.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
-          tone={toneForStatus(report.status)}
-        />
-      </View>
-      <Text style={styles.cardText}>
-        Thời gian: {formatDateTime(report.startTime)} - {formatDateTime(report.endTime)}
-      </Text>
-      <Text style={styles.cardText}>
-        % Đề xuất: {report.proposedPercent}%{' '}
-        {report.approvedPercent ? `(Đã duyệt: ${report.approvedPercent}%)` : ''}
-      </Text>
-      <Text style={styles.cardTextBold}>
-        OT hợp lệ sau mốc 5h: {otHours}h {otMinutes > 0 ? `${otMinutes}p` : ''}
-      </Text>
-      {report.reason ? <Text style={styles.cardText} numberOfLines={2}>Lý do: {report.reason}</Text> : null}
+    <View style={otReviewStyles.card}>
+      {/* 1. Header: Avatar + Name/Dept & Status Badge */}
+      <View style={otReviewStyles.cardHeader}>
+        <View style={otReviewStyles.userRowLeft}>
+          <View style={otReviewStyles.avatarCircle}>
+            <Text style={otReviewStyles.avatarText}>{initials}</Text>
+          </View>
+          <View style={otReviewStyles.userTextCol}>
+            <Text style={otReviewStyles.userName} numberOfLines={1}>{userName}</Text>
+            <Text style={otReviewStyles.deptText} numberOfLines={1}>{deptName}</Text>
+          </View>
+        </View>
 
-      {/* Ảnh đính kèm */}
-      {report.photos && report.photos.length > 0 ? (
-        <View style={styles.photoThumbWrapper}>
-          <Text style={styles.photoHintText}>
-            <MaterialCommunityIcons name="magnify-plus-outline" size={13} color="#6B7280" /> Bấm để phóng to/zoom ảnh
+        {report.status === 'APPROVED' ? (
+          <View style={otReviewStyles.badgeApproved}>
+            <MaterialCommunityIcons name="check-circle" size={14} color="#059669" />
+            <Text style={otReviewStyles.badgeApprovedText}>Đã duyệt</Text>
+          </View>
+        ) : report.status === 'REJECTED' ? (
+          <View style={otReviewStyles.badgeRejected}>
+            <MaterialCommunityIcons name="close-circle" size={14} color="#DC2626" />
+            <Text style={otReviewStyles.badgeRejectedText}>Từ chối</Text>
+          </View>
+        ) : (
+          <View style={otReviewStyles.badgePending}>
+            <MaterialCommunityIcons name="clock-outline" size={14} color="#B45309" />
+            <Text style={otReviewStyles.badgePendingText}>Chờ duyệt</Text>
+          </View>
+        )}
+      </View>
+
+      {/* 2. Date */}
+      <View style={otReviewStyles.dateRow}>
+        <MaterialCommunityIcons name="calendar-month-outline" size={16} color="#64748B" />
+        <Text style={otReviewStyles.dateRowLabel}>Ngày OT • </Text>
+        <Text style={otReviewStyles.dateRowValue}>{otDateStr}</Text>
+      </View>
+
+      {/* 3. Start -> End Time Range Box */}
+      <View style={otReviewStyles.timeRangeBox}>
+        <View style={otReviewStyles.timeCol}>
+          <Text style={otReviewStyles.timeLabel}>Bắt đầu</Text>
+          <Text style={otReviewStyles.timeValue}>{startStr}</Text>
+        </View>
+        <MaterialCommunityIcons name="arrow-right" size={18} color="#94A3B8" />
+        <View style={[otReviewStyles.timeCol, { alignItems: 'flex-end' }]}>
+          <Text style={otReviewStyles.timeLabel}>Kết thúc</Text>
+          <Text style={otReviewStyles.timeValue}>{endStr}</Text>
+        </View>
+      </View>
+
+      {/* 4. 3-column Metrics Box */}
+      <View style={otReviewStyles.metricsBox}>
+        {/* Col 1: Valid OT */}
+        <View style={otReviewStyles.metricColValid}>
+          <View style={otReviewStyles.metricHeader}>
+            <MaterialCommunityIcons name="clock-outline" size={14} color="#0284C7" />
+            <Text style={otReviewStyles.metricLabel}>OT hợp lệ</Text>
+          </View>
+          <Text style={otReviewStyles.metricValueLarge}>{validHours}h {validMins}p</Text>
+          <Text style={otReviewStyles.metricSub}>Sau mốc 5 giờ</Text>
+        </View>
+
+        <View style={otReviewStyles.metricDivider} />
+
+        {/* Col 2: Proposed % */}
+        <View style={otReviewStyles.metricCol}>
+          <View style={otReviewStyles.metricHeader}>
+            <MaterialCommunityIcons name="percent-outline" size={14} color="#0284C7" />
+            <Text style={otReviewStyles.metricLabel}>Đề xuất</Text>
+          </View>
+          <Text style={[otReviewStyles.metricValueLarge, { color: '#059669' }]}>
+            {report.proposedPercent}%
           </Text>
-          <View style={styles.reviewPhotoRow}>
-            {report.photos.map((p, idx) => {
+        </View>
+
+        <View style={otReviewStyles.metricDivider} />
+
+        {/* Col 3: Approved % */}
+        <View style={otReviewStyles.metricCol}>
+          <View style={otReviewStyles.metricHeader}>
+            <MaterialCommunityIcons name="check-circle-outline" size={14} color="#0284C7" />
+            <Text style={otReviewStyles.metricLabel}>Được duyệt</Text>
+          </View>
+          <Text style={[otReviewStyles.metricValueLarge, { color: report.approvedPercent ? '#059669' : '#64748B' }]}>
+            {report.approvedPercent ? `${report.approvedPercent}%` : '--'}
+          </Text>
+        </View>
+      </View>
+
+      {/* 5. Decided Info */}
+      {report.status === 'APPROVED' && (approverName || decidedStr) && (
+        <View style={otReviewStyles.decidedRow}>
+          <MaterialCommunityIcons name="check-circle" size={16} color="#059669" />
+          <View style={{ flex: 1 }}>
+            <Text style={otReviewStyles.decidedText}>
+              <Text style={{ fontWeight: '700', color: '#059669' }}>{approverName || 'Leader'}</Text> đã duyệt
+            </Text>
+            {decidedStr ? <Text style={otReviewStyles.decidedTime}>{decidedStr}</Text> : null}
+          </View>
+        </View>
+      )}
+
+      {report.status === 'REJECTED' && (
+        <View style={otReviewStyles.decidedRow}>
+          <MaterialCommunityIcons name="close-circle" size={16} color="#DC2626" />
+          <View style={{ flex: 1 }}>
+            <Text style={otReviewStyles.decidedText}>
+              <Text style={{ fontWeight: '700', color: '#DC2626' }}>{approverName || 'Leader'}</Text> từ chối
+            </Text>
+            {report.rejectionReason ? (
+              <Text style={otReviewStyles.rejectReasonText}>Lý do: {report.rejectionReason}</Text>
+            ) : null}
+            {decidedStr ? <Text style={otReviewStyles.decidedTime}>{decidedStr}</Text> : null}
+          </View>
+        </View>
+      )}
+
+      {/* 6. Reason / Content */}
+      {report.reason ? (
+        <View style={otReviewStyles.contentRow}>
+          <MaterialCommunityIcons name="file-document-outline" size={16} color="#64748B" />
+          <Text style={otReviewStyles.contentText} numberOfLines={2}>
+            Nội dung: {report.reason}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* 7. Attachments Photos */}
+      {photos.length > 0 && (
+        <View style={otReviewStyles.photosSection}>
+          <View style={otReviewStyles.photosHeaderRow}>
+            <MaterialCommunityIcons name="paperclip" size={16} color="#64748B" />
+            <Text style={otReviewStyles.photosHeaderText}>Minh chứng • {photos.length} ảnh</Text>
+          </View>
+          <View style={otReviewStyles.photosThumbRow}>
+            {photos.map((p, pIdx) => {
               const imgUrl = resolveFileUrl(p.file?.fileUrl);
               if (!imgUrl) return null;
               return (
                 <TouchableOpacity
                   key={p.id}
-                  activeOpacity={0.8}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleOpenPhoto(report.photos || [], idx);
-                  }}
-                  style={styles.reviewThumbnailContainer}
+                  activeOpacity={0.85}
+                  onPress={() => onOpenImageViewer(photos, pIdx)}
+                  style={otReviewStyles.thumbWrapper}
                 >
-                  <Image source={{ uri: imgUrl }} style={styles.reviewThumbnail} />
-                  <View style={styles.zoomBadge}>
-                    <MaterialCommunityIcons name="arrow-expand" size={12} color="#FFFFFF" />
+                  <Image source={{ uri: imgUrl }} style={otReviewStyles.thumbImage} />
+                  <View style={otReviewStyles.thumbZoomIcon}>
+                    <MaterialCommunityIcons name="magnify-plus-outline" size={12} color="#FFFFFF" />
                   </View>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
-      ) : null}
+      )}
 
-      {report.rejectionReason ? (
-        <Text style={[styles.cardText, { color: colors.danger, marginTop: spacing.xs }]}>
-          Lý do từ chối: {report.rejectionReason}
-        </Text>
-      ) : null}
-
-      {report.status === 'REJECTED' ? (
-        <View style={{ marginTop: spacing.sm }}>
-          <PrimaryButton
-            onPress={() => {
-              router.push('/employee/ot-report/create' as any);
-            }}
+      {/* 8. Action Buttons */}
+      <View style={otReviewStyles.cardActionsRow}>
+        {report.status === 'REJECTED' && (
+          <TouchableOpacity
+            style={[otReviewStyles.quickApproveBtn, { backgroundColor: '#DC2626' }]}
+            onPress={() => router.push('/employee/ot-report/create' as any)}
           >
-            + Nộp lại báo cáo cho ngày này
-          </PrimaryButton>
-        </View>
-      ) : null}
-
-      <ImageView
-        images={viewerImages}
-        imageIndex={viewerIndex}
-        visible={isViewerVisible}
-        onRequestClose={() => setIsViewerVisible(false)}
-      />
-
-      {isDetailVisible ? (
-        <OtReportDetailModal
-          report={report}
-          onClose={() => setIsDetailVisible(false)}
-          onOpenPhoto={(photos, idx) => handleOpenPhoto(photos, idx)}
-        />
-      ) : null}
-    </TouchableOpacity>
+            <Text style={otReviewStyles.quickApproveText}>Nộp lại</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={otReviewStyles.viewDetailBtn}
+          onPress={() => onOpenDetail(report)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="eye-outline" size={16} color="#0F172A" />
+          <Text style={otReviewStyles.viewDetailText}>Xem chi tiết</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
@@ -2690,5 +2866,24 @@ const otReviewStyles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  createReportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#102739',
+    borderRadius: 14,
+    paddingVertical: 13,
+    marginBottom: 16,
+    shadowColor: '#102739',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  createReportBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
