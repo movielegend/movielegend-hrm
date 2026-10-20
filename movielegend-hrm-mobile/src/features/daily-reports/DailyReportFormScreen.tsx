@@ -952,9 +952,9 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
       const validRatings = cleanTasks
         .map((t) => t.selfRating)
         .filter((r): r is number => typeof r === 'number' && r > 0);
-      const computedSelfRating = validRatings.length > 0
+      const computedSelfRating = selfRating || (validRatings.length > 0
         ? Math.round(validRatings.reduce((a, b) => a + b, 0) / validRatings.length)
-        : selfRating;
+        : 5);
 
       await saveReportMutation.mutateAsync({
         metrics: cleanTasks,
@@ -1327,43 +1327,6 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
             {/* PANEL 0: HÔM NAY */}
             {currentStep === 0 && (
               <View style={styles.panelContainer}>
-                {/* BANNER ĐỒNG BỘ VỚI BẢNG EXCEL WEB */}
-                <View style={styles.syncBanner}>
-                  <View style={styles.syncBannerLeft}>
-                    <View style={styles.syncIconBox}>
-                      <Ionicons name="cloud-done-outline" size={20} color="#0284C7" />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={styles.syncBannerTitle}>Đồng bộ từ bảng Web</Text>
-                        <View style={styles.syncStatusLiveBadge}>
-                          <Text style={styles.syncStatusLiveText}>1:1 Web</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.syncBannerSubtitle}>
-                        Đầy đủ hạng mục, loại việc, độ ưu tiên & tiến độ từ Web
-                      </Text>
-                    </View>
-                  </View>
-                  {!isSubmittedToday && (
-                    <TouchableOpacity
-                      style={styles.syncRefreshBtn}
-                      onPress={() => handleSyncFromWeb(false)}
-                      disabled={isSyncingFromWeb}
-                      activeOpacity={0.7}
-                    >
-                      {isSyncingFromWeb ? (
-                        <ActivityIndicator size="small" color="#0284C7" />
-                      ) : (
-                        <Ionicons name="sync-outline" size={16} color="#0284C7" />
-                      )}
-                      <Text style={styles.syncRefreshBtnText}>
-                        {isSyncingFromWeb ? 'Đang kéo…' : 'Đồng bộ'}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
                 {/* KHỐI CÔNG VIỆC HÔM NAY */}
                 <View style={styles.sectionCard}>
                   <View style={styles.sectionCardHeaderRow}>
@@ -1676,34 +1639,6 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 editable={!isSubmittedToday}
                               />
 
-                              {/* Tự đánh giá */}
-                              <Text style={styles.inputFieldLabel}>Tự đánh giá</Text>
-                              <View style={styles.ratingStarsBox}>
-                                <View style={styles.ratingStarsRow}>
-                                  {[1, 2, 3, 4, 5].map((star) => {
-                                    const isActive = star <= (m.selfRating ?? 5);
-                                    return (
-                                      <TouchableOpacity
-                                        key={star}
-                                        onPress={() => !isSubmittedToday && handleUpdateMetric(idx, 'selfRating', star)}
-                                        disabled={isSubmittedToday}
-                                        activeOpacity={0.7}
-                                        hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-                                      >
-                                        <Ionicons
-                                          name={isActive ? 'star' : 'star-outline'}
-                                          size={28}
-                                          color={isActive ? '#F59E0B' : '#CBD5E1'}
-                                        />
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                                </View>
-                                <Text style={styles.ratingLabelText}>
-                                  {(m.selfRating ?? 5)}/5 • {ASSESSMENT_LEVELS.find((l) => l.level === (m.selfRating ?? 5))?.title || 'Đạt kế hoạch'}
-                                </Text>
-                              </View>
-
                               {/* Hình ảnh & tệp đính kèm */}
                               <Text style={styles.inputFieldLabel}>Hình ảnh & tệp đính kèm</Text>
                               <TouchableOpacity
@@ -1768,6 +1703,36 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                       );
                     })
                   )}
+
+                  {/* Tự đánh giá tổng quan công việc trong ngày */}
+                  <View style={{ marginTop: 12, marginBottom: 14 }}>
+                    <Text style={styles.inputFieldLabel}>Tự đánh giá</Text>
+                    <View style={styles.ratingStarsBox}>
+                      <View style={styles.ratingStarsRow}>
+                        {[1, 2, 3, 4, 5].map((star) => {
+                          const isActive = star <= selfRating;
+                          return (
+                            <TouchableOpacity
+                              key={star}
+                              onPress={() => !isSubmittedToday && setSelfRating(star)}
+                              disabled={isSubmittedToday}
+                              activeOpacity={0.7}
+                              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                            >
+                              <Ionicons
+                                name={isActive ? 'star' : 'star-outline'}
+                                size={28}
+                                color={isActive ? '#F59E0B' : '#CBD5E1'}
+                              />
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                      <Text style={styles.ratingLabelText}>
+                        {selfRating}/5 - {ASSESSMENT_LEVELS.find((l) => l.level === selfRating)?.title || 'Đạt kế hoạch'}
+                      </Text>
+                    </View>
+                  </View>
 
                   {!isSubmittedToday && (
                     <TouchableOpacity style={styles.dashedAddBtn} onPress={handleAddMetric} activeOpacity={0.7}>
