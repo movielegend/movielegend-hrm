@@ -191,6 +191,21 @@ export class EmployeeRequestsService {
         ? moment.tz(meta.endTime, 'Asia/Ho_Chi_Minh').format('HH:mm')
         : '';
       requestTitle = `[LÀM THÊM GIỜ]${dateStr ? ` Ngày ${dateStr}` : ''}${startStr && endStr ? ` (${startStr} - ${endStr})` : ''}`;
+    } else if (dto.type === EmployeeRequestType.LEAVE && (!dto.title || dto.title.trim() === '' || dto.title === 'Nghỉ phép' || dto.title === 'Yêu cầu')) {
+      const meta: any = dto.attachmentMetadata || {};
+      const leaveType = meta.leaveType || 'Nghỉ phép';
+      const dateStr = meta.fromDate
+        ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : '';
+      let timePart = '';
+      if (meta.leaveDurationType === 'Theo giờ' && meta.startTime && meta.endTime) {
+        const startStr = moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm');
+        const endStr = moment.tz(meta.endTime, 'Asia/Ho_Chi_Minh').format('HH:mm');
+        timePart = ` (${startStr} - ${endStr})`;
+      } else if (['1/2 ngày', 'Nửa ngày'].includes(meta.leaveDurationType)) {
+        timePart = meta.startTime ? ` (${moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm')})` : ' (Nửa ngày)';
+      }
+      requestTitle = `[NGHỈ PHÉP] ${leaveType}${timePart}${dateStr ? ` - ${dateStr}` : ''}`;
     }
 
     const isFinancial = dto.type === EmployeeRequestType.ADVANCE || dto.type === EmployeeRequestType.EXPENSE || dto.type === EmployeeRequestType.PURCHASE;
@@ -218,6 +233,38 @@ export class EmployeeRequestsService {
       const dateStr = meta.fromDate
         ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
         : moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+
+      // TC_LV_04: Chặn tạo đơn nghỉ phép vào ngày không có ca làm việc (Ngày OFF / Chủ Nhật) - Chống trừ oan phép năm
+      if (meta.leaveDurationType === 'Nhiều ngày' && meta.toDate) {
+        const toDateStr = moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+        const startDay = this.businessTime.startOfBusinessDate(dateStr);
+        const endDay = this.businessTime.startOfBusinessDate(toDateStr);
+        const shiftsInRange = await this.prisma.shiftAssignment.findMany({
+          where: {
+            userId: actor.userId,
+            workDate: { gte: startDay, lte: endDay },
+          },
+        });
+        if (shiftsInRange.length === 0) {
+          throw badRequest(
+            'NO_SHIFT_ASSIGNMENT',
+            `Khoảng thời gian bạn chọn (${moment.tz(dateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')} - ${moment.tz(toDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')}) không có ca làm việc nào được phân công. Đây là ngày nghỉ (OFF), bạn không cần tạo đơn xin nghỉ phép.`,
+          );
+        }
+      } else {
+        const workDate = this.businessTime.startOfBusinessDate(dateStr);
+        const shiftAssignment = await this.prisma.shiftAssignment.findFirst({
+          where: { userId: actor.userId, workDate },
+          include: { shift: true },
+        });
+        if (!shiftAssignment || !shiftAssignment.shift) {
+          const formattedDate = moment.tz(dateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY');
+          throw badRequest(
+            'NO_SHIFT_ASSIGNMENT',
+            `Bạn không có ca làm việc nào vào ngày ${formattedDate}. Đây là ngày nghỉ (OFF), bạn không cần tạo đơn xin nghỉ phép.`,
+          );
+        }
+      }
 
       if (meta.leaveDurationType === 'Theo giờ') {
         if (!meta.startTime) {

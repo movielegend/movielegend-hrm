@@ -1095,7 +1095,13 @@ export default function CreateRequestScreen() {
       } else if (isExplanation && explanationType) {
         generatedTitle = `Giải trình: ${explanationType} - ${dateStr}`;
       } else if (isLeave && leaveType) {
-        generatedTitle = `Nghỉ phép: ${leaveType} - ${dateStr}`;
+        let timePart = '';
+        if (leaveDurationType === 'Theo giờ' && startTime && endTime) {
+          timePart = ` (${formatTime(startTime)} - ${formatTime(endTime)})`;
+        } else if (['1/2 ngày', 'Nửa ngày'].includes(leaveDurationType)) {
+          timePart = startTime ? ` (${formatTime(startTime)})` : ' (Nửa ngày)';
+        }
+        generatedTitle = `Nghỉ phép: ${leaveType}${timePart} - ${dateStr}`;
       } else if (isCompensatory) {
         const targetDateStr = targetLeaveDate ? formatDate(targetLeaveDate) : '';
         if (compensationMode === 'SPLIT_2') {
@@ -1196,6 +1202,15 @@ export default function CreateRequestScreen() {
       if (!leaveDurationType || !leaveType || !fromDate) {
         showAlert('Lỗi', 'Vui lòng nhập đầy đủ thông tin Loại nghỉ, Ngày nghỉ');
         return;
+      }
+      if (leaveDurationType !== 'Nhiều ngày') {
+        if (assignedShiftsForDate.length === 0) {
+          showAlert(
+            'Không có ca làm việc',
+            `Bạn không có ca làm việc vào ngày ${formatDate(fromDate)}. Đây là ngày nghỉ (OFF), bạn không cần tạo đơn xin nghỉ phép.`
+          );
+          return;
+        }
       }
       if (leaveDurationType === 'Nhiều ngày') {
         if (!toDate) {
@@ -2604,6 +2619,26 @@ export default function CreateRequestScreen() {
                     </View>
                   )}
                 </>
+              )}
+
+              {fromDate && leaveDurationType !== 'Nhiều ngày' && assignedShiftsForDate.length === 0 && (
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FCA5A5',
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 9,
+                  marginBottom: 14,
+                  gap: 8,
+                }}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#EF4444" />
+                  <Text style={{ flex: 1, fontSize: 12, color: '#DC2626', lineHeight: 17 }}>
+                    Ngày {formatDate(fromDate)} bạn không có ca làm việc (Ngày OFF / Chủ Nhật). Bạn không cần tạo đơn xin nghỉ phép vào ngày này.
+                  </Text>
+                </View>
               )}
 
               {/* Người bàn giao */}
