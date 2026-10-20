@@ -670,6 +670,7 @@ export class AuthService {
       accountStatus: user.accountStatus,
       approvalStatus: user.approvalStatus,
       isActive: user.isActive,
+      currentLevelNumber: user.profile?.currentLevelNumber ?? 1,
       isRewardVaultEnabled: Boolean((user as any).isRewardVaultEnabled),
       deletionScheduledAt: (user as any).deletionScheduledAt ? (user as any).deletionScheduledAt.toISOString() : null,
     };
