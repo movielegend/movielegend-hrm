@@ -71,9 +71,14 @@ export function SelectModal({
               contentContainerStyle={styles.listContainer}
               renderItem={({ item, index }) => {
                 const itemId = getOptionId(item, index);
+                const hasSelectedValue = selectedValue !== undefined && selectedValue !== null && selectedValue !== '';
                 const isSelected = isMulti 
                   ? selectedValues.includes(itemId)
-                  : (item.id === selectedValue || item.value === selectedValue || itemId === selectedValue);
+                  : (hasSelectedValue && (
+                      (item.id !== undefined && item.id === selectedValue) ||
+                      (item.value !== undefined && item.value === selectedValue) ||
+                      itemId === selectedValue
+                    ));
                 
                 return (
                   <Pressable

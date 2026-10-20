@@ -7,11 +7,15 @@ export interface DepartmentFilters {
   search?: string;
   page?: number;
   limit?: number;
+  all?: boolean;
 }
 
 export async function getDepartments(filters: DepartmentFilters = {}): Promise<PaginatedResult<Department>> {
   const response = await apiClient.get<ApiResponse<{ items: Department[] } | Department[]>>('/departments', {
-    params: { search: filters.search },
+    params: {
+      search: filters.search,
+      all: filters.all ? 'true' : undefined,
+    },
   });
   return normalizePagination(unwrapData(response), cleanPaginationFallback(filters));
 }

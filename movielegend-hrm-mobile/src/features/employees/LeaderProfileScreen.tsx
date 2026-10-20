@@ -295,6 +295,18 @@ export function LeaderProfileScreen() {
                         onPress={() => router.push('/leader/contracts' as any)}
                       />
                       <FeatureItem
+                        icon="calendar-account"
+                        iconType="mci"
+                        title="Ca làm của tôi"
+                        onPress={() => router.push('/leader/schedule' as any)}
+                      />
+                      <FeatureItem
+                        icon="format-list-bulleted"
+                        iconType="mci"
+                        title="Danh sách ca"
+                        onPress={() => router.push('/leader/shifts' as any)}
+                      />
+                      <FeatureItem
                         icon="calendar-check"
                         iconType="mci"
                         title="Phân ca làm"

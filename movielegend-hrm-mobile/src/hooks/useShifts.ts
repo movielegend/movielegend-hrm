@@ -11,11 +11,13 @@ import {
   getShifts,
   updateShift,
   revokeShiftAssignment,
+  batchDeleteShiftCells,
 } from '../api/shifts.api';
 import { queryKeys } from '../constants/queryKeys';
 import type {
   AssignShiftBatchPayload,
   AssignShiftPayload,
+  BatchDeleteShiftCellsPayload,
   CreateShiftPayload,
   DepartmentAssignmentsQuery,
   ShiftRegistrationPayload,
@@ -120,3 +122,16 @@ export function useRevokeShiftAssignment() {
     },
   });
 }
+
+export function useBatchDeleteShiftCells() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: BatchDeleteShiftCellsPayload) => batchDeleteShiftCells(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['shifts'] });
+      void queryClient.invalidateQueries({ queryKey: ['shift-schedule'] });
+      void queryClient.invalidateQueries({ queryKey: ['shift-assignments-dept'] });
+    },
+  });
+}
+

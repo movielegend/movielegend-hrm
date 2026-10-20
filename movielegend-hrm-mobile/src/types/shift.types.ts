@@ -119,3 +119,13 @@ export interface ShiftSwap {
   fromShift?: Shift;
   toShift?: Shift;
 }
+
+export interface BatchDeleteShiftCellItem {
+  id?: string;
+  userId: string;
+  workDate: string;
+}
+
+export interface BatchDeleteShiftCellsPayload {
+  items: BatchDeleteShiftCellItem[];
+}

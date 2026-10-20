@@ -26,7 +26,7 @@ import {
   useCrossDepartmentRequest, 
   useCrossDepartmentRequests 
 } from '../../hooks/useCrossDepartment';
-import { useDepartments } from '../../hooks/useDepartments';
+import { useDepartments, usePublicDepartments } from '../../hooks/useDepartments';
 import { useEmployees } from '../../hooks/useEmployees';
 import { useAuth } from '../../providers/AuthProvider';
 
@@ -248,7 +248,7 @@ export function CrossDepartmentListScreen({ area, mode = 'all' }: { area: CrossA
 export function CreateCrossDepartmentScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const departmentsQuery = useDepartments({ page: 1, limit: 100 });
+  const departmentsQuery = usePublicDepartments();
   const mutation = useCreateCrossDepartmentRequest();
   
   const [targetDepartment, setTargetDepartment] = useState<SelectOption | null>(null);
@@ -273,14 +273,25 @@ export function CreateCrossDepartmentScreen() {
     }
   }, [user?.department]);
 
-  const departmentOptions: SelectOption[] = useMemo(() => {
+  const sourceDepartmentOptions: SelectOption[] = useMemo(() => {
     if (!departmentsQuery.data?.items) return [];
-    return departmentsQuery.data.items?.map(d => ({
+    return departmentsQuery.data.items.map(d => ({
       id: d.id,
       label: d.name,
       subtitle: `Mã: ${d.code}${d.branch?.name ? ` • Cơ sở: ${d.branch.name}` : ''}`,
     }));
   }, [departmentsQuery.data]);
+
+  const targetDepartmentOptions: SelectOption[] = useMemo(() => {
+    if (!departmentsQuery.data?.items) return [];
+    return departmentsQuery.data.items
+      .filter(d => !sourceDepartment || d.id !== sourceDepartment.id)
+      .map(d => ({
+        id: d.id,
+        label: d.name,
+        subtitle: `Mã: ${d.code}${d.branch?.name ? ` • Cơ sở: ${d.branch.name}` : ''}`,
+      }));
+  }, [departmentsQuery.data, sourceDepartment]);
 
   const [attachmentUri, setAttachmentUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -524,7 +535,7 @@ export function CreateCrossDepartmentScreen() {
       <SelectModal
         visible={targetModalVisible}
         title="Chọn phòng ban đích"
-        options={departmentOptions}
+        options={targetDepartmentOptions}
         selectedValue={targetDepartment?.id}
         onSelect={setTargetDepartment}
         onClose={() => setTargetModalVisible(false)}
@@ -532,9 +543,14 @@ export function CreateCrossDepartmentScreen() {
       <SelectModal
         visible={sourceModalVisible}
         title="Chọn phòng ban nguồn"
-        options={departmentOptions}
+        options={sourceDepartmentOptions}
         selectedValue={sourceDepartment?.id}
-        onSelect={setSourceDepartment}
+        onSelect={(opt) => {
+          setSourceDepartment(opt);
+          if (targetDepartment?.id === opt.id) {
+            setTargetDepartment(null);
+          }
+        }}
         onClose={() => setSourceModalVisible(false)}
       />
     </View>

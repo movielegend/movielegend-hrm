@@ -13,7 +13,7 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useRouter, useSegments, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { SelectModal, SelectOption } from '../../components/SelectModal';
 import { CustomDatePickerModal } from '../../components/CustomDatePickerModal';
@@ -639,6 +639,14 @@ export function AssignShiftScreen() {
                 : 'Điều chuyển nhân sự ca sau lên vá vào ca thiếu người.'}
             </Text>
           </View>
+          <Pressable
+            onPress={() => router.push((isAdmin ? '/admin/shifts' : '/leader/shifts') as any)}
+            style={styles.headerRightBtn}
+            accessibilityLabel="Xem danh sách ca"
+          >
+            <MaterialCommunityIcons name="format-list-bulleted" size={15} color="#FFFFFF" />
+            <Text style={styles.headerRightBtnText}>Danh sách ca</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -1300,6 +1308,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  headerRightBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  headerRightBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   backBtn: {
     padding: 4,

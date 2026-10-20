@@ -721,12 +721,14 @@ export function ExtensionRequestModal({
   pending?: boolean;
   extensionCount?: number;
 }) {
-  const [requestedDueAt, setRequestedDueAt] = useState(currentDueAt ?? '');
+  const [isOpen, setIsOpen] = useState(false);
+  const [requestedDueAt, setRequestedDueAt] = useState('');
   const [reason, setReason] = useState('');
   const [showPicker, setShowPicker] = useState(false);
   
-  const selectedDate = requestedDueAt ? new Date(requestedDueAt) : new Date();
-  const invalidDate = Boolean(currentDueAt && requestedDueAt && new Date(requestedDueAt) <= new Date(currentDueAt));
+  const selectedDate = requestedDueAt ? new Date(requestedDueAt) : new Date(Date.now() + 86400000);
+  const isPast = Boolean(requestedDueAt && new Date(requestedDueAt) <= new Date());
+  const invalidDate = Boolean(requestedDueAt && (isPast || (currentDueAt && new Date(requestedDueAt) <= new Date(currentDueAt))));
   const isLimitReached = extensionCount >= 2;
 
   if (isLimitReached) {
@@ -745,45 +747,85 @@ export function ExtensionRequestModal({
     );
   }
 
+  if (!isOpen) {
+    return (
+      <Pressable
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#EFF6FF',
+          borderColor: '#BFDBFE',
+          borderWidth: 1,
+          borderRadius: 10,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          gap: 8,
+        }}
+        onPress={() => setIsOpen(true)}
+      >
+        <MaterialCommunityIcons name="calendar-clock" size={20} color="#2563EB" />
+        <Text style={{ fontSize: 14, fontWeight: '700', color: '#2563EB' }}>
+          Xin gia hạn công việc ({extensionCount}/2 lần)
+        </Text>
+      </Pressable>
+    );
+  }
+
   return (
-    <View style={styles.stack}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={styles.meta}>Hạn chót đề xuất</Text>
-        <Text style={[styles.metaSmall, { color: colors.primary, fontWeight: '600' }]}>Đã xin: {extensionCount}/2 lần</Text>
+    <View style={[styles.stack, { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 12, padding: 14 }]}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <MaterialCommunityIcons name="calendar-clock" size={18} color="#2563EB" />
+          <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>Yêu cầu gia hạn công việc</Text>
+        </View>
+        <Text style={[styles.metaSmall, { color: colors.primary, fontWeight: '600' }]}>Lượt {extensionCount + 1}/2</Text>
       </View>
+      <Text style={styles.meta}>Hạn chót đề xuất mới</Text>
       <Pressable
         style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: spacing.md, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
         onPress={() => setShowPicker(true)}
       >
         <Text style={{ color: requestedDueAt ? colors.text : colors.muted, fontWeight: '500' }}>
-          {requestedDueAt ? formatDateTime(requestedDueAt) : 'Chọn ngày & giờ'}
+          {requestedDueAt ? formatDateTime(requestedDueAt) : 'Bấm để chọn ngày & giờ hạn mới'}
         </Text>
         <MaterialCommunityIcons name="calendar-clock" size={20} color={colors.primary} />
       </Pressable>
       
       <ActionDatePicker
         visible={showPicker}
-        title="Chọn hạn chót đề xuất"
+        title="Chọn hạn chót đề xuất mới"
         value={selectedDate}
         onChange={(d) => setRequestedDueAt(d.toISOString())}
         onClose={() => setShowPicker(false)}
       />
 
-      <FormField label="Lý do gia hạn" value={reason} onChangeText={setReason} multiline />
-      {invalidDate ? <Text style={styles.dangerText}>Ngày mới phải sau hạn chót hiện tại.</Text> : null}
-      <SecondaryButton
-        disabled={!requestedDueAt || reason.trim().length < 3 || invalidDate}
-        loading={pending}
-        onPress={() => {
-          const due = requestedDueAt;
-          const r = reason;
-          setRequestedDueAt('');
-          setReason('');
-          void onSubmit(due, r);
-        }}
-      >
-        Gửi gia hạn ({extensionCount + 1}/2)
-      </SecondaryButton>
+      <FormField label="Lý do gia hạn" value={reason} onChangeText={setReason} multiline placeholder="Nêu rõ lý do cần xin gia hạn..." />
+      {invalidDate ? <Text style={styles.dangerText}>Hạn chót đề xuất mới phải ở tương lai và sau hạn hiện tại.</Text> : null}
+      
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+        <View style={{ flex: 1 }}>
+          <SecondaryButton onPress={() => { setIsOpen(false); setRequestedDueAt(''); setReason(''); }}>
+            Hủy
+          </SecondaryButton>
+        </View>
+        <View style={{ flex: 2 }}>
+          <PrimaryButton
+            disabled={!requestedDueAt || reason.trim().length < 3 || invalidDate}
+            loading={pending}
+            onPress={() => {
+              const due = requestedDueAt;
+              const r = reason;
+              setRequestedDueAt('');
+              setReason('');
+              setIsOpen(false);
+              void onSubmit(due, r);
+            }}
+          >
+            Gửi yêu cầu ({extensionCount + 1}/2)
+          </PrimaryButton>
+        </View>
+      </View>
     </View>
   );
 }
