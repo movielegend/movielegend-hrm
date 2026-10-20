@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, EmployeeRequestStatus, EmployeeRequestType, Prisma, NotificationType, RoleScopeType } from '@prisma/client';
+import { AccountStatus, EmployeeRequestStatus, EmployeeRequestType, Prisma, NotificationType, RoleScopeType, ShiftAssignmentStatus } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import moment from 'moment-timezone';
@@ -191,6 +191,21 @@ export class EmployeeRequestsService {
         ? moment.tz(meta.endTime, 'Asia/Ho_Chi_Minh').format('HH:mm')
         : '';
       requestTitle = `[LÀM THÊM GIỜ]${dateStr ? ` Ngày ${dateStr}` : ''}${startStr && endStr ? ` (${startStr} - ${endStr})` : ''}`;
+    } else if (dto.type === EmployeeRequestType.LEAVE && (!dto.title || dto.title.trim() === '' || dto.title === 'Nghỉ phép' || dto.title === 'Yêu cầu')) {
+      const meta: any = dto.attachmentMetadata || {};
+      const leaveType = meta.leaveType || 'Nghỉ phép';
+      const dateStr = meta.fromDate
+        ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+        : '';
+      let timePart = '';
+      if (meta.leaveDurationType === 'Theo giờ' && meta.startTime && meta.endTime) {
+        const startStr = moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm');
+        const endStr = moment.tz(meta.endTime, 'Asia/Ho_Chi_Minh').format('HH:mm');
+        timePart = ` (${startStr} - ${endStr})`;
+      } else if (['1/2 ngày', 'Nửa ngày'].includes(meta.leaveDurationType)) {
+        timePart = meta.startTime ? ` (${moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm')})` : ' (Nửa ngày)';
+      }
+      requestTitle = `[NGHỈ PHÉP] ${leaveType}${timePart}${dateStr ? ` - ${dateStr}` : ''}`;
     }
 
     const isFinancial = dto.type === EmployeeRequestType.ADVANCE || dto.type === EmployeeRequestType.EXPENSE || dto.type === EmployeeRequestType.PURCHASE;
@@ -218,6 +233,38 @@ export class EmployeeRequestsService {
       const dateStr = meta.fromDate
         ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
         : moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+
+      // TC_LV_04: Chặn tạo đơn nghỉ phép vào ngày không có ca làm việc (Ngày OFF / Chủ Nhật) - Chống trừ oan phép năm
+      if (meta.leaveDurationType === 'Nhiều ngày' && meta.toDate) {
+        const toDateStr = moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+        const startDay = this.businessTime.startOfBusinessDate(dateStr);
+        const endDay = this.businessTime.startOfBusinessDate(toDateStr);
+        const shiftsInRange = await this.prisma.shiftAssignment.findMany({
+          where: {
+            userId: actor.userId,
+            workDate: { gte: startDay, lte: endDay },
+          },
+        });
+        if (shiftsInRange.length === 0) {
+          throw badRequest(
+            'NO_SHIFT_ASSIGNMENT',
+            `Khoảng thời gian bạn chọn (${moment.tz(dateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')} - ${moment.tz(toDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')}) không có ca làm việc nào được phân công. Đây là ngày nghỉ (OFF), bạn không cần tạo đơn xin nghỉ phép.`,
+          );
+        }
+      } else {
+        const workDate = this.businessTime.startOfBusinessDate(dateStr);
+        const shiftAssignment = await this.prisma.shiftAssignment.findFirst({
+          where: { userId: actor.userId, workDate },
+          include: { shift: true },
+        });
+        if (!shiftAssignment || !shiftAssignment.shift) {
+          const formattedDate = moment.tz(dateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY');
+          throw badRequest(
+            'NO_SHIFT_ASSIGNMENT',
+            `Bạn không có ca làm việc nào vào ngày ${formattedDate}. Đây là ngày nghỉ (OFF), bạn không cần tạo đơn xin nghỉ phép.`,
+          );
+        }
+      }
 
       if (meta.leaveDurationType === 'Theo giờ') {
         if (!meta.startTime) {
@@ -344,6 +391,124 @@ export class EmployeeRequestsService {
         const d2 = moment.tz(compShifts[1].date, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
         if (d1 === d2) {
           throw badRequest('DUPLICATE_COMP_DATE', 'Hai ca làm bù phải được chọn vào 2 ngày khác nhau (do mỗi ngày chỉ được phân công 1 ca).');
+        }
+      }
+    }
+
+    // Kiểm tra quy định cho Đơn Đi muộn (LATE_ARRIVAL), Về sớm (EARLY_LEAVE) và Giải trình công (ATTENDANCE_ADJUSTMENT)
+    if (
+      dto.type === EmployeeRequestType.LATE_ARRIVAL ||
+      dto.type === EmployeeRequestType.EARLY_LEAVE ||
+      dto.type === EmployeeRequestType.ATTENDANCE_ADJUSTMENT
+    ) {
+      const meta: any = dto.attachmentMetadata || {};
+      const expType = meta.explanationType || '';
+      const isLateCheck = dto.type === EmployeeRequestType.LATE_ARRIVAL || expType === 'Check-in muộn';
+      const isEarlyCheck = dto.type === EmployeeRequestType.EARLY_LEAVE || expType === 'Check-out sớm';
+
+      if (isLateCheck || isEarlyCheck) {
+        const dateStr = meta.fromDate
+          ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+          : (meta.workDate || moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD'));
+
+        const startOfDay = moment.tz(dateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').startOf('day').toDate();
+        const endOfDay = moment.tz(dateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').endOf('day').toDate();
+
+        // 1. Kiểm tra nhân viên có ca làm việc được phân công vào ngày này không
+        let shiftAssignment = await this.prisma.shiftAssignment.findFirst({
+          where: {
+            userId: actor.userId,
+            workDate: { gte: startOfDay, lte: endOfDay },
+            status: ShiftAssignmentStatus.ASSIGNED,
+          },
+          include: { shift: true },
+        });
+
+        if (meta.shiftId) {
+          const matchedByShift = await this.prisma.shiftAssignment.findFirst({
+            where: {
+              userId: actor.userId,
+              shiftId: meta.shiftId,
+              workDate: { gte: startOfDay, lte: endOfDay },
+              status: ShiftAssignmentStatus.ASSIGNED,
+            },
+            include: { shift: true },
+          });
+          if (matchedByShift) {
+            shiftAssignment = matchedByShift;
+          }
+        }
+
+        const shift = shiftAssignment?.shift;
+        if (!shift) {
+          const formattedDate = moment.tz(dateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY');
+          throw badRequest(
+            'NO_SHIFT_ASSIGNMENT',
+            `Bạn không có ca làm việc nào được phân công vào ngày ${formattedDate}. Không thể tạo đơn ${isLateCheck ? 'đi muộn' : 'về sớm'}.`,
+          );
+        }
+
+        // 2. Kiểm tra giờ vào / ra thực tế phải nằm trong ca làm việc
+        const parseTimeToMinutes = (t: string): number => {
+          const parts = t.split(':');
+          return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        };
+
+        const shiftStartMins = parseTimeToMinutes(shift.startTime);
+        const shiftEndMins = parseTimeToMinutes(shift.endTime);
+        const isOvernight = shiftEndMins <= shiftStartMins;
+        const shiftEndNorm = isOvernight ? shiftEndMins + 1440 : shiftEndMins;
+
+        if (isLateCheck) {
+          const timeVal = meta.startTime || meta.requestedCheckInAt;
+          if (!timeVal) {
+            throw badRequest('MISSING_START_TIME', 'Vui lòng nhập giờ vào thực tế.');
+          }
+          const timeStr = moment.tz(timeVal, 'Asia/Ho_Chi_Minh').format('HH:mm');
+          const rawMins = parseTimeToMinutes(timeStr);
+          let timeNorm = rawMins;
+          if (isOvernight && rawMins <= shiftEndMins) {
+            timeNorm = rawMins + 1440;
+          }
+
+          if (timeNorm <= shiftStartMins) {
+            throw badRequest(
+              'INVALID_LATE_TIME',
+              `Giờ vào thực tế (${timeStr}) phải sau giờ bắt đầu ca (${shift.startTime}). Bạn đến trước hoặc đúng giờ ca làm nên không phải đi muộn.`,
+            );
+          }
+          if (timeNorm >= shiftEndNorm) {
+            throw badRequest(
+              'INVALID_LATE_TIME',
+              `Giờ vào thực tế (${timeStr}) phải trước giờ kết thúc ca (${shift.endTime}). Giờ vào thực tế phải nằm trong khung giờ ca làm việc.`,
+            );
+          }
+        }
+
+        if (isEarlyCheck) {
+          const timeVal = meta.endTime || meta.requestedCheckOutAt;
+          if (!timeVal) {
+            throw badRequest('MISSING_END_TIME', 'Vui lòng nhập giờ ra thực tế.');
+          }
+          const timeStr = moment.tz(timeVal, 'Asia/Ho_Chi_Minh').format('HH:mm');
+          const rawMins = parseTimeToMinutes(timeStr);
+          let timeNorm = rawMins;
+          if (isOvernight && rawMins <= shiftEndMins) {
+            timeNorm = rawMins + 1440;
+          }
+
+          if (timeNorm <= shiftStartMins) {
+            throw badRequest(
+              'INVALID_EARLY_TIME',
+              `Giờ ra thực tế (${timeStr}) phải sau giờ bắt đầu ca (${shift.startTime}). Giờ ra không thể trước khi ca bắt đầu.`,
+            );
+          }
+          if (timeNorm >= shiftEndNorm) {
+            throw badRequest(
+              'INVALID_EARLY_TIME',
+              `Giờ ra thực tế (${timeStr}) phải trước giờ kết thúc ca (${shift.endTime}). Bạn về đúng hoặc sau giờ kết thúc ca nên không phải về sớm.`,
+            );
+          }
         }
       }
     }

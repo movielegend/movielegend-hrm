@@ -1,19 +1,26 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, StatusBar, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { roleBase } from '../../utils/notification-routing';
 import { isUserInLiveDepartment } from '../../constants/app-registry';
 import { hasUserRole } from '../../utils/role-routing';
+import { getEmployeeRequests } from '../../api/employee-requests.api';
+import { useApprovals } from '../../hooks/useApprovals';
+import { useCrossDepartmentRequests } from '../../hooks/useCrossDepartment';
+import { getPendingOtReports } from '../../api/ot-report.api';
 
 export function ApprovalMenuScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
 
   const rawRoles = user?.roles || [];
   const userRoles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
@@ -48,6 +55,86 @@ export function ApprovalMenuScreen() {
     Boolean((user as any)?.isDepartmentLeader);
 
   const isFinancialReviewer = isAccountantOrAdmin || isHr || isLeader;
+
+  // 1. Pending Employee Requests
+  const { data: pendingRequests = [] } = useQuery({
+    queryKey: ['employee-requests-menu-pending'],
+    queryFn: async () => {
+      try {
+        const res = await getEmployeeRequests({ status: 'PENDING' });
+        return Array.isArray(res) ? res.filter((r: any) => r.status === 'PENDING') : [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 1000 * 30,
+  });
+
+  const pendingFinancialCount = useMemo(() => {
+    return pendingRequests.filter((r: any) => {
+      const isFin = r.type === 'ADVANCE' || r.type === 'EXPENSE' || r.type === 'PURCHASE';
+      const stage = r.attachmentMetadata?.stage;
+      return isFin && (!stage || stage === 'PENDING_LEADER' || stage === 'PENDING' || stage === 'PENDING_HR_MANAGER');
+    }).length;
+  }, [pendingRequests]);
+
+  const pendingGeneralRequestsCount = useMemo(() => {
+    if (!isFinancialReviewer) return pendingRequests.length;
+    return pendingRequests.filter((r: any) => {
+      return !['ADVANCE', 'EXPENSE', 'PURCHASE'].includes(r.type);
+    }).length;
+  }, [pendingRequests, isFinancialReviewer]);
+
+  // 2. Pending Account Approvals
+  const { data: approvalsData } = useApprovals({
+    status: 'PENDING',
+    page: 1,
+    limit: 100,
+  });
+  const pendingAccountsCount = approvalsData?.pagination?.total ?? approvalsData?.items?.length ?? 0;
+
+  // 3. Pending Cross Department Requests
+  const { data: crossDeptData } = useCrossDepartmentRequests({
+    page: 1,
+    limit: 100,
+  });
+  const pendingCrossDeptCount = useMemo(() => {
+    if (!crossDeptData?.items) return 0;
+    return crossDeptData.items.filter((i: any) =>
+      i.status?.includes('PENDING') || i.status === 'SUBMITTED_FOR_REVIEW'
+    ).length;
+  }, [crossDeptData]);
+
+  // 4. Pending OT Live Reports
+  const canReviewOt = Boolean(isLiveDepartment || isAdmin);
+  const { data: otReportsData } = useQuery({
+    queryKey: ['ot-reports-menu-pending'],
+    queryFn: () => getPendingOtReports({ status: 'PENDING', page: 1, limit: 100 }),
+    enabled: canReviewOt,
+    staleTime: 1000 * 30,
+  });
+  const pendingOtCount = otReportsData?.items?.length ?? 0;
+
+  // Total
+  const totalPendingAll =
+    pendingGeneralRequestsCount +
+    pendingAccountsCount +
+    pendingCrossDeptCount +
+    (isFinancialReviewer ? pendingFinancialCount : 0) +
+    (canReviewOt ? pendingOtCount : 0);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['employee-requests'] }),
+      queryClient.invalidateQueries({ queryKey: ['employee-requests-menu-pending'] }),
+      queryClient.invalidateQueries({ queryKey: ['approvals'] }),
+      queryClient.invalidateQueries({ queryKey: ['cross-department-requests'] }),
+      queryClient.invalidateQueries({ queryKey: ['ot-reports'] }),
+      queryClient.invalidateQueries({ queryKey: ['ot-reports-menu-pending'] }),
+    ]).catch(() => {});
+    setRefreshing(false);
+  }, [queryClient]);
 
   return (
     <View style={styles.container}>
@@ -96,6 +183,14 @@ export function ApprovalMenuScreen() {
             { paddingBottom: Math.max(insets.bottom, 16) + 40 },
           ]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#102739']}
+              tintColor="#102739"
+            />
+          }
         >
           {/* Hero Banner Card */}
           <View style={styles.heroCard}>
@@ -109,9 +204,18 @@ export function ApprovalMenuScreen() {
             <View style={styles.heroContent}>
               <Text style={styles.heroTitle}>Không gian phê duyệt</Text>
               <Text style={styles.heroSubtitle}>
-                Chọn nhóm yêu cầu để bắt đầu
+                {totalPendingAll > 0
+                  ? `Đang có ${totalPendingAll} yêu cầu cần xét duyệt`
+                  : 'Tất cả các yêu cầu đã được xử lý'}
               </Text>
             </View>
+            {totalPendingAll > 0 && (
+              <View style={styles.heroTotalBadge}>
+                <Text style={styles.heroTotalBadgeText}>
+                  {totalPendingAll > 99 ? '99+' : totalPendingAll}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Navigation Cards List */}
@@ -132,10 +236,19 @@ export function ApprovalMenuScreen() {
               <View style={styles.menuCardInfo}>
                 <Text style={styles.menuCardTitle}>Duyệt yêu cầu</Text>
                 <Text style={styles.menuCardSubtitle}>
-                  Nghỉ phép, giải trình công, thanh toán
+                  Nghỉ phép, giải trình công, đi muộn về sớm
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              <View style={styles.menuCardRight}>
+                {pendingGeneralRequestsCount > 0 && (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>
+                      {pendingGeneralRequestsCount > 99 ? '99+' : pendingGeneralRequestsCount}
+                    </Text>
+                  </View>
+                )}
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              </View>
             </Pressable>
 
             {/* Item 2: Duyệt tài khoản */}
@@ -159,7 +272,16 @@ export function ApprovalMenuScreen() {
                   Xét duyệt đăng ký nhân viên mới
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              <View style={styles.menuCardRight}>
+                {pendingAccountsCount > 0 && (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>
+                      {pendingAccountsCount > 99 ? '99+' : pendingAccountsCount}
+                    </Text>
+                  </View>
+                )}
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              </View>
             </Pressable>
 
             {/* Item 3: Liên phòng ban */}
@@ -181,7 +303,16 @@ export function ApprovalMenuScreen() {
                   Theo dõi luân chuyển và phối hợp
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              <View style={styles.menuCardRight}>
+                {pendingCrossDeptCount > 0 && (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>
+                      {pendingCrossDeptCount > 99 ? '99+' : pendingCrossDeptCount}
+                    </Text>
+                  </View>
+                )}
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              </View>
             </Pressable>
 
             {/* Item 4: Duyệt tài chính & Mua sắm (Accountant, Admin, HR) */}
@@ -214,12 +345,21 @@ export function ApprovalMenuScreen() {
                       : 'Duyệt đơn thanh toán, mua sắm, tạm ứng của phòng ban'}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                <View style={styles.menuCardRight}>
+                  {pendingFinancialCount > 0 && (
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>
+                        {pendingFinancialCount > 99 ? '99+' : pendingFinancialCount}
+                      </Text>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                </View>
               </Pressable>
             )}
 
             {/* Item 5: Duyệt OT Live (chỉ Leader phòng Live hoặc Admin mới thấy) */}
-            {(isLiveDepartment || isAdmin) && (
+            {canReviewOt && (
               <Pressable
                 style={styles.menuCard}
                 onPress={() => router.push('/leader/ot-report-approvals' as any)}
@@ -238,7 +378,16 @@ export function ApprovalMenuScreen() {
                     Phê duyệt báo cáo tăng ca phiên Livestream
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                <View style={styles.menuCardRight}>
+                  {pendingOtCount > 0 && (
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>
+                        {pendingOtCount > 99 ? '99+' : pendingOtCount}
+                      </Text>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                </View>
               </Pressable>
             )}
           </View>
@@ -339,6 +488,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
+  heroTotalBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'center',
+    minWidth: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTotalBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
   menuList: {
     gap: 12,
   },
@@ -379,5 +543,24 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: '#64748B',
     fontWeight: '500',
+  },
+  menuCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  countBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countBadgeText: {
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });

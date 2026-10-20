@@ -3,6 +3,7 @@ import type { ApiResponse } from '../types/api.types';
 import type {
   AssignShiftBatchPayload,
   AssignShiftPayload,
+  BatchDeleteShiftCellsPayload,
   CreateShiftPayload,
   DepartmentAssignmentsQuery,
   Shift,
@@ -55,6 +56,20 @@ export async function getDepartmentShiftAssignments(params: DepartmentAssignment
 export async function revokeShiftAssignment(id: string): Promise<unknown> {
   const response = await apiClient.delete<ApiResponse<unknown>>(`/shift-assignments/${id}`);
   return unwrapData(response);
+}
+
+export async function batchDeleteShiftCells(payload: BatchDeleteShiftCellsPayload): Promise<{ count: number }> {
+  try {
+    const response = await apiClient.post<ApiResponse<{ count: number }>>('/shift-assignments/cells/batch-delete', payload);
+    return unwrapData(response);
+  } catch (err: any) {
+    const ids = payload.items.map((i) => i.id).filter(Boolean) as string[];
+    if (ids.length > 0) {
+      await Promise.all(ids.map((id) => revokeShiftAssignment(id)));
+      return { count: ids.length };
+    }
+    throw err;
+  }
 }
 
 export async function getMySchedule(): Promise<ShiftAssignment[]> {

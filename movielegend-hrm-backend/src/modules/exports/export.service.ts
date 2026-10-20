@@ -107,7 +107,7 @@ export class ExportService {
         sumCong += row.attendance;
         sumTotalMinutes += (row._rawTotalHours || 0);
         sumOt100 += (row._rawOt100 || 0);
-        sumOt150 += (row._rawOt150 || 0);
+        sumOt150 += (row._rawOt150 || 0) + (row._rawOt200 || 0);
         sumMuon += (row._rawLate || 0);
         sumSom += (row._rawEarly || 0);
         sumTru += (row.lateDeduction || 0);

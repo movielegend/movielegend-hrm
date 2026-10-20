@@ -35,6 +35,7 @@ import {
   useDeleteShift,
   useAssignShift,
   useRevokeShiftAssignment,
+  useBatchDeleteShiftCells,
 } from '../../hooks/useShifts';
 import { useCurrentAttendance } from '../../hooks/useAttendance';
 import { useAppAlert } from '../../contexts/AlertContext';
@@ -292,6 +293,16 @@ export function EmployeeScheduleScreen() {
   }, [allAssignments, todayIso]);
 
   const rolePrefix = useMemo(() => getRoleBaseRoute(user), [user]);
+  const canAssignShift = Boolean(
+    user?.roles?.includes('ADMIN') ||
+      user?.roles?.includes('SUPER_ADMIN') ||
+      user?.roles?.includes('HR') ||
+      user?.roles?.includes('LEADER') ||
+      (user as any)?.isDepartmentLeader ||
+      user?.permissions?.includes('shift.assign') ||
+      user?.permissions?.includes('shift.read')
+  );
+  const shiftsRoute = (rolePrefix === '/admin' ? '/admin/shifts' : '/leader/shifts') as any;
   const { data: currentAttendance } = useCurrentAttendance();
 
   const attendanceRoute = currentAttendance?.state === 'CHECKED_IN'
@@ -324,7 +335,18 @@ export function EmployeeScheduleScreen() {
             <Text style={employeeScheduleStyles.headerTitle}>Lịch làm việc cá nhân</Text>
             <Text style={employeeScheduleStyles.headerSubtitle}>{`Hôm nay · ${todayDisplay}`}</Text>
           </View>
-          <View style={employeeScheduleStyles.headerRightPlaceholder} />
+          {canAssignShift ? (
+            <Pressable
+              onPress={() => router.push(shiftsRoute)}
+              style={employeeScheduleStyles.headerRightBtn}
+              accessibilityLabel="Xem ca phòng ban"
+            >
+              <MaterialCommunityIcons name="format-list-bulleted" size={15} color="#FFFFFF" />
+              <Text style={employeeScheduleStyles.headerRightBtnText}>Ca phòng ban</Text>
+            </Pressable>
+          ) : (
+            <View style={employeeScheduleStyles.headerRightPlaceholder} />
+          )}
         </View>
       </View>
 
@@ -421,6 +443,18 @@ export function EmployeeScheduleScreen() {
                 </View>
                 <Text style={employeeScheduleStyles.utilityText}>Chấm công</Text>
               </Pressable>
+
+              {canAssignShift && (
+                <Pressable 
+                  style={employeeScheduleStyles.utilityBtn} 
+                  onPress={() => router.push(shiftsRoute)}
+                >
+                  <View style={[employeeScheduleStyles.utilityIconBox, { backgroundColor: '#EEF2FF' }]}>
+                    <MaterialCommunityIcons name="format-list-bulleted" size={24} color="#4F46E5" />
+                  </View>
+                  <Text style={employeeScheduleStyles.utilityText}>Ca phòng ban</Text>
+                </Pressable>
+              )}
             </View>
           </View>
 
@@ -548,34 +582,79 @@ export function AdminShiftsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const [filterDeptId, setFilterDeptId] = useState<string>('ALL');
+
+  const isLeader = Boolean(
+    !user?.roles?.includes('ADMIN') &&
+      !user?.roles?.includes('SUPER_ADMIN') &&
+      !user?.roles?.includes('HR') &&
+      (user?.roles?.includes('LEADER') || (user as any)?.isDepartmentLeader)
+  );
+
+  const leaderDeptId = (user as any)?.departmentId || user?.department?.id || (user as any)?.departmentLinks?.[0]?.departmentId;
+
+  const [filterDeptId, setFilterDeptId] = useState<string>(() => (isLeader && leaderDeptId ? leaderDeptId : 'ALL'));
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const { data: deptData } = useDepartments({ limit: 1000 });
   const departments = deptData?.items || [];
 
+  useEffect(() => {
+    if (isLeader && leaderDeptId && filterDeptId === 'ALL') {
+      setFilterDeptId(leaderDeptId);
+    }
+  }, [isLeader, leaderDeptId, filterDeptId]);
+
   const shifts = useShifts(filterDeptId === 'ALL' ? undefined : filterDeptId);
   const deleteShift = useDeleteShift();
   const revokeAssignment = useRevokeShiftAssignment();
+  const batchDeleteCells = useBatchDeleteShiftCells();
   const { showAlert, showConfirm } = useAppAlert();
 
-  const deptFilterOptions: SelectOption[] = useMemo(() => [
-    { id: 'ALL', label: 'Tất cả phòng ban' },
-    ...departments.map((d: any) => ({
-      id: d.id,
-      label: d.name,
-      subtitle: d.branch?.name ? `Chi nhánh: ${d.branch.name}` : undefined,
-    })),
-  ], [departments]);
+  const deptFilterOptions: SelectOption[] = useMemo(() => {
+    if (!isLeader) {
+      return [
+        { id: 'ALL', label: 'Tất cả phòng ban' },
+        ...departments.map((d: any) => ({
+          id: d.id,
+          label: d.name,
+          subtitle: d.branch?.name ? `Chi nhánh: ${d.branch.name}` : undefined,
+        })),
+      ];
+    }
+    const leaderDepts = departments.filter((d: any) =>
+      d.id === leaderDeptId ||
+      (user as any)?.departmentLinks?.some((l: any) => l.departmentId === d.id)
+    );
+    if (leaderDepts.length <= 1) {
+      return leaderDepts.map((d: any) => ({
+        id: d.id,
+        label: d.name,
+        subtitle: d.branch?.name ? `Chi nhánh: ${d.branch.name}` : undefined,
+      }));
+    }
+    return [
+      { id: 'ALL', label: 'Tất cả phòng ban của tôi' },
+      ...leaderDepts.map((d: any) => ({
+        id: d.id,
+        label: d.name,
+        subtitle: d.branch?.name ? `Chi nhánh: ${d.branch.name}` : undefined,
+      })),
+    ];
+  }, [departments, isLeader, leaderDeptId, user]);
 
-  const handleRevoke = (id: string, name: string) => {
+  const handleRevokeUserFromShift = (userAssignments: any[], name: string) => {
     showConfirm({
       title: 'Thu hồi ca làm',
-      message: `Bạn có chắc chắn muốn thu hồi ca phân công của "${name}"?`,
+      message: `Bạn có chắc chắn muốn thu hồi toàn bộ phân ca của "${name}" trong ca làm này?`,
       confirmLabel: 'Thu hồi',
       onConfirm: async () => {
         try {
-          await revokeAssignment.mutateAsync(id);
-          showAlert('Thành công', 'Đã thu hồi ca làm');
+          const items = userAssignments.map((a: any) => ({
+            id: a.id,
+            userId: a.userId,
+            workDate: toIsoDate(a.workDate),
+          }));
+          await batchDeleteCells.mutateAsync({ items });
+          showAlert('Thành công', `Đã thu hồi ca làm của "${name}"`);
         } catch (error) {
           const normalized = normalizeApiError(error);
           showAlert('Lỗi', normalized.message);
@@ -608,16 +687,39 @@ export function AdminShiftsScreen() {
       user?.permissions?.includes('shift.create')
   );
 
+  const canEditShift = Boolean(
+    user?.roles?.includes('ADMIN') ||
+      user?.roles?.includes('SUPER_ADMIN') ||
+      user?.roles?.includes('HR') ||
+      user?.permissions?.includes('shift.update')
+  );
+
+  const canDeleteShift = Boolean(
+    user?.roles?.includes('ADMIN') ||
+      user?.roles?.includes('SUPER_ADMIN') ||
+      user?.roles?.includes('HR') ||
+      user?.permissions?.includes('shift.delete')
+  );
+
   const canAssignShift = Boolean(
     user?.roles?.includes('ADMIN') ||
       user?.roles?.includes('SUPER_ADMIN') ||
       user?.roles?.includes('HR') ||
       user?.roles?.includes('LEADER') ||
+      (user as any)?.isDepartmentLeader ||
       user?.permissions?.includes('shift.assign')
   );
 
   const shiftList = shifts.data ?? [];
   const shiftCount = shiftList.length;
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace((isLeader ? '/leader' : '/admin') as any);
+    }
+  };
 
   return (
     <View style={styles.modernContainer}>
@@ -630,15 +732,21 @@ export function AdminShiftsScreen() {
         <View style={styles.modernHeaderTopRow}>
           <Pressable
             style={styles.headerBackBtn}
-            onPress={() => router.back()}
+            onPress={handleBack}
             hitSlop={8}
             accessibilityLabel="Quay lại"
           >
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.screenTitle}>Ca làm việc</Text>
+          <Text style={styles.screenTitle}>
+            {isLeader ? 'Ca làm việc phòng ban' : 'Ca làm việc'}
+          </Text>
         </View>
-        <Text style={styles.screenSubtitle}>Quản lý ca trong hệ thống</Text>
+        <Text style={styles.screenSubtitle}>
+          {isLeader
+            ? (user?.department?.name ? `Phòng ban: ${user.department.name}` : 'Danh sách ca làm việc của bộ phận')
+            : 'Quản lý ca trong hệ thống'}
+        </Text>
       </View>
 
       <ScrollView
@@ -660,14 +768,16 @@ export function AdminShiftsScreen() {
         {canAssignShift && (
           <Pressable
             style={styles.assignBannerCard}
-            onPress={() => router.push('/admin/shifts/assign')}
+            onPress={() => router.push((isLeader ? '/leader/shift-management' : '/admin/shifts/assign') as any)}
           >
             <View style={styles.assignIconBox}>
               <MaterialCommunityIcons name="calendar-account-outline" size={24} color="#102739" />
             </View>
             <View style={styles.assignMetaCol}>
               <Text style={styles.assignTitle}>Phân ca nhân viên</Text>
-              <Text style={styles.assignSubtitle}>Sắp xếp ca cho nhân sự</Text>
+              <Text style={styles.assignSubtitle}>
+                {isLeader ? 'Xếp ca cho nhân sự phòng ban' : 'Sắp xếp ca cho nhân sự'}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
           </Pressable>
@@ -678,17 +788,23 @@ export function AdminShiftsScreen() {
           <Text style={styles.filterBarLabel}>Phòng ban:</Text>
           <Pressable
             style={styles.filterBarBtn}
-            onPress={() => setFilterModalVisible(true)}
+            onPress={() => {
+              if (!isLeader || deptFilterOptions.length > 1) {
+                setFilterModalVisible(true);
+              }
+            }}
           >
             <View style={styles.filterBarBtnLeft}>
               <Ionicons name="business-outline" size={15} color="#102739" />
               <Text style={styles.filterBarBtnText} numberOfLines={1}>
                 {filterDeptId === 'ALL'
-                  ? 'Tất cả phòng ban'
-                  : departments.find((d: any) => d.id === filterDeptId)?.name || 'Phòng ban đã chọn'}
+                  ? (isLeader ? 'Tất cả phòng ban của tôi' : 'Tất cả phòng ban')
+                  : departments.find((d: any) => d.id === filterDeptId)?.name || (user?.department?.name || 'Phòng ban của tôi')}
               </Text>
             </View>
-            <Ionicons name="chevron-down" size={16} color="#64748B" />
+            {(!isLeader || deptFilterOptions.length > 1) && (
+              <Ionicons name="chevron-down" size={16} color="#64748B" />
+            )}
           </Pressable>
         </View>
 
@@ -838,11 +954,12 @@ export function AdminShiftsScreen() {
                             .map((w: string) => w[0])
                             .join('')
                             .toUpperCase();
+                          const userAssignments = rawAssignments.filter((item: any) => item.userId === a.userId);
                           return (
                             <Pressable
-                              key={a.id}
+                              key={a.userId || a.id}
                               style={styles.assignmentChip}
-                              onLongPress={() => handleRevoke(a.id, name)}
+                              onLongPress={() => handleRevokeUserFromShift(userAssignments, name)}
                               delayLongPress={300}
                             >
                               <View style={styles.assignmentAvatar}>
@@ -857,23 +974,37 @@ export function AdminShiftsScreen() {
                   );
                 })()}
 
-                {/* Actions: Edit / Delete */}
+                {/* Actions: Edit / Delete / Assign */}
                 <View style={styles.shiftCardActions}>
-                  <Pressable
-                    style={styles.shiftEditBtn}
-                    onPress={() => router.push(`/admin/shifts/edit/${shift.id}`)}
-                  >
-                    <Ionicons name="create-outline" size={16} color="#0F172A" style={{ marginRight: 6 }} />
-                    <Text style={styles.shiftEditBtnText}>Sửa</Text>
-                  </Pressable>
+                  {canEditShift && (
+                    <Pressable
+                      style={styles.shiftEditBtn}
+                      onPress={() => router.push(`/admin/shifts/edit/${shift.id}`)}
+                    >
+                      <Ionicons name="create-outline" size={16} color="#0F172A" style={{ marginRight: 6 }} />
+                      <Text style={styles.shiftEditBtnText}>Sửa</Text>
+                    </Pressable>
+                  )}
 
-                  <Pressable
-                    style={styles.shiftDeleteBtn}
-                    onPress={() => handleDelete(shift.id, shift.name)}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#B91C1C" style={{ marginRight: 6 }} />
-                    <Text style={styles.shiftDeleteBtnText}>Xóa</Text>
-                  </Pressable>
+                  {canDeleteShift && (
+                    <Pressable
+                      style={styles.shiftDeleteBtn}
+                      onPress={() => handleDelete(shift.id, shift.name)}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#B91C1C" style={{ marginRight: 6 }} />
+                      <Text style={styles.shiftDeleteBtnText}>Xóa</Text>
+                    </Pressable>
+                  )}
+
+                  {canAssignShift && !canEditShift && (
+                    <Pressable
+                      style={[styles.shiftEditBtn, { flex: 1, backgroundColor: '#102739', borderWidth: 0 }]}
+                      onPress={() => router.push((isLeader ? '/leader/shift-management' : '/admin/shifts/assign') as any)}
+                    >
+                      <MaterialCommunityIcons name="account-plus-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={[styles.shiftEditBtnText, { color: '#FFFFFF', fontWeight: '700' }]}>Xếp nhân viên vào ca này</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
             ))}
@@ -2738,6 +2869,22 @@ const employeeScheduleStyles = StyleSheet.create({
   headerRightPlaceholder: {
     width: 32,
   },
+  headerRightBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  headerRightBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   bodyContainer: {
     flex: 1,
     backgroundColor: '#FAFAFA',
@@ -2866,32 +3013,35 @@ const employeeScheduleStyles = StyleSheet.create({
   },
   utilitiesGrid: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 8,
     marginTop: 12,
   },
   utilityBtn: {
     flex: 1,
+    minWidth: '22%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E4E4E7',
   },
   utilityIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   utilityText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#18181B',
+    textAlign: 'center',
   },
   segmentContainer: {
     flexDirection: 'row',
