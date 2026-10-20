@@ -299,8 +299,7 @@ export function EmployeeScheduleScreen() {
       user?.roles?.includes('HR') ||
       user?.roles?.includes('LEADER') ||
       (user as any)?.isDepartmentLeader ||
-      user?.permissions?.includes('shift.assign') ||
-      user?.permissions?.includes('shift.read')
+      user?.permissions?.includes('shift.assign')
   );
   const shiftsRoute = (rolePrefix === '/admin' ? '/admin/shifts' : '/leader/shifts') as any;
   const { data: currentAttendance } = useCurrentAttendance();
