@@ -1016,33 +1016,44 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
         }}>
           <Text style={{ fontSize: 17, fontWeight: '800', color: '#0F172A' }}>{item.title}</Text>
           
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-            {item.status === 'COMPLETED' ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                <MaterialCommunityIcons name="check-circle" size={14} color="#166534" />
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534' }}>Hoàn thành</Text>
+          {(() => {
+            const isTaskOverdue = Boolean(item.dueAt && new Date(item.dueAt).getTime() < Date.now() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED');
+            return (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                {item.status === 'COMPLETED' ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                    <MaterialCommunityIcons name="check-circle" size={14} color="#166534" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534' }}>Hoàn thành</Text>
+                  </View>
+                ) : item.status === 'WAITING_REVIEW' ? (
+                  <View style={{ backgroundColor: '#FFEDD5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#C2410C' }}>Chờ duyệt</Text>
+                  </View>
+                ) : item.status === 'IN_PROGRESS' ? (
+                  <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#0369A1' }}>Đang làm</Text>
+                  </View>
+                ) : (
+                  <TaskStatusBadge status={item.status} />
+                )}
+                {isTaskOverdue ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEE2E2', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                    <MaterialCommunityIcons name="alert-circle" size={14} color="#DC2626" />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#DC2626' }}>Quá hạn</Text>
+                  </View>
+                ) : null}
+                <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#334155' }}>{translatePriority(item.priority)}</Text>
+                </View>
+                {isDepartmentTask ? (
+                  <View style={styles.departmentBadgePill}>
+                    <MaterialCommunityIcons name="domain" size={14} color={colors.primaryDark} />
+                    <Text style={styles.departmentBadgePillText}>Dự án Phòng Ban</Text>
+                  </View>
+                ) : null}
               </View>
-            ) : item.status === 'WAITING_REVIEW' ? (
-              <View style={{ backgroundColor: '#FFEDD5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#C2410C' }}>Chờ duyệt</Text>
-              </View>
-            ) : item.status === 'IN_PROGRESS' ? (
-              <View style={{ backgroundColor: '#E0F2FE', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                <Text style={{ fontSize: 12, fontWeight: '700', color: '#0369A1' }}>Đang làm</Text>
-              </View>
-            ) : (
-              <TaskStatusBadge status={item.status} />
-            )}
-            <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#334155' }}>{translatePriority(item.priority)}</Text>
-            </View>
-            {isDepartmentTask ? (
-              <View style={styles.departmentBadgePill}>
-                <MaterialCommunityIcons name="domain" size={14} color={colors.primaryDark} />
-                <Text style={styles.departmentBadgePillText}>Dự án Phòng Ban</Text>
-              </View>
-            ) : null}
-          </View>
+            );
+          })()}
 
           {(() => {
             const meta = extractTaskMeta(item.description);
@@ -1107,10 +1118,28 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
             <View style={{ width: 1, backgroundColor: '#E2E8F0', marginHorizontal: 8 }} />
             <View style={{ flex: 1, paddingLeft: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <MaterialCommunityIcons name="calendar-check-outline" size={16} color="#64748B" />
-                <Text style={{ fontSize: 12, color: '#64748B', fontWeight: '500' }}>Hạn hoàn thành</Text>
+                <MaterialCommunityIcons
+                  name="calendar-check-outline"
+                  size={16}
+                  color={Boolean(item.dueAt && new Date(item.dueAt).getTime() < Date.now() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED') ? "#DC2626" : "#64748B"}
+                />
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: Boolean(item.dueAt && new Date(item.dueAt).getTime() < Date.now() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED') ? "#DC2626" : "#64748B",
+                    fontWeight: '500',
+                  }}
+                >
+                  Hạn hoàn thành
+                </Text>
               </View>
-              <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '700',
+                  color: Boolean(item.dueAt && new Date(item.dueAt).getTime() < Date.now() && item.status !== 'COMPLETED' && item.status !== 'CANCELLED') ? "#DC2626" : "#0F172A",
+                }}
+              >
                 {formatDateTime(item.dueAt)}
               </Text>
             </View>
@@ -1170,6 +1199,32 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
         {assignment ? (
           <SectionCard title={isDepartmentTask ? "Tiếp nhận & Thực hiện Dự án" : "Nhiệm vụ của tôi"}>
             <TaskStepper currentStatus={assignment.status} />
+
+            {/* Thông báo trạng thái khi đang Chờ duyệt */}
+            {assignment.status === 'WAITING_REVIEW' ? (
+              <View style={{
+                backgroundColor: '#FFFBEB',
+                borderColor: '#FDE68A',
+                borderWidth: 1,
+                borderRadius: 12,
+                padding: 14,
+                marginTop: spacing.md,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+              }}>
+                <MaterialCommunityIcons name="clock-alert-outline" size={26} color="#D97706" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14.5, fontWeight: '700', color: '#92400E' }}>
+                    Kết quả đang chờ phê duyệt
+                  </Text>
+                  <Text style={{ fontSize: 12.5, color: '#B45309', marginTop: 2, lineHeight: 18 }}>
+                    Bạn đã nộp báo cáo kết quả. Đang chờ người giao việc hoặc quản lý phòng ban nghiệm thu.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
             {!isReadOnlyStatus(item.status) ? (
               <>
                 {canAcceptAssignment(assignment.status) ? (
@@ -1270,19 +1325,27 @@ export function TaskDetailScreen({ area }: { area: TaskArea }) {
                     ) : null}
                   </View>
                 ) : null}
+              </>
+            ) : null}
+
+            {/* Chức năng Xin gia hạn: Hiển thị cho nhân viên khi công việc chưa COMPLETED / CANCELLED */}
+            {item.status !== 'COMPLETED' && item.status !== 'CANCELLED' ? (
+              <View style={{ marginTop: spacing.md }}>
                 <ExtensionRequestModal
                   currentDueAt={assignment.assignmentDueAt ?? item.dueAt}
                   extensionCount={item.extensionRequests?.filter(e => e.assignmentId === assignment.id && e.status !== 'REJECTED').length ?? 0}
                   pending={extension.isPending}
                   onSubmit={(requestedDueAt, reason) => run(() => extension.mutateAsync({ assignmentId: assignment.id, requestedDueAt, reason }), 'Đã gửi yêu cầu gia hạn')}
                 />
-                {item.extensionRequests?.some(e => e.assignmentId === assignment.id) ? (
-                  <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
-                    <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs }}>Lịch sử xin gia hạn:</Text>
-                    <ExtensionList extensions={item.extensionRequests.filter(e => e.assignmentId === assignment.id)} />
-                  </View>
-                ) : null}
-              </>
+              </View>
+            ) : null}
+
+            {/* Lịch sử xin gia hạn: Luôn hiển thị nếu có */}
+            {item.extensionRequests?.some(e => e.assignmentId === assignment.id) ? (
+              <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs }}>Lịch sử xin gia hạn:</Text>
+                <ExtensionList extensions={item.extensionRequests.filter(e => e.assignmentId === assignment.id)} />
+              </View>
             ) : null}
           </SectionCard>
         ) : null}
