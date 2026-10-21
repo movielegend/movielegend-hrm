@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../database/prisma.service';
@@ -54,7 +54,7 @@ export interface BulletSubTaskItem {
   description?: string;
   assignedUserId?: string;
   assignedUserName?: string;
-  status: 'PENDING' | 'SUBMITTED' | 'LEADER_APPROVED' | 'ADMIN_APPROVED';
+  status: 'PENDING' | 'SUBMITTED' | 'LEADER_APPROVED' | 'ADMIN_APPROVED' | 'UNASSIGNED' | 'ASSIGNED';
   submissionNote?: string;
   evidenceUrl?: string;
   evidenceImages?: string[];
@@ -67,6 +67,7 @@ export interface LevelDepartmentProjectItem {
   id?: string;
   levelNumber: number;
   levelName: string;
+  departmentId?: string;
   departmentName: string;
   projectName: string;
   totalSubTasks: number;
@@ -87,7 +88,7 @@ export interface LevelDepartmentProjectItem {
 }
 
 @Injectable()
-export class LevelingService {
+export class LevelingService implements OnModuleInit {
   private gmvConfigs: LevelGmvItem[] = [
     { levelNumber: 1, levelName: 'Level 1', currentGmv: 0, promotionCeilingGmv: 50, retentionFloorGmv: 0, gmvUnit: 'Tr VNĐ' },
     { levelNumber: 2, levelName: 'Level 2', currentGmv: 0, promotionCeilingGmv: 150, retentionFloorGmv: 30, gmvUnit: 'Tr VNĐ' },
@@ -110,6 +111,65 @@ export class LevelingService {
     private readonly notifications: NotificationsService,
   ) {
     this.loadFromStorage();
+  }
+
+  async onModuleInit() {
+    await this.ensureDefaultProjects();
+  }
+
+  private async ensureDefaultProjects() {
+    try {
+      if (this.departmentProjects.size === 0) {
+        const departments = await this.prisma.department.findMany({
+          select: { id: true, name: true },
+        });
+        for (const dept of departments) {
+          this.findProjectList(dept.id, dept.name);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  private generateDefaultProjects(effectiveDeptId: string, effectiveDeptName: string): LevelDepartmentProjectItem[] {
+    return Array.from({ length: 8 }, (_, i) => {
+      const lvl = i + 1;
+      return {
+        id: `proj-${effectiveDeptId}-${lvl}`,
+        levelNumber: lvl,
+        levelName: `Dự án Level ${lvl} - ${effectiveDeptName}`,
+        projectName: `Dự án ${effectiveDeptName} (Level ${lvl})`,
+        departmentId: effectiveDeptId,
+        departmentName: effectiveDeptName,
+        rewardType: 'HYBRID',
+        cashAmount: 5000000,
+        promotionBonusAmount: 5000000,
+        physicalItemName: '',
+        physicalItems: [],
+        status: 'IN_PROGRESS',
+        totalSubTasks: 2,
+        completedSubTasks: 0,
+        subTasks: [
+          {
+            id: `st_${lvl}_1`,
+            orderNumber: 1,
+            title: 'Xây dựng kế hoạch triển khai công việc',
+            description: 'Chi tiết các hạng mục và tiêu chuẩn nghiệm thu',
+            targetKpi: 'Đạt 100% mục tiêu đề ra',
+            status: 'UNASSIGNED',
+          },
+          {
+            id: `st_${lvl}_2`,
+            orderNumber: 2,
+            title: `Thực hiện quy trình chuẩn hóa Level ${lvl}`,
+            description: 'Đảm bảo tiêu chuẩn vận hành phòng ban',
+            targetKpi: 'Đạt 100% tiêu chuẩn chất lượng',
+            status: 'UNASSIGNED',
+          },
+        ],
+      };
+    });
   }
 
   private async sendLevelNotification(
@@ -1060,6 +1120,7 @@ export class LevelingService {
         id: `proj-${departmentId}-${levelNumber}`,
         levelNumber,
         levelName,
+        departmentId,
         departmentName,
         projectName,
         totalSubTasks: subTasks.length,
@@ -1150,10 +1211,53 @@ export class LevelingService {
         return this.departmentProjects.get(lower)!;
       }
     }
+
+    // Scan all entries for matching departmentId or departmentName
+    for (const [key, projs] of this.departmentProjects.entries()) {
+      if (departmentId && (key === departmentId || projs[0]?.departmentId === departmentId)) {
+        return projs;
+      }
+      if (departmentName) {
+        const lowerName = departmentName.toLowerCase().trim();
+        if (key.toLowerCase().trim() === lowerName || projs[0]?.departmentName?.toLowerCase().trim() === lowerName) {
+          return projs;
+        }
+      }
+    }
+
+    // Auto-generate standard 8-level projects for this department if specified
+    if (departmentId || departmentName) {
+      const effectiveDeptId = departmentId || (departmentName ? `dept-${departmentName.toLowerCase().replace(/\s+/g, '-')}` : 'general');
+      const effectiveDeptName = departmentName || 'Phòng ban';
+      const defaultProjects = this.generateDefaultProjects(effectiveDeptId, effectiveDeptName);
+
+      if (departmentId) this.departmentProjects.set(departmentId, defaultProjects);
+      if (departmentName) {
+        this.departmentProjects.set(departmentName, defaultProjects);
+        this.departmentProjects.set(departmentName.toLowerCase().trim(), defaultProjects);
+      }
+      this.saveToStorage();
+      return defaultProjects;
+    }
+
     return [];
   }
 
   public getProjects(departmentId?: string, departmentName?: string): LevelDepartmentProjectItem[] {
+    if (!departmentId && !departmentName || departmentId === 'ALL') {
+      const all: LevelDepartmentProjectItem[] = [];
+      const seenIds = new Set<string>();
+      for (const projs of this.departmentProjects.values()) {
+        for (const p of projs) {
+          const key = p.id || `${p.departmentId || p.departmentName}_${p.levelNumber}`;
+          if (!seenIds.has(key)) {
+            seenIds.add(key);
+            all.push(p);
+          }
+        }
+      }
+      return all;
+    }
     return this.findProjectList(departmentId, departmentName);
   }
 
@@ -1177,14 +1281,59 @@ export class LevelingService {
     departmentName?: string,
   ) {
     const list = this.findProjectList(departmentId, departmentName);
-    const project = list.find((p) => p.levelNumber === levelNumber);
-    if (!project) throw new NotFoundException(`Project Level ${levelNumber} not found`);
+    let project = list.find((p) => p.levelNumber === levelNumber);
+    if (!project) {
+      project = {
+        id: `proj-${departmentId || 'dept'}-${levelNumber}`,
+        levelNumber,
+        levelName: `Dự án Level ${levelNumber}`,
+        projectName: `Dự án ${departmentName || 'phòng ban'} (Level ${levelNumber})`,
+        departmentId,
+        departmentName: departmentName || 'Phòng ban',
+        rewardType: 'HYBRID',
+        cashAmount: 5000000,
+        promotionBonusAmount: 5000000,
+        status: 'IN_PROGRESS',
+        totalSubTasks: 1,
+        completedSubTasks: 0,
+        subTasks: [],
+      };
+      list.push(project);
+    }
 
-    const subTask = project.subTasks.find((t) => t.id === subTaskId);
-    if (!subTask) throw new NotFoundException(`SubTask ${subTaskId} not found`);
+    let subTask = project.subTasks.find((t) => t.id === subTaskId);
+    if (!subTask) {
+      const orderMatch = subTaskId.match(/-(\d+)$/) || subTaskId.match(/_(\d+)$/);
+      const targetOrder = orderMatch ? parseInt(orderMatch[1], 10) : 1;
+      subTask = project.subTasks.find((t) => t.orderNumber === targetOrder)
+        || project.subTasks.find((t) => t.title.toLowerCase().includes('kế hoạch'))
+        || project.subTasks[0];
 
-    subTask.assignedUserId = assignedUserId;
-    subTask.assignedUserName = assignedUserName;
+      if (subTask) {
+        subTask.id = subTaskId;
+      } else {
+        subTask = {
+          id: subTaskId,
+          orderNumber: project.subTasks.length + 1,
+          title: 'Xây dựng kế hoạch triển khai công việc',
+          targetKpi: 'Đạt 100% mục tiêu đề ra',
+          description: 'Chi tiết các hạng mục và tiêu chuẩn nghiệm thu',
+          status: 'UNASSIGNED',
+        };
+        project.subTasks.push(subTask);
+        project.totalSubTasks = project.subTasks.length;
+      }
+    }
+
+    subTask.assignedUserId = assignedUserId || undefined;
+    subTask.assignedUserName = assignedUserName || undefined;
+    subTask.status = assignedUserId ? 'ASSIGNED' : 'UNASSIGNED';
+
+    if (departmentId) this.departmentProjects.set(departmentId, list);
+    if (departmentName) {
+      this.departmentProjects.set(departmentName, list);
+      this.departmentProjects.set(departmentName.toLowerCase().trim(), list);
+    }
     this.saveToStorage();
 
     // Notify assigned employee
@@ -1219,7 +1368,14 @@ export class LevelingService {
     const project = list.find((p) => p.levelNumber === levelNumber);
     if (!project) throw new NotFoundException(`Project Level ${levelNumber} not found`);
 
-    const subTask = project.subTasks.find((t) => t.id === subTaskId);
+    let subTask = project.subTasks.find((t) => t.id === subTaskId);
+    if (!subTask) {
+      const orderMatch = subTaskId.match(/-(\d+)$/) || subTaskId.match(/_(\d+)$/);
+      const targetOrder = orderMatch ? parseInt(orderMatch[1], 10) : 1;
+      subTask = project.subTasks.find((t) => t.orderNumber === targetOrder)
+        || project.subTasks.find((t) => t.title.toLowerCase().includes('kế hoạch'))
+        || project.subTasks[0];
+    }
     if (!subTask) throw new NotFoundException(`SubTask ${subTaskId} not found`);
 
     subTask.status = 'SUBMITTED';
@@ -1266,7 +1422,14 @@ export class LevelingService {
     const project = list.find((p) => p.levelNumber === levelNumber);
     if (!project) throw new NotFoundException(`Project Level ${levelNumber} not found`);
 
-    const subTask = project.subTasks.find((t) => t.id === subTaskId);
+    let subTask = project.subTasks.find((t) => t.id === subTaskId);
+    if (!subTask) {
+      const orderMatch = subTaskId.match(/-(\d+)$/) || subTaskId.match(/_(\d+)$/);
+      const targetOrder = orderMatch ? parseInt(orderMatch[1], 10) : 1;
+      subTask = project.subTasks.find((t) => t.orderNumber === targetOrder)
+        || project.subTasks.find((t) => t.title.toLowerCase().includes('kế hoạch'))
+        || project.subTasks[0];
+    }
     if (!subTask) throw new NotFoundException(`SubTask ${subTaskId} not found`);
 
     subTask.status = status;

@@ -24,7 +24,7 @@ import { EmployeeRequestsService } from './employee-requests.service';
 export class EmployeeRequestsController {
   constructor(private readonly employeeRequestsService: EmployeeRequestsService) {}
 
-  @Permissions('employee.request')
+  @AnyPermissions('employee.request', 'employee.request.approve')
   @Post()
   create(@Body() dto: CreateEmployeeRequestDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.employeeRequestsService.create(dto, actor);
@@ -71,7 +71,7 @@ export class EmployeeRequestsController {
     );
   }
 
-  @Permissions('employee.request')
+  @AnyPermissions('employee.request', 'employee.request.approve')
   @Get('my')
   findMine(@CurrentUser() actor: AuthenticatedUser, @Query() query: EmployeeRequestQueryDto) {
     return this.employeeRequestsService.findMine(actor, query);

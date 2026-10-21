@@ -268,8 +268,8 @@ async function main() {
   const leaderPermCodes = [
     'user.read', 'employee.read', 'employee.approve', 'department.read', 'position.read',
     'upload.create', 'approval.read', 'approval.approve', 'approval.reject', 'face.read',
-    'shift.read', 'shift.assign', 'attendance.read', 'leave.balance.read', 'leave.approve',
-    'overtime.approve', 'employee.request.approve', 'task.assign_department', 'task.read_department',
+    'shift.read', 'shift.assign', 'attendance.read', 'leave.balance.read', 'leave.request', 'leave.approve',
+    'overtime.request', 'overtime.approve', 'employee.request', 'employee.request.approve', 'task.assign_department', 'task.read_department',
     'task.review_department', 'task.extension_review_department', 'task.group.manage_department',
     'cross_department.source_approve', 'cross_department.target_receive', 'notification.read',
     'device_token.manage_own', 'material.read', 'stock.read', 'material_issue.create',

@@ -65,6 +65,18 @@ export class ShiftAssignmentsController {
   }
 
   @Permissions('shift.assign')
+  @Post('cells/batch')
+  batchUpsertCellsAlias(@Body() dto: BatchUpsertShiftCellsDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.shiftAssignmentsService.batchUpsertCells(dto, actor);
+  }
+
+  @Permissions('shift.assign')
+  @Post('cell')
+  upsertSingleCell(@Body() dto: AssignShiftDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.shiftAssignmentsService.batchUpsertCells({ items: [dto] }, actor);
+  }
+
+  @Permissions('shift.assign')
   @Delete(':id')
   revokeAssignment(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.shiftAssignmentsService.revokeAssignment(id, actor);

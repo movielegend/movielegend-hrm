@@ -12,3 +12,6 @@ movielegend-hrm-web/
 .DS_Store
 *.p8
 
+
+storage/
+scratch_check_attendance.js

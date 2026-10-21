@@ -181,8 +181,9 @@ export class EmployeeRequestsService {
       requestTitle = `Công tác: ${loc}${fromD ? ` (${fromD}${toD && toD !== fromD ? ` -> ${toD}` : ''})` : ''}`;
     } else if (dto.type === EmployeeRequestType.OVERTIME && (!dto.title || dto.title.trim() === '' || dto.title === 'Làm thêm giờ' || dto.title === 'Yêu cầu')) {
       const meta: any = dto.attachmentMetadata || {};
-      const dateStr = meta.fromDate
-        ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
+      const rawDate = meta.fromDate || meta.workDate || meta.rawOtDate || (meta.startTime ? moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : '');
+      const dateStr = rawDate
+        ? moment.tz(rawDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
         : '';
       const startStr = meta.startTime
         ? moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('HH:mm')
@@ -194,7 +195,8 @@ export class EmployeeRequestsService {
     } else if (dto.type === EmployeeRequestType.LEAVE && (!dto.title || dto.title.trim() === '' || dto.title === 'Nghỉ phép' || dto.title === 'Yêu cầu')) {
       const meta: any = dto.attachmentMetadata || {};
       const leaveType = meta.leaveType || 'Nghỉ phép';
-      const dateStr = meta.fromDate
+      const rawDate = meta.fromDate || meta.workDate || meta.rawOtDate || (meta.startTime ? moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : '');
+      const dateStr = rawDate
         ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY')
         : '';
       let timePart = '';
@@ -230,8 +232,9 @@ export class EmployeeRequestsService {
     // Kiểm tra quy định cho Đơn Nghỉ Phép (LEAVE)
     if (dto.type === EmployeeRequestType.LEAVE) {
       const meta: any = dto.attachmentMetadata || {};
-      const dateStr = meta.fromDate
-        ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+      const rawDate = meta.fromDate || meta.workDate || meta.rawOtDate || (meta.startTime ? moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : '');
+      const dateStr = rawDate
+        ? moment.tz(rawDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
         : moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
 
       // TC_LV_04: Chặn tạo đơn nghỉ phép vào ngày không có ca làm việc (Ngày OFF / Chủ Nhật) - Chống trừ oan phép năm
@@ -407,8 +410,9 @@ export class EmployeeRequestsService {
       const isEarlyCheck = dto.type === EmployeeRequestType.EARLY_LEAVE || expType === 'Check-out sớm';
 
       if (isLateCheck || isEarlyCheck) {
-        const dateStr = meta.fromDate
-          ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
+        const rawDate = meta.fromDate || meta.workDate || meta.rawOtDate || (meta.startTime ? moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : '');
+      const dateStr = rawDate
+          ? moment.tz(rawDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD')
           : (meta.workDate || moment.tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD'));
 
         const startOfDay = moment.tz(dateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').startOf('day').toDate();
@@ -1089,7 +1093,7 @@ export class EmployeeRequestsService {
         const isOvertime = request.type === EmployeeRequestType.OVERTIME || (request.type as string) === 'OVERTIME';
         if (isOvertime) {
           const meta: any = request.attachmentMetadata || {};
-          const workDateRaw = meta.fromDate || request.createdAt;
+          const workDateRaw = meta.fromDate || meta.workDate || meta.rawOtDate || (meta.startTime ? moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null) || request.createdAt;
           const deptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId));
 
           if (deptId && workDateRaw && meta.startTime && meta.endTime) {
@@ -1131,6 +1135,18 @@ export class EmployeeRequestsService {
                 },
               });
             }
+          }
+
+          if (meta.otReportId) {
+            await tx.otReport.updateMany({
+              where: { id: meta.otReportId, status: 'PENDING' },
+              data: {
+                status: 'APPROVED',
+                approvedPercent: meta.proposedPercent || 100,
+                decidedByUserId: actor.userId,
+                decidedAt: new Date(),
+              },
+            });
           }
         }
 
@@ -1280,6 +1296,8 @@ export class EmployeeRequestsService {
             ? Number(payload.adjustedAmount)
             : amount;
 
+          const quoteList = payload?.quoteUrls || payload?.images;
+
           const nextStage = 'PENDING_ACCOUNTANT';
           const newStep = {
             stage: 'PENDING_HR',
@@ -1289,6 +1307,7 @@ export class EmployeeRequestsService {
             note: payload?.note || 'HR đã đối chứng báo giá và xác nhận thông tin tài khoản nhận tiền',
             hrBank,
             adjustedAmount: (payload?.adjustedAmount && Number(payload.adjustedAmount) > 0) ? newAmount : undefined,
+            ...(quoteList && Array.isArray(quoteList) && quoteList.length > 0 ? { quoteUrls: quoteList } : {}),
             at: new Date().toISOString(),
           };
 
@@ -1298,6 +1317,7 @@ export class EmployeeRequestsService {
             stage: nextStage,
             hrApprovedAt: new Date().toISOString(),
             hrApprovedBy: actor.userId,
+            ...(quoteList && Array.isArray(quoteList) && quoteList.length > 0 ? { quoteUrls: quoteList, images: quoteList } : {}),
             approvalSteps: [...existingSteps, newStep],
           };
 
@@ -1811,6 +1831,19 @@ export class EmployeeRequestsService {
           attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
         },
       });
+
+      const meta: any = request.attachmentMetadata || {};
+      if (meta.otReportId) {
+        await tx.otReport.updateMany({
+          where: { id: meta.otReportId, status: 'PENDING' },
+          data: {
+            status: 'REJECTED',
+            rejectionReason: payload.reason.trim() || 'Từ chối bởi Leader',
+            decidedByUserId: actor.userId,
+            decidedAt: new Date(),
+          },
+        });
+      }
 
       const notif = await this.notifications.createForUsers(tx, [request.userId], {
         type: NotificationType.SYSTEM,
@@ -3023,9 +3056,9 @@ export class EmployeeRequestsService {
             purchasedByHrName: hrName,
             requesterName,
             hasVat,
-            bankAccount: payload.bankAccount,
-            bankName: payload.bankName,
-            accountHolder: payload.accountHolder,
+            bankAccount: payload.bankAccount || (purchaseReq.attachmentMetadata as any)?.hrBank?.bankAccount,
+            bankName: payload.bankName || (purchaseReq.attachmentMetadata as any)?.hrBank?.bankName,
+            accountHolder: payload.accountHolder || (purchaseReq.attachmentMetadata as any)?.hrBank?.accountHolder,
             images: payload.images || (payload.disbursementProofUrl ? [payload.disbursementProofUrl] : []),
             disbursementProofUrl: payload.disbursementProofUrl,
             stage: 'PENDING_ACCOUNTANT',

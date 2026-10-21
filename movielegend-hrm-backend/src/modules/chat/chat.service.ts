@@ -498,8 +498,8 @@ export class ChatService {
         }
       }
 
-      // If it is a DIRECT conversation without messages (or cleared), hide from recent list
-      if (group.type === 'DIRECT' && !latestMessage) {
+      // Only hide direct conversation if cleared by user and no new messages
+      if (group.type === 'DIRECT' && clearedAt && !latestMessage) {
         continue;
       }
       if (group.type === 'CUSTOM' && clearedAt && !latestMessage) {
@@ -640,7 +640,13 @@ export class ChatService {
 
     // We must ensure the group has EXACTLY these 2 members
     const group = existingGroups.find(g => g.members.length === 2);
-    if (group) return group;
+    if (group) {
+      await this.prisma.chatGroupMember.updateMany({
+        where: { groupId: group.id, userId: userId1 },
+        data: { clearedAt: null }
+      });
+      return group;
+    }
 
     // Create new direct chat
     return this.prisma.chatGroup.create({
@@ -648,6 +654,19 @@ export class ChatService {
         type: 'DIRECT',
         members: {
           create: [{ userId: userId1 }, { userId: userId2 }]
+        }
+      },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                userCode: true,
+                profile: { select: { fullName: true, avatarUrl: true } }
+              }
+            }
+          }
         }
       }
     });

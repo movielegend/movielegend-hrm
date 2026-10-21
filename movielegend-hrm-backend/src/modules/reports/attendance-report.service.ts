@@ -162,38 +162,43 @@ export class AttendanceReportService {
       }).catch(() => []),
     ]);
 
-    const overtimes = [
-      ...overtimesDb.map(o => ({
+    const rawOvertimes = overtimesRaw.filter(o => {
+      const meta: any = (o.attachmentMetadata && typeof o.attachmentMetadata === 'object') ? o.attachmentMetadata : {};
+      const rawDate = meta.fromDate || meta.workDate || meta.rawOtDate || (meta.startTime ? moment(meta.startTime).format('YYYY-MM-DD') : null) || (o.createdAt ? moment(o.createdAt).format('YYYY-MM-DD') : null);
+      if (!rawDate) return false;
+      const otDate = moment.tz(rawDate, 'Asia/Ho_Chi_Minh');
+      return otDate.isBetween(start, end, 'day', '[]');
+    }).map(o => {
+      const meta: any = (o.attachmentMetadata && typeof o.attachmentMetadata === 'object') ? o.attachmentMetadata : {};
+      const rawDate = meta.fromDate || meta.workDate || meta.rawOtDate || (meta.startTime ? moment(meta.startTime).format('YYYY-MM-DD') : null) || (o.createdAt ? moment(o.createdAt).format('YYYY-MM-DD') : null);
+      return {
         userId: o.userId,
-        workDate: o.workDate,
-        startAt: o.startAt,
-        endAt: o.endAt,
-        startTimeStr: undefined,
-        endTimeStr: undefined,
-        proposedPercent: 150,
-        reason: o.reason,
-      })),
-      ...overtimesRaw.filter(o => {
-        if (!o.attachmentMetadata || typeof o.attachmentMetadata !== 'object') return false;
-        const meta: any = o.attachmentMetadata;
-        if (!meta.fromDate) return false;
-        const otDate = moment(meta.fromDate);
-        return otDate.isBetween(start, end, 'day', '[]');
-      }).map(o => {
-        const meta: any = o.attachmentMetadata;
-        return {
-          userId: o.userId,
-          workDate: new Date(meta.fromDate),
-          startAt: meta.startTime ? new Date(meta.startTime) : undefined,
-          endAt: meta.endTime ? new Date(meta.endTime) : undefined,
-          startTimeStr: meta.startTimeStr || meta.fromTime,
-          endTimeStr: meta.endTimeStr || meta.toTime,
-          proposedPercent: Number(meta.proposedPercent || meta.approvedPercent || meta.percent) || 100,
-          reason: o.content || meta.reason,
-          title: o.title,
-        };
-      }),
-    ];
+        workDate: moment.tz(rawDate, 'Asia/Ho_Chi_Minh').toDate(),
+        startAt: meta.startTime ? new Date(meta.startTime) : undefined,
+        endAt: meta.endTime ? new Date(meta.endTime) : undefined,
+        startTimeStr: meta.startTimeStr || meta.fromTime,
+        endTimeStr: meta.endTimeStr || meta.toTime,
+        proposedPercent: Number(meta.proposedPercent || meta.approvedPercent || meta.percent) || 100,
+        validOtMinutes: Number(meta.validOtMinutes || meta.estimatedOtMinutes) || 0,
+        reason: o.content || meta.reason,
+        title: o.title,
+      };
+    });
+
+    const dbOvertimes = overtimesDb.map(o => ({
+      userId: o.userId,
+      workDate: o.workDate,
+      startAt: o.startAt,
+      endAt: o.endAt,
+      startTimeStr: undefined,
+      endTimeStr: undefined,
+      proposedPercent: 150,
+      validOtMinutes: 0,
+      reason: o.reason,
+      title: 'Làm thêm giờ',
+    }));
+
+    const overtimes = [...rawOvertimes, ...dbOvertimes];
 
     const lateRequests = lateRequestsRaw.filter(o => {
       if (o.type !== 'LATE_ARRIVAL') return false;
@@ -385,18 +390,29 @@ export class AttendanceReportService {
               lateDeduction = 0;
             }
 
-            // 4. OT phòng Live lấy từ OtReport đã duyệt (theo % leader duyệt)
-            if (liveOt && liveOt.validOtMinutes > 0) {
-              const pct = liveOt.approvedPercent || liveOt.proposedPercent || 100;
-              if (pct === 100) ot100 = liveOt.validOtMinutes;
-              else if (pct === 150) ot150 = liveOt.validOtMinutes;
-              else if (pct === 200) ot200 = liveOt.validOtMinutes;
-              else ot100 = liveOt.validOtMinutes;
-            }
-
             // Hỗ trợ đêm nếu lượt cuối ra sau giờ đêm
             if (checkOut && checkOut.hour() >= Number(config.nightStartHour)) {
               nightAllowance = Number(config.nightAllowanceAmount);
+            }
+          }
+
+          // 4. OT phòng Live: Ưu tiên OtReport đã duyệt, nếu không có OtReport thì dùng otRequest (đơn làm thêm tiêu chuẩn)
+          if (liveOt && liveOt.validOtMinutes > 0) {
+            otMins = liveOt.validOtMinutes;
+            const pct = liveOt.approvedPercent || liveOt.proposedPercent || 100;
+            if (pct === 100) ot100 = liveOt.validOtMinutes;
+            else if (pct === 150) ot150 = liveOt.validOtMinutes;
+            else if (pct === 200) ot200 = liveOt.validOtMinutes;
+            else ot100 = liveOt.validOtMinutes;
+          } else if (otRequest) {
+            const approvedMinutes = Number(otRequest.validOtMinutes) || (otRequest.startAt && otRequest.endAt ? Math.max(0, moment(otRequest.endAt).diff(moment(otRequest.startAt), 'minutes')) : 0);
+            if (approvedMinutes > 0) {
+              otMins = approvedMinutes;
+              const pct = Number(otRequest.proposedPercent) || 100;
+              if (pct === 100) ot100 = approvedMinutes;
+              else if (pct === 150) ot150 = approvedMinutes;
+              else if (pct === 200) ot200 = approvedMinutes;
+              else ot100 = approvedMinutes;
             }
           }
         } else {
@@ -478,6 +494,10 @@ export class AttendanceReportService {
                 const effectiveOtEnd = checkOut.isAfter(approvedEnd) ? approvedEnd : checkOut;
                 otMins = Math.max(0, effectiveOtEnd.diff(effectiveOtStart, 'minutes'));
               }
+              if (otMins === 0 && otRequest) {
+                const approvedMinutes = Number(otRequest.validOtMinutes) || (otRequest.startAt && otRequest.endAt ? Math.max(0, moment(otRequest.endAt).diff(moment(otRequest.startAt), 'minutes')) : 0);
+                if (approvedMinutes > 0) otMins = approvedMinutes;
+              }
             } else {
               const shiftStart = moment.tz(`${dateStr} ${shift.startTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
               const shiftEnd = moment.tz(`${dateStr} ${shift.endTime}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
@@ -503,6 +523,13 @@ export class AttendanceReportService {
                   otMins = Math.max(0, effectiveOtEnd.diff(shiftEnd, 'minutes'));
                 }
               }
+            }
+          }
+
+          if (!record && otRequest) {
+            const approvedMinutes = Number(otRequest.validOtMinutes) || (otRequest.startAt && otRequest.endAt ? Math.max(0, moment(otRequest.endAt).diff(moment(otRequest.startAt), 'minutes')) : 0);
+            if (approvedMinutes > 0) {
+              otMins = approvedMinutes;
             }
           }
 
@@ -636,9 +663,6 @@ export class AttendanceReportService {
           lateMins = 0;
           earlyMins = 0;
           lateDeduction = 0;
-          ot100 = 0;
-          ot150 = 0;
-          ot200 = 0;
 
           // 3. Tính công theo chế độ có lương hay không
           attendance = isLeavePaid ? (isHalfDay ? 0.5 : 1) : 0;

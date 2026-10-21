@@ -487,6 +487,10 @@ export class AuthService {
       permissions.add('contract.sign_company');
       permissions.add('contract.read_all');
     }
+    // Mọi nhân sự và trưởng phòng đều có quyền tạo và xem đơn của chính mình
+    permissions.add('employee.request');
+    permissions.add('leave.request');
+    permissions.add('overtime.request');
     return {
       sub: user.id,
       userId: user.id,
@@ -651,6 +655,9 @@ export class AuthService {
       permissions.add('contract.sign_company');
       permissions.add('contract.read_all');
     }
+    permissions.add('employee.request');
+    permissions.add('leave.request');
+    permissions.add('overtime.request');
     const primaryDepartment = user.departmentLinks[0];
     return {
       id: user.id,

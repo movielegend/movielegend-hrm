@@ -253,9 +253,21 @@ export class DepartmentScopeService {
     const member = await this.prisma.departmentMember.findFirst({
       where: { userId, departmentId, leftAt: null },
     });
-    if (!member) {
-      throw forbidden('USER_NOT_IN_DEPARTMENT', 'Nhân viên không thuộc phòng ban này');
-    }
+    if (member) return;
+
+    // Check if user is the leader of the department
+    const isLeader = await this.prisma.department.findFirst({
+      where: { id: departmentId, leaderUserId: userId, deletedAt: null },
+    });
+    if (isLeader) return;
+
+    // Check if user has a scoped role in the department
+    const hasRole = await this.prisma.userRole.findFirst({
+      where: { userId, scopeId: departmentId, scopeType: RoleScopeType.DEPARTMENT },
+    });
+    if (hasRole) return;
+
+    throw forbidden('USER_NOT_IN_DEPARTMENT', 'Nhân viên không thuộc phòng ban này');
   }
 }
 
