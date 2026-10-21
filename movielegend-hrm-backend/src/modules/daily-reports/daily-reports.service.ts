@@ -1016,6 +1016,71 @@ export class DailyReportsService {
   /**
    * 8. Admin chấm điểm sao & nhận xét báo cáo (Single-Review Lock)
    */
+
+  async reviewReportByUserAndDate(actor: AuthenticatedUser, dto: { userId: string; reportDate: string; rating: number; review?: string }) {
+    const { userId, reportDate, rating, review } = dto;
+    if (!userId || !reportDate) throw new BadRequestException('Thiếu userId hoặc reportDate');
+    const ratingNum = Number(rating);
+    if (!ratingNum || ratingNum < 1 || ratingNum > 5) throw new BadRequestException('Điểm đánh giá phải từ 1 đến 5 sao');
+
+    const isAdmin = actor.roles.some((r: string) => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r));
+    const isLeader = actor.roles.includes('LEADER');
+    if (!isAdmin && !isLeader) {
+      throw new ForbiddenException('Chỉ Leader hoặc Admin mới có quyền chấm điểm báo cáo ngày');
+    }
+
+    let report = await this.prisma.dailyReport.findUnique({
+      where: { userId_reportDate: { userId, reportDate } }
+    });
+
+    if (!report) {
+      const member = await this.prisma.departmentMember.findFirst({
+        where: { userId }
+      });
+      const deptId = member?.departmentId;
+      report = await this.prisma.dailyReport.create({
+        data: {
+          userId,
+          departmentId: deptId || '00000000-0000-0000-0000-000000000000',
+          reportDate,
+          status: 'REVIEWED',
+          adminRating: ratingNum,
+          adminReview: review || null,
+          reviewedById: actor.userId,
+          reviewedAt: new Date()
+        }
+      });
+    } else {
+      report = await this.prisma.dailyReport.update({
+        where: { id: report.id },
+        data: {
+          adminRating: ratingNum,
+          adminReview: review || null,
+          reviewedById: actor.userId,
+          reviewedAt: new Date(),
+          status: 'REVIEWED'
+        }
+      });
+    }
+
+    // Cập nhật rating và duyệt các update task của ngày hôm đó
+    await this.prisma.workTaskUpdate.updateMany({
+      where: {
+        reportDate,
+        task: { userId }
+      },
+      data: {
+        selfRating: ratingNum,
+        approvalStatus: 'APPROVED',
+        approvedByUserId: actor.userId,
+        approvedAt: new Date(),
+        approvalNote: review || null
+      }
+    });
+
+    return { ok: true, data: report };
+  }
+
   async reviewReportByAdmin(actor: AuthenticatedUser, reportId: string, dto: ReviewDailyReportDto) {
     const report = await this.prisma.dailyReport.findUnique({
       where: { id: reportId },

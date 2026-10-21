@@ -124,7 +124,7 @@ export class WorkReportsController {
   }
 
   @Delete('admin/tasks/:id')
-  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'LEADER')
   @ApiOperation({ summary: 'Admin: Xóa mềm công việc' })
   async adminSoftDeleteTask(
     @CurrentUser() user: AuthenticatedUser,
@@ -132,6 +132,29 @@ export class WorkReportsController {
     @Body('reason') reason: string
   ) {
     return this.workReportsService.adminSoftDeleteTask(user, id, reason);
+  }
+
+
+  @Post('admin/batch-delete')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'LEADER')
+  @ApiOperation({ summary: 'Admin / Leader: Xóa mềm hàng loạt công việc' })
+  async adminBatchDeleteTasks(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('taskIds') taskIds: string[],
+    @Body('reason') reason?: string
+  ) {
+    return this.workReportsService.adminBatchDeleteTasks(user, taskIds, reason || 'Xóa hàng loạt');
+  }
+
+  @Post('admin/batch-approve')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ summary: 'Admin: Duyệt hàng loạt công việc' })
+  async adminBatchApproveTasks(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('taskIds') taskIds: string[],
+    @Body('note') note?: string
+  ) {
+    return this.workReportsService.adminBatchApproveTasks(user, taskIds, note);
   }
 
   @Get('admin/history')

@@ -1117,14 +1117,34 @@ export class WorkReportsService {
   }
 
   async adminSoftDeleteTask(actor: AuthenticatedUser, taskId: string, reason: string) {
-    if (!reason) throw new BadRequestException('Bắt buộc phải nhập lý do xóa');
+    const task = await this.prisma.workTask.findUnique({ where: { id: taskId } });
+    if (!task) throw new NotFoundException('Không tìm thấy công việc');
+
+    const isAdmin = actor.roles.some((r: string) => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r));
+    const isLeader = actor.roles.includes('LEADER');
+
+    if (!isAdmin) {
+      if (!isLeader) {
+        throw new ForbiddenException('Bạn không có quyền xóa công việc này');
+      }
+      const leaderDepts = await this.prisma.department.findMany({
+        where: { leaderUserId: actor.userId, isActive: true, deletedAt: null },
+        select: { id: true }
+      });
+      const leaderDeptIds = leaderDepts.map((d: any) => d.id);
+      if (task.departmentId && !leaderDeptIds.includes(task.departmentId)) {
+        throw new ForbiddenException('Leader chỉ được phép xóa công việc thuộc phòng ban của mình');
+      }
+    }
+
+    const deleteReason = reason || 'Xóa bởi Quản lý / Admin';
     const updated = await this.prisma.workTask.update({
       where: { id: taskId },
       data: {
         isDeleted: true,
         deletedAt: new Date(),
         deletedById: actor.userId,
-        deleteReason: reason
+        deleteReason: deleteReason
       }
     });
 
@@ -1167,6 +1187,53 @@ export class WorkReportsService {
     }
 
     return updated;
+  }
+
+
+  async adminBatchDeleteTasks(actor: AuthenticatedUser, taskIds: string[], reason: string) {
+    if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+      throw new BadRequestException('Vui lòng chọn ít nhất một công việc để xóa');
+    }
+    const results = [];
+    for (const id of taskIds) {
+      try {
+        await this.adminSoftDeleteTask(actor, id, reason);
+        results.push({ id, success: true });
+      } catch (err: any) {
+        results.push({ id, success: false, error: err.message });
+      }
+    }
+    return { success: true, count: results.filter(r => r.success).length, results };
+  }
+
+  async adminBatchApproveTasks(actor: AuthenticatedUser, taskIds: string[], note?: string) {
+    if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0) {
+      throw new BadRequestException('Vui lòng chọn ít nhất một công việc để duyệt');
+    }
+    const results = [];
+    for (const taskId of taskIds) {
+      try {
+        const task = await this.prisma.workTask.findUnique({
+          where: { id: taskId },
+          include: { updates: { take: 1, orderBy: { createdAt: 'desc' } } }
+        });
+        if (task) {
+          const updateId = task.updates?.[0]?.id;
+          if (updateId) {
+            await this.approveTaskUpdate(actor, taskId, updateId, { approvalStatus: 'APPROVED', approvalNote: note });
+          } else {
+            await this.prisma.workTask.update({
+              where: { id: taskId },
+              data: { approvalStatus: 'APPROVED' }
+            });
+          }
+          results.push({ id: taskId, success: true });
+        }
+      } catch (err: any) {
+        results.push({ id: taskId, success: false, error: err.message });
+      }
+    }
+    return { success: true, count: results.filter(r => r.success).length, results };
   }
 
   async getHistory(actor: AuthenticatedUser, query: any) {
