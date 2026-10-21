@@ -19,7 +19,7 @@ export interface AppRegistryItem {
   badgeKey?: 'pendingRequests' | 'dueTasks' | 'pendingVault' | 'pendingFinancial';
 }
 
-export const CORE_APP_KEYS = ['attendance', 'attendance_history', 'requests', 'tasks', 'ai_chat', 'feedbacks'] as const;
+export const CORE_APP_KEYS = ['attendance', 'attendance_history', 'requests', 'tasks', 'cross_department', 'ai_chat', 'feedbacks'] as const;
 
 export const APP_CATEGORIES = [
   { id: 'operations', label: 'VẬN HÀNH & NHÂN SỰ' },
@@ -251,6 +251,22 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   },
 
   // Hành chính & Tài liệu
+  cross_department: {
+    key: 'cross_department',
+    title: 'Liên phòng ban',
+    employeeTitle: 'Liên phòng ban',
+    leaderTitle: 'Liên phòng ban',
+    adminTitle: 'Liên phòng ban',
+    hrTitle: 'Liên phòng ban',
+    category: 'admin_docs',
+    icon: 'ArrowRightLeft',
+    color: '#0284C7',
+    bgColor: '#E0F2FE',
+    adminRoute: '/admin/cross-department',
+    leaderRoute: '/leader/cross-department',
+    employeeRoute: '/employee/cross-department',
+    hrRoute: '/hr/cross-department',
+  },
   contracts: {
     key: 'contracts',
     title: 'Hợp đồng lao động',

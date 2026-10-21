@@ -98,11 +98,12 @@ export class CrossDepartmentService {
     const includeClause = {
       createdBy: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
       assignedTo: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
-      sourceDepartment: { select: { id: true, code: true, name: true } },
-      targetDepartment: { select: { id: true, code: true, name: true } },
+      sourceDepartment: { select: { id: true, code: true, name: true, leaderUserId: true } },
+      targetDepartment: { select: { id: true, code: true, name: true, leaderUserId: true } },
     };
 
-    const isGlobalAdmin = actor.roles.includes('HR') || (actor.roles.includes('ADMIN') && (await this.scope.getVisibleDepartmentIds(actor)) === null);
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+    const isGlobalAdmin = actor.roles.includes('HR') || (actor.roles.includes('ADMIN') && visibleDepts === null);
 
     if (isGlobalAdmin) {
       if (type === 'incoming') {
@@ -133,17 +134,26 @@ export class CrossDepartmentService {
       return this.prisma.crossDepartmentRequest.findMany({ include: includeClause, orderBy: { createdAt: 'desc' } });
     }
 
-    const isLeaderOrRegionalAdmin = actor.roles.includes('ADMIN') || actor.roles.includes('LEADER') || actor.scopes.some(s => s.role === 'LEADER');
+    const isLeaderOrSpecial = actor.roles.includes('ADMIN') || actor.roles.includes('LEADER') || actor.scopes.some(s => s.role === 'LEADER') || this.scope.isAccountant(actor);
 
-    if (isLeaderOrRegionalAdmin) {
-      const visibleFromScopes = await this.scope.getVisibleDepartmentIds(actor) ?? [];
-      const memberDeptIds = await this.getUserDepartmentIds(actor.userId);
-      const visible = Array.from(new Set([...visibleFromScopes, ...memberDeptIds]));
+    if (isLeaderOrSpecial) {
+      const myDeptIds = await this.getUserDepartmentIds(actor.userId);
+      const ledDepts = await this.prisma.department.findMany({
+        where: { leaderUserId: actor.userId, deletedAt: null },
+        select: { id: true },
+      });
+      const allMyDeptIds = Array.from(new Set([...myDeptIds, ...ledDepts.map(d => d.id)]));
+      
+      const visible = visibleDepts === null 
+        ? allMyDeptIds 
+        : Array.from(new Set([...visibleDepts, ...allMyDeptIds]));
 
       let whereClause: any = { 
         OR: [
           { sourceDepartmentId: { in: visible } }, 
           { targetDepartmentId: { in: visible } }, 
+          { targetDepartment: { leaderUserId: actor.userId } },
+          { sourceDepartment: { leaderUserId: actor.userId } },
           { createdByUserId: actor.userId },
           { assignedToUserId: actor.userId }
         ] 
@@ -153,6 +163,7 @@ export class CrossDepartmentService {
         whereClause = { 
           OR: [
             { targetDepartmentId: { in: visible } },
+            { targetDepartment: { leaderUserId: actor.userId } },
             { assignedToUserId: actor.userId }
           ]
         };
@@ -160,6 +171,7 @@ export class CrossDepartmentService {
         whereClause = { 
           OR: [
             { sourceDepartmentId: { in: visible } }, 
+            { sourceDepartment: { leaderUserId: actor.userId } },
             { createdByUserId: actor.userId }
           ]
         };
@@ -208,8 +220,8 @@ export class CrossDepartmentService {
         createdBy: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
         assignedTo: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
         decidedBy: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
-        sourceDepartment: { select: { id: true, code: true, name: true } },
-        targetDepartment: { select: { id: true, code: true, name: true } },
+        sourceDepartment: { select: { id: true, code: true, name: true, leaderUserId: true } },
+        targetDepartment: { select: { id: true, code: true, name: true, leaderUserId: true } },
         task: { select: { id: true, taskCode: true, title: true, status: true, priority: true, dueAt: true } },
       },
     });
@@ -260,9 +272,13 @@ export class CrossDepartmentService {
   }
 
   async assignTarget(id: string, dto: import('./dto/cross-department.dto').AssignTargetDto, actor: AuthenticatedUser) {
-    const request = await this.prisma.crossDepartmentRequest.findUnique({ where: { id } });
+    const request = await this.prisma.crossDepartmentRequest.findUnique({ 
+      where: { id },
+      include: { targetDepartment: { select: { leaderUserId: true } } },
+    });
     if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
-    if (!actor.roles.includes('HR')) {
+    const isTargetLeader = request.targetDepartment?.leaderUserId === actor.userId;
+    if (!actor.roles.includes('HR') && !isTargetLeader) {
       await this.scope.assertDepartmentAccessAsync(actor, request.targetDepartmentId);
     }
     if (request.status !== CrossDepartmentRequestStatus.TARGET_ACCEPTED && request.status !== CrossDepartmentRequestStatus.SOURCE_APPROVED) {
@@ -362,9 +378,13 @@ export class CrossDepartmentService {
   }
 
   async completeTask(id: string, dto: import('./dto/cross-department.dto').CompleteTaskDto, actor: AuthenticatedUser) {
-    const request = await this.prisma.crossDepartmentRequest.findUnique({ where: { id } });
+    const request = await this.prisma.crossDepartmentRequest.findUnique({ 
+      where: { id },
+      include: { sourceDepartment: { select: { leaderUserId: true } } },
+    });
     if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
-    if (!actor.roles.includes('HR')) {
+    const isSourceLeader = request.sourceDepartment?.leaderUserId === actor.userId;
+    if (!actor.roles.includes('HR') && !isSourceLeader) {
       await this.scope.assertDepartmentAccessAsync(actor, request.sourceDepartmentId);
     }
     if (request.status !== CrossDepartmentRequestStatus.SUBMITTED_FOR_REVIEW) {
@@ -420,7 +440,11 @@ export class CrossDepartmentService {
       }
     });
     if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
-    if (!actor.roles.includes('HR')) {
+    const isDirectLeader = side === 'source' 
+      ? request.sourceDepartment?.leaderUserId === actor.userId
+      : request.targetDepartment?.leaderUserId === actor.userId;
+
+    if (!actor.roles.includes('HR') && !isDirectLeader) {
       await this.scope.assertDepartmentAccessAsync(actor, side === 'source' ? request.sourceDepartmentId : request.targetDepartmentId);
     }
     if (request.status !== expected) throw badRequest('INVALID_CROSS_DEPARTMENT_STATUS', `Request must be ${expected}`);
@@ -484,8 +508,26 @@ export class CrossDepartmentService {
   ): Promise<boolean> {
     if (actor.roles.includes('HR') || actor.permissions.includes('cross_department.read_all')) return true;
     if (request.createdByUserId === actor.userId || request.assignedToUserId === actor.userId) return true;
-    const visible = await this.scope.getVisibleDepartmentIds(actor) ?? [];
-    if (actor.roles.includes('ADMIN') && visible.length === 0) return true; // Global Admin
-    return visible.includes(request.sourceDepartmentId) || visible.includes(request.targetDepartmentId);
+
+    // Check if actor has unrestricted access (Global Admin, Accountant, etc.)
+    const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+    if (visibleDepts === null) return true;
+
+    // Member departments & directly led departments
+    const memberDeptIds = await this.getUserDepartmentIds(actor.userId);
+    const visible = new Set([...visibleDepts, ...memberDeptIds]);
+    if (visible.has(request.sourceDepartmentId) || visible.has(request.targetDepartmentId)) {
+      return true;
+    }
+
+    // Direct check: is actor the leader of source or target department?
+    const dept = await this.prisma.department.findFirst({
+      where: {
+        id: { in: [request.sourceDepartmentId, request.targetDepartmentId] },
+        leaderUserId: actor.userId,
+        deletedAt: null,
+      },
+    });
+    return Boolean(dept);
   }
 }

@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
-import { notFound } from '../../common/utils/error.util';
+import { badRequest, forbidden, notFound } from '../../common/utils/error.util';
 import { PrismaService } from '../../database/prisma.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { StorageService } from '../storage/storage.service';
 import { UpdateFaceDto, UpdateMeDto, ValidateFacePoseDto } from './dto/update-me.dto';
 import { DEFAULT_PINNED_APPS, UpdatePinnedAppsDto } from './dto/update-pinned-apps.dto';
-import { FacePoseType, UploadPurpose } from '@prisma/client';
-import { badRequest } from '../../common/utils/error.util';
+import { FacePoseType, UploadPurpose, UploadedFileStatus } from '@prisma/client';
+// imports
 import { RealtimeEventsService } from '../realtime/realtime-events.service';
 
 import { FaceVerificationService } from '../face/services/face-verification.service';
@@ -175,9 +175,27 @@ export class UsersService {
       });
 
       // Attach file ids if they are passed
-      const fileIds = dto.faceImages.map((img) => img.fileId).filter(Boolean) as string[];
-      if (fileIds.length > 0) {
-        await this.uploads.attachTemporaryFiles(fileIds, actor.userId, UploadPurpose.FACE_REGISTRATION, tx);
+      const rawFileIds = dto.faceImages.map((img) => img.fileId).filter(Boolean) as string[];
+      const uniqueFileIds = Array.from(new Set(rawFileIds));
+      if (uniqueFileIds.length > 0) {
+        const files = await tx.uploadedFile.findMany({
+          where: { id: { in: uniqueFileIds } },
+          select: { id: true, status: true, uploadedById: true },
+        });
+
+        for (const file of files) {
+          if (file.uploadedById && file.uploadedById !== actor.userId) {
+            throw forbidden('UPLOAD_UNAUTHORIZED', 'Tệp tải lên không thuộc về tài khoản này');
+          }
+        }
+
+        const tempFileIds = files
+          .filter((f) => f.status === UploadedFileStatus.TEMPORARY)
+          .map((f) => f.id);
+
+        if (tempFileIds.length > 0) {
+          await this.uploads.attachTemporaryFiles(tempFileIds, actor.userId, UploadPurpose.FACE_REGISTRATION, tx);
+        }
       }
 
       // Clear user face cache

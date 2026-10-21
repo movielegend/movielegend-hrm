@@ -635,14 +635,23 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
   const isAdmin = user?.roles.includes('ADMIN');
   const isHR = user?.roles.includes('HR');
 
-  const isSourceSide = item.createdByUserId === user?.id || (Boolean(user?.department?.id) && user?.department?.id === item.sourceDepartmentId);
-  const isTargetSide = Boolean(user?.department?.id) && user?.department?.id === item.targetDepartmentId;
+  const isSourceLeader = item.sourceDepartment?.leaderUserId === user?.id;
+  const isTargetLeader = item.targetDepartment?.leaderUserId === user?.id;
+
+  const isSourceSide = item.createdByUserId === user?.id || 
+    isSourceLeader ||
+    (Boolean(user?.department?.id) && user?.department?.id === item.sourceDepartmentId) ||
+    Boolean(user?.scopes?.some(s => s.role === 'LEADER' && s.scopeId === item.sourceDepartmentId));
+
+  const isTargetSide = isTargetLeader ||
+    (Boolean(user?.department?.id) && user?.department?.id === item.targetDepartmentId) ||
+    Boolean(user?.scopes?.some(s => s.role === 'LEADER' && s.scopeId === item.targetDepartmentId));
 
   // Source side actions (Source approve / Complete & Rate)
-  const canSource = isAdmin || (isHR && isSourceSide) || (isSourceSide && hasAnyPermission(user, ['cross_department.source_approve', 'cross_department.read_all']));
+  const canSource = isAdmin || isSourceLeader || (isHR && isSourceSide) || (isSourceSide && hasAnyPermission(user, ['cross_department.source_approve', 'cross_department.read_all']));
 
   // Target side actions (Target accept / Assign target employee)
-  const canTarget = isAdmin || isTargetSide || (
+  const canTarget = isAdmin || isTargetLeader || isTargetSide || (
     !isSourceSide && hasAnyPermission(user, ['cross_department.target_receive', 'cross_department.read_all'])
   );
 

@@ -1072,8 +1072,7 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
   const [viewingSignatureUrl, setViewingSignatureUrl] = useState<string | null>(null);
   const [detailMenuVisible, setDetailMenuVisible] = useState(false);
 
-  const data = contract.data;
-  if (!data && !contract.isLoading) {
+  if (contract.isLoading) {
     return (
       <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
         <View style={cStyles.header}>
@@ -1091,11 +1090,39 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
             <View style={{ width: 40 }} />
           </View>
         </View>
-        <EmptyState title="Không tìm thấy hợp đồng" />
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
       </SafeAreaView>
     );
   }
-  if (!data) return null;
+
+  const data = contract.data;
+  if (!data) {
+    return (
+      <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
+        <View style={cStyles.header}>
+          <View style={cStyles.headerRow}>
+            <View style={cStyles.headerTitleGroup}>
+              <Pressable
+                onPress={() => (router.canGoBack() ? router.back() : router.replace(`${roleBase(user)}/contracts` as any))}
+                style={cStyles.backBtn}
+                hitSlop={10}
+              >
+                <Ionicons name="chevron-back" size={24} color="#0F172A" />
+              </Pressable>
+              <Text style={cStyles.detailScreenTitle}>Chi tiết hợp đồng</Text>
+            </View>
+            <View style={{ width: 40 }} />
+          </View>
+        </View>
+        <EmptyState 
+          title="Không tìm thấy hợp đồng" 
+          description={contract.error ? normalizeApiError(contract.error).message : undefined} 
+        />
+      </SafeAreaView>
+    );
+  }
 
   const empName = data.user?.profile?.fullName ?? data.user?.userCode ?? (data as any).employeeName ?? "-";
   const initials = getInitials(empName);
@@ -1126,7 +1153,8 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
     (status === "WAITING_EMPLOYEE_SIGNATURE" &&
       (user?.roles?.includes("ADMIN") || user?.roles?.includes("HR"))) ||
     (status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN")) ||
-    status === "DRAFT" ||
+    (status === "DRAFT" &&
+      (user?.roles?.includes("ADMIN") || user?.roles?.includes("HR"))) ||
     user?.roles?.includes("ADMIN");
 
   async function handleAction(action: () => Promise<unknown>, label: string) {
@@ -1663,6 +1691,16 @@ function DetailRow({
 export function CreateContractScreen() {
   const router = useRouter();
   const { user } = useAuth();
+
+  useEffect(() => {
+    const isLeaderOnly =
+      (user?.roles?.includes('LEADER') || (user as any)?.role === 'LEADER') &&
+      !user?.roles?.includes('ADMIN') &&
+      !user?.roles?.includes('HR');
+    if (isLeaderOnly) {
+      router.replace('/leader/contracts' as any);
+    }
+  }, [user, router]);
   const params = useLocalSearchParams();
   const templateId =
     typeof params.templateId === "string" ? params.templateId : undefined;
@@ -3373,18 +3411,7 @@ export function LeaderContractListScreen() {
                 Quản lý và cá nhân
               </Text>
             </View>
-            <Pressable
-              style={leaderContractStyles.templateBtn}
-              onPress={() => router.push(`${roleBase(user)}/contracts/templates` as any)}
-              hitSlop={8}
-            >
-              <MaterialCommunityIcons
-                name="file-cog-outline"
-                size={17}
-                color="#FFFFFF"
-              />
-              <Text style={leaderContractStyles.templateBtnText}>Mẫu HĐ</Text>
-            </Pressable>
+            {/* Leader chỉ có quyền xem hợp đồng phòng ban */}
           </View>
         </View>
       </View>
@@ -3426,7 +3453,7 @@ export function LeaderContractListScreen() {
                   leaderContractStyles.segmentTextActive,
               ]}
             >
-              Tôi giao
+              Phòng ban
             </Text>
           </Pressable>
         </View>
@@ -3528,7 +3555,7 @@ export function LeaderContractListScreen() {
               </Text>
               <Text style={leaderContractStyles.emptySubtitle}>
                 {activeTab === "TEAM_CONTRACTS"
-                  ? "Bạn hiện chưa giao hợp đồng lao động nào."
+                  ? "Phòng ban hiện chưa có hợp đồng lao động nào."
                   : "Bạn hiện chưa có hợp đồng lao động nào."}
               </Text>
             </View>
