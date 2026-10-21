@@ -1025,8 +1025,9 @@ export class DailyReportsService {
 
     const isAdmin = actor.roles.some((r: string) => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r));
     const isLeader = actor.roles.includes('LEADER');
-    if (!isAdmin && !isLeader) {
-      throw new ForbiddenException('Chỉ Leader hoặc Admin mới có quyền chấm điểm báo cáo ngày');
+    const isSelf = actor.userId === userId;
+    if (!isAdmin && !isLeader && !isSelf) {
+      throw new ForbiddenException('Bạn không có quyền chấm điểm báo cáo này');
     }
 
     let report = await this.prisma.dailyReport.findUnique({
@@ -1063,20 +1064,33 @@ export class DailyReportsService {
       });
     }
 
-    // Cập nhật rating và duyệt các update task của ngày hôm đó
-    await this.prisma.workTaskUpdate.updateMany({
-      where: {
-        reportDate,
-        task: { userId }
-      },
-      data: {
-        selfRating: ratingNum,
-        approvalStatus: 'APPROVED',
-        approvedByUserId: actor.userId,
-        approvedAt: new Date(),
-        approvalNote: review || null
-      }
-    });
+    // Cập nhật rating cho tất cả task và task update của ngày hôm đó
+    if (isAdmin || isLeader) {
+      await this.prisma.workTaskUpdate.updateMany({
+        where: { reportDate, task: { userId } },
+        data: {
+          selfRating: ratingNum,
+          approvalStatus: 'APPROVED',
+          approvedByUserId: actor.userId,
+          approvedAt: new Date(),
+          approvalNote: review || null
+        }
+      });
+      await this.prisma.workTask.updateMany({
+        where: { reportDate, userId },
+        data: {
+          approvalStatus: 'APPROVED'
+        }
+      });
+    } else {
+      // Nhân viên tự chấm sao
+      await this.prisma.workTaskUpdate.updateMany({
+        where: { reportDate, task: { userId } },
+        data: {
+          selfRating: ratingNum
+        }
+      });
+    }
 
     return { ok: true, data: report };
   }

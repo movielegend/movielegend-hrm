@@ -117,7 +117,6 @@ export class DailyReportsController {
 
 
   @ApiOperation({ summary: 'Chấm điểm & nhận xét báo cáo ngày theo userId và ngày' })
-  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'LEADER')
   @Post('review-by-user-date')
   reviewReportByUserAndDate(
     @CurrentUser() user: AuthenticatedUser,
