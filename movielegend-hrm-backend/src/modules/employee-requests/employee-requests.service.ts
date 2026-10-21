@@ -1296,7 +1296,11 @@ export class EmployeeRequestsService {
             ? Number(payload.adjustedAmount)
             : amount;
 
-          const quoteList = payload?.quoteUrls || payload?.images;
+          const quoteList = (payload?.quoteUrls && Array.isArray(payload.quoteUrls) && payload.quoteUrls.length > 0)
+            ? payload.quoteUrls
+            : (payload?.images && Array.isArray(payload.images) && payload.images.length > 0)
+              ? payload.images
+              : (payload?.disbursementProofUrl ? [payload.disbursementProofUrl] : undefined);
 
           const nextStage = 'PENDING_ACCOUNTANT';
           const newStep = {
