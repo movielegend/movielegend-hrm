@@ -113,6 +113,16 @@ export class ApproveEmployeeRequestDto {
   @IsOptional()
   @IsNumber()
   adjustedAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Danh sách URL ảnh báo giá đối chứng do HR tải lên' })
+  @IsOptional()
+  @IsArray()
+  quoteUrls?: string[];
+
+  @ApiPropertyOptional({ description: 'Danh sách URL ảnh đính kèm do HR tải lên' })
+  @IsOptional()
+  @IsArray()
+  images?: string[];
 }
 
 export class CreateExpenseFromPurchaseDto {

@@ -25,6 +25,7 @@ import { ConfirmModal } from '../../components/ConfirmModal';
 import { SelectModal, SelectOption } from '../../components/SelectModal';
 import { EmptyState } from '../../components/EmptyState';
 import { LoadingState } from '../../components/LoadingState';
+import { LEVEL_COLORS } from '../../components/common/LevelNameBadge';
 
 function UserInitialAvatar({ name, size = 48 }: { name: string; size?: number }) {
   const initials = useMemo(() => {
@@ -251,7 +252,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
 
                 const deptNameLower = deptName.toLowerCase();
                 const isAccDept = deptNameLower.includes('kế toán') || deptNameLower.includes('tài chính') || deptNameLower.includes('accountant') || deptNameLower.includes('accounting') || deptNameLower.includes('kt');
-                let displayRole = employee.profile?.position?.name || employee.position?.name;
+                let displayRole = employee.profile?.position?.name || (employee as any).position?.name;
                 if (roleCodes.includes('ADMIN') || roleCodes.includes('SUPER_ADMIN')) displayRole = 'Admin Tổng';
                 else if (roleCodes.includes('ACCOUNTANT_LEAD')) displayRole = 'Kế toán trưởng';
                 else if (roleCodes.includes('LEADER') || roleCodes.includes('DEPARTMENT_HEAD')) displayRole = isAccDept ? 'Kế toán trưởng' : 'Trưởng phòng (Leader)';
@@ -261,6 +262,10 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                 else if (isAccDept) displayRole = 'Kế toán viên';
                 else if (roleCodes.includes('HR') || roleCodes.includes('HUMAN_RESOURCE')) displayRole = 'Nhân sự HR';
                 else if (!displayRole) displayRole = 'Nhân viên';
+
+                const empLevel = (employee as any).currentLevelNumber || employee.profile?.currentLevelNumber || 1;
+                const levelColor = LEVEL_COLORS[empLevel] || '#2563EB';
+                const empVaultEnabled = Boolean((employee as any).isRewardVaultEnabled || (employee as any)?.profile?.isRewardVaultEnabled);
 
                 const isActive = employee.accountStatus === 'ACTIVE';
 
@@ -282,6 +287,22 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                         <Text style={styles.employeePosition}>
                           Vị trí: {displayRole}
                         </Text>
+
+                        {/* Level & Ví Thưởng Badges */}
+                        <View style={styles.employeeMetaTagsRow}>
+                          <View style={[styles.levelTagBadge, { backgroundColor: `${levelColor}15` }]}>
+                            <Ionicons name="ribbon" size={11} color={levelColor} />
+                            <Text style={[styles.levelTagText, { color: levelColor }]}>
+                              Lv.{empLevel}
+                            </Text>
+                          </View>
+                          {empVaultEnabled && (
+                            <View style={styles.vaultTagBadge}>
+                              <Ionicons name="wallet-outline" size={11} color="#059669" />
+                              <Text style={styles.vaultTagText}>Ví thưởng</Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
 
                       <View style={[styles.statusBadge, isActive ? styles.statusBadgeActive : styles.statusBadgeInactive]}>
@@ -964,6 +985,38 @@ const styles = StyleSheet.create({
   employeePosition: {
     fontSize: 13,
     color: '#94A3B8',
+  },
+  employeeMetaTagsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  levelTagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  levelTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  vaultTagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  vaultTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
   },
   statusBadge: {
     paddingHorizontal: 10,

@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, Delete } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
+import { BirthdayAnnouncementService } from './birthday-announcement.service';
 import { CreateChatMessageDto } from './dto/chat.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -10,7 +11,10 @@ import type { AuthenticatedUser } from '../../common/interfaces/authenticated-us
 @ApiBearerAuth()
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly birthdayService: BirthdayAnnouncementService,
+  ) {}
 
   @ApiOperation({ summary: 'Lấy danh sách nhóm chat của tôi' })
   @Get('my-groups')
@@ -153,5 +157,14 @@ export class ChatController {
   ) {
     return this.chatService.getMessageSeenDetails(groupId, messageId);
   }
-}
 
+  @ApiOperation({ summary: 'Kích hoạt thông báo sinh nhật phòng ban thủ công (Admin)' })
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @Post('trigger-birthday-announcements')
+  triggerBirthdayAnnouncements(
+    @Query('targetDate') targetDate?: string,
+  ) {
+    const date = targetDate ? new Date(targetDate) : undefined;
+    return this.birthdayService.checkAndSendBirthdayAnnouncements(date);
+  }
+}

@@ -18,7 +18,7 @@ import { Screen } from '../../components/Screen';
 import { useAuth } from '../../providers/AuthProvider';
 import { useUnreadNotificationCount, useUnreadChatCount } from '../../hooks/useNotifications';
 import { useAttendanceDashboardStats, useCurrentAttendance } from '../../hooks/useAttendance';
-import { getVaultWithdrawalRequests } from '../../api/employees.api';
+import { getVaultWithdrawalRequests, getMyVault } from '../../api/employees.api';
 import { getEmployeeRequests } from '../../api/employee-requests.api';
 import { useNewsfeedPosts } from '../../hooks/useNewsfeed';
 import { useFeedbacksForManagement } from '../../hooks/useFeedback';
@@ -45,6 +45,7 @@ import {
   ChevronUp,
   Plus,
   Crown,
+  Coins,
 } from 'lucide-react-native';
 
 import { levelingApi } from '../../api/leveling.api';
@@ -233,13 +234,31 @@ export function HRDashboard() {
     enabled: Boolean(user?.id),
   });
 
-  const currentLevelNumber = levelProgress?.currentLevel?.levelNumber || (user as any)?.currentLevel || 1;
+  const currentLevelNumber =
+    levelProgress?.currentLevel?.levelNumber ||
+    (user as any)?.currentLevelNumber ||
+    (user as any)?.profile?.currentLevelNumber ||
+    (user as any)?.currentLevel ||
+    1;
   const levelColor = levelProgress?.currentLevel?.colorHex || LEVEL_COLORS[currentLevelNumber] || '#2563EB';
   const levelTitle =
     levelProgress?.currentLevel?.displayName ||
     levelProgress?.currentLevel?.badgeTitle ||
     LEVEL_DEFAULT_NAMES[currentLevelNumber] ||
     `Cấp ${currentLevelNumber}`;
+
+  // My Vault (Ví Thưởng Tích Lũy) cho HR & Kế toán
+  const { data: myVault } = useQuery({
+    queryKey: ['my-vault', user?.id],
+    queryFn: () => getMyVault().catch(() => null),
+    enabled: Boolean(user?.id),
+  });
+  const isVaultEnabled = Boolean(myVault?.isVaultEnabled || (user as any)?.isRewardVaultEnabled);
+  const rawUnlocked = myVault?.stats?.unlockedPoints || 0;
+  const rate = myVault?.stats?.cashValuePerPoint || 1000;
+  const unlockedVaultPoints = rawUnlocked > 100000 ? rawUnlocked : rawUnlocked * rate;
+  const rawGranted = myVault?.stats?.totalGrantedPoints || 0;
+  const totalGrantedPoints = rawGranted > 100000 ? rawGranted : rawGranted * rate;
 
   // Refresh
   const onRefresh = useCallback(async () => {
@@ -498,6 +517,95 @@ export function HRDashboard() {
 
         {/* Content Body */}
         <View style={styles.contentBody}>
+          {/* ================= HÀNH TRÌNH & QUỸ THƯỞNG ================= */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionMainTitle}>Hành trình &amp; Quỹ thưởng</Text>
+            </View>
+
+            <View style={styles.hubCard}>
+              {/* Cấp bậc */}
+              <Pressable
+                style={styles.hubSegment}
+                onPress={() => router.push('/hr/leveling' as any)}
+                accessibilityRole="button"
+                accessibilityLabel="Xem chi tiết cấp bậc"
+              >
+                <View style={styles.hubRow}>
+                  <View style={[styles.hubIconCircle, { backgroundColor: `${levelColor}15` }]}>
+                    <Crown size={20} color={levelColor} />
+                  </View>
+                  <View style={styles.hubInfoBlock}>
+                    <View style={styles.hubTitleRow}>
+                      <Text style={styles.hubTitle} numberOfLines={1}>
+                        Level {currentLevelNumber}: {levelTitle}
+                      </Text>
+                      <View style={[styles.hubTag, { backgroundColor: `${levelColor}15` }]}>
+                        <Text style={[styles.hubTagText, { color: levelColor }]}>Lv.{currentLevelNumber}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.hubSubtitle}>
+                      {levelProgress?.nextLevel
+                        ? `Tiến độ lên Lv.${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
+                        : 'Cấp bậc danh dự tối cao'}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color="#94A3B8" />
+                </View>
+
+                {/* Progress Bar */}
+                <View style={styles.hubProgressTrack}>
+                  <View
+                    style={[
+                      styles.hubProgressFill,
+                      {
+                        width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
+                        backgroundColor: levelColor,
+                      },
+                    ]}
+                  />
+                </View>
+              </Pressable>
+
+              {/* Ví Thưởng Tích Lũy */}
+              <View style={styles.hubDivider} />
+              <Pressable
+                style={styles.hubSegment}
+                onPress={() => router.push('/hr/vault' as any)}
+                accessibilityRole="button"
+                accessibilityLabel="Xem ví thưởng tích lũy"
+              >
+                <View style={styles.hubRow}>
+                  <View style={[styles.hubIconCircle, { backgroundColor: '#E7F0F7' }]}>
+                    <Coins size={20} color="#102739" />
+                  </View>
+                  <View style={styles.hubInfoBlock}>
+                    <View style={styles.hubTitleRow}>
+                      <Text style={styles.hubTitle} numberOfLines={1}>Ví Thưởng Tích Lũy</Text>
+                      <View style={styles.vaultBadge}>
+                        <Text style={styles.vaultBadgeText}>Đặc quyền</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.hubSubtitle}>
+                      {isVaultEnabled ? (
+                        <>
+                          Khả dụng:{' '}
+                          <Text style={styles.hubSubtitleGreen}>
+                            {unlockedVaultPoints.toLocaleString('vi-VN')} đ
+                          </Text>
+                          {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
+                        </>
+                      ) : (
+                        'Đặc quyền phúc lợi tích lũy • Chạm để xem'
+                      )}
+                    </Text>
+                  </View>
+                  <ChevronRight size={18} color="#94A3B8" />
+                </View>
+              </Pressable>
+            </View>
+          </View>
+
           {/* ================= 3. CẦN BẠN XỬ LÝ ================= */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
@@ -1623,5 +1731,89 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     lineHeight: 16,
+  },
+  hubCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  hubSegment: {
+    padding: 14,
+  },
+  hubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  hubIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  hubInfoBlock: {
+    flex: 1,
+  },
+  hubTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  hubTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  hubTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  hubTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  hubSubtitle: {
+    fontSize: 12,
+    color: '#334155',
+    marginTop: 2,
+  },
+  hubSubtitleGreen: {
+    color: '#059669',
+    fontWeight: '700',
+  },
+  hubProgressTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#F1F5F9',
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  hubProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  hubDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+  },
+  vaultBadge: {
+    backgroundColor: '#E7F0F7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  vaultBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#102739',
   },
 });

@@ -156,19 +156,21 @@ export class ShiftSwapsService {
   }
 
   async findLeaderPendingSwaps(user: AuthenticatedUser) {
-    const leaderDepartments = await this.prisma.department.findMany({
-      where: { leaderUserId: user.userId },
-      select: { id: true }
-    });
-    
-    if (leaderDepartments.length === 0) return [];
-
-    const departmentIds = leaderDepartments.map(d => d.id);
+    const isAdmin = user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN');
+    let departmentIds: string[] = [];
+    if (!isAdmin) {
+      const leaderDepartments = await this.prisma.department.findMany({
+        where: { leaderUserId: user.userId },
+        select: { id: true }
+      });
+      if (leaderDepartments.length === 0) return [];
+      departmentIds = leaderDepartments.map(d => d.id);
+    }
 
     return this.prisma.shiftSwap.findMany({
       where: { 
-        departmentId: { in: departmentIds },
-        status: ShiftSwapStatus.PENDING_LEADER_APPROVAL
+        ...(departmentIds.length > 0 ? { departmentId: { in: departmentIds } } : {}),
+        status: { in: [ShiftSwapStatus.PENDING_LEADER_APPROVAL, ShiftSwapStatus.PENDING_TARGET_APPROVAL] }
       },
       include: { 
         requester: { include: { profile: true } }, 
@@ -185,9 +187,10 @@ export class ShiftSwapsService {
     const swap = await this.prisma.shiftSwap.findUnique({ where: { id } });
     if (!swap) throw new NotFoundException('Không tìm thấy đơn đổi ca');
 
-    const isLeader = await this.prisma.department.findFirst({
+    const isAdmin = user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN');
+    const isLeader = isAdmin || Boolean(await this.prisma.department.findFirst({
       where: { id: swap.departmentId, leaderUserId: user.userId }
-    });
+    }));
     
     const isTargetUser = user.userId === swap.targetUserId;
 
@@ -205,8 +208,8 @@ export class ShiftSwapsService {
     }
 
     if (isLeader) {
-      if (swap.status !== ShiftSwapStatus.PENDING_LEADER_APPROVAL) {
-        throw new BadRequestException('Đơn chưa sẵn sàng hoặc đã được xử lý');
+      if (swap.status !== ShiftSwapStatus.PENDING_LEADER_APPROVAL && swap.status !== ShiftSwapStatus.PENDING_TARGET_APPROVAL) {
+        throw new BadRequestException('Đơn đã được xử lý hoặc không còn ở trạng thái chờ duyệt');
       }
       if (dto.status !== ShiftSwapStatus.APPROVED && dto.status !== ShiftSwapStatus.REJECTED) {
         throw new BadRequestException('Trạng thái cập nhật không hợp lệ');

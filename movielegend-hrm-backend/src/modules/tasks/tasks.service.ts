@@ -1253,7 +1253,7 @@ export class TasksService {
       const departmentId = dto.departmentContextId ?? (await this.scope.getPrimaryDepartmentId(actor.userId));
       if (departmentId) {
         await this.scope.assertDepartmentAccessAsync(actor, departmentId);
-        for (const userId of userIds) await this.scope.assertUserInDepartment(userId, departmentId);
+        for (const userId of userIds) await this.scope.assertUserInScope(actor, userId);
       }
     }
     return [...userIds];

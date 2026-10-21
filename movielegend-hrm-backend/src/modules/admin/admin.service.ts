@@ -846,8 +846,19 @@ export class AdminService {
       }),
       this.prisma.user.count({ where }),
     ]);
+    const mappedItems = items.map(({ passwordHash: _passwordHash, ...user }) => user);
+    if (!query.accountStatus && !query.approvalStatus) {
+      mappedItems.sort((a, b) => {
+        const aPending = a.accountStatus === 'PENDING' || a.approvalStatus === 'PENDING';
+        const bPending = b.accountStatus === 'PENDING' || b.approvalStatus === 'PENDING';
+        if (aPending && !bPending) return -1;
+        if (!aPending && bPending) return 1;
+        return 0;
+      });
+    }
+
     return {
-      items: items.map(({ passwordHash: _passwordHash, ...user }) => user),
+      items: mappedItems,
       pagination: {
         page: query.page,
         limit: query.limit,

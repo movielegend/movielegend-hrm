@@ -200,7 +200,7 @@ export class ShiftAssignmentsService {
             where: { userId_workDate: { userId, workDate } }
           });
           if (existing) {
-            if (dto.allowOverwrite && existing.shiftId !== dto.shiftId) {
+            if (dto.allowOverwrite && (existing.shiftId !== dto.shiftId || existing.departmentId !== dto.departmentId)) {
               const checkedIn = await tx.attendanceRecord.findFirst({
                 where: { userId, workDate },
               });
@@ -267,7 +267,29 @@ export class ShiftAssignmentsService {
     const end = new Date(query.endDate);
     return this.prisma.shiftAssignment.findMany({
       where: {
-        departmentId: query.departmentId,
+        OR: [
+          { departmentId: query.departmentId },
+          {
+            user: {
+              departmentLinks: {
+                some: {
+                  departmentId: query.departmentId,
+                  leftAt: null,
+                },
+              },
+            },
+          },
+          {
+            user: {
+              ledDepartments: {
+                some: {
+                  id: query.departmentId,
+                  deletedAt: null,
+                },
+              },
+            },
+          },
+        ],
         workDate: {
           gte: start,
           lte: end,

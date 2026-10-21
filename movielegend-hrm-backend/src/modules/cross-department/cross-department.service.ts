@@ -24,7 +24,12 @@ export class CrossDepartmentService {
 
     const isPowerUser = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
     if (!isPowerUser) {
-      await this.scope.assertUserInDepartment(actor.userId, dto.sourceDepartmentId);
+      const isLeaderOfSource = await this.prisma.department.findFirst({
+        where: { id: dto.sourceDepartmentId, leaderUserId: actor.userId },
+      });
+      if (!isLeaderOfSource) {
+        await this.scope.assertUserInDepartment(actor.userId, dto.sourceDepartmentId);
+      }
     }
 
     const payload = await this.prisma.$transaction(async (tx) => {
