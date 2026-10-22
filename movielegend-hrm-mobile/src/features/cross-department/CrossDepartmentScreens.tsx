@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Modal, Image, ActivityIndicator, StatusBar, Platform } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable, TextInput, Modal, Image, ActivityIndicator, StatusBar, Platform, KeyboardAvoidingView } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -955,100 +955,158 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
 
       {/* Custom Cross-Platform Input Modal */}
       <Modal visible={inputModalVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{inputModalTitle}</Text>
-            <Text style={styles.modalDesc}>{inputModalDesc}</Text>
-            
-            <TextInput
-              style={styles.reasonInput}
-              placeholder={inputModalPlaceholder}
-              value={inputModalValue}
-              onChangeText={setInputModalValue}
-              multiline={inputActionType === 'submit'}
-              keyboardType={inputActionType === 'submit' ? 'default' : 'numeric'}
-            />
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalTitle}>{inputModalTitle}</Text>
+              <Text style={styles.modalDesc}>{inputModalDesc}</Text>
+              
+              <TextInput
+                style={styles.reasonInput}
+                placeholder={inputModalPlaceholder}
+                value={inputModalValue}
+                onChangeText={setInputModalValue}
+                multiline={inputActionType === 'submit'}
+                keyboardType={inputActionType === 'submit' ? 'default' : 'numeric'}
+              />
 
-            {inputActionType === 'submit' && (
-              <View style={{ marginBottom: spacing.md }}>
-                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                  <Pressable 
-                    style={{ 
-                      flex: 1,
-                      flexDirection: 'row', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      gap: 6, 
-                      padding: 10, 
-                      borderWidth: 1, 
-                      borderColor: colors.primary, 
-                      borderRadius: 10, 
-                      backgroundColor: colors.primarySoft 
-                    }}
-                    onPress={() => void pickImage()}
-                  >
-                    <MaterialCommunityIcons name="image-outline" size={18} color={colors.primary} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Chọn ảnh</Text>
-                  </Pressable>
-
-                  <Pressable 
-                    style={{ 
-                      flex: 1,
-                      flexDirection: 'row', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      gap: 6, 
-                      padding: 10, 
-                      borderWidth: 1, 
-                      borderColor: colors.primary, 
-                      borderRadius: 10, 
-                      backgroundColor: colors.primarySoft 
-                    }}
-                    onPress={() => void pickDocument()}
-                  >
-                    <MaterialCommunityIcons name="file-document-outline" size={18} color={colors.primary} />
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Chọn file / PDF</Text>
-                  </Pressable>
-                </View>
-
-                {selectedAttachmentUri && (
-                  <View style={{ marginTop: spacing.sm, padding: spacing.xs, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <MaterialCommunityIcons name="file-check-outline" size={20} color={colors.primary} />
-                    <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: colors.text }} numberOfLines={1}>
-                      {selectedFileName || 'Tệp đính kèm'}
-                    </Text>
+              {inputActionType === 'submit' && (
+                <View style={{ marginBottom: spacing.md }}>
+                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
                     <Pressable 
-                      onPress={() => {
-                        setSelectedAttachmentUri(null);
-                        setSelectedFileName(null);
-                        setSelectedMimeType(null);
+                      style={{ 
+                        flex: 1,
+                        flexDirection: 'row', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        gap: 6, 
+                        padding: 10, 
+                        borderWidth: 1, 
+                        borderColor: colors.primary, 
+                        borderRadius: 10, 
+                        backgroundColor: colors.primarySoft 
                       }}
+                      onPress={() => void pickImage()}
                     >
-                      <MaterialCommunityIcons name="close-circle-outline" size={20} color={colors.error} />
+                      <MaterialCommunityIcons name="image-outline" size={18} color={colors.primary} />
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Chọn ảnh</Text>
+                    </Pressable>
+
+                    <Pressable 
+                      style={{ 
+                        flex: 1,
+                        flexDirection: 'row', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        gap: 6, 
+                        padding: 10, 
+                        borderWidth: 1, 
+                        borderColor: colors.primary, 
+                        borderRadius: 10, 
+                        backgroundColor: colors.primarySoft 
+                      }}
+                      onPress={() => void pickDocument()}
+                    >
+                      <MaterialCommunityIcons name="file-document-outline" size={18} color={colors.primary} />
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Chọn file / PDF</Text>
                     </Pressable>
                   </View>
-                )}
+
+                  {selectedAttachmentUri && (
+                    <View style={{ marginTop: spacing.sm }}>
+                      {Boolean(
+                        selectedMimeType?.startsWith('image/') ||
+                        /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(selectedFileName || '') ||
+                        selectedAttachmentUri.startsWith('data:image') ||
+                        !selectedMimeType?.includes('pdf')
+                      ) ? (
+                        <View style={{
+                          position: 'relative',
+                          borderRadius: 12,
+                          overflow: 'hidden',
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          backgroundColor: '#F8FAFC',
+                          marginTop: 4,
+                        }}>
+                          <Image
+                            source={{ uri: selectedAttachmentUri }}
+                            style={{ width: '100%', height: 160, borderRadius: 12, resizeMode: 'cover' }}
+                          />
+                          <View style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            backgroundColor: 'rgba(0,0,0,0.65)',
+                            paddingVertical: 6,
+                            paddingHorizontal: 10,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 }}>
+                              <MaterialCommunityIcons name="image" size={16} color="#FFFFFF" />
+                              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>
+                                {selectedFileName || 'Ảnh minh chứng'}
+                              </Text>
+                            </View>
+                            <Pressable
+                              onPress={() => {
+                                setSelectedAttachmentUri(null);
+                                setSelectedFileName(null);
+                                setSelectedMimeType(null);
+                              }}
+                              hitSlop={8}
+                            >
+                              <MaterialCommunityIcons name="close-circle" size={22} color="#EF4444" />
+                            </Pressable>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={{ marginTop: 4, padding: spacing.sm, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <MaterialCommunityIcons name="file-document-outline" size={22} color={colors.primary} />
+                          <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: colors.text }} numberOfLines={1}>
+                            {selectedFileName || 'Tệp tài liệu'}
+                          </Text>
+                          <Pressable 
+                            onPress={() => {
+                              setSelectedAttachmentUri(null);
+                              setSelectedFileName(null);
+                              setSelectedMimeType(null);
+                            }}
+                          >
+                            <MaterialCommunityIcons name="close-circle-outline" size={20} color={colors.error} />
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+              )}
+              
+              <View style={[styles.modalActions, { marginTop: spacing.sm }]}>
+                <Pressable style={styles.modalBtnCancel} onPress={() => setInputModalVisible(false)} disabled={isUploading}>
+                  <Text style={styles.modalBtnCancelText}>Hủy</Text>
+                </Pressable>
+                <Pressable 
+                  style={[styles.modalBtnConfirm, isUploading && { opacity: 0.6 }]}
+                  onPress={() => void handleInputModalSubmit()}
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.modalBtnConfirmText}>Xác nhận</Text>
+                  )}
+                </Pressable>
               </View>
-            )}
-            
-            <View style={styles.modalActions}>
-              <Pressable style={styles.modalBtnCancel} onPress={() => setInputModalVisible(false)} disabled={isUploading}>
-                <Text style={styles.modalBtnCancelText}>Hủy</Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.modalBtnConfirm, isUploading && { opacity: 0.6 }]}
-                onPress={() => void handleInputModalSubmit()}
-                disabled={isUploading}
-              >
-                {isUploading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.modalBtnConfirmText}>Xác nhận</Text>
-                )}
-              </Pressable>
-            </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Reject Modal */}
