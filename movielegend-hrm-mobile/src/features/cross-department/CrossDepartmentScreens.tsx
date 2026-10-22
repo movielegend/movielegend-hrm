@@ -637,8 +637,9 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
 
   const isSourceLeader = item.sourceDepartment?.leaderUserId === user?.id;
   const isTargetLeader = item.targetDepartment?.leaderUserId === user?.id;
+  const isRequester = item.createdByUserId === user?.id;
 
-  const isSourceSide = item.createdByUserId === user?.id || 
+  const isSourceSide = isRequester || 
     isSourceLeader ||
     (Boolean(user?.department?.id) && user?.department?.id === item.sourceDepartmentId) ||
     Boolean(user?.scopes?.some(s => s.role === 'LEADER' && s.scopeId === item.sourceDepartmentId));
@@ -647,13 +648,19 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
     (Boolean(user?.department?.id) && user?.department?.id === item.targetDepartmentId) ||
     Boolean(user?.scopes?.some(s => s.role === 'LEADER' && s.scopeId === item.targetDepartmentId));
 
-  // Source side actions (Source approve / Complete & Rate)
+  // Source side actions (Source approve / Duyệt cho yêu cầu chuyển đi)
   const canSource = isAdmin || isSourceLeader || (isHR && isSourceSide) || (isSourceSide && hasAnyPermission(user, ['cross_department.source_approve', 'cross_department.read_all']));
 
-  // Target side actions (Target accept / Assign target employee)
+  // Target side actions (Target accept / Assign target employee / Xử lý việc)
   const canTarget = isAdmin || isTargetLeader || isTargetSide || (
     !isSourceSide && hasAnyPermission(user, ['cross_department.target_receive', 'cross_department.read_all'])
   );
+
+  // Nghiệm thu & Đánh giá (Người đưa yêu cầu HOẶC Trưởng phòng nguồn HOẶC Admin/HR)
+  const canComplete = isRequester || isSourceLeader || isAdmin || isHR;
+
+  // Thực hiện & Nộp kết quả (Nhân sự được phân công HOẶC Trưởng phòng đích HOẶC Admin)
+  const canSubmitTarget = item.assignedToUserId === user?.id || canTarget || isAdmin;
 
   async function runAction(next: 'source-approve' | 'source-reject' | 'target-accept' | 'target-reject', reason?: string) {
     try {
@@ -867,8 +874,8 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
             </PrimaryButton>
           )}
 
-          {/* Assigned Employee Actions */}
-          {item.assignedToUserId === user?.id && item.status === 'TARGET_ASSIGNED' && (
+          {/* Phía bên nhận (Nhân viên được giao hoặc Trưởng phòng đích): Bắt đầu làm */}
+          {canSubmitTarget && (item.status === 'TARGET_ASSIGNED' || item.status === 'TARGET_ACCEPTED') && (item.progress ?? 0) === 0 && (
             <PrimaryButton loading={action.isPending} onPress={() => {
               void action.mutateAsync({ id: item.id, action: 'update-progress', payload: { progress: 10 } });
             }}>
@@ -876,20 +883,30 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
             </PrimaryButton>
           )}
 
-          {item.assignedToUserId === user?.id && ['TARGET_ASSIGNED', 'IN_PROGRESS'].includes(item.status) && (
+          {/* Phía bên nhận (Nhân viên được giao hoặc Trưởng phòng đích): Cập nhật tiến độ & Nộp kết quả */}
+          {canSubmitTarget && ['TARGET_ACCEPTED', 'TARGET_ASSIGNED', 'IN_PROGRESS'].includes(item.status) && (
             <>
               <PrimaryButton loading={action.isPending} onPress={() => openInputModal('update-progress')}>
                 Cập nhật Tiến độ ({item.progress ?? 0}%)
               </PrimaryButton>
-              <PrimaryButton loading={action.isPending} onPress={() => openInputModal('submit')}>
-                Nộp kết quả
+              <PrimaryButton 
+                loading={action.isPending} 
+                onPress={() => openInputModal('submit')}
+                style={{ backgroundColor: '#059669' }}
+              >
+                Xác nhận hoàn thành & Nộp kết quả
               </PrimaryButton>
             </>
           )}
 
-          {canSource && item.status === 'SUBMITTED_FOR_REVIEW' && (
-            <PrimaryButton loading={action.isPending} onPress={() => openInputModal('complete')}>
-              Nghiệm thu & Đánh giá
+          {/* Người đưa yêu cầu HOẶC Trưởng phòng nguồn: Nghiệm thu & Đánh giá */}
+          {canComplete && item.status === 'SUBMITTED_FOR_REVIEW' && (
+            <PrimaryButton 
+              loading={action.isPending} 
+              onPress={() => openInputModal('complete')}
+              style={{ backgroundColor: '#2563EB' }}
+            >
+              Nghiệm thu & Đánh giá kết quả
             </PrimaryButton>
           )}
         </View>

@@ -317,10 +317,18 @@ export class CrossDepartmentService {
   }
 
   async updateProgress(id: string, dto: import('./dto/cross-department.dto').UpdateProgressDto, actor: AuthenticatedUser) {
-    const request = await this.prisma.crossDepartmentRequest.findUnique({ where: { id } });
+    const request = await this.prisma.crossDepartmentRequest.findUnique({ 
+      where: { id },
+      include: { targetDepartment: { select: { leaderUserId: true } } },
+    });
     if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
-    if (request.assignedToUserId !== actor.userId && !actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
-      throw forbidden('CROSS_DEPARTMENT_REQUEST_FORBIDDEN', 'Only the assignee can update progress');
+
+    const isAssignee = request.assignedToUserId === actor.userId;
+    const isTargetLeader = request.targetDepartment?.leaderUserId === actor.userId;
+    const isPowerUser = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
+
+    if (!isAssignee && !isTargetLeader && !isPowerUser) {
+      throw forbidden('CROSS_DEPARTMENT_REQUEST_FORBIDDEN', 'Chỉ nhân sự phụ trách hoặc Trưởng phòng ban nhận mới có quyền cập nhật tiến độ');
     }
     const updated = await this.prisma.crossDepartmentRequest.update({
       where: { id },
@@ -336,11 +344,19 @@ export class CrossDepartmentService {
   async submitDeliverable(id: string, dto: import('./dto/cross-department.dto').SubmitDeliverableDto, actor: AuthenticatedUser) {
     const request = await this.prisma.crossDepartmentRequest.findUnique({ 
       where: { id },
-      include: { sourceDepartment: { select: { leaderUserId: true } } }
+      include: { 
+        sourceDepartment: { select: { leaderUserId: true } },
+        targetDepartment: { select: { leaderUserId: true } },
+      }
     });
     if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
-    if (request.assignedToUserId !== actor.userId && !actor.roles.includes('ADMIN') && !actor.roles.includes('HR')) {
-      throw forbidden('CROSS_DEPARTMENT_REQUEST_FORBIDDEN', 'Only the assignee can submit deliverables');
+
+    const isAssignee = request.assignedToUserId === actor.userId;
+    const isTargetLeader = request.targetDepartment?.leaderUserId === actor.userId;
+    const isPowerUser = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
+
+    if (!isAssignee && !isTargetLeader && !isPowerUser) {
+      throw forbidden('CROSS_DEPARTMENT_REQUEST_FORBIDDEN', 'Chỉ nhân sự phụ trách hoặc Trưởng phòng ban nhận mới có quyền nộp báo cáo kết quả');
     }
 
     const payload = await this.prisma.$transaction(async (tx) => {
@@ -380,11 +396,17 @@ export class CrossDepartmentService {
   async completeTask(id: string, dto: import('./dto/cross-department.dto').CompleteTaskDto, actor: AuthenticatedUser) {
     const request = await this.prisma.crossDepartmentRequest.findUnique({ 
       where: { id },
-      include: { sourceDepartment: { select: { leaderUserId: true } } },
+      include: { 
+        sourceDepartment: { select: { leaderUserId: true } },
+        targetDepartment: { select: { leaderUserId: true } },
+      },
     });
     if (!request) throw notFound('CROSS_DEPARTMENT_REQUEST_NOT_FOUND', 'Cross-department request not found');
     const isSourceLeader = request.sourceDepartment?.leaderUserId === actor.userId;
-    if (!actor.roles.includes('HR') && !isSourceLeader) {
+    const isCreator = request.createdByUserId === actor.userId;
+    const isPowerUser = actor.roles.includes('ADMIN') || actor.roles.includes('HR');
+
+    if (!isPowerUser && !isSourceLeader && !isCreator) {
       await this.scope.assertDepartmentAccessAsync(actor, request.sourceDepartmentId);
     }
     if (request.status !== CrossDepartmentRequestStatus.SUBMITTED_FOR_REVIEW) {
@@ -402,6 +424,7 @@ export class CrossDepartmentService {
 
       const notifyUsers = new Set<string>();
       if (request.assignedToUserId) notifyUsers.add(request.assignedToUserId);
+      if (request.targetDepartment?.leaderUserId) notifyUsers.add(request.targetDepartment.leaderUserId);
 
       const notification = await this.notifications.createForUsers(tx, Array.from(notifyUsers), {
         type: NotificationType.CROSS_DEPARTMENT_REQUESTED,
@@ -417,8 +440,8 @@ export class CrossDepartmentService {
     if (payload.notification) {
       this.notifications.emitCreated(payload.notification);
     }
-    if (request.assignedToUserId) {
-      this.realtime.emitToUser(request.assignedToUserId, 'cross-department:updated', { id, action: 'completed' });
+    for (const uid of payload.notifyUsers) {
+      this.realtime.emitToUser(uid, 'cross-department:updated', { id, action: 'completed' });
     }
 
     return payload.updated;
