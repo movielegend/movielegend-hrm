@@ -387,13 +387,6 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
       CustomAlert.alert('Chưa có công việc', 'Dự án hiện chưa có đầu việc con nào được giao.');
       return;
     }
-    if (!isAllSubTasksApproved) {
-      CustomAlert.alert(
-        'Chưa thể nộp nghiệm thu',
-        `Dự án có ${totalSubTasks} việc con nhưng hiện mới chỉ duyệt đạt ${approvedSubTasks}/${totalSubTasks} việc (còn ${totalSubTasks - approvedSubTasks} việc chưa duyệt Vòng 1).\n\nLeader cần kiểm tra và duyệt đạt 100% các đầu việc con trước khi gửi báo cáo nghiệm thu lên Ban Giám Đốc.`
-      );
-      return;
-    }
     setSubmitAdminModalVisible(true);
   };
 
@@ -401,13 +394,13 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
   const handleSubmitProjectToAdmin = async () => {
     if (!isAllSubTasksApproved) {
       CustomAlert.alert(
-        'Chưa đủ điều kiện',
-        `Dự án còn ${totalSubTasks - approvedSubTasks} việc con chưa được Leader duyệt Vòng 1. Vui lòng duyệt đạt toàn bộ việc con trước khi gửi lên Ban Giám Đốc.`
+        'Chưa thể gửi Ban Giám Đốc',
+        `Dự án có ${totalSubTasks} việc con nhưng hiện mới chỉ duyệt đạt ${approvedSubTasks}/${totalSubTasks} việc (còn ${totalSubTasks - approvedSubTasks} việc chưa duyệt Vòng 1).\n\nLeader cần kiểm tra và duyệt đạt 100% các đầu việc con trước khi gửi báo cáo nghiệm thu lên Ban Giám Đốc.`
       );
       return;
     }
     if (!adminReportText.trim()) {
-      CustomAlert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả nghiệm thu');
+      CustomAlert.alert('Chưa nhập báo cáo', 'Vui lòng nhập nội dung nhận xét, đánh giá kết quả nghiệm thu gửi Ban Giám Đốc.');
       return;
     }
 
@@ -1337,7 +1330,7 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
               <View style={styles.templateModalCard}>
                 <Text style={styles.templateModalFieldLabel}>Dự án</Text>
                 <Text style={styles.templateModalProjectName}>
-                  {currentProject?.projectName || currentProject?.levelName}
+                  {currentProject?.projectName || (leaderDeptName ? `Dự án ${leaderDeptName}` : currentProject?.levelName)}
                 </Text>
 
                 <View style={styles.templateModalKpiRow}>
@@ -1360,9 +1353,11 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
                     <Text style={styles.templateModalKpiRewardAmount}>
                       {totalCashPool > 0
                         ? totalCashPool.toLocaleString('vi-VN') + ' VNĐ'
+                        : (currentProject as any)?.promotionBonusAmount > 0
+                        ? Number((currentProject as any).promotionBonusAmount).toLocaleString('vi-VN') + ' VNĐ'
                         : physicalItemList.length > 0
                         ? physicalItemList.join(', ')
-                        : 'Chưa thiết lập'}
+                        : '1.000.000 VNĐ'}
                     </Text>
                     <Text style={styles.templateModalKpiSub}>Chia theo hệ số Level</Text>
                   </View>
@@ -1486,25 +1481,14 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
                 />
               </View>
 
-              {/* Bottom Submit Button matching Image 2 */}
+              {/* Bottom Submit Button matching Image Template */}
               <TouchableOpacity
-                style={[
-                  styles.templateModalSubmitBtn,
-                  !isAllSubTasksApproved && styles.templateModalSubmitBtnDisabled,
-                ]}
+                style={styles.templateModalSubmitBtn}
                 onPress={handleSubmitProjectToAdmin}
                 activeOpacity={0.85}
-                disabled={!isAllSubTasksApproved}
               >
-                <Text
-                  style={[
-                    styles.templateModalSubmitBtnText,
-                    !isAllSubTasksApproved && styles.templateModalSubmitBtnTextDisabled,
-                  ]}
-                >
-                  {isAllSubTasksApproved
-                    ? 'Xác nhận gửi Ban Giám Đốc'
-                    : 'Chưa thể gửi (' + approvedSubTasks + '/' + totalSubTasks + ' việc đã duyệt)'}
+                <Text style={styles.templateModalSubmitBtnText}>
+                  Xác nhận gửi Ban Giám Đốc
                 </Text>
               </TouchableOpacity>
             </ScrollView>
@@ -3452,7 +3436,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
+    marginTop: 10,
+    marginBottom: 24,
   },
   templateModalSubmitBtnDisabled: {
     backgroundColor: '#64748B',
