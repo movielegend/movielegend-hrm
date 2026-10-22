@@ -790,6 +790,19 @@ export function AdminLevelConfigScreen() {
                         </View>
                       </View>
 
+                      {/* Reward summary badge */}
+                      {(proj.promotionBonusAmount > 0 || Boolean(proj.physicalItemName)) ? (
+                        <View style={styles.projRewardBadgeRow}>
+                          <Ionicons name="gift-outline" size={13} color="#D97706" />
+                          <Text style={styles.projRewardBadgeText} numberOfLines={1}>
+                            {[
+                              proj.promotionBonusAmount > 0 ? `${formatCurrency(proj.promotionBonusAmount)} VNĐ` : '',
+                              proj.physicalItemName ? proj.physicalItemName : '',
+                            ].filter(Boolean).join(' + ')}
+                          </Text>
+                        </View>
+                      ) : null}
+
                       {/* Subtasks snippet */}
                       <View style={styles.projSubtasksList}>
                         {proj.subTasks.slice(0, 3).map((st, idx) => (
@@ -906,7 +919,7 @@ export function AdminLevelConfigScreen() {
             </View>
 
             <ScrollView
-              style={{ maxHeight: 420 }}
+              style={{ maxHeight: 520 }}
               contentContainerStyle={{ paddingBottom: 16 }}
               showsVerticalScrollIndicator={false}
             >
@@ -920,6 +933,83 @@ export function AdminLevelConfigScreen() {
                   placeholder="Ví dụ: Chiến dịch Quý 3"
                   placeholderTextColor="#94A3B8"
                 />
+              </View>
+
+              {/* Field Phần thưởng dự án */}
+              <View style={styles.modalField}>
+                <Text style={styles.modalLabel}>Gói phần thưởng dự án</Text>
+                <Text style={styles.modalSubLabel}>Thưởng cho team khi hoàn thành toàn bộ dự án.</Text>
+
+                <View style={[styles.rewardPillsRow, { marginTop: 8 }]}>
+                  {(['CASH', 'PHYSICAL_ITEM', 'HYBRID'] as const).map((rType) => {
+                    const isPillActive = modalRewardType === rType;
+                    return (
+                      <Pressable
+                        key={rType}
+                        style={[styles.rewardPill, isPillActive && styles.rewardPillActive]}
+                        onPress={() => setModalRewardType(rType)}
+                      >
+                        <Text
+                          style={[
+                            styles.rewardPillText,
+                            isPillActive && styles.rewardPillTextActive,
+                          ]}
+                        >
+                          {rType === 'CASH'
+                            ? 'Tiền mặt'
+                            : rType === 'PHYSICAL_ITEM'
+                            ? 'Hiện vật'
+                            : 'Kết hợp'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Tiền thưởng dự án input */}
+                {(modalRewardType === 'CASH' || modalRewardType === 'HYBRID') && (
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={[styles.fieldLabel, { fontSize: 12, marginBottom: 4 }]}>Tiền thưởng dự án</Text>
+                    <View style={styles.inputWithUnitRow}>
+                      <TextInput
+                        style={styles.inputWithUnitText}
+                        value={formatCurrency(parseInt(modalBonusAmount.replace(/\D/g, ''), 10) || 0)}
+                        onChangeText={(val) => {
+                          const numeric = val.replace(/\D/g, '');
+                          setModalBonusAmount(numeric || '0');
+                        }}
+                        placeholder="0"
+                        placeholderTextColor="#94A3B8"
+                        keyboardType="numeric"
+                      />
+                      <View style={styles.unitBadge}>
+                        <Text style={styles.unitBadgeText}>VNĐ</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* Chi tiết hiện vật dự án input */}
+                {(modalRewardType === 'PHYSICAL_ITEM' || modalRewardType === 'HYBRID') && (
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={[styles.fieldLabel, { fontSize: 12, marginBottom: 4 }]}>Hiện vật thưởng</Text>
+                    <View style={styles.inputWithIconRow}>
+                      <Ionicons
+                        name="gift-outline"
+                        size={18}
+                        color="#102739"
+                        style={styles.inputLeftIcon}
+                      />
+                      <TextInput
+                        style={styles.inputWithIconText}
+                        value={modalPhysicalItem}
+                        onChangeText={setModalPhysicalItem}
+                        placeholder="Nhập quà tặng (VD: Chuyến du lịch team, iPad, Tiệc liên hoan...)"
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
+                  </View>
+                )}
               </View>
 
               {/* Field Đầu việc con */}
@@ -1461,6 +1551,22 @@ const styles = StyleSheet.create({
     padding: 6,
     backgroundColor: '#F8FAFC',
     borderRadius: 6,
+  },
+  projRewardBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+  },
+  projRewardBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
   },
   projSubtasksList: {
     gap: 4,
