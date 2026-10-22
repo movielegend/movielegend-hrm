@@ -61,6 +61,7 @@ export interface BulletSubTaskItem {
   submittedAt?: string;
   reviewedAt?: string;
   reviewedBy?: string;
+  adminNote?: string;
 }
 
 export interface LevelDepartmentProjectItem {
@@ -1077,10 +1078,9 @@ export class LevelingService implements OnModuleInit {
       const rawBullets: string[] =
         Array.isArray(lvl.project?.subTaskBullets) && lvl.project.subTaskBullets.length > 0
           ? lvl.project.subTaskBullets
-          : [
-              `Hoàn thành 100% chỉ tiêu KPI tháng cho Level ${levelNumber}`,
-              `Thực hiện quy trình chuẩn hóa Level ${levelNumber} phòng ${departmentName}`,
-            ];
+          : Array.isArray(lvl.subTasks) && lvl.subTasks.length > 0
+          ? lvl.subTasks.map((t: any) => (typeof t === 'string' ? t : t.title || t.name))
+          : [];
 
       const existingProject = this.findProjectList(departmentId, departmentName).find(
         (p) => p.levelNumber === levelNumber,
@@ -1225,21 +1225,7 @@ export class LevelingService implements OnModuleInit {
       }
     }
 
-    // Auto-generate standard 8-level projects for this department if specified
-    if (departmentId || departmentName) {
-      const effectiveDeptId = departmentId || (departmentName ? `dept-${departmentName.toLowerCase().replace(/\s+/g, '-')}` : 'general');
-      const effectiveDeptName = departmentName || 'Phòng ban';
-      const defaultProjects = this.generateDefaultProjects(effectiveDeptId, effectiveDeptName);
-
-      if (departmentId) this.departmentProjects.set(departmentId, defaultProjects);
-      if (departmentName) {
-        this.departmentProjects.set(departmentName, defaultProjects);
-        this.departmentProjects.set(departmentName.toLowerCase().trim(), defaultProjects);
-      }
-      this.saveToStorage();
-      return defaultProjects;
-    }
-
+    // Default is empty state until Admin configures projects
     return [];
   }
 
@@ -1336,6 +1322,24 @@ export class LevelingService implements OnModuleInit {
     }
     this.saveToStorage();
 
+    // Realtime broadcast
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:subtask_assigned', {
+      departmentId,
+      departmentName,
+      levelNumber,
+      subTaskId,
+      subTask,
+    });
+    if (departmentId) {
+      this.realtimeEvents.emitToDepartment(departmentId, 'level:subtask_assigned', {
+        departmentId,
+        departmentName,
+        levelNumber,
+        subTaskId,
+        subTask,
+      });
+    }
+
     // Notify assigned employee
     if (assignedUserId) {
       void this.sendLevelNotification(
@@ -1384,6 +1388,24 @@ export class LevelingService implements OnModuleInit {
     subTask.evidenceImages = evidenceImages;
     subTask.submittedAt = new Date().toISOString();
     this.saveToStorage();
+
+    // Realtime broadcast
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:subtask_submitted', {
+      departmentId,
+      departmentName,
+      levelNumber,
+      subTaskId,
+      subTask,
+    });
+    if (departmentId) {
+      this.realtimeEvents.emitToDepartment(departmentId, 'level:subtask_submitted', {
+        departmentId,
+        departmentName,
+        levelNumber,
+        subTaskId,
+        subTask,
+      });
+    }
 
     // Notify Leader and Admins
     this.prisma.userRole.findMany({
@@ -1440,6 +1462,28 @@ export class LevelingService implements OnModuleInit {
       (t) => t.status === 'LEADER_APPROVED' || t.status === 'ADMIN_APPROVED',
     ).length;
     this.saveToStorage();
+
+    // Realtime broadcast
+    this.realtimeEvents.emitToRoom('level:config_room', 'level:subtask_reviewed', {
+      departmentId,
+      departmentName,
+      levelNumber,
+      subTaskId,
+      status,
+      subTask,
+      completedSubTasks: project.completedSubTasks,
+    });
+    if (departmentId) {
+      this.realtimeEvents.emitToDepartment(departmentId, 'level:subtask_reviewed', {
+        departmentId,
+        departmentName,
+        levelNumber,
+        subTaskId,
+        status,
+        subTask,
+        completedSubTasks: project.completedSubTasks,
+      });
+    }
 
     // Notify assigned employee about approval or rework
     if (subTask.assignedUserId) {
@@ -1532,6 +1576,7 @@ export class LevelingService implements OnModuleInit {
     departmentId?: string,
     departmentName?: string,
     reviewerName?: string,
+    subTaskFeedbacks?: Array<{ subTaskId: string; adminNote?: string }>,
   ) {
     const list = this.findProjectList(departmentId, departmentName);
     const project = list.find((p) => p.levelNumber === levelNumber);
@@ -1539,6 +1584,16 @@ export class LevelingService implements OnModuleInit {
 
     project.status = status;
     project.adminFeedback = adminFeedback;
+
+    if (Array.isArray(subTaskFeedbacks) && subTaskFeedbacks.length > 0) {
+      subTaskFeedbacks.forEach((fb) => {
+        const found = project.subTasks.find((t) => t.id === fb.subTaskId);
+        if (found && fb.adminNote !== undefined) {
+          found.adminNote = fb.adminNote;
+        }
+      });
+    }
+
     if (status === 'ADMIN_APPROVED') {
       project.adminApprovedAt = new Date().toISOString();
       project.subTasks.forEach((st) => {
@@ -1580,7 +1635,21 @@ export class LevelingService implements OnModuleInit {
       projectName: project.projectName,
       status,
       adminFeedback,
+      subTaskFeedbacks,
+      project,
     });
+    if (departmentId) {
+      this.realtimeEvents.emitToDepartment(departmentId, 'level:project_admin_reviewed', {
+        departmentId,
+        departmentName,
+        levelNumber,
+        projectName: project.projectName,
+        status,
+        adminFeedback,
+        subTaskFeedbacks,
+        project,
+      });
+    }
 
     // Notify Department Members & Leader
     if (departmentId) {

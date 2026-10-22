@@ -17,6 +17,7 @@ export interface BulletSubTask {
   submittedAt?: string;
   leaderApprovedAt?: string;
   leaderFeedback?: string;
+  adminNote?: string;
 }
 
 export type ProjectAcceptanceStatus = 'PENDING_LEADER_ACCEPT' | 'IN_PROGRESS' | 'SUBMITTED_TO_ADMIN' | 'ADMIN_APPROVED';
@@ -169,6 +170,7 @@ class LevelProjectsStore {
             submittedAt: st.submittedAt,
             leaderApprovedAt: st.reviewedAt || st.leaderApprovedAt,
             leaderFeedback: st.leaderFeedback,
+            adminNote: st.adminNote,
           })),
         }));
         await this.save();
@@ -392,6 +394,7 @@ class LevelProjectsStore {
     adminFeedback?: string,
     departmentId?: string,
     departmentName?: string,
+    subTaskFeedbacks?: Array<{ subTaskId: string; adminNote?: string }>,
   ): Promise<void> {
     this.projects = this.projects.map((p) => {
       if (p.levelNumber !== levelNumber) return p;
@@ -400,10 +403,14 @@ class LevelProjectsStore {
         status: 'ADMIN_APPROVED',
         adminFeedback,
         adminApprovedAt: new Date().toISOString(),
-        subTasks: p.subTasks.map((st) => ({
-          ...st,
-          status: 'LEADER_APPROVED',
-        })),
+        subTasks: p.subTasks.map((st) => {
+          const matchFb = subTaskFeedbacks?.find((fb) => fb.subTaskId === st.id);
+          return {
+            ...st,
+            status: 'LEADER_APPROVED',
+            adminNote: matchFb && matchFb.adminNote !== undefined ? matchFb.adminNote : st.adminNote,
+          };
+        }),
       };
     });
     await this.save();
@@ -415,6 +422,7 @@ class LevelProjectsStore {
         adminFeedback,
         departmentId: departmentId || this.currentDepartmentId,
         departmentName: departmentName || this.currentDepartmentName,
+        subTaskFeedbacks,
       });
     } catch {
       // offline / fallback
@@ -426,6 +434,7 @@ class LevelProjectsStore {
     adminFeedback: string,
     departmentId?: string,
     departmentName?: string,
+    subTaskFeedbacks?: Array<{ subTaskId: string; adminNote?: string }>,
   ): Promise<void> {
     this.projects = this.projects.map((p) => {
       if (p.levelNumber !== levelNumber) return p;
@@ -433,6 +442,13 @@ class LevelProjectsStore {
         ...p,
         status: 'IN_PROGRESS',
         adminFeedback,
+        subTasks: p.subTasks.map((st) => {
+          const matchFb = subTaskFeedbacks?.find((fb) => fb.subTaskId === st.id);
+          return {
+            ...st,
+            adminNote: matchFb && matchFb.adminNote !== undefined ? matchFb.adminNote : st.adminNote,
+          };
+        }),
       };
     });
     await this.save();
@@ -444,6 +460,7 @@ class LevelProjectsStore {
         adminFeedback,
         departmentId: departmentId || this.currentDepartmentId,
         departmentName: departmentName || this.currentDepartmentName,
+        subTaskFeedbacks,
       });
     } catch {
       // offline / fallback
@@ -633,10 +650,10 @@ export function useLevelProjects(departmentId?: string, departmentName?: string)
       levelProjectsStore.rejectSubTask(lvl, stId, feedback),
     submitProjectToAdmin: (lvl: number, note: string, url?: string) =>
       levelProjectsStore.submitProjectToAdmin(lvl, note, url, departmentId, departmentName),
-    adminApproveProject: (lvl: number, feedback?: string) =>
-      levelProjectsStore.adminApproveProject(lvl, feedback, departmentId, departmentName),
-    adminRejectProject: (lvl: number, feedback: string) =>
-      levelProjectsStore.adminRejectProject(lvl, feedback, departmentId, departmentName),
+    adminApproveProject: (lvl: number, feedback?: string, subTaskFeedbacks?: Array<{ subTaskId: string; adminNote?: string }>) =>
+      levelProjectsStore.adminApproveProject(lvl, feedback, departmentId, departmentName, subTaskFeedbacks),
+    adminRejectProject: (lvl: number, feedback: string, subTaskFeedbacks?: Array<{ subTaskId: string; adminNote?: string }>) =>
+      levelProjectsStore.adminRejectProject(lvl, feedback, departmentId, departmentName, subTaskFeedbacks),
     getAssignedSubTasksForUser: (userId?: string, userName?: string) =>
       levelProjectsStore.getAssignedSubTasksForUser(userId, userName),
     fetchProjects: () => levelProjectsStore.fetchFromApi(departmentId, departmentName),

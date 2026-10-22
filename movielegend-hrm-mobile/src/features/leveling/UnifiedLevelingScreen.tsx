@@ -2393,8 +2393,8 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
         project={selectedProjectForReview}
         departmentName={activeDeptName}
         onClose={() => setSelectedProjectForReview(null)}
-        onApprove={async (lvlNum, feedback) => {
-          await adminApproveProject(lvlNum, feedback);
+        onApprove={async (lvlNum, feedback, subTaskFeedbacks) => {
+          await adminApproveProject(lvlNum, feedback, subTaskFeedbacks);
           setSelectedProjectForReview((prev: any) =>
             prev && prev.levelNumber === lvlNum
               ? {
@@ -2402,27 +2402,35 @@ export const UnifiedLevelingScreen: React.FC<UnifiedLevelingScreenProps> = ({
                   status: 'ADMIN_APPROVED',
                   adminFeedback: feedback,
                   adminApprovedAt: new Date().toISOString(),
-                  subTasks: prev.subTasks.map((st: any) => ({
-                    ...st,
-                    status: 'ADMIN_APPROVED',
-                  })),
+                  subTasks: prev.subTasks.map((st: any) => {
+                    const fb = subTaskFeedbacks?.find((f) => f.subTaskId === st.id);
+                    return {
+                      ...st,
+                      status: 'ADMIN_APPROVED',
+                      adminNote: fb && fb.adminNote !== undefined ? fb.adminNote : st.adminNote,
+                    };
+                  }),
                 }
               : null,
           );
           await loadData();
         }}
-        onReject={async (lvlNum, feedback) => {
-          await adminRejectProject(lvlNum, feedback);
+        onReject={async (lvlNum, feedback, subTaskFeedbacks) => {
+          await adminRejectProject(lvlNum, feedback, subTaskFeedbacks);
           setSelectedProjectForReview((prev: any) =>
             prev && prev.levelNumber === lvlNum
               ? {
                   ...prev,
                   status: 'ADMIN_REJECTED',
                   adminFeedback: feedback,
-                  subTasks: prev.subTasks.map((st: any) => ({
-                    ...st,
-                    status: 'ADMIN_REJECTED',
-                  })),
+                  subTasks: prev.subTasks.map((st: any) => {
+                    const fb = subTaskFeedbacks?.find((f) => f.subTaskId === st.id);
+                    return {
+                      ...st,
+                      status: 'ADMIN_REJECTED',
+                      adminNote: fb && fb.adminNote !== undefined ? fb.adminNote : st.adminNote,
+                    };
+                  }),
                 }
               : null,
           );
