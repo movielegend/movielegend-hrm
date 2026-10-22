@@ -936,8 +936,33 @@ export class AttendanceReportService {
 
           if (hasWorkedCurrent) {
             noteParts.push(`Đi làm bù cho ngày ${targetDateStr} (+${shiftRate} công đã chuyển về ngày ${targetDateStr})`);
-            // Chuyển công về ngày nghỉ A nên ngày bù ghi nhận 0 công để tránh nhân đôi công trong tháng
-            attendance = 0;
+            
+            // Xử lý công của ngày đi làm bù:
+            // 1. Nếu ca làm bù chỉ là làm bù một phần (shiftRate < 1.0, ví dụ bù 0.5 công ngoài ca chính):
+            //    Nhân viên vẫn hoàn thành ca làm việc chính trong ngày nên VẪN ĐƯỢC HƯỞNG ĐỦ CÔNG CA CHÍNH (thường là 1 công).
+            // 2. Nếu nhân viên làm việc cả ngày dài (làm cả ca chính lẫn ca bù, totalMinutes >= 600):
+            //    Thì nhân viên vẫn được hưởng công của ca chính.
+            // 3. Nếu ca được phân công là ca làm việc chính thức khác với ca bù:
+            //    Thì nhân viên vẫn được tính công cho ca chính đó.
+            // 4. Chỉ khi nhân viên đi làm bù trọn ngày (shiftRate >= 1.0) vào ngày nghỉ/ngày OFF (không có ca chính độc lập):
+            //    Toàn bộ 1 công đã chuyển về ngày nghỉ đích targetDateStr, ngày này mới ghi nhận 0 công để tránh nhân đôi.
+            const isPartialComp = shiftRate < 1.0;
+            const isDoubleShiftWorked = totalMinutes >= 600;
+            const hasSeparateRegularShift = Boolean(
+              record?.shiftAssignment?.shift &&
+              matchedShift?.shiftId &&
+              record.shiftAssignment.shiftId !== matchedShift.shiftId
+            );
+
+            if (isPartialComp || isDoubleShiftWorked || hasSeparateRegularShift) {
+              // Giữ nguyên công của ca làm việc chính thức trong ngày
+              if (attendance === 0 && !isStandardMissCheckout) {
+                attendance = record?.latePenaltyWorkDays !== null ? Number(record?.latePenaltyWorkDays) : 1;
+              }
+            } else {
+              // Ca làm bù trọn ngày vào ngày nghỉ: chuyển toàn bộ công sang ngày đích, ngày này ghi nhận 0 công
+              attendance = 0;
+            }
           } else {
             noteParts.push(`Ca làm bù cho ngày ${targetDateStr} (${shiftRate} công - Vắng mặt / Không chấm công)`);
             attendance = 0;
