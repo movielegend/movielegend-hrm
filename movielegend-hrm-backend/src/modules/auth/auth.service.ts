@@ -483,18 +483,6 @@ export class AuthService {
       });
       userRole.role.permissions.forEach((item) => permissions.add(item.permission.code));
     }
-    const accountantRoles = [
-      'ACCOUNTANT',
-      'ACCOUNTANT_LEAD',
-      'ACCOUNTANT_PAYROLL',
-      'ACCOUNTANT_TAX',
-      'ACCOUNTANT_GENERAL',
-      'ACCOUNTING',
-      'ACC',
-    ];
-    if ([...roles].some((r) => accountantRoles.includes(r.toUpperCase()))) {
-      permissions.add('employee.request.read');
-    }
     if (roles.has('ACCOUNTANT_PAYROLL') || roles.has('ACCOUNTANT_LEAD')) {
       permissions.add('contract.sign_company');
       permissions.add('contract.read_all');
@@ -666,18 +654,6 @@ export class AuthService {
       });
       return userRole.role.code;
     });
-    const accountantRoles = [
-      'ACCOUNTANT',
-      'ACCOUNTANT_LEAD',
-      'ACCOUNTANT_PAYROLL',
-      'ACCOUNTANT_TAX',
-      'ACCOUNTANT_GENERAL',
-      'ACCOUNTING',
-      'ACC',
-    ];
-    if (roles.some((r) => accountantRoles.includes(r.toUpperCase()))) {
-      permissions.add('employee.request.read');
-    }
     if (roles.includes('ACCOUNTANT_PAYROLL') || roles.includes('ACCOUNTANT_LEAD')) {
       permissions.add('contract.sign_company');
       permissions.add('contract.read_all');

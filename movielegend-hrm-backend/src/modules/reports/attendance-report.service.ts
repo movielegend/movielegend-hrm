@@ -790,8 +790,27 @@ export class AttendanceReportService {
         const approvedOtherReq = lateRequestsRaw.find((otr) => {
           if (otr.userId !== user.id || otr.status !== 'APPROVED' || otr.type !== 'OTHER') return false;
           const meta: any = otr.attachmentMetadata;
-          const fromDateStr = meta?.fromDate ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
-          return fromDateStr === dateStr || meta?.workDate === dateStr;
+          
+          // 1. Loại trừ đơn làm bù vì đơn làm bù đã có logic hiển thị riêng tại các ngày thực thi (ngày đi làm bù & ngày nghỉ bù)
+          const isComp = (otr.type as string) === 'COMPENSATORY_WORK' || 
+                         otr.title?.includes('[LÀM BÙ]') || 
+                         meta?.requestType === 'COMPENSATORY_WORK';
+          if (isComp) return false;
+
+          // 2. Chỉ ghi nhận vào ngày thực thi đơn, tuyệt đối không ghi vào ngày làm đơn / nộp đơn
+          const createdDateStr = moment.tz(otr.createdAt, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+          const executionDateStr = meta?.workDate || 
+                                   meta?.executionDate || 
+                                   meta?.effectiveDate || 
+                                   meta?.eventDate ||
+                                   (meta?.fromDate ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null);
+
+          // Nếu ngày hiện tại là ngày nộp đơn nhưng ngày thực thi là ngày khác thì không hiển thị vào ngày nộp đơn
+          if (dateStr === createdDateStr && executionDateStr && executionDateStr !== createdDateStr) {
+            return false;
+          }
+
+          return executionDateStr === dateStr;
         });
 
         if (approvedOtherReq && !isDailyLeave) {

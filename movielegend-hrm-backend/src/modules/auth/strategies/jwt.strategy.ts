@@ -29,21 +29,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: AuthenticatedUser): AuthenticatedUser {
-    const accountantRoles = [
-      'ACCOUNTANT',
-      'ACCOUNTANT_LEAD',
-      'ACCOUNTANT_PAYROLL',
-      'ACCOUNTANT_TAX',
-      'ACCOUNTANT_GENERAL',
-      'ACCOUNTING',
-      'ACC',
-    ];
-    if (payload.roles?.some((r) => accountantRoles.includes(r.toUpperCase()))) {
-      if (!payload.permissions) payload.permissions = [];
-      if (!payload.permissions.includes('employee.request.read')) {
-        payload.permissions.push('employee.request.read');
-      }
-    }
     return payload;
   }
 }
