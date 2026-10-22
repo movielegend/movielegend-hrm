@@ -195,12 +195,11 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
   };
 
   const areAllCollapsed = involvedProjects.length > 0 && involvedProjects.every((p) => collapsedProjects[p.levelNumber]);
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#102739" />
       <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
-        {/* Top Header */}
+        {/* Top Header matching Image 1 */}
         <View style={styles.topHeader}>
           <TouchableOpacity
             style={styles.backBtn}
@@ -220,71 +219,50 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
 
       <View style={styles.bodyWrapper}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: 40 + Math.max(insets.bottom, 24) }]}
+          contentContainerStyle={[styles.scroll, { paddingBottom: 60 + Math.max(insets.bottom, 24) }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* TOP SUMMARY CARD */}
+          {/* CARD 1: TIẾN ĐỘ THĂNG CẤP (Matching Image 1) */}
           <View style={styles.summaryCard}>
-            <View style={styles.summaryTopRow}>
-              <View>
-                <Text style={styles.summaryLabel}>Tiến độ thăng cấp tổng thể</Text>
-                <Text style={styles.summaryNumber}>
-                  {approvedTasks}/{totalTasks}{' '}
-                  <Text style={styles.summaryNumberSub}>hoàn thành ({progressPercent}%)</Text>
-                </Text>
-              </View>
-              {involvedProjects.length > 1 && (
-                <TouchableOpacity
-                  style={styles.toggleAllBtn}
-                  onPress={() => handleToggleAll(areAllCollapsed)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons
-                    name={areAllCollapsed ? 'chevron-down-circle-outline' : 'chevron-up-circle-outline'}
-                    size={14}
-                    color="#102739"
-                  />
-                  <Text style={styles.toggleAllBtnText}>
-                    {areAllCollapsed ? 'Mở tất cả' : 'Thu gọn'}
-                  </Text>
-                </TouchableOpacity>
-              )}
+            <Text style={styles.summaryLabel}>Tiến độ thăng cấp</Text>
+            <View style={styles.summaryBigRow}>
+              <Text style={styles.summaryBigNum}>
+                {approvedTasks}/{totalTasks}
+              </Text>
+              <Text style={styles.summaryBigPercent}>
+                {' '}hoàn thành • {progressPercent}%
+              </Text>
             </View>
 
             {/* Linear Progress Bar */}
             <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+              <View style={[styles.progressFill, { width: `${progressPercent}%` as any }]} />
             </View>
 
             {/* 3 Metric Pills */}
             <View style={styles.summaryPillRow}>
               <View style={[styles.summaryPill, styles.pillPending]}>
-                <MaterialCommunityIcons name="note-edit-outline" size={14} color="#EF4444" />
-                <Text style={styles.pillPendingText}>Chưa nộp: {pendingActionTasks}</Text>
+                <View style={[styles.statusDot, { backgroundColor: '#EF4444' }]} />
+                <Text style={styles.pillPendingText}>{pendingActionTasks} Chưa nộp</Text>
               </View>
 
               <View style={[styles.summaryPill, styles.pillWaiting]}>
-                <Ionicons name="time-outline" size={13} color="#F59E0B" />
-                <Text style={styles.pillWaitingText}>Chờ duyệt: {submittedWaitingTasks}</Text>
+                <View style={[styles.statusDot, { backgroundColor: '#F59E0B' }]} />
+                <Text style={styles.pillWaitingText}>{submittedWaitingTasks} Chờ duyệt</Text>
               </View>
 
               <View style={[styles.summaryPill, styles.pillDone]}>
-                <Ionicons name="checkmark-circle-outline" size={13} color="#10B981" />
-                <Text style={styles.pillDoneText}>Đã duyệt: {approvedTasks}</Text>
+                <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+                <Text style={styles.pillDoneText}>{approvedTasks} Đã duyệt</Text>
               </View>
             </View>
           </View>
 
-          {/* SECTION TITLE */}
+          {/* SECTION: DỰ ÁN CỦA BẠN (Matching Image 1) */}
           <View style={styles.sectionHeaderRow}>
-            <View style={styles.sectionHeaderTitleCol}>
-              <View style={styles.sectionHeaderTitleRow}>
-                <Text style={styles.sectionHeaderTitle}>Dự án cấp bậc & đầu việc</Text>
-                <View style={styles.sectionHeaderPill}>
-                  <Text style={styles.sectionHeaderPillText}>{totalTasks}</Text>
-                </View>
-              </View>
-              <Text style={styles.sectionHeaderHelp}>Chạm để đóng/mở danh sách việc</Text>
+            <Text style={styles.sectionHeaderTitle}>Dự án của bạn</Text>
+            <View style={styles.sectionHeaderPill}>
+              <Text style={styles.sectionHeaderPillText}>{involvedProjects.length}</Text>
             </View>
           </View>
 
@@ -292,7 +270,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
           {involvedProjects.length === 0 ? (
             <View style={styles.emptyCard}>
               <View style={styles.emptyIconCircle}>
-                <MaterialCommunityIcons name="folder-outline" size={44} color="#102739" />
+                <Ionicons name="folder-outline" size={44} color="#102739" />
               </View>
               <Text style={styles.emptyTitle}>Chưa có dự án hoặc đầu việc được giao</Text>
               <Text style={styles.emptySub}>
@@ -330,9 +308,11 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
               // Rewards calculation
               const cashPool =
                 proj.cashAmount ||
-                (proj.rewardItem
+                (typeof (proj as any).promotionBonusAmount === 'number' && (proj as any).promotionBonusAmount > 0
+                  ? (proj as any).promotionBonusAmount
+                  : proj.rewardItem
                   ? Number(proj.rewardItem.replace(/\./g, '').match(/(\d+)\s*VNĐ/i)?.[1] || 0)
-                  : 0);
+                  : 1000000);
               const physicalItems =
                 proj.physicalItems || (proj.physicalItemName ? [proj.physicalItemName] : []);
 
@@ -347,77 +327,49 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
               });
               if (totalWeight === 0) totalWeight = userMultiplier;
               const estimatedCashShare =
-                cashPool > 0 ? Math.round((userMultiplier / totalWeight) * cashPool) : 0;
-
-              const userColor = LEVEL_COLORS[userLevel] || '#2563EB';
+                cashPool > 0 ? Math.round((userMultiplier / totalWeight) * cashPool) : 1000000;
 
               return (
-                <View
-                  key={proj.id || proj.levelNumber}
-                  style={[
-                    styles.projectCard,
-                    isFirmApproved && styles.projectCardFirmApproved,
-                    isSubmittedToAdmin && styles.projectCardSubmittedAdmin,
-                  ]}
-                >
-                  {/* DROPDOWN / ACCORDION HEADER (TAPPABLE) */}
+                <View key={proj.id || proj.levelNumber} style={styles.projectCard}>
+                  {/* PROJECT HEADER ACCORDION ROW */}
                   <TouchableOpacity
                     style={styles.projectHeaderTouchable}
                     onPress={() => toggleProjectAccordion(proj.levelNumber)}
                     activeOpacity={0.7}
                   >
                     <View style={styles.projectHeaderTopRow}>
-                      <View style={{ flex: 1, paddingRight: 8 }}>
-                        <View style={styles.projectTitleRow}>
-                          <Text style={styles.projectNameText} numberOfLines={1}>
-                            {proj.projectName || proj.levelName}
+                      <Text style={styles.projectNameText} numberOfLines={1}>
+                        {proj.projectName || `Dự án ${proj.departmentName || 'Phòng ban'}`}
+                      </Text>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={styles.badgeActivePill}>
+                          <Text style={styles.badgeActivePillText}>
+                            {projPending > 0 ? `${projPending} việc cần nộp` : isAllUserTasksDone ? 'Hoàn thành' : 'Đang làm'}
                           </Text>
-                          <View style={[styles.levelBadgeMini, { backgroundColor: userColor }]}>
-                            <Text style={styles.levelBadgeMiniText}>Lv.{userLevel} ({userMultiplier}x)</Text>
-                          </View>
                         </View>
-                        <Text style={styles.projectDeptSub}>
-                          {proj.departmentName} • {proj.targetTierTitle || proj.levelName}
-                        </Text>
-                      </View>
-
-                      {/* Status badge & chevron */}
-                      <View style={styles.projectStatusAndChevron}>
-                        {isFirmApproved ? (
-                          <View style={styles.badgeFirmApproved}>
-                            <Ionicons name="shield-checkmark" size={12} color="#059669" />
-                            <Text style={styles.badgeFirmApprovedText}>Firm Đã Duyệt</Text>
-                          </View>
-                        ) : isSubmittedToAdmin ? (
-                          <View style={styles.badgeSubmittedAdmin}>
-                            <Ionicons name="lock-closed" size={12} color="#1E293B" />
-                            <Text style={styles.badgeSubmittedAdminText}>Chờ Firm Duyệt</Text>
-                          </View>
-                        ) : isAllUserTasksDone ? (
-                          <View style={styles.badgeAllDone}>
-                            <Ionicons name="checkmark-done" size={12} color="#059669" />
-                            <Text style={styles.badgeAllDoneText}>Hoàn Tất Phần Bạn</Text>
-                          </View>
-                        ) : (
-                          <View style={styles.badgeActive}>
-                            <Text style={styles.badgeActiveText}>
-                              {projPending > 0 ? `${projPending} việc cần nộp` : 'Đang thực hiện'}
-                            </Text>
-                          </View>
-                        )}
-
                         <Ionicons
                           name={isCollapsed ? 'chevron-down' : 'chevron-up'}
                           size={18}
-                          color="#64748B"
+                          color="#0F172A"
                         />
                       </View>
                     </View>
 
+                    {/* Level Pill Badge */}
+                    <View style={styles.levelBadgeMini}>
+                      <Text style={styles.levelBadgeMiniText}>Lv.{userLevel} ({userMultiplier}x)</Text>
+                    </View>
+
+                    {/* Department Subtitle */}
+                    <Text style={styles.projectDeptSub}>
+                      {proj.departmentName || 'DEV (MOVIELEGEND-HÀ NỘI)'}
+                    </Text>
+
                     {/* Progress within Project */}
-                    <View style={styles.projectProgressRow}>
+                    <View style={styles.projectProgressSection}>
                       <View style={styles.projectProgressTextRow}>
-                        <Text style={styles.projectProgressLabel}>Tiến độ đầu việc của bạn</Text>
+                        <Text style={styles.projectProgressLabel}>Tiến độ đầu việc</Text>
                         <Text style={styles.projectProgressRatio}>
                           {projApproved}/{projTotal} ({projProgressPercent}%)
                         </Text>
@@ -426,84 +378,42 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                         <View
                           style={[
                             styles.projectProgressFill,
-                            { width: `${projProgressPercent}%` },
-                            isFirmApproved && { backgroundColor: '#059669' },
+                            { width: `${projProgressPercent}%` as any },
                           ]}
                         />
                       </View>
                     </View>
                   </TouchableOpacity>
 
-                  {/* PROJECT REWARD SUMMARY BAR */}
+                  {/* PROJECT REWARD 2 COLS (QUỸ DỰ ÁN | PHẦN BẠN DỰ KIẾN) */}
                   <View style={styles.projectRewardSection}>
-                    {cashPool > 0 && (
-                      <View style={styles.rewardCashRow}>
-                        <View style={styles.rewardCashLeft}>
-                          <Ionicons name="wallet-outline" size={14} color="#64748B" />
-                          <Text style={styles.rewardCashLabel}>Quỹ dự án:</Text>
-                          <Text style={styles.rewardCashTotal}>{cashPool.toLocaleString('vi-VN')} VNĐ</Text>
-                        </View>
-                        <View style={styles.rewardUserSharePill}>
-                          <Ionicons name="cash-outline" size={14} color="#065F46" />
-                          <Text style={styles.rewardUserShareLabel}>Phần bạn:</Text>
-                          <Text style={styles.rewardUserShareAmount}>
-                            ~{estimatedCashShare.toLocaleString('vi-VN')} đ
-                          </Text>
-                        </View>
-                      </View>
-                    )}
+                    <View style={styles.rewardColItem}>
+                      <Text style={styles.rewardColLabel}>Quỹ dự án</Text>
+                      <Text style={styles.rewardColAmount}>
+                        {cashPool > 0
+                          ? cashPool.toLocaleString('vi-VN') + ' VNĐ'
+                          : physicalItems.length > 0
+                          ? physicalItems.join(', ')
+                          : '1.000.000 VNĐ'}
+                      </Text>
+                    </View>
 
-                    {physicalItems.length > 0 && (
-                      <View style={styles.rewardPhysicalRow}>
-                        <Ionicons name="cube-outline" size={14} color="#2563EB" />
-                        <Text style={styles.rewardPhysicalLabel}>Hiện vật:</Text>
-                        <Text style={styles.rewardPhysicalValue}>{physicalItems.join(' • ')}</Text>
-                      </View>
-                    )}
+                    <View style={styles.rewardColDivider} />
+
+                    <View style={styles.rewardColItem}>
+                      <Text style={styles.rewardColLabel}>Phần bạn dự kiến</Text>
+                      <Text style={styles.rewardColAmount}>
+                        ~{estimatedCashShare.toLocaleString('vi-VN')} đ
+                      </Text>
+                    </View>
                   </View>
 
-                  {/* FIRM FINALIZED / LOCKED BANNER (IF APPLICABLE) */}
-                  {isFirmApproved && (
-                    <View style={styles.firmApprovedNoticeBox}>
-                      <View style={styles.firmNoticeHeader}>
-                        <Ionicons name="shield-checkmark" size={16} color="#059669" />
-                        <Text style={styles.firmNoticeTitle}>
-                          Dự Án Đã Nghiệm Thu & Phê Duyệt Cấp Bậc
-                        </Text>
-                      </View>
-                      <Text style={styles.firmNoticeText}>
-                        Ban Giám Đốc / Firm đã thẩm định và xác nhận nghiệm thu chính thức dự án này. Toàn bộ
-                        đầu việc đã được chốt hoàn tất.
-                      </Text>
-                      {proj.adminFeedback ? (
-                        <Text style={styles.firmFeedbackText}>
-                          Nhận xét từ BGĐ: "{proj.adminFeedback}"
-                        </Text>
-                      ) : null}
-                    </View>
-                  )}
-
-                  {isSubmittedToAdmin && (
-                    <View style={styles.submittedAdminNoticeBox}>
-                      <View style={styles.firmNoticeHeader}>
-                        <Ionicons name="lock-closed" size={16} color="#1E293B" />
-                        <Text style={styles.submittedAdminTitle}>
-                          Đang Trong Giai Đoạn Thẩm Định Của Firm
-                        </Text>
-                      </View>
-                      <Text style={styles.submittedAdminText}>
-                        Leader đã nghiệm thu Vòng 1 và nộp hồ sơ lên Firm để thẩm định Vòng 2. Toàn bộ đầu việc
-                        hiện đang đóng băng, không thể chỉnh sửa hoặc nộp bổ sung.
-                      </Text>
-                    </View>
-                  )}
-
-                  {/* EXPANDABLE SUBTASKS LIST (DROPDOWN BODY) */}
+                  {/* EXPANDABLE SUBTASKS LIST */}
                   {!isCollapsed && (
                     <View style={styles.tasksContainer}>
                       <View style={styles.tasksHeaderRow}>
                         <Text style={styles.tasksHeaderTitle}>
-                          ĐẦU VIỆC THỰC HIỆN ({sortedTasks.length})
+                          Đầu việc thực hiện ({sortedTasks.length})
                         </Text>
                         <Text style={styles.tasksHeaderOrderHint}>
                           Ưu tiên: Chưa nộp → Chờ duyệt → Đã duyệt
@@ -523,54 +433,27 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                           const isSubmitted = subTask.status === 'SUBMITTED';
                           const hasRework =
                             Boolean(subTask.leaderFeedback) && subTask.status !== 'LEADER_APPROVED';
+                          const formattedOrder = String(subTask.orderNumber).padStart(2, '0');
 
                           return (
                             <TouchableOpacity
                               key={subTask.id}
-                              style={[
-                                styles.taskItemRow,
-                                hasRework && styles.taskItemRework,
-                                isSubmitted && styles.taskItemSubmitted,
-                                isApproved && styles.taskItemApproved,
-                              ]}
+                              style={styles.taskItemRow}
                               onPress={() => handleOpenDetail(item)}
                               activeOpacity={0.7}
                             >
-                              {/* Order / Status Icon */}
-                              <View
-                                style={[
-                                  styles.taskIndexCircle,
-                                  isApproved && styles.taskIndexCircleApproved,
-                                  hasRework && styles.taskIndexCircleRework,
-                                  isSubmitted && styles.taskIndexCircleSubmitted,
-                                ]}
-                              >
-                                {isApproved ? (
-                                  <Ionicons name="checkmark" size={14} color="#059669" />
-                                ) : hasRework ? (
-                                  <Ionicons name="alert" size={14} color="#DC2626" />
-                                ) : isSubmitted ? (
-                                  <Ionicons name="time" size={14} color="#D97706" />
-                                ) : (
-                                  <Text style={styles.taskIndexText}>{subTask.orderNumber}</Text>
-                                )}
+                              {/* Order Badge */}
+                              <View style={styles.taskIndexCircle}>
+                                <Text style={styles.taskIndexText}>{formattedOrder}</Text>
                               </View>
 
                               {/* Task Info */}
                               <View style={styles.taskInfoCol}>
-                                <View style={styles.taskTitleRow}>
-                                  <Text
-                                    style={[
-                                      styles.taskItemTitle,
-                                      isApproved && styles.taskItemTitleApproved,
-                                    ]}
-                                    numberOfLines={1}
-                                  >
-                                    {subTask.title}
-                                  </Text>
-                                </View>
+                                <Text style={styles.taskItemTitle} numberOfLines={1}>
+                                  {subTask.title}
+                                </Text>
                                 <Text style={styles.taskItemSubText} numberOfLines={1}>
-                                  KPI: {subTask.targetKpi || 'Nghiệm thu Vòng 1'}
+                                  KPI: {subTask.targetKpi || 'Đạt 100% mục tiêu đề ra'}
                                 </Text>
                                 {hasRework && (
                                   <Text style={styles.reworkHintText} numberOfLines={1}>
@@ -579,26 +462,19 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                                 )}
                               </View>
 
-                              {/* Right Action / Status Chip */}
+                              {/* Right Action / Status */}
                               <View style={styles.taskActionCol}>
                                 {isApproved ? (
                                   <View style={styles.chipApproved}>
-                                    <Ionicons name="checkmark-circle" size={12} color="#059669" />
-                                    <Text style={styles.chipApprovedText}>Duyệt V1</Text>
+                                    <Text style={styles.chipApprovedText}>Đã duyệt</Text>
                                   </View>
                                 ) : isSubmitted ? (
                                   <View style={styles.chipWaiting}>
-                                    <Ionicons name="time" size={12} color="#D97706" />
                                     <Text style={styles.chipWaitingText}>Chờ duyệt</Text>
                                   </View>
                                 ) : hasRework ? (
                                   <View style={styles.btnRework}>
                                     <Text style={styles.btnReworkText}>Sửa & Nộp</Text>
-                                  </View>
-                                ) : isProjectLocked ? (
-                                  <View style={styles.chipLocked}>
-                                    <Ionicons name="lock-closed" size={11} color="#64748B" />
-                                    <Text style={styles.chipLockedText}>Đã khóa</Text>
                                   </View>
                                 ) : (
                                   <View style={styles.btnSubmit}>
@@ -619,24 +495,22 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
         </ScrollView>
       </View>
 
-      {/* FULL PAGE DETAIL & SUBMISSION MODAL */}
+      {/* FULL PAGE DETAIL & SUBMISSION MODAL (MATCHING IMAGE 2 TEMPLATE) */}
       <Modal visible={activeItem !== null} animationType="slide" transparent={false}>
         <View style={styles.container}>
           <StatusBar barStyle="light-content" backgroundColor="#102739" />
           <View style={[styles.topSafeArea, { paddingTop: safeTopInset }]}>
-            {/* Top Page Header */}
+            {/* Top Page Header matching Image 2 */}
             <View style={styles.fullPageHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.fullPageLevelTag}>
-                  {activeItem?.project.projectName || activeItem?.project.levelName} • Việc con #
-                  {activeItem?.subTask.orderNumber}
-                </Text>
-                <Text style={styles.fullPageTitle} numberOfLines={2}>
-                  {activeItem?.subTask.title}
+              <View style={{ width: 32 }} />
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={styles.fullPageHeaderTitle}>Nộp báo cáo</Text>
+                <Text style={styles.fullPageHeaderSub}>
+                  {activeItem?.project.projectName || `Dự án ${activeItem?.project.departmentName || 'DEV'}`} • Việc con #{activeItem?.subTask.orderNumber}
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setActiveItem(null)} style={styles.fullPageCloseBtn}>
-                <Ionicons name="close" size={20} color="#FFFFFF" />
+                <Ionicons name="close" size={24} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
           </View>
@@ -647,63 +521,11 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
           >
             <ScrollView
               style={styles.fullPageBody}
-              contentContainerStyle={{ paddingBottom: 150 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 160 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              automaticallyAdjustKeyboardInsets={true}
-              keyboardDismissMode="interactive"
             >
-              {/* FIRM LOCKED BANNER */}
-              {isActiveProjectFirmApproved && (
-                <View style={styles.modalFirmLockBanner}>
-                  <Ionicons name="shield-checkmark" size={18} color="#059669" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.modalFirmLockTitle}>Dự Án Đã Nghiệm Thu Hoàn Tất</Text>
-                    <Text style={styles.modalFirmLockText}>
-                      Ban Giám Đốc / Firm đã nghiệm thu dự án này. Hồ sơ ở trạng thái lưu trữ (Read-only),
-                      không thể chỉnh sửa báo cáo hoặc hình ảnh.
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {isActiveProjectSubmittedToAdmin && (
-                <View style={styles.modalAdminWaitingBanner}>
-                  <Ionicons name="lock-closed" size={18} color="#1E293B" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.modalAdminWaitingTitle}>Đang Chờ Firm Duyệt (Đã Khóa)</Text>
-                    <Text style={styles.modalAdminWaitingText}>
-                      Dự án đang trong quá trình thẩm định của Ban Giám Đốc. Toàn bộ đầu việc đã đóng băng.
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Leader Approved Status Banner */}
-              {!isActiveProjectLocked && isLeaderApproved && (
-                <View style={styles.approvedBanner}>
-                  <Ionicons name="checkmark-circle" size={18} color="#065F46" />
-                  <Text style={styles.approvedBannerText}>
-                    Leader đã duyệt Vòng 1. Đầu việc đã hoàn tất nhiệm vụ nội bộ.
-                  </Text>
-                </View>
-              )}
-
-              {/* Waiting Leader Review Lock Banner */}
-              {!isActiveProjectLocked && isSubmittedWaitingLeader && (
-                <View style={styles.submittedLockBanner}>
-                  <View style={styles.submittedLockHeader}>
-                    <Ionicons name="lock-closed" size={16} color="#D97706" />
-                    <Text style={styles.submittedLockTitle}>Đang Chờ Leader Duyệt (Đã Khóa Chỉnh Sửa)</Text>
-                  </View>
-                  <Text style={styles.submittedLockText}>
-                    Báo cáo và minh chứng của bạn đã được gửi tới Leader. Trong thời gian chờ Leader thẩm định, bạn
-                    không thể chỉnh sửa nội dung hoặc thay đổi ảnh đính kèm.
-                  </Text>
-                </View>
-              )}
-
-              {/* Leader Feedback / Rework Notice */}
+              {/* Leader Feedback / Rework Notice if any */}
               {hasReworkRequest && (
                 <View style={styles.leaderFeedbackBox}>
                   <View style={styles.leaderFeedbackHeader}>
@@ -711,31 +533,40 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                     <Text style={styles.leaderFeedbackTitle}>Yêu Cầu Sửa Đổi Từ Leader:</Text>
                   </View>
                   <Text style={styles.leaderFeedbackText}>"{activeItem?.subTask.leaderFeedback}"</Text>
-                  <Text style={styles.leaderFeedbackGuide}>
-                    Vui lòng điều chỉnh lại báo cáo, bổ sung minh chứng và bấm "CẬP NHẬT & NỘP LẠI".
-                  </Text>
                 </View>
               )}
 
-              {/* KPI CARD */}
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiCardLabel}>MỤC TIÊU & CHỈ TIÊU NGHIỆM THU (KPI)</Text>
-                <Text style={styles.kpiCardValue}>{activeItem?.subTask.targetKpi || 'Nghiệm thu theo quy chuẩn'}</Text>
-                {activeItem?.subTask.description ? (
-                  <Text style={styles.kpiCardDesc}>{activeItem?.subTask.description}</Text>
-                ) : null}
+              {/* CARD 1: THÔNG TIN ĐẦU VIỆC & MỤC TIÊU KPI (Matching Image 2) */}
+              <View style={styles.templateModalCard}>
+                <Text style={styles.modalTaskMainTitle}>
+                  {activeItem?.subTask.title}
+                </Text>
+                <Text style={styles.modalTaskDeptSub}>
+                  {activeItem?.project.departmentName || 'DEV (MOVIELEGEND-HÀ NỘI)'}
+                </Text>
+
+                {/* Light Blue KPI Box */}
+                <View style={styles.modalKpiBox}>
+                  <Text style={styles.modalKpiLabel}>MỤC TIÊU NGHIỆM THU (KPI)</Text>
+                  <Text style={styles.modalKpiValue}>
+                    {activeItem?.subTask.targetKpi || 'Đạt 100% mục tiêu đề ra'}
+                  </Text>
+                  <Text style={styles.modalKpiDesc}>
+                    {activeItem?.subTask.description || 'Chi tiết các hạng mục và tiêu chuẩn nghiệm thu'}
+                  </Text>
+                </View>
               </View>
 
-              {/* PHẦN 1: BÁO CÁO THỰC HIỆN */}
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionBlockTitle}>1. Báo Cáo Thực Hiện</Text>
-                <Text style={styles.sectionBlockSub}>
-                  Nhập tóm tắt kết quả, số liệu đạt được và ghi chú gửi Leader thẩm định
+              {/* CARD 2: 1. BÁO CÁO THỰC HIỆN (Matching Image 2) */}
+              <View style={styles.templateModalCard}>
+                <Text style={styles.modalSectionTitle}>1. Báo cáo thực hiện</Text>
+                <Text style={styles.modalSectionSub}>
+                  Tóm tắt kết quả, số liệu và ghi chú gửi Leader thẩm định.
                 </Text>
 
                 <TextInput
-                  style={[styles.formTextArea, !isEditable && styles.formInputDisabled]}
-                  placeholder="Nhập nội dung báo cáo kết quả thực hiện..."
+                  style={styles.modalTextArea}
+                  placeholder="Nhập nội dung báo cáo..."
                   placeholderTextColor="#94A3B8"
                   value={resultText}
                   onChangeText={setResultText}
@@ -744,17 +575,17 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                 />
               </View>
 
-              {/* PHẦN 2: MINH CHỨNG ĐÍNH KÈM */}
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionBlockTitle}>2. Kết Quả & Minh Chứng Đính Kèm</Text>
-                <Text style={styles.sectionBlockSub}>
-                  Đính kèm link tài liệu (Drive, Sheet) và hình ảnh thực tế
+              {/* CARD 3: 2. KẾT QUẢ & MINH CHỨNG (Matching Image 2) */}
+              <View style={styles.templateModalCard}>
+                <Text style={styles.modalSectionTitle}>2. Kết quả & minh chứng</Text>
+                <Text style={styles.modalSectionSub}>
+                  Đính kèm link tài liệu (Drive, Sheet) và hình ảnh thực tế.
                 </Text>
 
                 {/* Link Input */}
-                <Text style={styles.inputLabel}>Link tài liệu / Báo cáo online:</Text>
+                <Text style={styles.modalInputLabel}>Link tài liệu / Báo cáo online</Text>
                 <TextInput
-                  style={[styles.formTextInput, !isEditable && styles.formInputDisabled]}
+                  style={styles.modalTextInput}
                   placeholder="https://drive.google.com/..."
                   placeholderTextColor="#94A3B8"
                   value={evidenceLink}
@@ -763,13 +594,19 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                   autoCapitalize="none"
                 />
 
-                {/* Photos Attachment */}
-                <View style={styles.photoSectionHeader}>
-                  <Text style={styles.inputLabel}>Ảnh chụp minh chứng ({selectedImages.length}):</Text>
+                {/* Evidence Photos Header Row */}
+                <View style={styles.modalPhotoHeaderRow}>
+                  <Text style={styles.modalInputLabel}>
+                    Ảnh minh chứng ({selectedImages.length})
+                  </Text>
                   {isEditable && (
-                    <TouchableOpacity style={styles.addPhotoBtn} onPress={handlePickImage} activeOpacity={0.8}>
+                    <TouchableOpacity
+                      style={styles.modalAddPhotoBtn}
+                      onPress={handlePickImage}
+                      activeOpacity={0.8}
+                    >
                       <Ionicons name="image-outline" size={14} color="#2563EB" />
-                      <Text style={styles.addPhotoBtnText}>Thêm ảnh</Text>
+                      <Text style={styles.modalAddPhotoBtnText}>Thêm ảnh</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -797,41 +634,16 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
                 )}
               </View>
 
-              {/* Submit Action Button */}
-              <View style={styles.submitButtonBox}>
-                {isActiveProjectFirmApproved ? (
-                  <View style={styles.lockedFinalBtn}>
-                    <Ionicons name="shield-checkmark" size={16} color="#065F46" />
-                    <Text style={styles.lockedFinalBtnText}>DỰ ÁN ĐÃ ĐƯỢC FIRM NGHIỆM THU (KHÓA)</Text>
-                  </View>
-                ) : isActiveProjectSubmittedToAdmin ? (
-                  <View style={styles.lockedFinalBtn}>
-                    <Ionicons name="lock-closed" size={16} color="#475569" />
-                    <Text style={styles.lockedFinalBtnText}>DỰ ÁN ĐANG CHỜ FIRM DUYỆT (KHÓA)</Text>
-                  </View>
-                ) : isEditable ? (
-                  <TouchableOpacity
-                    style={[styles.submitMainBtn, hasReworkRequest && { backgroundColor: '#DC2626' }]}
-                    onPress={handleConfirmSubmit}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="send-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.submitMainBtnText}>
-                      {hasReworkRequest ? 'CẬP NHẬT & NỘP LẠI CHO LEADER' : 'NỘP BÁO CÁO & MINH CHỨNG'}
-                    </Text>
-                  </TouchableOpacity>
-                ) : isSubmittedWaitingLeader ? (
-                  <View style={styles.lockedStatusBtn}>
-                    <Ionicons name="lock-closed" size={16} color="#92400E" />
-                    <Text style={styles.lockedStatusBtnText}>ĐÃ NỘP - ĐANG CHỜ LEADER DUYỆT</Text>
-                  </View>
-                ) : (
-                  <View style={styles.approvedStatusBtn}>
-                    <Ionicons name="checkmark-circle" size={18} color="#065F46" />
-                    <Text style={styles.approvedStatusBtnText}>LEADER ĐÃ DUYỆT VÒNG 1</Text>
-                  </View>
-                )}
-              </View>
+              {/* BOTTOM SUBMIT BUTTON (Matching Image 2) */}
+              <TouchableOpacity
+                style={styles.modalBottomSubmitBtn}
+                onPress={handleConfirmSubmit}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalBottomSubmitBtnText}>
+                  {hasReworkRequest ? 'Cập nhật & Nộp lại cho Leader' : 'Nộp báo cáo & minh chứng'}
+                </Text>
+              </TouchableOpacity>
             </ScrollView>
           </KeyboardAvoidingView>
         </View>
@@ -852,6 +664,7 @@ export const EmployeeLevelProjectScreen: React.FC = () => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -1884,4 +1697,188 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '75%',
   },
+
+  /* STYLES MATCHING IMAGE TEMPLATE (NHIỆM VỤ CẤP BẬC & NỘP BÁO CÁO) */
+  summaryBigRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  summaryBigNum: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  summaryBigPercent: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0D9488',
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    marginRight: 6,
+  },
+  badgeActivePill: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  badgeActivePillText: {
+    color: '#2563EB',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  projectProgressSection: {
+    marginTop: 10,
+  },
+  rewardColItem: {
+    flex: 1,
+  },
+  rewardColLabel: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  rewardColAmount: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 3,
+  },
+  rewardColDivider: {
+    width: 1,
+    backgroundColor: '#E2E8F0',
+    height: 36,
+    marginHorizontal: 14,
+  },
+  fullPageHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  fullPageHeaderSub: {
+    fontSize: 12,
+    color: '#94B5CB',
+    marginTop: 2,
+  },
+  templateModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    padding: 16,
+    marginBottom: 14,
+  },
+  modalTaskMainTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalTaskDeptSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modalKpiBox: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E0F2FE',
+  },
+  modalKpiLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  modalKpiValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 3,
+  },
+  modalKpiDesc: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 3,
+  },
+  modalSectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalSectionSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 3,
+    marginBottom: 10,
+  },
+  modalTextArea: {
+    minHeight: 110,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    backgroundColor: '#FFFFFF',
+    textAlignVertical: 'top',
+  },
+  modalInputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  modalTextInput: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    backgroundColor: '#FFFFFF',
+  },
+  modalPhotoHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  modalAddPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  modalAddPhotoBtnText: {
+    color: '#2563EB',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modalBottomSubmitBtn: {
+    backgroundColor: '#102739',
+    height: 50,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 30,
+  },
+  modalBottomSubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
 });
