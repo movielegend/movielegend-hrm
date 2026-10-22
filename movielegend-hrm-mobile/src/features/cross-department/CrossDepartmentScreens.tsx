@@ -566,9 +566,12 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
   const request = useCrossDepartmentRequest(id);
   const action = useCrossDepartmentAction();
 
-  // Fetch employees for target department (Called unconditionally at top level)
+  // Fetch employees for target department only when user has permission to assign
   const targetDepartmentId = request.data?.targetDepartmentId;
-  const employeesQuery = useEmployees({ departmentId: targetDepartmentId, page: 1, limit: 100 }, Boolean(targetDepartmentId));
+  const canAssignEmployee = Boolean(
+    targetDepartmentId && (user?.roles.includes('ADMIN') || user?.roles.includes('HR') || user?.roles.includes('LEADER'))
+  );
+  const employeesQuery = useEmployees({ departmentId: targetDepartmentId, page: 1, limit: 100 }, canAssignEmployee);
   
   const [rejectReason, setRejectReason] = useState('');
   const [actionModalVisible, setActionModalVisible] = useState(false);
@@ -908,6 +911,30 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
             >
               Nghiệm thu & Đánh giá kết quả
             </PrimaryButton>
+          )}
+
+          {/* Trạng thái đã hoàn tất */}
+          {item.status === 'COMPLETED' && (
+            <View style={{ backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0', borderRadius: 12, padding: 14, marginTop: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <MaterialCommunityIcons name="check-decagram" size={24} color="#059669" />
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#065F46' }}>Yêu cầu đã được nghiệm thu hoàn tất</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 }}>
+                <Text style={{ fontSize: 14, color: '#047857', fontWeight: '600' }}>Đánh giá chất lượng:</Text>
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <MaterialCommunityIcons
+                    key={idx}
+                    name={idx < (item.rating ?? 5) ? 'star' : 'star-outline'}
+                    size={20}
+                    color="#F59E0B"
+                  />
+                ))}
+                <Text style={{ fontSize: 13, color: '#059669', marginLeft: 4, fontWeight: '700' }}>
+                  ({item.rating ?? 5}/5 sao)
+                </Text>
+              </View>
+            </View>
           )}
         </View>
       </ScrollView>
