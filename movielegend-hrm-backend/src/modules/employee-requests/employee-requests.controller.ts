@@ -30,7 +30,7 @@ export class EmployeeRequestsController {
     return this.employeeRequestsService.create(dto, actor);
   }
 
-  @Permissions('employee.request.approve')
+  @AnyPermissions('employee.request.approve', 'employee.request.read')
   @Get()
   findAll(
     @CurrentUser() actor: AuthenticatedUser,
@@ -77,7 +77,7 @@ export class EmployeeRequestsController {
     return this.employeeRequestsService.findMine(actor, query);
   }
 
-  @AnyPermissions('employee.request.approve', 'employee.request')
+  @AnyPermissions('employee.request.approve', 'employee.request.read', 'employee.request')
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.employeeRequestsService.findOne(id, actor);

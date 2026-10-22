@@ -553,8 +553,13 @@ export class EmployeeRequestsService {
       }
     }
 
-    const attachmentMetadata = {
+    const metaImages = (typeof dto.attachmentMetadata === 'object' && dto.attachmentMetadata !== null && Array.isArray((dto.attachmentMetadata as any).images))
+      ? (dto.attachmentMetadata as any).images
+      : [];
+
+    const attachmentMetadata: Record<string, any> = {
       ...(typeof dto.attachmentMetadata === 'object' && dto.attachmentMetadata !== null ? dto.attachmentMetadata : {}),
+      ...(metaImages.length > 0 ? { images: metaImages, image: metaImages[0] } : {}),
       ...(isCompensatoryWork ? { requestType: 'COMPENSATORY_WORK' } : {}),
       ...(isFinancial ? { stage: initialStage, approvalSteps: [] } : {}),
     };
@@ -687,40 +692,11 @@ export class EmployeeRequestsService {
         where = { OR: orConditions };
       }
     } else if (isAccountant) {
-      // Accountant: can see ALL financial requests across all departments,
-      // PLUS any requests within their own led or primary department(s)
-      const ledDeptIds = await this.scope.getLedDepartmentIds(actor);
-      const ownDeptIds = [...ledDeptIds];
-      try {
-        const primaryDeptId = await this.scope.getPrimaryDepartmentId(actor.userId);
-        if (primaryDeptId && !ownDeptIds.includes(primaryDeptId)) {
-          ownDeptIds.push(primaryDeptId);
-        }
-      } catch {}
-
-      const financialTypes: EmployeeRequestType[] = [
-        EmployeeRequestType.ADVANCE,
-        EmployeeRequestType.EXPENSE,
-        EmployeeRequestType.PURCHASE,
-      ];
-
+      // Kế toán viên & Kế toán trưởng: Xem được toàn bộ đơn từ của toàn công ty
       if (departmentId) {
-        if (ownDeptIds.includes(departmentId)) {
-          where = { departmentId };
-        } else {
-          where = {
-            departmentId,
-            type: { in: financialTypes },
-          };
-        }
+        where = { departmentId };
       } else {
-        const orConditions: Prisma.EmployeeRequestWhereInput[] = [
-          { type: { in: financialTypes } },
-        ];
-        if (ownDeptIds.length > 0) {
-          orConditions.push({ departmentId: { in: ownDeptIds } });
-        }
-        where = { OR: orConditions };
+        where = {};
       }
     } else {
       const visibleDepartmentIds = await this.scope.getVisibleDepartmentIds(actor);
@@ -797,7 +773,8 @@ export class EmployeeRequestsService {
     let canView = false;
     if (isOwner || isGlobalAdmin || isHr) {
       canView = true;
-    } else if (isFinancial && isAccountant) {
+    } else if (isAccountant) {
+      // Kế toán xem được toàn bộ đơn từ của toàn công ty
       canView = true;
     } else if (request.departmentId && (await this.scope.canAccessDepartmentAsync(actor, request.departmentId))) {
       canView = true;
@@ -3141,10 +3118,10 @@ export class EmployeeRequestsService {
     batchData: ImportPaymentBatchDto | null,
     actor: AuthenticatedUser,
   ) {
-    const isAccountant = await this.isAccountantActor(actor);
+    const isAccountantLead = await this.isAccountantLeadActor(actor);
     const isGlobalAdmin = (actor.roles.includes('ADMIN') && !this.scope.isRegionAdmin(actor)) || this.scope.isGlobalAdmin(actor);
-    if (!isAccountant && !isGlobalAdmin) {
-      throw forbidden('FORBIDDEN', 'Chỉ Kế toán hoặc Quản trị viên mới có quyền đẩy file thanh toán.');
+    if (!isAccountantLead && !isGlobalAdmin) {
+      throw forbidden('FORBIDDEN', 'Chỉ Kế toán trưởng hoặc Quản trị viên mới có quyền đẩy file thanh toán.');
     }
 
     let items: ImportPaymentItemDto[] = [];
