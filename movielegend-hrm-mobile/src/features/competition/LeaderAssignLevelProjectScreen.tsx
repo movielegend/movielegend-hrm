@@ -138,33 +138,49 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
 
   // Parse total cash pool from current project
   const totalCashPool = useMemo(() => {
+    if (currentProject?.rewardType === 'PHYSICAL_ITEM') {
+      return 0;
+    }
     if (currentProject?.cashAmount && currentProject.cashAmount > 0) {
       return currentProject.cashAmount;
     }
+    if ((currentProject as any)?.promotionBonusAmount && (currentProject as any).promotionBonusAmount > 0) {
+      return (currentProject as any).promotionBonusAmount;
+    }
     // Fallback parse numeric amount from rewardItem string
     if (currentProject?.rewardItem) {
-      const match = currentProject.rewardItem.replace(/\./g, '').match(/(\d+)\s*VNĐ/i);
+      const match = currentProject.rewardItem.replace(/\./g, '').match(/(\d+)\s*(?:VNĐ|VND|đ)?/i);
       if (match && match[1]) {
         return Number(match[1]) || 0;
       }
     }
     return 0;
-  }, [currentProject?.cashAmount, currentProject?.rewardItem]);
+  }, [currentProject?.rewardType, currentProject?.cashAmount, (currentProject as any)?.promotionBonusAmount, currentProject?.rewardItem]);
 
   // Parse physical items from current project
   const physicalItemList = useMemo(() => {
+    if (currentProject?.rewardType === 'CASH') {
+      return [];
+    }
+    const rawList: string[] = [];
     if (Array.isArray(currentProject?.physicalItems) && currentProject.physicalItems.length > 0) {
-      return currentProject.physicalItems;
-    }
-    if (currentProject?.physicalItemName?.trim()) {
-      return currentProject.physicalItemName.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
-    }
-    if (currentProject?.rewardItem?.includes('🎁')) {
+      rawList.push(...currentProject.physicalItems);
+    } else if (currentProject?.physicalItemName?.trim()) {
+      rawList.push(...currentProject.physicalItemName.split(/[,;\n]+/).map((s) => s.trim()));
+    } else if (currentProject?.rewardItem?.includes('🎁')) {
       const giftPart = currentProject.rewardItem.split('🎁')[1]?.split('+')[0]?.trim();
-      if (giftPart) return [giftPart.replace(/\(Hiện vật chung\)/g, '').trim()];
+      if (giftPart) rawList.push(giftPart.replace(/\(Hiện vật chung\)/g, '').trim());
     }
-    return [];
-  }, [currentProject?.physicalItems, currentProject?.physicalItemName, currentProject?.rewardItem]);
+
+    return rawList
+      .map((s) => String(s || '').trim())
+      .filter((s) => {
+        if (!s) return false;
+        // Filter out strings that look like money/numeric amounts (e.g. 5.000.000 VNĐ)
+        const isMoney = /^[\d\.,\s]+(VNĐ|VND|đ)?$/i.test(s) || /^\d+$/.test(s.replace(/[\.,\s]/g, ''));
+        return !isMoney;
+      });
+  }, [currentProject?.rewardType, currentProject?.physicalItems, currentProject?.physicalItemName, currentProject?.rewardItem]);
 
   // Compute participating members in this level project and their Level multiplier weight
   const participatingMembers = useMemo(() => {
@@ -359,8 +375,36 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
     );
   };
 
+  const subTasks = currentProject?.subTasks || [];
+  const totalSubTasks = subTasks.length;
+  const approvedSubTasks = subTasks.filter((t) => t.status === 'LEADER_APPROVED').length;
+  const progressPercent = totalSubTasks > 0 ? Math.round((approvedSubTasks / totalSubTasks) * 100) : 0;
+  const isAllSubTasksApproved = totalSubTasks > 0 && approvedSubTasks === totalSubTasks;
+
+  const handleOpenSubmitAdminModal = () => {
+    if (totalSubTasks === 0) {
+      CustomAlert.alert('Chưa có công việc', 'Dự án hiện chưa có đầu việc con nào được giao.');
+      return;
+    }
+    if (!isAllSubTasksApproved) {
+      CustomAlert.alert(
+        'Chưa thể nộp nghiệm thu',
+        `Dự án có ${totalSubTasks} việc con nhưng hiện mới chỉ duyệt đạt ${approvedSubTasks}/${totalSubTasks} việc (còn ${totalSubTasks - approvedSubTasks} việc chưa duyệt Vòng 1).\n\nLeader cần kiểm tra và duyệt đạt 100% các đầu việc con trước khi gửi báo cáo nghiệm thu lên Ban Giám Đốc.`
+      );
+      return;
+    }
+    setSubmitAdminModalVisible(true);
+  };
+
   // Handle submitting project to Admin
   const handleSubmitProjectToAdmin = async () => {
+    if (!isAllSubTasksApproved) {
+      CustomAlert.alert(
+        'Chưa đủ điều kiện',
+        `Dự án còn ${totalSubTasks - approvedSubTasks} việc con chưa được Leader duyệt Vòng 1. Vui lòng duyệt đạt toàn bộ việc con trước khi gửi lên Ban Giám Đốc.`
+      );
+      return;
+    }
     if (!adminReportText.trim()) {
       CustomAlert.alert('Lỗi', 'Vui lòng nhập tóm tắt báo cáo kết quả nghiệm thu');
       return;
@@ -368,13 +412,8 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
 
     await submitProjectToAdmin(selectedLevelNumber, adminReportText.trim(), adminReportUrl.trim() || undefined);
     setSubmitAdminModalVisible(false);
-    CustomAlert.alert('Thành Công', `Đã gửi báo cáo nghiệm thu ${currentProject?.levelName} lên Ban Giám Đốc.`);
+    CustomAlert.alert('Thành Công', `Đã gửi báo cáo nghiệm thu ${currentProject?.projectName || currentProject?.levelName} lên Ban Giám Đốc.`);
   };
-
-  const subTasks = currentProject?.subTasks || [];
-  const totalSubTasks = subTasks.length;
-  const approvedSubTasks = subTasks.filter((t) => t.status === 'LEADER_APPROVED').length;
-  const progressPercent = totalSubTasks > 0 ? Math.round((approvedSubTasks / totalSubTasks) * 100) : 0;
 
   const countPending = subTasks.filter((t) => t.status === 'SUBMITTED').length;
   const countAssigned = subTasks.filter((t) => t.status === 'ASSIGNED').length;
@@ -458,11 +497,19 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
           </View>
           {currentProject?.status === 'IN_PROGRESS' ? (
             <TouchableOpacity
-              style={styles.headerSubmitBtn}
-              onPress={() => setSubmitAdminModalVisible(true)}
+              style={[
+                styles.headerSubmitBtn,
+                !isAllSubTasksApproved && styles.headerSubmitBtnDisabled,
+              ]}
+              onPress={handleOpenSubmitAdminModal}
               activeOpacity={0.7}
             >
-              <Text style={styles.headerSubmitBtnText}>Nộp Admin</Text>
+              <Text style={[
+                styles.headerSubmitBtnText,
+                !isAllSubTasksApproved && styles.headerSubmitBtnTextDisabled,
+              ]}>
+                Nộp Admin
+              </Text>
             </TouchableOpacity>
           ) : (
             <View style={{ width: 32 }} />
@@ -791,27 +838,41 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
           {/* Action to submit project to Admin when all subtasks are approved or project in progress */}
           {currentProject.status === 'IN_PROGRESS' && (
             <View style={styles.leaderSubmitAdminActionBox}>
-              {approvedSubTasks === totalSubTasks && totalSubTasks > 0 ? (
+              {isAllSubTasksApproved ? (
                 <View style={styles.allTasksReadyNotice}>
-                  <Ionicons name="sparkles" size={16} color="#059669" />
+                  <Ionicons name="checkmark-circle" size={16} color="#059669" />
                   <Text style={styles.allTasksReadyText}>
-                    Toàn bộ {totalSubTasks} đầu việc con đã được Leader duyệt đạt!
+                    Toàn bộ {totalSubTasks}/{totalSubTasks} việc con đã được duyệt Vòng 1. Sẵn sàng nộp nghiệm thu!
                   </Text>
                 </View>
-              ) : null}
+              ) : (
+                <View style={styles.tasksNotReadyNotice}>
+                  <Ionicons name="information-circle-outline" size={16} color="#D97706" />
+                  <Text style={styles.tasksNotReadyText}>
+                    Tiến độ: {approvedSubTasks}/{totalSubTasks} việc con đã duyệt V1 (còn {totalSubTasks - approvedSubTasks} việc cần hoàn thành & duyệt).
+                  </Text>
+                </View>
+              )}
               <TouchableOpacity
                 style={[
                   styles.submitProjectToAdminMainBtn,
-                  approvedSubTasks === totalSubTasks && totalSubTasks > 0 && styles.submitProjectToAdminMainBtnHighlight,
+                  isAllSubTasksApproved
+                    ? styles.submitProjectToAdminMainBtnHighlight
+                    : styles.submitProjectToAdminMainBtnPending,
                 ]}
-                onPress={() => setSubmitAdminModalVisible(true)}
+                onPress={handleOpenSubmitAdminModal}
                 activeOpacity={0.85}
               >
-                <Ionicons name="paper-plane-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Ionicons
+                  name={isAllSubTasksApproved ? "paper-plane" : "paper-plane-outline"}
+                  size={16}
+                  color="#FFFFFF"
+                  style={{ marginRight: 6 }}
+                />
                 <Text style={styles.submitProjectToAdminMainBtnText}>
-                  {approvedSubTasks === totalSubTasks && totalSubTasks > 0
-                    ? 'NỘP BÁO CÁO TỔNG KẾT LÊN ADMIN'
-                    : 'Nộp Báo Cáo Nghiệm Thu Lên Admin'}
+                  {isAllSubTasksApproved
+                    ? 'NỘP BÁO CÁO NGHIỆM THU LÊN ADMIN'
+                    : `Nộp Báo Cáo Nghiệm Thu (${approvedSubTasks}/${totalSubTasks} việc con)`}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1440,12 +1501,28 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
               <View style={styles.kpiCard}>
                 <Text style={styles.kpiCardLabel}>{currentProject.projectName}</Text>
                 <Text style={styles.kpiCardValue}>
-                  {approvedSubTasks}/10 việc con đã duyệt Vòng 1 ({progressPercent}%)
+                  {approvedSubTasks}/{totalSubTasks} việc con đã duyệt Vòng 1 ({progressPercent}%)
                 </Text>
                 <Text style={styles.kpiCardDesc}>
-                  Phần thưởng thăng cấp dự kiến: {currentProject.rewardItem}
+                  Gói phần thưởng dự án:{' '}
+                  {[
+                    totalCashPool > 0 ? `${totalCashPool.toLocaleString('vi-VN')} VNĐ` : '',
+                    physicalItemList.length > 0 ? physicalItemList.join(' • ') : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' + ') || (currentProject.rewardItem && !/^[\d\.,\s]+(VNĐ|VND|đ)?$/i.test(currentProject.rewardItem) ? currentProject.rewardItem : 'Chưa thiết lập')}
                 </Text>
               </View>
+
+              {/* Warning Notice if not 100% approved */}
+              {!isAllSubTasksApproved && (
+                <View style={styles.modalWarningBox}>
+                  <Ionicons name="warning-outline" size={18} color="#B45309" />
+                  <Text style={styles.modalWarningText}>
+                    Chưa đủ điều kiện: Dự án còn {totalSubTasks - approvedSubTasks} việc con chưa được Leader duyệt Vòng 1. Vui lòng duyệt đạt toàn bộ việc con trước khi gửi lên Ban Giám Đốc.
+                  </Text>
+                </View>
+              )}
 
               {/* Danh Sách 10 Việc Con Tóm Tắt */}
               <View style={styles.sectionBlock}>
@@ -1520,11 +1597,24 @@ export const LeaderAssignLevelProjectScreen: React.FC = () => {
               {/* Action Submit Button */}
               <View style={[styles.actionFooter, { marginBottom: 40 + Math.max(insets.bottom, 24) }]}>
                 <TouchableOpacity
-                  style={styles.approveMainBtn}
+                  style={[
+                    styles.approveMainBtn,
+                    !isAllSubTasksApproved && styles.approveMainBtnDisabled,
+                  ]}
                   onPress={handleSubmitProjectToAdmin}
                   activeOpacity={0.85}
+                  disabled={!isAllSubTasksApproved}
                 >
-                  <Text style={styles.approveMainBtnText}>XÁC NHẬN GỬI BAN GIÁM ĐỐC</Text>
+                  <Text
+                    style={[
+                      styles.approveMainBtnText,
+                      !isAllSubTasksApproved && styles.approveMainBtnTextDisabled,
+                    ]}
+                  >
+                    {isAllSubTasksApproved
+                      ? 'XÁC NHẬN GỬI BAN GIÁM ĐỐC'
+                      : `CHƯA THỂ GỬI (${approvedSubTasks}/${totalSubTasks} VIỆC ĐÃ DUYỆT)`}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1646,10 +1736,18 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 8,
   },
+  headerSubmitBtnDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
   headerSubmitBtnText: {
     color: '#102739',
     fontSize: 13,
     fontWeight: 'bold',
+  },
+  headerSubmitBtnTextDisabled: {
+    color: '#94A3B8',
   },
   levelSelectorContainer: {
     paddingVertical: 10,
@@ -2823,6 +2921,24 @@ const styles = StyleSheet.create({
     color: '#065F46',
     flex: 1,
   },
+  tasksNotReadyNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  tasksNotReadyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400E',
+    flex: 1,
+  },
   submitProjectToAdminMainBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2838,12 +2954,43 @@ const styles = StyleSheet.create({
   },
   submitProjectToAdminMainBtnHighlight: {
     backgroundColor: '#059669',
+    shadowColor: '#059669',
+  },
+  submitProjectToAdminMainBtnPending: {
+    backgroundColor: '#64748B',
+    shadowColor: '#64748B',
   },
   submitProjectToAdminMainBtnText: {
     fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.3,
+  },
+  modalWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  modalWarningText: {
+    fontSize: 12,
+    color: '#92400E',
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 18,
+  },
+  approveMainBtnDisabled: {
+    backgroundColor: '#94A3B8',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  approveMainBtnTextDisabled: {
+    color: '#E2E8F0',
   },
   submittedToAdminBannerBox: {
     flexDirection: 'row',

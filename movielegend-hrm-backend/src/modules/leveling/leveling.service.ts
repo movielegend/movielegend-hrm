@@ -1059,10 +1059,14 @@ export class LevelingService implements OnModuleInit {
       const levelName = lvl.levelName || `Level ${levelNumber}`;
       const projectName =
         lvl.project?.projectName || `Dự Án Level ${levelNumber} - ${departmentName}`;
-      const rewardType = lvl.rewardType || (lvl.promotionBonusAmount > 0 && lvl.physicalItemName ? 'HYBRID' : lvl.promotionBonusAmount > 0 ? 'CASH' : 'PHYSICAL_ITEM');
       const cashAmount = Number(lvl.promotionBonusAmount || lvl.cashAmount || 0);
-      const physicalItemName = lvl.physicalItemName || '';
-      const physicalItems = Array.isArray(lvl.physicalItems) ? lvl.physicalItems : (physicalItemName ? [physicalItemName] : []);
+      const rawPhysicalName = String(lvl.physicalItemName || '').trim();
+      const isPhysicalMoney = /^[\d\.,\s]+(VNĐ|VND|đ)?$/i.test(rawPhysicalName);
+      const physicalItemName = isPhysicalMoney ? '' : rawPhysicalName;
+      const physicalItems = Array.isArray(lvl.physicalItems)
+        ? lvl.physicalItems.filter((i: any) => i && !/^[\d\.,\s]+(VNĐ|VND|đ)?$/i.test(String(i).trim()))
+        : (physicalItemName ? [physicalItemName] : []);
+      const rewardType = lvl.rewardType || (cashAmount > 0 && physicalItems.length > 0 ? 'HYBRID' : cashAmount > 0 ? 'CASH' : 'PHYSICAL_ITEM');
 
       let rewardSummaryParts: string[] = [];
       if (cashAmount > 0) {
