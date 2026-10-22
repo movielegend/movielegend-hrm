@@ -24,8 +24,16 @@ interface AdminProjectReviewModalProps {
   project: LevelDepartmentProject | null;
   departmentName?: string;
   onClose: () => void;
-  onApprove: (levelNumber: number, adminFeedback?: string) => Promise<void> | void;
-  onReject: (levelNumber: number, adminFeedback: string) => Promise<void> | void;
+  onApprove: (
+    levelNumber: number,
+    adminFeedback?: string,
+    subTaskFeedbacks?: Array<{ subTaskId: string; adminNote?: string }>
+  ) => Promise<void> | void;
+  onReject: (
+    levelNumber: number,
+    adminFeedback: string,
+    subTaskFeedbacks?: Array<{ subTaskId: string; adminNote?: string }>
+  ) => Promise<void> | void;
 }
 
 export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = ({
@@ -37,8 +45,21 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
   onReject,
 }) => {
   const [adminFeedback, setAdminFeedback] = useState('');
+  const [taskAdminNotes, setTaskAdminNotes] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedZoomImage, setSelectedZoomImage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (project?.subTasks) {
+      const initialNotes: Record<string, string> = {};
+      project.subTasks.forEach((st) => {
+        if (st.adminNote) {
+          initialNotes[st.id] = st.adminNote;
+        }
+      });
+      setTaskAdminNotes(initialNotes);
+    }
+  }, [project]);
 
   if (!project) return null;
 
@@ -65,6 +86,13 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
     }
   };
 
+  const getSubTaskFeedbacks = () => {
+    return project.subTasks.map((t) => ({
+      subTaskId: t.id,
+      adminNote: taskAdminNotes[t.id] !== undefined ? taskAdminNotes[t.id] : (t.adminNote || ''),
+    }));
+  };
+
   const handleApprove = () => {
     CustomAlert.alert(
       'Phê Duyệt Nghiệm Thu Dự Án',
@@ -77,7 +105,8 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
           onPress: async () => {
             try {
               setIsSubmitting(true);
-              await onApprove(project.levelNumber, adminFeedback.trim());
+              const feedbacks = getSubTaskFeedbacks();
+              await onApprove(project.levelNumber, adminFeedback.trim(), feedbacks);
               CustomAlert.alert('Thành Công', `Đã phê duyệt nghiệm thu dự án Level ${project.levelNumber}!`);
               onClose();
             } catch (err: any) {
@@ -111,7 +140,8 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
           onPress: async () => {
             try {
               setIsSubmitting(true);
-              await onReject(project.levelNumber, adminFeedback.trim());
+              const feedbacks = getSubTaskFeedbacks();
+              await onReject(project.levelNumber, adminFeedback.trim(), feedbacks);
               CustomAlert.alert('Đã Gửi', 'Đã chuyển trạng thái dự án về yêu cầu chỉnh sửa.');
               onClose();
             } catch (err: any) {
@@ -267,6 +297,11 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
                       key={task.id || idx}
                       index={idx + 1}
                       task={task}
+                      adminNoteValue={taskAdminNotes[task.id]}
+                      onAdminNoteChange={(val) => {
+                        setTaskAdminNotes((prev) => ({ ...prev, [task.id]: val }));
+                      }}
+                      isReadOnly={isAdminApproved}
                       onImagePress={(imgUri) => setSelectedZoomImage(imgUri)}
                       onOpenUrl={handleOpenUrl}
                     />
@@ -405,6 +440,9 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
 interface SubTaskInspectionItemProps {
   index: number;
   task: BulletSubTask;
+  adminNoteValue?: string;
+  onAdminNoteChange?: (text: string) => void;
+  isReadOnly?: boolean;
   onImagePress: (imgUri: string) => void;
   onOpenUrl: (url?: string) => void;
 }
@@ -412,6 +450,9 @@ interface SubTaskInspectionItemProps {
 const SubTaskInspectionItem: React.FC<SubTaskInspectionItemProps> = ({
   index,
   task,
+  adminNoteValue,
+  onAdminNoteChange,
+  isReadOnly,
   onImagePress,
   onOpenUrl,
 }) => {
@@ -540,6 +581,36 @@ const SubTaskInspectionItem: React.FC<SubTaskInspectionItemProps> = ({
           </Text>
         </View>
       ) : null}
+
+      {/* Admin Note: Nhận xét riêng cho từng nhân sự / việc con */}
+      {isReadOnly ? (
+        task.adminNote ? (
+          <View style={styles.adminTaskNoteBox}>
+            <Ionicons name="chatbubble-ellipses" size={14} color="#4F46E5" />
+            <Text style={styles.adminTaskNoteText}>
+              <Text style={{ fontWeight: '700' }}>Admin nhận xét cho {task.assignedToUserName || 'nhân sự'}: </Text>
+              {task.adminNote}
+            </Text>
+          </View>
+        ) : null
+      ) : (
+        <View style={styles.adminTaskInputWrap}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Ionicons name="create-outline" size={13} color="#4F46E5" style={{ marginRight: 4 }} />
+            <Text style={styles.adminTaskInputLabel}>
+              Nhận xét riêng cho {task.assignedToUserName ? `${task.assignedToUserName}` : `đầu việc #${index}`}:
+            </Text>
+          </View>
+          <TextInput
+            style={styles.adminTaskInput}
+            value={adminNoteValue !== undefined ? adminNoteValue : (task.adminNote || '')}
+            onChangeText={onAdminNoteChange}
+            placeholder={`Nhập nhận xét / đánh giá riêng cho ${task.assignedToUserName || 'nhân sự'}...`}
+            placeholderTextColor="#94A3B8"
+            multiline
+          />
+        </View>
+      )}
     </View>
   );
 };
@@ -1007,5 +1078,47 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#059669',
+  },
+  adminTaskInputWrap: {
+    marginTop: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 10,
+  },
+  adminTaskInputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  adminTaskInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#0F172A',
+    minHeight: 46,
+    textAlignVertical: 'top',
+  },
+  adminTaskNoteBox: {
+    marginTop: 8,
+    backgroundColor: '#EEF2FF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#4F46E5',
+    padding: 8,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  adminTaskNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#312E81',
+    lineHeight: 17,
   },
 });

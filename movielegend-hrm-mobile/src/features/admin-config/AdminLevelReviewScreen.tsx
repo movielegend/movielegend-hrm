@@ -758,14 +758,14 @@ export function AdminLevelReviewScreen() {
         project={selectedProjectForReview}
         departmentName={activeDeptName}
         onClose={() => setSelectedProjectForReview(null)}
-        onApprove={async (lvlNum, feedback) => {
-          await adminApproveProject(lvlNum, feedback);
+        onApprove={async (lvlNum, feedback, subTaskFeedbacks) => {
+          await adminApproveProject(lvlNum, feedback, subTaskFeedbacks);
           setSelectedProjectForReview(null);
           loadDepartmentData(true);
           showAlert('Nghiệm thu thành công', 'Đã duyệt dự án cho phòng ban.');
         }}
-        onReject={async (lvlNum, feedback) => {
-          await adminRejectProject(lvlNum, feedback);
+        onReject={async (lvlNum, feedback, subTaskFeedbacks) => {
+          await adminRejectProject(lvlNum, feedback, subTaskFeedbacks);
           setSelectedProjectForReview(null);
           loadDepartmentData(true);
           showAlert('Yêu cầu sửa đổi', 'Đã chuyển phản hồi đến Leader.');

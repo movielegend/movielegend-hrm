@@ -240,6 +240,7 @@ export function AdminLevelConfigScreen() {
   const [projects, setProjects] = useState<AdminProjectItem[]>([]);
   const [projectFilter, setProjectFilter] = useState<'IN_PROGRESS' | 'COMPLETED'>('IN_PROGRESS');
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+  const [isSavingProjects, setIsSavingProjects] = useState(false);
 
   // Modal thêm / sửa dự án
   const [isProjectModalVisible, setIsProjectModalVisible] = useState(false);
@@ -346,21 +347,20 @@ export function AdminLevelConfigScreen() {
     }
 
     const parsedBonus = parseInt(modalBonusAmount.replace(/\D/g, ''), 10) || 0;
+    let updatedProjects: AdminProjectItem[] = [];
 
     if (editingProject) {
-      setProjects((prev) =>
-        prev.map((p) =>
-          p.id === editingProject.id
-            ? {
-                ...p,
-                projectName: modalProjectName.trim(),
-                subTasks: filteredTasks,
-                rewardType: modalRewardType,
-                promotionBonusAmount: parsedBonus,
-                physicalItemName: modalPhysicalItem.trim(),
-              }
-            : p
-        )
+      updatedProjects = projects.map((p) =>
+        p.id === editingProject.id
+          ? {
+              ...p,
+              projectName: modalProjectName.trim(),
+              subTasks: filteredTasks,
+              rewardType: modalRewardType,
+              promotionBonusAmount: parsedBonus,
+              physicalItemName: modalPhysicalItem.trim(),
+            }
+          : p
       );
     } else {
       const newProj: AdminProjectItem = {
@@ -372,11 +372,12 @@ export function AdminLevelConfigScreen() {
         status: 'IN_PROGRESS',
         subTasks: filteredTasks,
       };
-      setProjects((prev) => [newProj, ...prev]);
+      updatedProjects = [newProj, ...projects];
     }
 
+    setProjects(updatedProjects);
     setIsProjectModalVisible(false);
-    saveProjectsToApi();
+    void saveProjectsToApi(updatedProjects);
   };
 
   const handleDeleteProject = (projId: string) => {
@@ -385,20 +386,26 @@ export function AdminLevelConfigScreen() {
       message: 'Bạn có chắc chắn muốn xóa dự án này?',
       confirmLabel: 'Xóa',
       onConfirm: () => {
-        setProjects((prev) => prev.filter((p) => p.id !== projId));
-        saveProjectsToApi();
+        const updated = projects.filter((p) => p.id !== projId);
+        setProjects(updated);
+        void saveProjectsToApi(updated);
       },
     });
   };
 
-  const saveProjectsToApi = async () => {
-    if (!selectedDeptId) return;
+  const saveProjectsToApi = async (overrideProjects?: AdminProjectItem[]) => {
+    if (!selectedDeptId) {
+      showAlert('Lỗi', 'Vui lòng chọn phòng ban.');
+      return;
+    }
+    const targetProjects = overrideProjects !== undefined ? overrideProjects : projects;
     try {
+      setIsSavingProjects(true);
       await levelingApi.saveAdminDepartmentConfig({
         departmentId: selectedDeptId,
         year: 2026,
         departmentName: activeDeptName,
-        levels: projects.map((p, idx) => ({
+        levels: targetProjects.map((p, idx) => ({
           levelNumber: idx + 1,
           customLevelName: p.projectName,
           colorHex: '#102739',
@@ -409,11 +416,14 @@ export function AdminLevelConfigScreen() {
             projectName: p.projectName,
             subTaskBullets: p.subTasks,
           },
+          subTasks: p.subTasks,
         })),
       });
-      showAlert('Thành công', 'Đã lưu thông tin dự án!');
-    } catch {
-      showAlert('Lưu dự án', 'Đã lưu dự án trên thiết bị.');
+      showAlert('Thành công', 'Đã lưu cấu hình dự án thành công!');
+    } catch (err: any) {
+      showAlert('Lỗi lưu dự án', err?.response?.data?.message || err?.message || 'Không thể lưu dự án lên máy chủ.');
+    } finally {
+      setIsSavingProjects(false);
     }
   };
 
@@ -505,8 +515,7 @@ export function AdminLevelConfigScreen() {
           style={styles.scrollBody}
           contentContainerStyle={[
             styles.scrollContent,
-            activeTab === 'ranks' && { paddingBottom: Math.max(insets.bottom, 16) + 80 },
-            activeTab === 'projects' && { paddingBottom: Math.max(insets.bottom, 16) + 24 },
+            { paddingBottom: Math.max(insets.bottom, 16) + 80 },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -822,6 +831,23 @@ export function AdminLevelConfigScreen() {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <Text style={styles.saveLevelsBtnText}>Lưu cấu hình</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
+
+        {/* ── Sticky Bottom Button for Tab 2 (Screen 2: Dự án phòng ban) ── */}
+        {activeTab === 'projects' && (
+          <View style={[styles.stickyFooterBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Pressable
+              style={styles.saveLevelsBtn}
+              onPress={() => void saveProjectsToApi()}
+              disabled={isSavingProjects}
+            >
+              {isSavingProjects ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.saveLevelsBtnText}>Lưu danh sách dự án</Text>
               )}
             </Pressable>
           </View>

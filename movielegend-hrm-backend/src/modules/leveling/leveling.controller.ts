@@ -363,6 +363,7 @@ export class LevelingController {
       adminFeedback?: string;
       departmentId?: string;
       departmentName?: string;
+      subTaskFeedbacks?: Array<{ subTaskId: string; adminNote?: string }>;
     },
     @CurrentUser() user?: any,
   ) {
@@ -373,6 +374,7 @@ export class LevelingController {
       body.departmentId,
       body.departmentName,
       user?.fullName || user?.name || 'Ban Giám Đốc',
+      body.subTaskFeedbacks,
     );
   }
 }

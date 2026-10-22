@@ -354,6 +354,7 @@ export const levelingApi = {
       adminFeedback?: string;
       departmentId?: string;
       departmentName?: string;
+      subTaskFeedbacks?: Array<{ subTaskId: string; adminNote?: string }>;
     },
   ): Promise<{ success: boolean; project: LevelDepartmentProject }> => {
     const res = await apiClient.post(`/leveling/projects/${levelNumber}/admin-review`, data);

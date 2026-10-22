@@ -10,6 +10,7 @@ import { useActiveChat } from '../contexts/ActiveChatContext';
 import type { CrossDepartmentSocketPayload, TaskSocketPayload } from '../types/socket.types';
 import { CustomAlert } from '../components/CustomAlert';
 import { updatePresenceItem } from '../features/presence/usePresence';
+import { levelProjectsStore } from '../features/leveling/levelProjectsStore';
 
 let Notifications: any = null;
 if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
@@ -409,6 +410,21 @@ export function SocketProvider({ children }: PropsWithChildren) {
           updatePresenceItem(payload.userId, payload.isOnline, payload.lastActiveAt);
         }
       });
+
+      // Level & Department Projects realtime events
+      const refreshLevelProjects = () => {
+        void levelProjectsStore.fetchFromApi();
+        void queryClient.invalidateQueries({ queryKey: ['level-projects'] });
+        void queryClient.invalidateQueries({ queryKey: ['level-configs'] });
+      };
+
+      socket.on('level:config:updated', refreshLevelProjects);
+      socket.on('level:dept_config:updated', refreshLevelProjects);
+      socket.on('level:subtask_assigned', refreshLevelProjects);
+      socket.on('level:subtask_submitted', refreshLevelProjects);
+      socket.on('level:subtask_reviewed', refreshLevelProjects);
+      socket.on('level:project_submitted_to_admin', refreshLevelProjects);
+      socket.on('level:project_admin_reviewed', refreshLevelProjects);
 
       socket.connect();
     }
