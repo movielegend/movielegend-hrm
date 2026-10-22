@@ -563,6 +563,7 @@ export function CreateCrossDepartmentScreen() {
 export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const request = useCrossDepartmentRequest(id);
   const action = useCrossDepartmentAction();
 
@@ -742,7 +743,7 @@ export function CrossDepartmentDetailScreen({ area }: { area: CrossArea }) {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) + 80 }]}>
         <PageHeader title={item.title} subtitle={item.requestCode ?? item.id} />
         
         <SectionCard>
@@ -1110,8 +1111,8 @@ export function CrossDepartmentTimeline({ request }: { request: CrossDepartmentR
       return 'past'; // If rejected later, previous steps are past
     }
     
-    // Specifically handle COMPLETED as past for all previous steps
-    if (request.status === 'COMPLETED' && stepKey !== 'COMPLETED') return 'past';
+    // When request is COMPLETED, all steps including the final step are completed ('past')
+    if (request.status === 'COMPLETED') return 'past';
     if (request.status === stepKey) return 'current';
     
     const currentIndex = steps.findIndex(s => s.key === request.status);
