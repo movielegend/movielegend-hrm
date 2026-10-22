@@ -34,13 +34,26 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   
   const base = roleBase(user);
 
-  // 0. DAILY REPORTS (Báo cáo cuối ngày)
-  const reportId = stringMeta(notification.metadata, 'reportId');
-  const notifCategory = stringMeta(notification.metadata, 'category');
-  const notifMetaType = stringMeta(notification.metadata, 'type');
   const notifTitle = (notification.title || '').toLowerCase();
   const notifBody = (notification.body || '').toLowerCase();
   const notifFullText = `${notifTitle} ${notifBody}`;
+
+  // 0. CROSS DEPARTMENT REQUESTS (Ưu tiên kiểm tra trước các text chung như 'nộp báo cáo')
+  const crossReqId = requestId || stringMeta(notification.metadata, 'id') || stringMeta(notification.metadata, 'crossDepartmentRequestId');
+  if (
+    notification.type === 'CROSS_DEPARTMENT_REQUESTED' || 
+    notification.type.startsWith('CROSS_DEPARTMENT_') ||
+    notifTitle.includes('luân chuyển') ||
+    notifTitle.includes('phối hợp liên phòng ban')
+  ) {
+    if (crossReqId) return `${base}/cross-department/${crossReqId}`;
+    return `${base}/cross-department`;
+  }
+
+  // 1. DAILY REPORTS (Báo cáo cuối ngày)
+  const reportId = stringMeta(notification.metadata, 'reportId');
+  const notifCategory = stringMeta(notification.metadata, 'category');
+  const notifMetaType = stringMeta(notification.metadata, 'type');
 
   if (
     reportId ||
@@ -48,8 +61,9 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     notifMetaType?.startsWith('DAILY_REPORT') ||
     notifTitle.includes('báo cáo cuối ngày') ||
     notifTitle.includes('báo cáo ngày') ||
-    notifFullText.includes('nộp báo cáo') ||
-    (notifFullText.includes('đánh giá') && notifFullText.includes('báo cáo'))
+    notifFullText.includes('nộp báo cáo cuối ngày') ||
+    (notifFullText.includes('đánh giá') && notifFullText.includes('báo cáo cuối ngày')) ||
+    (notifFullText.includes('nộp báo cáo') && !notifFullText.includes('luân chuyển') && !notifFullText.includes('phối hợp'))
   ) {
     if (base === '/admin' || base === '/hr') {
       return '/admin/daily-reports';
@@ -61,10 +75,6 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   }
   
   if (notification.type === 'ACCOUNT_APPROVAL_REQUESTED' && approvalRequestId) return `${base}/approvals/${approvalRequestId}`;
-  if (notification.type === 'CROSS_DEPARTMENT_REQUESTED' || notification.type.startsWith('CROSS_DEPARTMENT_')) {
-    const crossReqId = requestId || stringMeta(notification.metadata, 'id') || stringMeta(notification.metadata, 'crossDepartmentRequestId');
-    if (crossReqId) return `${base}/cross-department/${crossReqId}`;
-  }
   if (requestId) {
     if (base === '/admin') return `/admin/employee-requests/${requestId}`;
     if (base === '/hr') return `/hr/employee-requests/${requestId}`;

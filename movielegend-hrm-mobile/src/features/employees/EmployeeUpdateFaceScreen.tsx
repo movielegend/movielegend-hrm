@@ -94,6 +94,7 @@ export function EmployeeUpdateFaceScreen() {
   const activePose: FacePose = POSES[activePoseIndex] ?? 'FRONT';
 
   // Animations
+  const isUploadingRef = useRef(false);
   const successScale = useRef(new Animated.Value(0.7)).current;
   const spinAnim = useRef(new Animated.Value(0)).current;
 
@@ -244,6 +245,8 @@ export function EmployeeUpdateFaceScreen() {
   };
 
   const handleBatchUpload = async (photosMap: typeof capturedPhotos) => {
+    if (isUploadingRef.current) return;
+    isUploadingRef.current = true;
     setStep('UPLOADING');
     setUploadPercent(10);
     setUploadStatusText('Đang nén & mã hóa ảnh...');
@@ -296,8 +299,10 @@ export function EmployeeUpdateFaceScreen() {
         useNativeDriver: true,
       }).start();
 
+      isUploadingRef.current = false;
       setStep('COMPLETED');
     } catch (error: any) {
+      isUploadingRef.current = false;
       showAlert('Lỗi tải lên', normalizeApiError(error).message);
       setStep('SCANNING');
     }

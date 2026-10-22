@@ -18,9 +18,9 @@ export interface CrossDepartmentRequestDto {
   createdByUserId: string;
   assignedToUserId?: string | null;
   sourceDepartmentId: string;
-  sourceDepartment?: { id: string; code: string; name: string } | null;
+  sourceDepartment?: { id: string; code: string; name: string; leaderUserId?: string | null } | null;
   targetDepartmentId: string;
-  targetDepartment?: { id: string; code: string; name: string } | null;
+  targetDepartment?: { id: string; code: string; name: string; leaderUserId?: string | null } | null;
   title: string;
   content: string;
   status: CrossDepartmentRequestStatus;

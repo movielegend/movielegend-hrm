@@ -115,6 +115,16 @@ export class DailyReportsController {
     return this.service.reviewReportByAdmin(user, id, dto);
   }
 
+
+  @ApiOperation({ summary: 'Chấm điểm & nhận xét báo cáo ngày theo userId và ngày' })
+  @Post('review-by-user-date')
+  reviewReportByUserAndDate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: { userId: string; reportDate: string; rating: number; review?: string }
+  ) {
+    return this.service.reviewReportByUserAndDate(user, dto);
+  }
+
   @ApiOperation({ summary: 'Xem chi tiết một báo cáo theo ID' })
   @Get(':id')
   getReportById(

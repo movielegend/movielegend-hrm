@@ -491,6 +491,9 @@ export class AuthService {
     permissions.add('employee.request');
     permissions.add('leave.request');
     permissions.add('overtime.request');
+    if (roles.has('LEADER') || scopes.some((s) => s.role === 'LEADER')) {
+      permissions.add('contract.read_department');
+    }
     return {
       sub: user.id,
       userId: user.id,
@@ -658,6 +661,9 @@ export class AuthService {
     permissions.add('employee.request');
     permissions.add('leave.request');
     permissions.add('overtime.request');
+    if (roles.includes('LEADER') || scopes.some((s) => s.role === 'LEADER')) {
+      permissions.add('contract.read_department');
+    }
     const primaryDepartment = user.departmentLinks[0];
     return {
       id: user.id,

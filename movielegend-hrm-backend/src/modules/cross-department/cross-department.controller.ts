@@ -74,7 +74,7 @@ export class CrossDepartmentController {
   }
 
   @Patch(':id/complete')
-  @Permissions('cross_department.source_approve')
+  @AnyPermissions('cross_department.source_approve', 'cross_department.create', 'cross_department.read_all')
   completeTask(@Param('id') id: string, @Body() dto: import('./dto/cross-department.dto').CompleteTaskDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.requests.completeTask(id, dto, actor);
   }

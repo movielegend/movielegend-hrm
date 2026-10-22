@@ -187,6 +187,14 @@ export class ContractsService {
       throw forbidden('FORBIDDEN', 'Kế toán lương chỉ có quyền ký duyệt hợp đồng, không có quyền giao hoặc tạo hợp đồng cho nhân sự khác');
     }
 
+    // Trưởng bộ phận không được giao hoặc tạo hợp đồng, chỉ có quyền xem hợp đồng phòng ban
+    const isLeaderOnly =
+      (actor.roles?.includes('LEADER') || actor.scopes?.some((s) => s.role === 'LEADER')) &&
+      !actor.roles.some((r) => ['ADMIN', 'SUPER_ADMIN', 'HR', 'HR_MANAGER'].includes(r));
+    if (isLeaderOnly) {
+      throw forbidden('FORBIDDEN', 'Trưởng bộ phận không có quyền giao hoặc tạo hợp đồng, chỉ có quyền xem hợp đồng phòng ban');
+    }
+
     // Scope check: nếu actor bị giới hạn theo miền/phòng ban, nhân viên nhận hợp đồng phải thuộc phạm vi đó
     const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
     if (visibleDepts !== null) {
@@ -337,6 +345,13 @@ export class ContractsService {
   }
 
   async scanContract(dto: ScanContractDto, actor: AuthenticatedUser) {
+    const isLeaderOnly =
+      (actor.roles?.includes('LEADER') || actor.scopes?.some((s) => s.role === 'LEADER')) &&
+      !actor.roles.some((r) => ['ADMIN', 'SUPER_ADMIN', 'HR', 'HR_MANAGER'].includes(r));
+    if (isLeaderOnly) {
+      throw forbidden('FORBIDDEN', 'Trưởng bộ phận không có quyền tạo hoặc quét hợp đồng');
+    }
+
     try {
       const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
       const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
@@ -894,23 +909,53 @@ Hãy đọc hình ảnh hợp đồng được đính kèm, bóc tách các thô
   }
 
   private async assertCanReadContract(userId: string, actor: AuthenticatedUser) {
-    if (userId === actor.userId && this.has(actor, 'contract.read_own')) return;
+    if (userId === actor.userId) return;
     if (this.scope.isGlobalAdmin(actor)) return;
+    if (this.has(actor, 'contract.read_all')) return;
+
+    const isLeader =
+      actor.roles?.includes('LEADER') ||
+      actor.scopes?.some((s) => s.role === 'LEADER') ||
+      this.has(actor, 'contract.read_department');
 
     const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+
+    // If visibleDepts is null (e.g. Global Accountant or unrestricted)
     if (visibleDepts === null) {
-      if (this.has(actor, 'contract.read_all')) return;
-    } else {
+      if (this.scope.isAccountant(actor) || isLeader) return;
+    }
+
+    // Check if the employee belongs to any visible department of the actor
+    if (visibleDepts && visibleDepts.length > 0) {
       const member = await this.prisma.departmentMember.findFirst({
         where: { userId, departmentId: { in: visibleDepts }, leftAt: null },
       });
-      if (member && (this.has(actor, 'contract.read_all') || this.has(actor, 'contract.read_department'))) return;
+      if (member) return;
     }
 
+    // Direct database check: Is actor the leader of any active department where the employee is a member?
+    const ledDeptWithMember = await this.prisma.department.findFirst({
+      where: {
+        leaderUserId: actor.userId,
+        deletedAt: null,
+        members: {
+          some: {
+            userId,
+            leftAt: null,
+          },
+        },
+      },
+    });
+    if (ledDeptWithMember) return;
+
     if (this.has(actor, 'contract.read_department')) {
-      const departmentId = await this.scope.getPrimaryDepartmentId(userId);
-      await this.scope.assertDepartmentAccessAsync(actor, departmentId);
-      return;
+      try {
+        const departmentId = await this.scope.getPrimaryDepartmentId(userId);
+        await this.scope.assertDepartmentAccessAsync(actor, departmentId);
+        return;
+      } catch {
+        // Fallthrough to forbidden
+      }
     }
     throw forbidden('EMPLOYEE_CONTRACT_IDOR_DENIED', 'Cannot read this contract');
   }
