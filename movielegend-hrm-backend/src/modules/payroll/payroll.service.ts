@@ -2245,6 +2245,9 @@ export class PayrollService {
         (img.assignedUserId && targetIds.has(`emp-${img.assignedUserId}`));
 
       if (isTarget && !img.isDeleted) {
+        if (img.assignedUserId) {
+          return img;
+        }
         deletedCount++;
         return {
           ...img,
@@ -2442,8 +2445,12 @@ export class PayrollService {
     const nowIso = new Date().toISOString();
     const deletedImageUrl = targetImg.imageUrl;
 
-    // 1. Nếu ảnh này đã được gán cho nhân viên thì hệ thống tự động xóa luôn ảnh phiếu lương của nhân viên đó
+    // Không ai được xóa phiếu lương đã gán cho nhân sự, chỉ được thay ảnh
     if (targetImg.assignedUserId) {
+      throw badRequest('CANNOT_DELETE_ASSIGNED_PAYSLIP', 'Phiếu lương đã được gán cho nhân sự, không thể xóa! Bạn chỉ có thể tải ảnh mới để thay thế.');
+    }
+
+    if (false) {
       try {
         await this.prisma.auditLog.create({
           data: {

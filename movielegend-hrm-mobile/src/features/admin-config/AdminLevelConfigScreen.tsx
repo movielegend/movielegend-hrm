@@ -262,15 +262,22 @@ export function AdminLevelConfigScreen() {
       .then((data) => {
         if (!isMounted) return;
         if (Array.isArray(data) && data.length > 0) {
-          const mapped: AdminProjectItem[] = data.map((p: any, idx: number) => ({
-            id: p.id || `proj_${idx}`,
-            projectName: p.projectName || p.name || `Dự án ${idx + 1}`,
-            rewardType: p.rewardType || 'CASH',
-            promotionBonusAmount: p.promotionBonusAmount || p.cashAmount || 0,
-            physicalItemName: p.physicalItemName || p.rewardItem || '',
-            status: p.status === 'ADMIN_APPROVED' ? 'ADMIN_APPROVED' : 'IN_PROGRESS',
-            subTasks: (p.subTasks || []).map((t: any) => (typeof t === 'string' ? t : t.title || t.name)),
-          }));
+          const mapped: AdminProjectItem[] = data.map((p: any, idx: number) => {
+            const cleanPhysical = (p.physicalItemName && !/^[\d\.,\s]+(VNĐ|VND|đ)?$/i.test(p.physicalItemName))
+              ? p.physicalItemName
+              : '';
+            const cashVal = p.promotionBonusAmount || p.cashAmount || 0;
+            const rType = p.rewardType || (cleanPhysical && cashVal > 0 ? 'HYBRID' : cleanPhysical ? 'PHYSICAL_ITEM' : 'CASH');
+            return {
+              id: p.id || `proj_${idx}`,
+              projectName: p.projectName || p.name || `Dự án ${idx + 1}`,
+              rewardType: rType,
+              promotionBonusAmount: cashVal,
+              physicalItemName: cleanPhysical,
+              status: p.status === 'ADMIN_APPROVED' ? 'ADMIN_APPROVED' : 'IN_PROGRESS',
+              subTasks: (p.subTasks || []).map((t: any) => (typeof t === 'string' ? t : t.title || t.name)),
+            };
+          });
           setProjects(mapped);
         } else {
           setProjects([]);

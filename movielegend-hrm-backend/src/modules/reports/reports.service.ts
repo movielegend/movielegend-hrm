@@ -105,7 +105,12 @@ export class ReportsService {
       lateMinutes: 0,
       earlyLeaveCount: 0,
       earlyLeaveMinutes: 0,
-      workedMinutes: records.reduce((sum, record) => sum + (record.checkOutAt ? Math.max(0, Math.floor((record.checkOutAt.getTime() - record.checkInAt.getTime()) / 60_000)) : 0), 0),
+      workedMinutes: records.reduce((sum, record) => {
+        if (!record.checkOutAt || record.status === 'MISSING') return sum;
+        const diffMinutes = Math.floor((record.checkOutAt.getTime() - record.checkInAt.getTime()) / 60_000);
+        if (diffMinutes > 16 * 60) return sum;
+        return sum + Math.max(0, diffMinutes);
+      }, 0),
       approvedOvertimeMinutes: overtime.reduce((sum, item) => {
         const meta = item.attachmentMetadata as any;
         if (!meta || !meta.startTime || !meta.endTime || !meta.fromDate) return sum;

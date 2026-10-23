@@ -18,7 +18,10 @@ export class ShiftAssignmentsService {
   ) {}
 
   async assign(dto: AssignShiftDto, actor: AuthenticatedUser) {
-    await this.scope.assertDepartmentAccessAsync(actor, dto.departmentId);
+    const isHrActor = actor.roles.includes('HR') || await this.scope.isHrActorAsync(actor);
+    if (!isHrActor) {
+      await this.scope.assertDepartmentAccessAsync(actor, dto.departmentId);
+    }
     await this.scope.assertUserInDepartment(dto.userId, dto.departmentId);
     const workDate = new Date(dto.workDate);
     return this.prisma.$transaction(async (tx) => {
@@ -153,7 +156,10 @@ export class ShiftAssignmentsService {
   }
 
   async assignBatch(dto: BatchAssignShiftDto, actor: AuthenticatedUser) {
-    await this.scope.assertDepartmentAccessAsync(actor, dto.departmentId);
+    const isHrActor = actor.roles.includes('HR') || await this.scope.isHrActorAsync(actor);
+    if (!isHrActor) {
+      await this.scope.assertDepartmentAccessAsync(actor, dto.departmentId);
+    }
     if (!dto.userIds || dto.userIds.length === 0 || !dto.dates || dto.dates.length === 0) {
       throw badRequest('INVALID_BATCH', 'Vui lòng chọn nhân viên và ngày phân ca');
     }
@@ -262,7 +268,10 @@ export class ShiftAssignmentsService {
   }
 
   async getDepartmentAssignments(query: DepartmentAssignmentsQueryDto, actor: AuthenticatedUser) {
-    await this.scope.assertDepartmentAccessAsync(actor, query.departmentId);
+    const isHrActor = actor.roles.includes('HR') || await this.scope.isHrActorAsync(actor);
+    if (!isHrActor) {
+      await this.scope.assertDepartmentAccessAsync(actor, query.departmentId);
+    }
     const start = new Date(query.startDate);
     const end = new Date(query.endDate);
     return this.prisma.shiftAssignment.findMany({

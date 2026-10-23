@@ -640,7 +640,14 @@ export class WorkReportsService {
       ]
     };
 
-    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+    const isHr = await this.scopes.isHrActorAsync(actor);
+    const isGlobalAdmin = this.scopes.isGlobalAdmin(actor);
+    let visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+
+    if (isHr && !isGlobalAdmin) {
+      const primaryId = await this.getUserDeptId(actor.userId);
+      visibleDepts = primaryId ? [primaryId] : [];
+    }
     if (visibleDepts !== null) {
       if (departmentId) {
         if (!visibleDepts.includes(departmentId)) {
@@ -717,7 +724,14 @@ export class WorkReportsService {
     let departmentId: string | null | undefined = query.departmentId;
     if (departmentId === 'ALL') departmentId = undefined;
 
-    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+    const isHr = await this.scopes.isHrActorAsync(actor);
+    const isGlobalAdmin = this.scopes.isGlobalAdmin(actor);
+    let visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+
+    if (isHr && !isGlobalAdmin) {
+      const primaryId = await this.getUserDeptId(actor.userId);
+      visibleDepts = primaryId ? [primaryId] : [];
+    }
     if (visibleDepts !== null) {
       if (departmentId) {
         if (!visibleDepts.includes(departmentId)) {
@@ -958,7 +972,14 @@ export class WorkReportsService {
       ];
     }
 
-    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+    const isHr = await this.scopes.isHrActorAsync(actor);
+    const isGlobalAdmin = this.scopes.isGlobalAdmin(actor);
+    let visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+
+    if (isHr && !isGlobalAdmin) {
+      const primaryId = await this.getUserDeptId(actor.userId);
+      visibleDepts = primaryId ? [primaryId] : [];
+    }
     if (visibleDepts !== null) {
       if (query.departmentId && query.departmentId !== 'ALL') {
         if (!visibleDepts.includes(query.departmentId)) {

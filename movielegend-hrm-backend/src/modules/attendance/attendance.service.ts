@@ -384,19 +384,26 @@ export class AttendanceService {
       (record.department?.code && record.department.code.toLowerCase().includes('live'))
     );
 
-    // Đối với phòng ban thường: Ca mở của ngày hôm trước đã hết hạn, không cho phép checkout vào ngày hôm sau để tránh tính sai 30-70 tiếng!
-    if (!isLiveDepartment && record.workDate.getTime() < today.getTime()) {
+    const now = new Date();
+
+    // Kiểm tra ca làm việc quá hạn:
+    // Với phòng ban thường: qua 0:00 ngày hôm sau là hết hạn.
+    // Với phòng Live: ca đêm có thể kéo dài qua ngày hôm sau, nhưng không được quá 16 tiếng kể từ lúc check-in.
+    const isShiftExpired = !isLiveDepartment 
+      ? record.workDate.getTime() < today.getTime()
+      : (now.getTime() - record.checkInAt.getTime() > 16 * 60 * 60 * 1000);
+
+    if (isShiftExpired) {
       await this.prisma.attendanceRecord.update({
         where: { id: record.id },
         data: {
           status: AttendanceStatus.MISSING,
-          notes: 'Tự động đóng ca ngày trước do quá hạn check-out (qua 12h đêm), 0 công',
+          checkOutAt: null,
+          notes: 'Tự động đóng ca do quá hạn check-out, tính quên check-out (0 công)',
         },
       });
-      throw badRequest('SHIFT_ALREADY_EXPIRED', 'Ca làm việc của ngày hôm trước đã hết hạn check-out và được tính là quên check-out (0 công). Bạn có thể check-in ca mới hôm nay hoặc làm đơn bổ sung check-out nếu cần!');
+      throw badRequest('SHIFT_ALREADY_EXPIRED', 'Ca làm việc đã hết hạn check-out và được tính là quên check-out (0 công). Bạn có thể làm đơn giải trình bổ sung check-out nếu cần!');
     }
-
-    const now = new Date();
 
     const photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
     const faceImage = photo?.fileUrl ?? dto.faceImage;
@@ -448,11 +455,25 @@ export class AttendanceService {
       });
       if (updated.count === 0) throw conflict('ALREADY_CHECKED_OUT', 'Bảng công đã checkout');
 
-      // Tự động dọn dẹp / đóng các bản ghi trùng bị kẹt trước đó (nếu có do race condition cũ)
+      // Tự động dọn dẹp các ca cũ của ngày trước bị quên check-out -> gán MISSING và GIỮ NGUYÊN checkOutAt: null
       await tx.attendanceRecord.updateMany({
         where: {
           userId: actor.userId,
           checkOutAt: null,
+          workDate: { lt: record.workDate },
+        },
+        data: {
+          status: AttendanceStatus.MISSING,
+          notes: 'Quên check-out (0 công)',
+        },
+      });
+
+      // Nếu có bản ghi trùng CÙNG NGÀY record.workDate do race condition:
+      await tx.attendanceRecord.updateMany({
+        where: {
+          userId: actor.userId,
+          checkOutAt: null,
+          workDate: record.workDate,
           id: { not: record.id },
         },
         data: {
@@ -1163,7 +1184,8 @@ export class AttendanceService {
     const shift = record.shiftAssignment?.shift;
     const scheduledStart = shift ? this.shiftDateTime(record.workDate, shift.startTime) : null;
     const scheduledEnd = shift ? this.shiftEndDateTime(record.workDate, shift.startTime, shift.endTime) : null;
-    const workedMinutes = record.checkOutAt ? this.minutesBetween(record.checkInAt, record.checkOutAt) : 0;
+    const isRecordMissingCheckout = record.status === AttendanceStatus.MISSING || !record.checkOutAt || (record.checkOutAt && this.minutesBetween(record.checkInAt, record.checkOutAt) > 16 * 60);
+    const workedMinutes = (!isRecordMissingCheckout && record.checkOutAt) ? this.minutesBetween(record.checkInAt, record.checkOutAt) : 0;
     return {
       ...this.toAttendanceSummary(record),
       scheduledStartAt: scheduledStart,
@@ -1486,9 +1508,6 @@ export class AttendanceService {
       const dStr = r.workDate.toISOString().slice(0, 10);
       recordMap.set(dStr, r);
       if (r.lateMinutes) totalLateMinutes += r.lateMinutes;
-      if (r.checkOutAt && r.checkInAt) {
-        totalWorkedMinutes += Math.max(0, Math.floor((r.checkOutAt.getTime() - r.checkInAt.getTime()) / 60000));
-      }
     }
 
     // Xây dựng danh sách chi tiết từng ngày
@@ -1526,39 +1545,53 @@ export class AttendanceService {
         return r.referenceId === record?.id || (meta && typeof meta === 'object' && meta.workDate === dStr);
       });
 
+      const isApprovedAdj = Boolean(approvedAdj || approvedAdjReq);
+      const isCorruptedOut = Boolean(
+        record?.checkOutAt && (
+          (record.checkOutAt.getTime() - record.checkInAt.getTime()) > 16 * 3600000 ||
+          (!isLiveDepartment && record.checkOutAt.toISOString().slice(0, 10) !== dStr) ||
+          record.status === AttendanceStatus.MISSING ||
+          record.notes?.toLowerCase().includes('đóng ca') ||
+          record.notes?.toLowerCase().includes('quên check-out')
+        )
+      );
+      const hasValidRecordCheckOut = Boolean(record?.checkOutAt && !isCorruptedOut);
+
       let checkInIso = record?.checkInAt ? record.checkInAt.toISOString() : null;
       let checkOutIso = record?.checkOutAt ? record.checkOutAt.toISOString() : null;
       let dayNotes = record?.notes || null;
       let dayStatus: string = record ? record.status : dayLeave ? 'LEAVE' : isSunday ? 'WEEKEND' : 'NO_RECORD';
 
       if (record) {
-        if (isLiveDepartment) {
-          // Phòng Live: Có check-in là 1 công (hỗ trợ live qua đêm)
+        if (isApprovedAdj) {
+          // Có đơn giải trình được duyệt -> 1 công, lấy giờ ra theo giải trình
           actualWorkingDays += 1;
+          dayStatus = 'ADJUSTED';
+          const reqOut = approvedAdj?.requestedCheckOutAt || (approvedAdjReq?.attachmentMetadata as any)?.requestedCheckOutAt || (approvedAdjReq?.attachmentMetadata as any)?.endTime;
+          if (reqOut) checkOutIso = new Date(reqOut).toISOString();
+          dayNotes = dayNotes ? `${dayNotes} | Đã duyệt đơn bổ sung check-out (1 công)` : 'Đã duyệt đơn bổ sung check-out (1 công)';
+        } else if (isPastDay && (!hasValidRecordCheckOut || isCorruptedOut)) {
+          // Ca ngày trước quên check-out không có giải trình duyệt -> Miss Checkout: 0 công, 0 giờ
+          checkOutIso = null;
+          dayStatus = 'MISSING_CHECKOUT';
+          dayNotes = 'Quên check-out (0 công)';
+        } else if (hasValidRecordCheckOut) {
+          actualWorkingDays += 1;
+          dayStatus = record.status === AttendanceStatus.MISSING ? 'CHECKED_OUT' : record.status;
         } else {
-          // Các phòng ban khác:
-          if (record.checkOutAt) {
-            actualWorkingDays += 1;
-            dayStatus = record.status;
-          } else if (approvedAdj || approvedAdjReq) {
-            // Đã có đơn sửa công/bổ sung checkout được duyệt
-            actualWorkingDays += 1;
-            dayStatus = 'ADJUSTED';
-            if (!checkOutIso) {
-              const reqOut = approvedAdj?.requestedCheckOutAt || (approvedAdjReq?.attachmentMetadata as any)?.requestedCheckOutAt;
-              if (reqOut) checkOutIso = new Date(reqOut).toISOString();
-            }
-            dayNotes = dayNotes ? `${dayNotes} | Đã duyệt đơn bổ sung check-out (1 công)` : 'Đã duyệt đơn bổ sung check-out (1 công)';
-          } else if (isPastDay) {
-            // Đã qua 0:00 của ngày hôm đó mà chưa check-out và chưa có đơn được duyệt -> Miss Checkout (0 công)
-            dayStatus = 'MISSING_CHECKOUT';
-            dayNotes = 'Quên check-out (0 công)';
-          } else {
-            // Hôm nay, ca đang diễn ra
-            dayStatus = 'CHECKED_IN';
-          }
+          // Hôm nay, ca đang diễn ra
+          dayStatus = 'CHECKED_IN';
         }
       }
+
+      let dayWorkedMins = 0;
+      if (checkOutIso && checkInIso && dayStatus !== 'MISSING_CHECKOUT') {
+        const diff = Math.floor((new Date(checkOutIso).getTime() - new Date(checkInIso).getTime()) / 60000);
+        if (diff > 0 && diff <= 16 * 60) {
+          dayWorkedMins = diff;
+        }
+      }
+      totalWorkedMinutes += dayWorkedMins;
 
       dailyRecords.push({
         date: dStr,
@@ -1570,7 +1603,7 @@ export class AttendanceService {
         shiftName: record?.shiftAssignment?.shift?.name || (isSunday ? 'Ngày nghỉ' : 'Ca hành chính'),
         lateMinutes: record?.lateMinutes || 0,
         otHours: Number(dayOtHours.toFixed(1)),
-        workedHours: checkOutIso && checkInIso ? Number(((new Date(checkOutIso).getTime() - new Date(checkInIso).getTime()) / 3600000).toFixed(1)) : 0,
+        workedHours: Number((dayWorkedMins / 60).toFixed(1)),
         leaveTitle: dayLeave ? dayLeave.leaveType.name : null,
         notes: dayNotes,
       });
