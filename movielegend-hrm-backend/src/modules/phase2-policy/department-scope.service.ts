@@ -164,7 +164,11 @@ export class DepartmentScopeService {
     }
 
     const isHr = await this.isHrActorAsync(actor);
-    const isRegionalStaff = actor.roles.includes('ADMIN') || actor.roles.includes('HR') || isHr;
+    if (isHr) {
+      return null; // HR quản lý nhân sự, hợp đồng, phòng ban toàn công ty
+    }
+
+    const isRegionalStaff = actor.roles.includes('ADMIN');
 
     if (isRegionalStaff) {
       const regionId = await this.getActorRegionIdAsync(actor);

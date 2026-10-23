@@ -2146,7 +2146,7 @@ export class EmployeeRequestsService {
       : {};
     const currentStage = currentMeta.stage || 'PENDING';
 
-    if (currentStage !== 'REJECTED_TO_HR' && currentStage !== 'PENDING_HR') {
+    if (currentStage !== 'REJECTED_TO_HR' && currentStage !== 'PENDING_HR' && currentStage !== 'PENDING_HR_PURCHASE') {
       throw badRequest('INVALID_STAGE', `Đơn đang ở giai đoạn ${currentStage}, không thể trình lại.`);
     }
 

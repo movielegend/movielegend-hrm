@@ -342,6 +342,7 @@ export class AttendanceReportService {
         let nightAllowance = 0;
         let lateDeduction = 0;
         let attendance = 0;
+        let isMissCheckout = false;
 
         const formatHrs = (mins: number) => {
           if (!mins) return '0:00:00';
@@ -350,25 +351,103 @@ export class AttendanceReportService {
           return `${h}:${m.toString().padStart(2, '0')}:00`;
         };
 
+        // Kiểm tra xem có đơn sửa công / giải trình bổ sung checkout được duyệt không (áp dụng cho cả Live và Standard)
+        const approvedAdj = adjustmentsDb.find(
+          (a) => a.userId === user.id && (
+            (record?.id && a.attendanceRecordId === record.id) ||
+            dayRecords.some(r => r.id === a.attendanceRecordId) ||
+            (a.requestedCheckOutAt && moment(a.requestedCheckOutAt).format('YYYY-MM-DD') === dateStr)
+          ),
+        );
+        const approvedAdjReq = lateRequestsRaw.find((r) => {
+          if (r.userId !== user.id || r.type !== 'ATTENDANCE_ADJUSTMENT' || r.status !== 'APPROVED') return false;
+          const meta: any = r.attachmentMetadata;
+          const fromDateStr = meta?.fromDate ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          const toDateStr = meta?.toDate ? moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          const checkInDateStr = meta?.requestedCheckInAt ? moment.tz(meta.requestedCheckInAt, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          const checkOutDateStr = meta?.requestedCheckOutAt ? moment.tz(meta.requestedCheckOutAt, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null;
+          const workDateStr = meta?.workDate ? (typeof meta.workDate === 'string' ? meta.workDate.slice(0, 10) : moment(meta.workDate).format('YYYY-MM-DD')) : null;
+
+          return (
+            (record?.id && r.referenceId === record.id) ||
+            dayRecords.some(rRec => rRec.id === r.referenceId) ||
+            workDateStr === dateStr ||
+            fromDateStr === dateStr ||
+            toDateStr === dateStr ||
+            checkInDateStr === dateStr ||
+            checkOutDateStr === dateStr
+          );
+        });
+
+        const isApprovedAdjustment = Boolean(approvedAdj || approvedAdjReq);
+
+        let adjOutTime: moment.Moment | null = null;
+        let adjInTime: moment.Moment | null = null;
+        const adjOutRaw = approvedAdj?.requestedCheckOutAt || 
+          (approvedAdjReq?.attachmentMetadata as any)?.requestedCheckOutAt ||
+          (approvedAdjReq?.attachmentMetadata as any)?.endTime;
+        const adjOutStr = (approvedAdjReq?.attachmentMetadata as any)?.endTimeStr;
+
+        if (adjOutRaw) {
+          adjOutTime = moment(adjOutRaw).tz('Asia/Ho_Chi_Minh');
+        } else if (adjOutStr && /^\d{1,2}:\d{2}$/.test(adjOutStr.trim())) {
+          adjOutTime = moment.tz(`${dateStr} ${adjOutStr.trim()}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
+        }
+
+        const adjInRaw = approvedAdj?.requestedCheckInAt ||
+          (approvedAdjReq?.attachmentMetadata as any)?.requestedCheckInAt ||
+          (approvedAdjReq?.attachmentMetadata as any)?.startTime;
+        const adjInStr = (approvedAdjReq?.attachmentMetadata as any)?.startTimeStr;
+
+        if (adjInRaw) {
+          adjInTime = moment(adjInRaw).tz('Asia/Ho_Chi_Minh');
+        } else if (adjInStr && /^\d{1,2}:\d{2}$/.test(adjInStr.trim())) {
+          adjInTime = moment.tz(`${dateStr} ${adjInStr.trim()}`, 'YYYY-MM-DD HH:mm', 'Asia/Ho_Chi_Minh');
+        }
+
+        const isPastDate = currDate.isBefore(moment().tz('Asia/Ho_Chi_Minh'), 'day');
+
         if (isLiveDepartment) {
           // QUY TẮC PHÒNG LIVE:
-          // 1. Có check-in -> 1 công, nhiều lượt không cộng thêm công
-          attendance = dayRecords.length > 0 ? 1 : 0;
           if (dayRecords.length > 0) {
             checkIn = dayRecords[0]?.checkInAt ? moment(dayRecords[0].checkInAt).tz('Asia/Ho_Chi_Minh') : null;
-            const lastWithOut = [...dayRecords].reverse().find(r => r.checkOutAt);
-            checkOut = lastWithOut?.checkOutAt
-              ? moment(lastWithOut.checkOutAt).tz('Asia/Ho_Chi_Minh')
-              : (dayRecords[dayRecords.length - 1]?.checkOutAt
-                ? moment(dayRecords[dayRecords.length - 1].checkOutAt).tz('Asia/Ho_Chi_Minh')
-                : null);
+            
+            // Lọc ra các lượt check-out hợp lệ (không bị corrupt > 16h hoặc MISSING/tự động đóng ca)
+            const validRecordsWithOut = dayRecords.filter(r => {
+              if (!r.checkOutAt || r.status === 'MISSING') return false;
+              if (r.notes?.toLowerCase().includes('đóng ca') || r.notes?.toLowerCase().includes('quên check-out')) return false;
+              const diffHours = moment(r.checkOutAt).diff(moment(r.checkInAt), 'hours');
+              return diffHours >= 0 && diffHours <= 16;
+            });
 
-            // 2. Giờ thực tế = cộng thời gian các lượt đã hoàn tất của ngày đó, không tính khoảng nghỉ
-            for (const r of dayRecords) {
-              if (r.checkInAt && r.checkOutAt) {
+            if (validRecordsWithOut.length > 0) {
+              const lastOut = validRecordsWithOut[validRecordsWithOut.length - 1];
+              checkOut = moment(lastOut.checkOutAt).tz('Asia/Ho_Chi_Minh');
+              for (const r of validRecordsWithOut) {
                 const diff = moment(r.checkOutAt).diff(moment(r.checkInAt), 'minutes');
-                if (diff > 0) totalMinutes += diff;
+                if (diff > 0 && diff <= 16 * 60) totalMinutes += diff;
               }
+              attendance = 1;
+            } else if (isApprovedAdjustment) {
+              // Quên check-out có giải trình duyệt -> Lấy theo giờ giải trình
+              checkOut = adjOutTime || null;
+              if (!checkIn && adjInTime) checkIn = adjInTime;
+              if (checkIn && checkOut) {
+                totalMinutes = Math.max(0, checkOut.diff(checkIn, 'minutes'));
+              }
+              if (totalMinutes === 0) totalMinutes = 480;
+              attendance = 1;
+            } else if (isPastDate) {
+              // Quên check-out không có giải trình duyệt -> Miss checkout: 0 công, 0 giờ
+              isMissCheckout = true;
+              checkOut = null;
+              attendance = 0;
+              totalMinutes = 0;
+            } else {
+              // Hôm nay, ca đang diễn ra
+              checkOut = null;
+              attendance = 1;
+              totalMinutes = 0;
             }
 
             // 3. Tính đi muộn và tiền phạt theo quy định công ty nếu có ca hoặc có ghi nhận đi muộn
@@ -418,36 +497,28 @@ export class AttendanceReportService {
         } else {
           // CÁC PHÒNG BAN TIÊU CHUẨN:
           checkIn = record?.checkInAt ? moment(record.checkInAt).tz('Asia/Ho_Chi_Minh') : null;
-          checkOut = record?.checkOutAt ? moment(record.checkOutAt).tz('Asia/Ho_Chi_Minh') : null;
-
-          // Kiểm tra xem có đơn sửa công / giải trình bổ sung checkout được duyệt không
-          const approvedAdj = adjustmentsDb.find(
-            (a) => a.userId === user.id && (
-              a.attendanceRecordId === record?.id ||
-              (a.requestedCheckOutAt && moment(a.requestedCheckOutAt).format('YYYY-MM-DD') === dateStr)
-            ),
+          
+          const isRecordCorruptedOut = Boolean(
+            record?.checkOutAt && (
+              moment(record.checkOutAt).diff(moment(record.checkInAt), 'hours') > 16 ||
+              moment(record.checkOutAt).tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD') !== dateStr ||
+              record.status === 'MISSING' ||
+              record.notes?.toLowerCase().includes('đóng ca') ||
+              record.notes?.toLowerCase().includes('quên check-out')
+            )
           );
-          const approvedAdjReq = lateRequestsRaw.find((r) => {
-            const meta: any = r.attachmentMetadata;
-            return (
-              r.userId === user.id &&
-              r.type === 'ATTENDANCE_ADJUSTMENT' &&
-              (r.referenceId === record?.id || (meta && typeof meta === 'object' && meta.workDate === dateStr))
-            );
-          });
+          const hasValidRecordOut = Boolean(record?.checkOutAt && !isRecordCorruptedOut);
 
-          const isApprovedAdjustment = Boolean(approvedAdj || approvedAdjReq);
-          if (!checkOut && isApprovedAdjustment) {
-            const reqOut = approvedAdj?.requestedCheckOutAt || (approvedAdjReq?.attachmentMetadata as any)?.requestedCheckOutAt;
-            if (reqOut) {
-              checkOut = moment(reqOut).tz('Asia/Ho_Chi_Minh');
-            }
+          if (hasValidRecordOut) {
+            checkOut = moment(record.checkOutAt).tz('Asia/Ho_Chi_Minh');
+          } else if (isApprovedAdjustment) {
+            checkOut = adjOutTime || null;
+          } else {
+            checkOut = null;
           }
-          if (!checkIn && isApprovedAdjustment) {
-            const reqIn = approvedAdj?.requestedCheckInAt || (approvedAdjReq?.attachmentMetadata as any)?.requestedCheckInAt;
-            if (reqIn) {
-              checkIn = moment(reqIn).tz('Asia/Ho_Chi_Minh');
-            }
+
+          if (!checkIn && isApprovedAdjustment && adjInTime) {
+            checkIn = adjInTime;
           }
           
           const shift = record?.shiftAssignment?.shift;
@@ -457,8 +528,7 @@ export class AttendanceReportService {
           }
           if (totalMinutes < 0) totalMinutes = 0;
 
-          const isPastDate = currDate.isBefore(moment().tz('Asia/Ho_Chi_Minh'), 'day');
-          const isMissCheckout = Boolean(checkIn && !checkOut && isPastDate && !isApprovedAdjustment);
+          isMissCheckout = Boolean(checkIn && !hasValidRecordOut && isPastDate && !isApprovedAdjustment);
 
           otMins = 0;
           if (!record && isApprovedAdjustment) {
@@ -468,12 +538,14 @@ export class AttendanceReportService {
 
           if (record) {
             if (isMissCheckout) {
-              // Miss Checkout (qua 0:00 mà không check-out và chưa có đơn được duyệt): 0 CÔNG
+              // Miss Checkout (qua 0:00 mà không check-out và chưa có đơn được duyệt): 0 CÔNG, 0 GIỜ
               attendance = 0;
               totalMinutes = 0;
+              checkOut = null;
             } else if (isApprovedAdjustment) {
               // Đã duyệt đơn bổ sung check-out: 1 công
               attendance = 1;
+              if (totalMinutes === 0) totalMinutes = 480;
             } else {
               attendance = record.latePenaltyWorkDays !== null ? Number(record.latePenaltyWorkDays) : (record.isUnplannedOt ? 0 : 1);
             }
@@ -668,10 +740,15 @@ export class AttendanceReportService {
           attendance = isLeavePaid ? (isHalfDay ? 0.5 : 1) : 0;
         }
 
-        const isPastDate = currDate.isBefore(moment().tz('Asia/Ho_Chi_Minh'), 'day');
-        const isStandardMissCheckout = !isLiveDepartment && !businessTrip && !isDailyLeave && Boolean(checkIn && !checkOut && isPastDate);
-        if (!checkOutDisplay && isStandardMissCheckout) {
+        if (!businessTrip && !isDailyLeave && !isApprovedAdjustment && checkIn && !checkOut && isPastDate) {
+          isMissCheckout = true;
+        }
+        if (isMissCheckout) {
           checkOutDisplay = 'Miss checkout';
+          attendance = 0;
+          totalMinutes = 0;
+        } else if (checkOut && !checkOutDisplay) {
+          checkOutDisplay = checkOut.format('HH:mm');
         }
 
         // Helper format time HH:mm
@@ -713,11 +790,13 @@ export class AttendanceReportService {
           } else {
             noteParts.push(`Đi muộn được chấp thuận${lateDetail}`);
           }
-          if (record?.notes && !record.notes.toLowerCase().includes('muộn')) {
+          if (record?.notes && !record.notes.toLowerCase().includes('muộn') && !record.notes.toLowerCase().includes('đóng ca') && !record.notes.toLowerCase().includes('quên check-out')) {
             noteParts.push(record.notes);
           }
         } else {
-          if (record?.notes) noteParts.push(record.notes);
+          if (record?.notes && !record.notes.toLowerCase().includes('đóng ca') && !record.notes.toLowerCase().includes('quên check-out')) {
+            noteParts.push(record.notes);
+          }
         }
         if (businessTrip) {
           const bMeta: any = businessTrip.attachmentMetadata || {};
@@ -729,8 +808,8 @@ export class AttendanceReportService {
           const purposeStr = purpose ? ` (Mục đích: ${purpose})` : '';
           noteParts.push(`Công tác: ${loc || 'Bên ngoài'}${timeStr}${purposeStr}`);
         }
-        if (isStandardMissCheckout) {
-          noteParts.push('Quên check-out');
+        if (isMissCheckout) {
+          noteParts.push('Quên check-out (0 công)');
         }
 
         const approvedEarlyReq = lateRequestsRaw.find((er) => {
@@ -975,7 +1054,7 @@ export class AttendanceReportService {
 
             if (isPartialComp || isDoubleShiftWorked || hasSeparateRegularShift) {
               // Giữ nguyên công của ca làm việc chính thức trong ngày
-              if (attendance === 0 && !isStandardMissCheckout) {
+              if (attendance === 0 && !isMissCheckout) {
                 attendance = record?.latePenaltyWorkDays !== null ? Number(record?.latePenaltyWorkDays) : 1;
               }
             } else {
@@ -1018,7 +1097,7 @@ export class AttendanceReportService {
           notes: rowNotes,
           
           // Raw values for summary
-          _rawTotalHours: totalMinutes,
+          _rawTotalHours: isMissCheckout ? 0 : totalMinutes,
           _rawOt100: ot100,
           _rawOt150: ot150,
           _rawOt200: ot200,

@@ -959,7 +959,15 @@ export class DailyReportsService {
     const limit = query.limit ? Number(query.limit) : 20;
     const skip = (page - 1) * limit;
 
-    const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+    const isHr = await this.scopes.isHrActorAsync(actor);
+    const isGlobalAdmin = this.scopes.isGlobalAdmin(actor);
+    let visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+
+    // HR chỉ xem báo cáo phòng ban của mình (trừ khi là Admin)
+    if (isHr && !isGlobalAdmin) {
+      const primaryId = await this.getUserDepartmentId(actor.userId);
+      visibleDepts = primaryId ? [primaryId] : [];
+    }
 
     const where: any = {};
 
