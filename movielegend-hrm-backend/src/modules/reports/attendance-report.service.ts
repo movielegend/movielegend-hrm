@@ -288,8 +288,6 @@ export class AttendanceReportService {
         );
 
         const otRequest = overtimes.find(o => o.userId === user.id && (
-          moment(o.workDate).format('YYYY-MM-DD') === dateStr ||
-          moment.utc(o.workDate).format('YYYY-MM-DD') === dateStr ||
           moment.tz(o.workDate, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') === dateStr
         ));
 
@@ -924,7 +922,8 @@ export class AttendanceReportService {
           const reasonSuffix = reason ? ` (Lý do: ${reason})` : '';
           noteParts.push(`Đơn OT ca Live${timeRange} (${pct}%) đã được duyệt${reasonSuffix}`);
         }
-        if (otMins > 0 && otRequest) {
+        const hasLiveOtForDay = Boolean(isLiveDepartment && liveOt && liveOt.validOtMinutes > 0);
+        if (otMins > 0 && otRequest && !hasLiveOtForDay) {
           const pct = Number(otRequest.proposedPercent) || (isHoliday || isWeekend ? 200 : 150);
           const sTime = formatOtTime(otRequest.startAt, (otRequest as any).startTimeStr);
           const eTime = formatOtTime(otRequest.endAt, (otRequest as any).endTimeStr);

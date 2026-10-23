@@ -1096,7 +1096,8 @@ export class EmployeeRequestsService {
           const workDateRaw = meta.fromDate || meta.workDate || meta.rawOtDate || (meta.startTime ? moment.tz(meta.startTime, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD') : null) || request.createdAt;
           const deptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId));
 
-          if (deptId && workDateRaw && meta.startTime && meta.endTime) {
+          const isLiveOt = Boolean(meta.isLiveOt || meta.otReportId || (request.title || '').toLowerCase().includes('live'));
+          if (!isLiveOt && deptId && workDateRaw && meta.startTime && meta.endTime) {
             const dateStr = moment.tz(workDateRaw, 'Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
             const workDate = this.businessTime.startOfBusinessDate(dateStr);
             const startAt = new Date(meta.startTime);
