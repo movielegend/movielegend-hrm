@@ -81,8 +81,8 @@ export class WorkReportsController {
   }
 
   @Post('tasks/:id/approve-update/:updateId')
-  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')
-  @ApiOperation({ summary: 'Admin: Duyệt hoặc yêu cầu bổ sung cập nhật' })
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'HR', 'ACCOUNTANT_LEAD')
+  @ApiOperation({ summary: 'Admin / Leader: Duyệt hoặc từ chối hoặc yêu cầu bổ sung cập nhật' })
   async approveTaskUpdate(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,

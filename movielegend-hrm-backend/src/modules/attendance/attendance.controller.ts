@@ -33,19 +33,19 @@ export class AttendanceController {
     return { status: 'ok', timestamp: Date.now() };
   }
 
-  @Permissions('attendance.checkin')
+  @AnyPermissions('attendance.checkin', 'attendance.read')
   @Post('check-in')
   checkIn(@Body() dto: CheckInDto, @CurrentUser() actor: AuthenticatedUser, @Ip() ip: string) {
     return this.attendanceService.checkIn(dto, actor, ip);
   }
 
-  @Permissions('attendance.checkin')
+  @AnyPermissions('attendance.checkin', 'attendance.read')
   @Post('check-out')
   checkOut(@Body() dto: CheckOutDto, @CurrentUser() actor: AuthenticatedUser, @Ip() ip: string) {
     return this.attendanceService.checkOut(dto, actor, ip);
   }
 
-  @Permissions('attendance.adjust')
+  @AnyPermissions('attendance.adjust', 'attendance.read')
   @Post('adjustments')
   createAdjustment(@Body() dto: CreateAttendanceAdjustmentDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.attendanceService.createAdjustment(dto, actor);

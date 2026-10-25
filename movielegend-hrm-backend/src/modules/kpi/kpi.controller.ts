@@ -57,7 +57,7 @@ export class KpiAssignmentsController {
   }
 
   @Get('my')
-  @Permissions('kpi.read_own')
+  @AnyPermissions('kpi.read_own', 'kpi.read_department', 'kpi.read_all')
   findMine(@CurrentUser() actor: AuthenticatedUser) {
     return this.kpi.findMine(actor);
   }

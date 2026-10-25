@@ -855,6 +855,21 @@ export class LevelingService implements OnModuleInit {
 
     if (!request) throw new NotFoundException('Không tìm thấy đơn đề xuất');
 
+    if (dto.status === 'APPROVED') {
+      const isAdmin = actor.roles.includes('ADMIN') || actor.roles.includes('SUPER_ADMIN');
+      if (!isAdmin) {
+        const reviewerLevel = this.getUserLevel(actor.userId);
+        if (request.toLevelNumber > reviewerLevel) {
+          throw new ForbiddenException(
+            `Bạn đang ở Level ${reviewerLevel}. Không thể phê duyệt nhân sự lên Level ${request.toLevelNumber} (vượt quá cấp bậc của bạn). Vui lòng chuyển lên cấp quản lý cao hơn hoặc Ban Giám Đốc / Admin xét duyệt.`
+          );
+        }
+        if (request.toLevelNumber >= 5) {
+          throw new ForbiddenException('Chỉ Ban Giám Đốc / Admin mới có quyền phê duyệt cấp bậc từ Level 5 trở lên.');
+        }
+      }
+    }
+
     const updated = await this.prisma.levelPromotionRequest.update({
       where: { id: requestId },
       data: {
@@ -954,6 +969,20 @@ export class LevelingService implements OnModuleInit {
 
     this.userLevels.set(targetUserId, levelNumber);
     this.saveToStorage();
+
+    // Tự động đóng/giải quyết các đơn xin thăng cấp đang chờ của nhân sự này khi đã được chuyển cấp bậc trực tiếp
+    await this.prisma.levelPromotionRequest.updateMany({
+      where: {
+        userId: targetUserId,
+        status: { in: [PromotionRequestStatus.PENDING, PromotionRequestStatus.SUPPLEMENT_REQUESTED] },
+      },
+      data: {
+        status: PromotionRequestStatus.APPROVED,
+        leaderNote: `Đã được cập nhật cấp bậc trực tiếp lên Level ${levelNumber}${note ? ` (${note})` : ''}`,
+        decidedByUserId: actor.userId,
+        decidedAt: new Date(),
+      },
+    });
 
     // Lưu audit log
     await this.prisma.auditLog.create({

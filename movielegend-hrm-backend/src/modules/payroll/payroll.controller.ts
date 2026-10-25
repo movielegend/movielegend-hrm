@@ -98,7 +98,7 @@ export class PayrollsController {
   }
 
   @Get('my-payslip')
-  @AnyPermissions('payroll.read_own', 'payroll.read_all')
+  @AnyPermissions('payroll.read_own', 'payroll.read_department', 'payroll.read_all', 'payroll.calculate')
   getMyPayslip(@CurrentUser() actor: AuthenticatedUser, @Query() query: MyPayslipQueryDto) {
     return this.payroll.getMyPayslip(actor, query);
   }

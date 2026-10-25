@@ -16,3 +16,4 @@ recent_commits.txt
 android/.gradle/
 android/build/
 android/app/build/
+!src/storage/

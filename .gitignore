@@ -13,5 +13,6 @@ movielegend-hrm-web/
 *.p8
 
 
-storage/
+/storage/
+!movielegend-hrm-mobile/src/storage/
 scratch_check_attendance.js

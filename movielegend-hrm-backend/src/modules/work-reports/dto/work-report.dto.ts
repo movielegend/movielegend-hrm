@@ -206,7 +206,7 @@ export class CreateWorkTaskUpdateDto {
 export class ApproveWorkTaskUpdateDto {
   @ApiProperty()
   @IsString()
-  approvalStatus!: 'APPROVED' | 'NEED_MORE_INFO';
+  approvalStatus!: 'APPROVED' | 'NEED_MORE_INFO' | 'REJECTED';
 
   @ApiPropertyOptional()
   @IsString()
