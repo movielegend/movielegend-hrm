@@ -816,8 +816,15 @@ export class TasksService {
     const attachment = await this.prisma.taskAttachment.findUnique({ where: { id: attachmentId, taskId } });
     if (!attachment) throw notFound('ATTACHMENT_NOT_FOUND', 'Attachment not found');
 
+    const task = await this.prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) throw notFound('TASK_NOT_FOUND', 'Task not found');
+
+    // Chặn xóa tệp đính kèm khi công việc đã ở trạng thái hoàn thành (đã duyệt)
+    if (task.status === TaskStatus.COMPLETED) {
+      throw badRequest('TASK_COMPLETED_LOCKED', 'Công việc đã ở trạng thái hoàn thành (đã duyệt), không thể xóa tệp đính kèm.');
+    }
+
     if (attachment.uploadedByUserId !== actor.userId && !actor.roles.includes('ADMIN') && !this.has(actor, 'task.assign_any')) {
-      const task = await this.prisma.task.findUnique({ where: { id: taskId } });
       if (task?.groupLeaderId !== actor.userId) {
         throw forbidden('NOT_AUTHORIZED', 'You can only delete your own attachments');
       }
