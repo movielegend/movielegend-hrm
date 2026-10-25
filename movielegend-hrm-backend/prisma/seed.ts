@@ -241,70 +241,8 @@ async function main() {
     });
   }
 
-  for (const code of [
+  const baseEmployeePermissions = [
     'user.read',
-    'employee.read',
-    'employee.approve',
-    'department.read',
-    'position.read',
-    'upload.create',
-    'approval.read',
-    'approval.approve',
-    'approval.reject',
-    'face.read',
-    'shift.read',
-    'shift.assign',
-    'attendance.read',
-    'leave.balance.read',
-    'leave.approve',
-    'overtime.approve',
-    'employee.request.approve',
-    'task.assign_department',
-    'task.read_department',
-    'task.review_department',
-    'task.extension_review_department',
-    'task.group.manage_department',
-    'cross_department.source_approve',
-    'cross_department.target_receive',
-    'notification.read',
-    'device_token.manage_own',
-    'material.read',
-    'stock.read',
-    'material_issue.create',
-    'material_issue.read',
-    'asset.read',
-    'asset.incident.create',
-    'inventory_check.read',
-    'bonus.create',
-    'bonus.read',
-    'violation.create',
-    'violation.read',
-    'employee_document.read_department',
-    'kpi.read_department',
-    'kpi.leader_review',
-    'performance_review.read_department',
-    'performance_review.leader_submit',
-    'dashboard.department.read',
-    'report.employee.read',
-    'report.attendance.read',
-    'report.task.read',
-    'report.asset.read',
-    'report.kpi.read',
-    'report.export.csv',
-    'feedback.create',
-    'feedback.read_own',
-  ]) {
-    const permission = permissions.find((item) => item.code === code);
-    if (permission) {
-      await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: leader.id, permissionId: permission.id } },
-        update: {},
-        create: { roleId: leader.id, permissionId: permission.id },
-      });
-    }
-  }
-
-  for (const code of [
     'employee.read',
     'department.read',
     'position.read',
@@ -348,7 +286,10 @@ async function main() {
     'notification_preference.update_own',
     'feedback.create',
     'feedback.read_own',
-  ]) {
+  ];
+
+  // Role: EMPLOYEE (quyền cơ bản cho tất cả nhân viên)
+  for (const code of baseEmployeePermissions) {
     const permission = permissions.find((item) => item.code === code);
     if (permission) {
       await prisma.rolePermission.upsert({
@@ -359,17 +300,63 @@ async function main() {
     }
   }
 
-  for (const code of [
-    'employee_document.read_own',
+  // Role: LEADER (kế thừa toàn bộ quyền cơ bản của Employee + các quyền quản lý phòng ban)
+  const leaderPermissions = Array.from(new Set([
+    ...baseEmployeePermissions,
+    'employee.approve',
+    'approval.read',
+    'approval.approve',
+    'approval.reject',
+    'shift.assign',
+    'leave.approve',
+    'overtime.approve',
+    'employee.request.approve',
+    'task.assign_department',
+    'task.read_department',
+    'task.review_department',
+    'task.extension_review_department',
+    'task.group.manage_department',
+    'cross_department.source_approve',
+    'cross_department.target_receive',
+    'stock.read',
+    'inventory_check.read',
+    'bonus.create',
+    'bonus.read',
+    'violation.create',
+    'violation.read',
+    'employee_document.read_department',
+    'kpi.read_department',
+    'kpi.leader_review',
+    'performance_review.read_department',
+    'performance_review.leader_submit',
+    'dashboard.department.read',
+    'report.employee.read',
+    'report.attendance.read',
+    'report.task.read',
+    'report.asset.read',
+    'report.kpi.read',
+    'report.export.csv',
+  ]));
+
+  for (const code of leaderPermissions) {
+    const permission = permissions.find((item) => item.code === code);
+    if (permission) {
+      await prisma.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId: leader.id, permissionId: permission.id } },
+        update: {},
+        create: { roleId: leader.id, permissionId: permission.id },
+      });
+    }
+  }
+
+  // Role: HR (kế thừa toàn bộ quyền cơ bản của Employee + các quyền chuyên môn Nhân sự)
+  const hrPermissions = Array.from(new Set([
+    ...baseEmployeePermissions,
     'employee_document.read_department',
     'employee_document.read_all',
     'employee_document.read_sensitive',
-    'employee_document.create',
-    'position.read',
     'position.create',
     'position.update',
-    'upload.create',
-    'shift.read',
     'shift.create',
     'shift.update',
     'shift.assign',
@@ -378,7 +365,6 @@ async function main() {
     'contract_template.read',
     'contract_template.update',
     'contract.create',
-    'contract.read_own',
     'contract.read_department',
     'contract.read_all',
     'contract.approve',
@@ -388,24 +374,19 @@ async function main() {
     'kpi_template.read',
     'kpi_template.update',
     'kpi.assign',
-    'kpi.read_own',
     'kpi.read_department',
     'kpi.read_all',
-    'kpi.self_review',
     'kpi.leader_review',
     'kpi.finalize',
     'review_cycle.create',
     'review_cycle.read',
     'review_cycle.manage',
-    'performance_review.read_own',
     'performance_review.read_department',
     'performance_review.read_all',
-    'performance_review.self_submit',
     'performance_review.leader_submit',
     'performance_review.finalize',
     'dashboard.admin.read',
     'dashboard.department.read',
-    'dashboard.own.read',
     'report.employee.read',
     'report.attendance.read',
     'report.task.read',
@@ -417,13 +398,11 @@ async function main() {
     'audit.read',
     'job.read',
     'job.run_manual',
-    'notification.read',
-    'device_token.manage_own',
-    'feedback.create',
-    'feedback.read_own',
     'feedback.read_all',
     'feedback.update_status',
-  ]) {
+  ]));
+
+  for (const code of hrPermissions) {
     const permission = permissions.find((item) => item.code === code);
     if (permission) {
       await prisma.rolePermission.upsert({
@@ -434,7 +413,9 @@ async function main() {
     }
   }
 
-  for (const code of [
+  // Role: ACCOUNTANT (kế thừa toàn bộ quyền cơ bản của Employee + các quyền Kế toán & Lương)
+  const accountantPermissions = Array.from(new Set([
+    ...baseEmployeePermissions,
     'salary_profile.create',
     'salary_profile.read',
     'salary_profile.update',
@@ -460,8 +441,9 @@ async function main() {
     'deduction.approve',
     'violation.read',
     'disciplinary_action.approve',
-    'notification.read',
-  ]) {
+  ]));
+
+  for (const code of accountantPermissions) {
     const permission = permissions.find((item) => item.code === code);
     if (permission) {
       await prisma.rolePermission.upsert({
@@ -472,7 +454,9 @@ async function main() {
     }
   }
 
-  for (const code of [
+  // Role: WAREHOUSE_MANAGER (kế thừa toàn bộ quyền cơ bản của Employee + các quyền Quản lý kho & Tài sản)
+  const warehousePermissions = Array.from(new Set([
+    ...baseEmployeePermissions,
     'warehouse.read',
     'warehouse.update',
     'warehouse.manage',
@@ -500,9 +484,9 @@ async function main() {
     'report.asset.read',
     'report.export.csv',
     'report.export.excel',
-    'notification.read',
-    'device_token.manage_own',
-  ]) {
+  ]));
+
+  for (const code of warehousePermissions) {
     const permission = permissions.find((item) => item.code === code);
     if (permission) {
       await prisma.rolePermission.upsert({

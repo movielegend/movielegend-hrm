@@ -86,7 +86,7 @@ export class EmployeeContractsController {
   }
 
   @Get('my')
-  @Permissions('contract.read_own')
+  @AnyPermissions('contract.read_own', 'contract.read_department', 'contract.read_all')
   findMine(@CurrentUser() actor: AuthenticatedUser) {
     return this.contracts.findMine(actor);
   }
@@ -98,7 +98,7 @@ export class EmployeeContractsController {
   }
 
   @Post(':id/acknowledge')
-  @Permissions('contract.read_own')
+  @AnyPermissions('contract.read_own', 'contract.read_department', 'contract.read_all')
   acknowledge(
     @Param('id') id: string,
     @Body() dto: AcknowledgeContractDto,

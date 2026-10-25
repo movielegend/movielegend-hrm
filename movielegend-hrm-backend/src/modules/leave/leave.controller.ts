@@ -32,7 +32,7 @@ export class LeaveController {
     return this.leaveService.findActiveLeaveTypes();
   }
 
-  @Permissions('leave.request')
+  @AnyPermissions('leave.request', 'leave.approve', 'leave.balance.read')
   @Post('leave-requests')
   createLeaveRequest(@Body() dto: CreateLeaveRequestDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.leaveService.createLeaveRequest(dto, actor);
@@ -62,7 +62,7 @@ export class LeaveController {
     return this.leaveService.rejectLeave(id, dto, actor);
   }
 
-  @Permissions('overtime.request')
+  @AnyPermissions('overtime.request', 'overtime.approve')
   @Post('overtime-requests')
   createOvertime(@Body() dto: CreateOvertimeRequestDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.leaveService.createOvertimeRequest(dto, actor);

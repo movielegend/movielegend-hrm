@@ -63,7 +63,7 @@ export class PerformanceReviewsController {
   constructor(private readonly reviews: PerformanceReviewsService) {}
 
   @Get('my')
-  @Permissions('performance_review.read_own')
+  @AnyPermissions('performance_review.read_own', 'performance_review.read_department', 'performance_review.read_all')
   findMine(@CurrentUser() actor: AuthenticatedUser) {
     return this.reviews.findMine(actor);
   }
@@ -81,7 +81,7 @@ export class PerformanceReviewsController {
   }
 
   @Post(':id/self-submit')
-  @Permissions('performance_review.self_submit')
+  @AnyPermissions('performance_review.self_submit', 'performance_review.leader_submit')
   selfSubmit(@Param('id') id: string, @Body() dto: SubmitReviewDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.reviews.selfSubmit(id, dto, actor);
   }

@@ -39,7 +39,7 @@ export class TasksController {
   }
 
   @Get('me')
-  @Permissions('task.read_own')
+  @AnyPermissions('task.read_own', 'task.read_department', 'task.read_all')
   findMine(@CurrentUser() actor: AuthenticatedUser, @Query() query: TaskQueryDto) {
     return this.tasks.findMine(actor, query);
   }
@@ -93,7 +93,7 @@ export class TasksController {
   }
 
   @Post(':id/extensions')
-  @Permissions('task.extension_request_own')
+  @AnyPermissions('task.extension_request_own', 'task.assign_department', 'task.assign_any')
   requestExtension(@Param('id') id: string, @Body() dto: CreateTaskExtensionRequestDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.tasks.requestExtension(id, dto, actor);
   }
@@ -124,25 +124,25 @@ export class TaskAssignmentsController {
   }
 
   @Patch(':id/accept')
-  @Permissions('task.accept_own')
+  @AnyPermissions('task.accept_own', 'task.assign_department', 'task.assign_any')
   accept(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.tasks.acceptAssignment(id, actor);
   }
 
   @Patch(':id/start')
-  @Permissions('task.update_progress_own')
+  @AnyPermissions('task.update_progress_own', 'task.assign_department', 'task.assign_any')
   start(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.tasks.startAssignment(id, actor);
   }
 
   @Patch(':id/progress')
-  @Permissions('task.update_progress_own')
+  @AnyPermissions('task.update_progress_own', 'task.assign_department', 'task.assign_any')
   progress(@Param('id') id: string, @Body() dto: UpdateProgressDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.tasks.updateProgress(id, dto, actor);
   }
 
   @Patch(':id/submit')
-  @Permissions('task.submit_own')
+  @AnyPermissions('task.submit_own', 'task.assign_department', 'task.assign_any')
   submit(@Param('id') id: string, @Body() dto: SubmitTaskDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.tasks.submitAssignment(id, dto, actor);
   }
