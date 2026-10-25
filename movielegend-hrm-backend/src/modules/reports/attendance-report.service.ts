@@ -474,13 +474,17 @@ export class AttendanceReportService {
           }
 
           // 4. OT phòng Live: Ưu tiên OtReport đã duyệt, nếu không có OtReport thì dùng otRequest (đơn làm thêm tiêu chuẩn)
-          if (liveOt && liveOt.validOtMinutes > 0) {
-            otMins = liveOt.validOtMinutes;
+          const liveMins = (liveOt && liveOt.validOtMinutes > 0)
+            ? liveOt.validOtMinutes
+            : (liveOt && liveOt.startTime && liveOt.endTime ? Math.max(0, moment(liveOt.endTime).diff(moment(liveOt.startTime), 'minutes')) : 0);
+
+          if (liveOt && liveMins > 0) {
+            otMins = liveMins;
             const pct = liveOt.approvedPercent || liveOt.proposedPercent || 100;
-            if (pct === 100) ot100 = liveOt.validOtMinutes;
-            else if (pct === 150) ot150 = liveOt.validOtMinutes;
-            else if (pct === 200) ot200 = liveOt.validOtMinutes;
-            else ot100 = liveOt.validOtMinutes;
+            if (pct === 100) ot100 = liveMins;
+            else if (pct === 150) ot150 = liveMins;
+            else if (pct === 200) ot200 = liveMins;
+            else ot100 = liveMins;
           } else if (otRequest) {
             const approvedMinutes = Number(otRequest.validOtMinutes) || (otRequest.startAt && otRequest.endAt ? Math.max(0, moment(otRequest.endAt).diff(moment(otRequest.startAt), 'minutes')) : 0);
             if (approvedMinutes > 0) {
@@ -913,7 +917,11 @@ export class AttendanceReportService {
           noteParts.push(`Nghỉ theo giờ: ${leaveTypeName}${timeRange}${reasonSuffix}`);
         }
 
-        if (isLiveDepartment && liveOt && liveOt.validOtMinutes > 0) {
+        const liveValidMins = (liveOt && liveOt.validOtMinutes > 0)
+          ? liveOt.validOtMinutes
+          : (liveOt && liveOt.startTime && liveOt.endTime ? Math.max(0, moment(liveOt.endTime).diff(moment(liveOt.startTime), 'minutes')) : 0);
+
+        if (isLiveDepartment && liveOt && liveValidMins > 0) {
           const pct = liveOt.approvedPercent || liveOt.proposedPercent || 100;
           const sTime = formatOtTime(liveOt.startTime);
           const eTime = formatOtTime(liveOt.endTime);
@@ -922,7 +930,7 @@ export class AttendanceReportService {
           const reasonSuffix = reason ? ` (Lý do: ${reason})` : '';
           noteParts.push(`Đơn OT ca Live${timeRange} (${pct}%) đã được duyệt${reasonSuffix}`);
         }
-        const hasLiveOtForDay = Boolean(isLiveDepartment && liveOt && liveOt.validOtMinutes > 0);
+        const hasLiveOtForDay = Boolean(isLiveDepartment && liveOt && liveValidMins > 0);
         if (otMins > 0 && otRequest && !hasLiveOtForDay) {
           const pct = Number(otRequest.proposedPercent) || (isHoliday || isWeekend ? 200 : 150);
           const sTime = formatOtTime(otRequest.startAt, (otRequest as any).startTimeStr);

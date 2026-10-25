@@ -1487,8 +1487,12 @@ export class AttendanceService {
       }
     }
 
-    // Tính tăng ca từ đơn duyệt chuẩn
+    // Tính tăng ca từ đơn duyệt chuẩn (nếu là phòng Live và ngày đó đã có OtReport được duyệt thì ưu tiên OtReport, tránh cộng trùng)
     for (const ot of ots) {
+      const otDateStr = ot.workDate.toISOString().slice(0, 10);
+      if (isLiveDepartment && liveOtReports.some((lot) => lot.otDate.toISOString().slice(0, 10) === otDateStr && lot.validOtMinutes > 0)) {
+        continue;
+      }
       const mins = Math.max(0, Math.floor((ot.endAt.getTime() - ot.startAt.getTime()) / 60000));
       totalOtMinutes += mins;
     }
@@ -1520,15 +1524,17 @@ export class AttendanceService {
       const isPastDay = dStr < todayVnStr;
 
       const record = recordMap.get(dStr);
-      const dayOts = ots.filter((o) => o.workDate.toISOString().slice(0, 10) === dStr);
       let dayOtHours = 0;
-      for (const ot of dayOts) {
-        dayOtHours += Math.max(0, (ot.endAt.getTime() - ot.startAt.getTime()) / 3600000);
-      }
       const dayLiveOts = liveOtReports.filter((lot) => lot.otDate.toISOString().slice(0, 10) === dStr);
       for (const lot of dayLiveOts) {
         if (lot.validOtMinutes > 0) {
           dayOtHours += lot.validOtMinutes / 60;
+        }
+      }
+      if (!isLiveDepartment || dayOtHours === 0) {
+        const dayOts = ots.filter((o) => o.workDate.toISOString().slice(0, 10) === dStr);
+        for (const ot of dayOts) {
+          dayOtHours += Math.max(0, (ot.endAt.getTime() - ot.startAt.getTime()) / 3600000);
         }
       }
 
