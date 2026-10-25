@@ -286,6 +286,7 @@ export class ContractsService {
 
   async findAll(actor: AuthenticatedUser, departmentId?: string) {
     const visibleDepts = await this.scope.getVisibleDepartmentIds(actor);
+    const canReadDept = this.has(actor, 'contract.read_department') || this.has(actor, 'contract.read_all');
 
     if (visibleDepts === null) {
       // Global Admin
@@ -301,13 +302,30 @@ export class ContractsService {
       });
     }
 
-    if (visibleDepts.length > 0) {
+    if (visibleDepts.length > 0 && canReadDept) {
       // Regional Admin or Department Leader
       const deptIds = departmentId && visibleDepts.includes(departmentId) ? [departmentId] : visibleDepts;
       const members = await this.prisma.departmentMember.findMany({ where: { departmentId: { in: deptIds }, leftAt: null } });
       const userIds = members.map(m => m.userId);
+      const isLeaderOnly = !this.scope.isGlobalAdmin(actor) && !actor.roles.includes('ADMIN') && !actor.roles.includes('HR');
+
       return this.prisma.employeeContract.findMany({
-        where: { userId: { in: userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'] } },
+        where: {
+          userId: { in: userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'] },
+          ...(isLeaderOnly ? {
+            status: {
+              in: [
+                ContractStatus.ACTIVE,
+                ContractStatus.COMPLETED,
+                ContractStatus.EMPLOYEE_SIGNED,
+                ContractStatus.WAITING_COMPANY_SIGNATURE,
+                ContractStatus.WAITING_EMPLOYEE_SIGNATURE,
+                ContractStatus.EXPIRED,
+                ContractStatus.TERMINATED,
+              ],
+            },
+          } : {}),
+        },
         include: this.include(),
         orderBy: { createdAt: 'desc' }
       });

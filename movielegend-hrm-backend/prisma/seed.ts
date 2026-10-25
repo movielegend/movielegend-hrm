@@ -119,6 +119,7 @@ const permissionCodes = [
   'deduction.approve',
   'violation.create',
   'violation.read',
+    'contract.read_department',
   'violation.confirm',
   'disciplinary_action.create',
   'disciplinary_action.approve',

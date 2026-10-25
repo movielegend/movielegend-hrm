@@ -739,6 +739,22 @@ export class DailyReportsService {
       targetDeptId = (await this.getUserDepartmentId(actor.userId)) || undefined;
     }
 
+    const isAccountant = this.scopes.isAccountant(actor) && !this.scopes.isGlobalAdmin(actor) && !actor.roles.includes('ADMIN');
+    if (isAccountant) {
+      const myDeptId = (await this.getUserDepartmentId(actor.userId)) || undefined;
+      const ledDepts = await this.scopes.getLedDepartmentIds(actor);
+      const allowedDepts = new Set<string>();
+      if (myDeptId) allowedDepts.add(myDeptId);
+      ledDepts.forEach((id) => allowedDepts.add(id));
+
+      if (targetDeptId && !allowedDepts.has(targetDeptId)) {
+        throw new ForbiddenException('Kế toán không được xem báo cáo của phòng ban khác');
+      }
+      if (!targetDeptId) {
+        targetDeptId = myDeptId || Array.from(allowedDepts)[0];
+      }
+    }
+
     if (!targetDeptId) {
       throw new BadRequestException('Vui lòng chọn phòng ban');
     }
@@ -799,6 +815,22 @@ export class DailyReportsService {
   async getDepartmentSummary(actor: AuthenticatedUser, departmentId?: string, dateStr?: string) {
     const reportDate = dateStr || getTodayString();
     let targetDeptId = departmentId || (await this.getUserDepartmentId(actor.userId));
+
+    const isAccountant = this.scopes.isAccountant(actor) && !this.scopes.isGlobalAdmin(actor) && !actor.roles.includes('ADMIN');
+    if (isAccountant) {
+      const myDeptId = (await this.getUserDepartmentId(actor.userId)) || undefined;
+      const ledDepts = await this.scopes.getLedDepartmentIds(actor);
+      const allowedDepts = new Set<string>();
+      if (myDeptId) allowedDepts.add(myDeptId);
+      ledDepts.forEach((id) => allowedDepts.add(id));
+
+      if (targetDeptId && !allowedDepts.has(targetDeptId)) {
+        throw new ForbiddenException('Kế toán không được xem báo cáo của phòng ban khác');
+      }
+      if (!targetDeptId) {
+        targetDeptId = myDeptId || Array.from(allowedDepts)[0];
+      }
+    }
 
     if (!targetDeptId) {
       throw new BadRequestException('Không tìm thấy phòng ban');

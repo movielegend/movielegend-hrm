@@ -642,9 +642,19 @@ export class WorkReportsService {
 
     const isHr = await this.scopes.isHrActorAsync(actor);
     const isGlobalAdmin = this.scopes.isGlobalAdmin(actor);
-    let visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+    const isAccountant = this.scopes.isAccountant(actor) && !isGlobalAdmin && !actor.roles.includes('ADMIN');
+    let visibleDepts: string[] | null = await this.scopes.getVisibleDepartmentIds(actor);
 
-    if (isHr && !isGlobalAdmin) {
+    if (isAccountant) {
+      // Kế toán không được xem báo cáo của phòng ban khác - chỉ xem phòng của mình
+      const myDeptId = await this.getUserDeptId(actor.userId);
+      const ledDepts = await this.scopes.getLedDepartmentIds(actor);
+      const deptSet = new Set<string>();
+      if (myDeptId) deptSet.add(myDeptId);
+      ledDepts.forEach((id) => deptSet.add(id));
+      visibleDepts = Array.from(deptSet);
+    } else if (isHr && !isGlobalAdmin) {
+      // HR chỉ xem báo cáo phòng ban của mình (trừ khi là Admin)
       const primaryId = await this.getUserDeptId(actor.userId);
       visibleDepts = primaryId ? [primaryId] : [];
     }
@@ -726,9 +736,19 @@ export class WorkReportsService {
 
     const isHr = await this.scopes.isHrActorAsync(actor);
     const isGlobalAdmin = this.scopes.isGlobalAdmin(actor);
-    let visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
+    const isAccountant = this.scopes.isAccountant(actor) && !isGlobalAdmin && !actor.roles.includes('ADMIN');
+    let visibleDepts: string[] | null = await this.scopes.getVisibleDepartmentIds(actor);
 
-    if (isHr && !isGlobalAdmin) {
+    if (isAccountant) {
+      // Kế toán không được xem báo cáo của phòng ban khác - chỉ xem phòng của mình
+      const myDeptId = await this.getUserDeptId(actor.userId);
+      const ledDepts = await this.scopes.getLedDepartmentIds(actor);
+      const deptSet = new Set<string>();
+      if (myDeptId) deptSet.add(myDeptId);
+      ledDepts.forEach((id) => deptSet.add(id));
+      visibleDepts = Array.from(deptSet);
+    } else if (isHr && !isGlobalAdmin) {
+      // HR chỉ xem báo cáo phòng ban của mình (trừ khi là Admin)
       const primaryId = await this.getUserDeptId(actor.userId);
       visibleDepts = primaryId ? [primaryId] : [];
     }
@@ -794,8 +814,9 @@ export class WorkReportsService {
 
   async approveTaskUpdate(actor: AuthenticatedUser, taskId: string, updateId: string, dto: ApproveWorkTaskUpdateDto) {
     const isAdmin = actor.roles.some(r => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r));
-    if (!isAdmin) {
-      throw new ForbiddenException('Chỉ Quản trị viên (Admin) mới có quyền duyệt báo cáo');
+    const isLeader = actor.roles.some(r => ['LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'HR', 'ACCOUNTANT_LEAD'].includes(r));
+    if (!isAdmin && !isLeader) {
+      throw new ForbiddenException('Chỉ Quản trị viên (Admin) hoặc Quản lý mới có quyền duyệt báo cáo');
     }
 
     const update = await this.prisma.workTaskUpdate.findUnique({
@@ -803,6 +824,13 @@ export class WorkReportsService {
       include: { task: true }
     });
     if (!update || update.taskId !== taskId) throw new NotFoundException('Không tìm thấy bản cập nhật');
+
+    if (!isAdmin && isLeader && update.task.departmentId) {
+      const allowed = await this.scopes.canAccessDepartment(actor, update.task.departmentId);
+      if (!allowed) {
+        throw new ForbiddenException('Bạn không có quyền duyệt báo cáo của phòng ban này');
+      }
+    }
 
     const updated = await this.prisma.workTaskUpdate.update({
       where: { id: updateId },
@@ -831,16 +859,24 @@ export class WorkReportsService {
     // Phát thông báo Socket & Notification cho nhân viên và phòng ban
     const isApproved = dto.approvalStatus === 'APPROVED';
     const isNeedInfo = dto.approvalStatus === 'NEED_MORE_INFO';
+    const isRejected = dto.approvalStatus === 'REJECTED';
+    const action = isApproved ? 'APPROVED' : isNeedInfo ? 'NEED_MORE_INFO' : isRejected ? 'REJECTED' : 'UPDATED';
+
+    const approverRoleName = isAdmin ? 'Quản trị viên' : 'Trưởng phòng';
     const title = isApproved
       ? 'Báo cáo công việc đã được phê duyệt'
       : isNeedInfo
       ? 'Yêu cầu bổ sung báo cáo công việc'
+      : isRejected
+      ? `${approverRoleName} từ chối báo cáo công việc`
       : 'Cập nhật trạng thái duyệt công việc';
 
     const body = isApproved
-      ? `Công việc "${update.task.title}" (${update.task.taskCode}) đã được Quản trị viên phê duyệt hoàn tất.`
+      ? `Công việc "${update.task.title}" (${update.task.taskCode}) đã được ${approverRoleName} phê duyệt hoàn tất.`
       : isNeedInfo
       ? `Công việc "${update.task.title}" (${update.task.taskCode}) có yêu cầu bổ sung: ${dto.approvalNote || 'Vui lòng kiểm tra lại nội dung.'}`
+      : isRejected
+      ? `Công việc "${update.task.title}" (${update.task.taskCode}) đã bị ${approverRoleName} từ chối: ${dto.approvalNote || 'Vui lòng kiểm tra và chỉnh sửa lại.'}`
       : `Công việc "${update.task.title}" (${update.task.taskCode}) được cập nhật trạng thái duyệt: ${dto.approvalStatus}.`;
 
     if (update.task.userId) {
@@ -853,9 +889,11 @@ export class WorkReportsService {
           metadata: {
             taskId: update.task.id,
             taskCode: update.task.taskCode,
-            action: isApproved ? 'APPROVED' : isNeedInfo ? 'NEED_MORE_INFO' : 'UPDATED',
+            action,
             approvalStatus: dto.approvalStatus,
             approvalNote: dto.approvalNote,
+            rejectedByRole: isAdmin ? 'ADMIN' : 'LEADER',
+            rejectedByName: (actor as any).fullName || approverRoleName
           }
         });
         if (notif) this.notifications.emitCreated(notif);
@@ -863,12 +901,59 @@ export class WorkReportsService {
         this.realtime.emitToUser(update.task.userId, 'work-report:action', {
           taskId: update.task.id,
           taskCode: update.task.taskCode,
-          action: isApproved ? 'APPROVED' : isNeedInfo ? 'NEED_MORE_INFO' : 'UPDATED',
+          action,
           approvalStatus: dto.approvalStatus,
           approvalNote: dto.approvalNote,
           title,
-          body
+          body,
+          rejectedByRole: isAdmin ? 'ADMIN' : 'LEADER'
         });
+      } catch (err) {
+        // Safe catch
+      }
+    }
+
+    // CHỈ gửi thông báo cho Leader khi người từ chối là ADMIN (Leader không cần nhận lại chính thao tác của mình)
+    if (isRejected && isAdmin && update.task.departmentId) {
+      try {
+        const dept = await this.prisma.department.findUnique({
+          where: { id: update.task.departmentId },
+          select: { leaderUserId: true }
+        });
+        const leaderUserId = dept?.leaderUserId;
+        if (leaderUserId && leaderUserId !== actor.userId && leaderUserId !== update.task.userId) {
+          const leaderTitle = 'Quản trị viên đã từ chối báo cáo của nhân viên';
+          const leaderBody = `Công việc "${update.task.title}" (${update.task.taskCode}) của nhân viên đã bị Quản trị viên từ chối: ${dto.approvalNote || 'Vui lòng kiểm tra lại.'}`;
+
+          const leaderNotif = await this.notifications.createForUsers(this.prisma, [leaderUserId], {
+            type: NotificationType.TASK_UPDATED,
+            title: leaderTitle,
+            body: leaderBody,
+            taskId: update.task.id,
+            metadata: {
+              taskId: update.task.id,
+              taskCode: update.task.taskCode,
+              action: 'REJECTED',
+              approvalStatus: 'REJECTED',
+              approvalNote: dto.approvalNote,
+              rejectedByRole: 'ADMIN',
+              targetEmployeeId: update.task.userId
+            }
+          });
+          if (leaderNotif) this.notifications.emitCreated(leaderNotif);
+
+          this.realtime.emitToUser(leaderUserId, 'work-report:action', {
+            taskId: update.task.id,
+            taskCode: update.task.taskCode,
+            action: 'REJECTED',
+            approvalStatus: 'REJECTED',
+            approvalNote: dto.approvalNote,
+            title: leaderTitle,
+            body: leaderBody,
+            rejectedByRole: 'ADMIN',
+            targetEmployeeId: update.task.userId
+          });
+        }
       } catch (err) {
         // Safe catch
       }
@@ -1105,23 +1190,65 @@ export class WorkReportsService {
     // Thông báo cho nhân viên qua Socket & In-app Notification
     if (task.userId && task.userId !== actor.userId) {
       try {
+        const isRejected = dto.approvalStatus === 'REJECTED';
+        const action = isRejected ? 'REJECTED' : 'ADMIN_UPDATE';
+        const title = isRejected ? 'Quản trị viên đã từ chối báo cáo công việc' : 'Quản trị viên đã cập nhật báo cáo công việc';
+        const body = isRejected
+          ? `Công việc "${task.title}" (${task.taskCode}) đã bị Quản trị viên từ chối: ${reason}`
+          : `Công việc "${task.title}" (${task.taskCode}) đã được Admin cập nhật: ${reason}`;
+
         const notif = await this.notifications.createForUsers(this.prisma, [task.userId], {
           type: NotificationType.TASK_UPDATED,
-          title: 'Quản trị viên đã cập nhật báo cáo công việc',
-          body: `Công việc "${task.title}" (${task.taskCode}) đã được Admin cập nhật: ${reason}`,
+          title,
+          body,
           taskId: task.id,
-          metadata: { taskId: task.id, taskCode: task.taskCode, action: 'ADMIN_UPDATE' }
+          metadata: { taskId: task.id, taskCode: task.taskCode, action, approvalStatus: dto.approvalStatus, approvalNote: reason, rejectedByRole: 'ADMIN' }
         });
         if (notif) this.notifications.emitCreated(notif);
 
         this.realtime.emitToUser(task.userId, 'work-report:action', {
           taskId: task.id,
           taskCode: task.taskCode,
-          action: 'ADMIN_UPDATE',
-          title: 'Quản trị viên đã cập nhật công việc',
-          body: `Công việc "${task.title}" (${task.taskCode}) đã được Admin cập nhật: ${reason}`,
-          reason
+          action,
+          approvalStatus: dto.approvalStatus,
+          approvalNote: reason,
+          title,
+          body,
+          reason,
+          rejectedByRole: 'ADMIN'
         });
+
+        if (isRejected && task.departmentId) {
+          const dept = await this.prisma.department.findUnique({
+            where: { id: task.departmentId },
+            select: { leaderUserId: true }
+          });
+          const leaderUserId = dept?.leaderUserId;
+          if (leaderUserId && leaderUserId !== actor.userId && leaderUserId !== task.userId) {
+            const leaderTitle = 'Quản trị viên đã từ chối báo cáo của nhân viên';
+            const leaderBody = `Công việc "${task.title}" (${task.taskCode}) của nhân viên đã bị Quản trị viên từ chối: ${reason}`;
+            const leaderNotif = await this.notifications.createForUsers(this.prisma, [leaderUserId], {
+              type: NotificationType.TASK_UPDATED,
+              title: leaderTitle,
+              body: leaderBody,
+              taskId: task.id,
+              metadata: { taskId: task.id, taskCode: task.taskCode, action: 'REJECTED', approvalStatus: 'REJECTED', approvalNote: reason, rejectedByRole: 'ADMIN', targetEmployeeId: task.userId }
+            });
+            if (leaderNotif) this.notifications.emitCreated(leaderNotif);
+
+            this.realtime.emitToUser(leaderUserId, 'work-report:action', {
+              taskId: task.id,
+              taskCode: task.taskCode,
+              action: 'REJECTED',
+              approvalStatus: 'REJECTED',
+              approvalNote: reason,
+              title: leaderTitle,
+              body: leaderBody,
+              rejectedByRole: 'ADMIN',
+              targetEmployeeId: task.userId
+            });
+          }
+        }
       } catch (err) {}
     }
 
@@ -1328,6 +1455,12 @@ export class WorkReportsService {
     for (const item of dto.items) {
       // If it's a new task (no ID or temp ID)
       if (!item.id || item.id.startsWith('temp_') || item.id.startsWith('new_')) {
+        const trimmedTitle = (item.title || '').trim();
+        // Tuyệt đối không tạo công việc nếu tiêu đề rỗng hoặc chỉ là placeholder
+        if (!trimmedTitle || trimmedTitle === 'Công việc mới') {
+          continue;
+        }
+
         if (!isAdmin && !isLeader && !inWindow) {
           throw new ForbiddenException('Chỉ được tạo công việc trong khung giờ 15:00 - 19:00');
         }
