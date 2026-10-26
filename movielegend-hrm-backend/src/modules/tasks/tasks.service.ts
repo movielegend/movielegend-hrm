@@ -55,6 +55,9 @@ export class TasksService {
       if (!parent) {
         throw badRequest('PARENT_TASK_NOT_FOUND', 'Không tìm thấy công việc cha');
       }
+      if (parent.parentTaskId) {
+        throw badRequest('SUBTASK_CANNOT_HAVE_CHILDREN', 'Việc con không được phép tạo thêm việc con nữa.');
+      }
       if (parent.dueAt && dto.dueAt) {
         const parentDue = new Date(parent.dueAt).getTime();
         const subtaskDue = new Date(dto.dueAt).getTime();
@@ -1462,6 +1465,14 @@ export class TasksService {
           },
         },
         orderBy: { createdAt: 'asc' as const },
+      },
+      parentTask: {
+        select: {
+          id: true,
+          taskCode: true,
+          title: true,
+          status: true,
+        },
       },
       targets: true,
       departmentContext: { select: { id: true, code: true, name: true } },
