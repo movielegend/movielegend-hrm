@@ -242,6 +242,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
   const reportData = todayReportQuery.data;
   const isSubmittedToday = reportData?.status === 'SUBMITTED' || reportData?.status === 'REVIEWED';
   const isReviewedToday = reportData?.status === 'REVIEWED';
+  const isRejectedToday = reportData?.status === 'REJECTED';
 
   // Lấy danh sách các báo cáo đã duyệt
   const approvedReports = useMemo(() => {
@@ -1235,6 +1236,28 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                 </View>
               </View>
             </View>
+
+            {/* Thông báo nếu báo cáo bị từ chối */}
+            {isRejectedToday && (
+              <View style={[styles.submittedTodayCallout, styles.submittedTodayCalloutRejected]}>
+                <MaterialCommunityIcons
+                  name="alert-circle"
+                  size={22}
+                  color="#DC2626"
+                />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.submittedTodayTitle, { color: '#B91C1C' }]}>
+                    Báo cáo ngày này đã bị Quản lý từ chối
+                  </Text>
+                  <Text style={[styles.submittedTodaySub, { color: '#991B1B', marginTop: 2 }]}>
+                    Lý do: "{reportData?.adminReview || 'Vui lòng kiểm tra và sửa lại nội dung báo cáo trước khi nộp lại.'}"
+                  </Text>
+                  <Text style={[styles.submittedTodaySub, { color: '#B91C1C', fontWeight: '600', marginTop: 4 }]}>
+                    Bạn có thể chỉnh sửa các thông tin bên dưới và bấm "Gửi báo cáo" để nộp lại.
+                  </Text>
+                </View>
+              </View>
+            )}
 
             {/* Thông báo nếu hôm nay đã nộp */}
             {isSubmittedToday && (
@@ -2612,6 +2635,11 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
 // STYLES
 // -------------------------------------------------------------
 const styles = StyleSheet.create({
+  submittedTodayCalloutRejected: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+  },
+
   center: {
     flex: 1,
     alignItems: 'center',

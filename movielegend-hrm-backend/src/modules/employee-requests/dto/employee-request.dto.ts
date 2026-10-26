@@ -342,3 +342,14 @@ export class DecideCancelCompensatoryDto {
 }
 
 
+
+export class ConfirmReceiptDto {
+  @ApiProperty({ description: 'Xác nhận nhận hàng (true: nhận đủ, false: từ chối nhận)' })
+  @IsBoolean()
+  confirmed!: boolean;
+
+  @ApiPropertyOptional({ description: 'Ghi chú hoặc lý do nếu từ chối' })
+  @IsOptional()
+  @IsString()
+  note?: string;
+}

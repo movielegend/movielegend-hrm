@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
@@ -15,6 +15,7 @@ import {
   FulfillPurchaseByHrDto,
   RequestCancelCompensatoryDto,
   DecideCancelCompensatoryDto,
+  ConfirmReceiptDto,
 } from './dto/employee-request.dto';
 import { EmployeeRequestsService } from './employee-requests.service';
 
@@ -103,7 +104,7 @@ export class EmployeeRequestsController {
     return this.employeeRequestsService.reject(id, actor, body);
   }
 
-  @Permissions('employee.request')
+  @AnyPermissions('employee.request', 'employee.request.approve')
   @Post(':id/resubmit-by-hr')
   resubmitByHr(
     @Param('id') id: string,
@@ -113,7 +114,7 @@ export class EmployeeRequestsController {
     return this.employeeRequestsService.resubmitPurchaseByHr(id, body, actor);
   }
 
-  @Permissions('employee.request')
+  @AnyPermissions('employee.request', 'employee.request.approve')
   @Post(':id/fulfill-purchase')
   fulfillPurchase(
     @Param('id') id: string,
@@ -123,7 +124,7 @@ export class EmployeeRequestsController {
     return this.employeeRequestsService.fulfillPurchaseByHr(id, body, actor);
   }
 
-  @Permissions('employee.request')
+  @AnyPermissions('employee.request', 'employee.request.approve')
   @Post(':id/create-expense-from-purchase')
   createExpenseFromPurchase(
     @Param('id') id: string,
@@ -133,7 +134,17 @@ export class EmployeeRequestsController {
     return this.employeeRequestsService.createExpenseFromPurchase(id, body, actor);
   }
 
-  @Permissions('employee.request')
+  @AnyPermissions('employee.request', 'employee.request.approve')
+  @Patch(':id/confirm-receipt')
+  confirmReceipt(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() body: ConfirmReceiptDto,
+  ) {
+    return this.employeeRequestsService.confirmReceipt(id, body, actor);
+  }
+
+  @AnyPermissions('employee.request', 'employee.request.approve')
   @Post(':id/request-cancel')
   requestCancelCompensatory(
     @Param('id') id: string,

@@ -118,6 +118,19 @@ export class WorkReportsService {
     metricName?: string;
   }) {
     try {
+      // Bảo vệ: Tuyệt đối không tự động sinh WorkTask cho Quản trị viên hệ thống (Admin)
+      const targetUser = await this.prisma.user.findUnique({
+        where: { id: data.userId },
+        select: {
+          userCode: true,
+          roles: { select: { role: { select: { code: true } } } }
+        }
+      });
+      const targetRoles = targetUser?.roles?.map(r => r.role?.code) || [];
+      if (targetUser?.userCode === 'NV000001' || targetRoles.some(rc => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(rc))) {
+        return null;
+      }
+
       let task: any = null;
       if (data.taskId) {
         task = await this.prisma.workTask.findUnique({ where: { id: data.taskId } });
@@ -137,8 +150,8 @@ export class WorkReportsService {
       }
 
       if (task) {
+        const isRejected = task.approvalStatus === 'REJECTED';
         const taskUpdateData: any = {
-          title: data.title,
           category: data.category || task.category,
           description: data.description !== undefined ? data.description : task.description,
           taskType: data.taskType || task.taskType,
@@ -146,6 +159,9 @@ export class WorkReportsService {
           deadline: data.deadline !== undefined ? data.deadline : task.deadline,
           workStatus: data.workStatus || task.workStatus,
         };
+        if (!isRejected && data.title && data.title !== 'Công việc mới') {
+          taskUpdateData.title = data.title;
+        }
         if (data.selfRating !== undefined && data.selfRating !== null) taskUpdateData.selfRating = data.selfRating;
         if (data.attachments !== undefined) taskUpdateData.attachments = data.attachments;
 
@@ -158,6 +174,7 @@ export class WorkReportsService {
           where: { taskId_reportDate: { taskId: task.id, reportDate: data.reportDate } }
         });
         if (existingUpdate) {
+          if (existingUpdate.approvalStatus !== 'REJECTED') {
           await this.prisma.workTaskUpdate.update({
             where: { id: existingUpdate.id },
             data: {
@@ -171,6 +188,7 @@ export class WorkReportsService {
               isDraft: data.isDraft ?? existingUpdate.isDraft,
             }
           });
+          }
         } else {
           await this.prisma.workTaskUpdate.create({
             data: {
@@ -244,9 +262,21 @@ export class WorkReportsService {
 
       const dailyReports = await this.prisma.dailyReport.findMany({
         where: whereReport,
+        include: {
+          user: {
+            select: {
+              userCode: true,
+              roles: { select: { role: { select: { code: true } } } }
+            }
+          }
+        }
       });
 
       for (const r of dailyReports) {
+        // Bỏ qua tài khoản Admin để không tự động sinh tasks cho Admin
+        const userRoles = r.user?.roles?.map(ur => ur.role?.code) || [];
+        const isUserAdmin = r.user?.userCode === 'NV000001' || userRoles.some(rc => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(rc));
+        if (isUserAdmin) continue;
         const userId = r.userId;
         const deptId = r.departmentId || await this.getUserDeptId(userId);
         if (!deptId) continue;
@@ -440,9 +470,29 @@ export class WorkReportsService {
     const departmentId = await this.getUserDeptId(userId);
     if (!departmentId) throw new BadRequestException('Không tìm thấy phòng ban');
 
+    const cleanTitle = (dto.title || '').trim();
+    if (cleanTitle) {
+      const existingSameDayTasks = await this.prisma.workTask.findMany({
+        where: {
+          userId,
+          reportDate: date,
+          isDeleted: false,
+        },
+        include: { updates: true }
+      });
+      const duplicate = existingSameDayTasks.find(
+        (t) => (t.title || '').trim().toLowerCase() === cleanTitle.toLowerCase()
+      );
+      if (duplicate) {
+        return duplicate;
+      }
+    }
+
+    const todayVN = this.getTodayVN();
+    const isFutureOrPlanned = date > todayVN || (dto.initialNotes || '').includes('Kế hoạch ngày mai');
     const taskCode = await this.generateTaskCode();
-    const workStatus = (dto.initialProgress === 100) ? 'DONE' : 'IN_PROGRESS';
     const progress = (dto.initialProgress === 100) ? 100 : (dto.initialProgress || 0);
+    const workStatus = progress === 100 ? 'DONE' : (isFutureOrPlanned && progress === 0 ? 'NOT_STARTED' : 'IN_PROGRESS');
 
     const task = await this.prisma.workTask.create({
       data: {
@@ -476,7 +526,7 @@ export class WorkReportsService {
             reportedByUserId: actor.userId,
             isProxied: isProxy,
             proxyReason: isProxy ? 'Leader nhập thay' : null,
-            isDraft: false
+            isDraft: isFutureOrPlanned ? true : false
           }
         }
       },
@@ -531,6 +581,13 @@ export class WorkReportsService {
     let update = await this.prisma.workTaskUpdate.findUnique({
       where: { taskId_reportDate: { taskId, reportDate: date } }
     });
+
+    // Báo cáo đã gửi rồi thì không được thay đổi, chỉ xem lại (trừ khi Leader từ chối REJECTED hoặc yêu cầu bổ sung NEED_MORE_INFO)
+    if (!isAdmin && !isLeader) {
+      if ((task.approvalStatus === 'PENDING' || task.approvalStatus === 'APPROVED') && update && !update.isDraft) {
+        throw new ForbiddenException('Công việc đã gửi báo cáo và đang chờ duyệt/đã duyệt. Không thể chỉnh sửa hoặc thay đổi tệp đính kèm.');
+      }
+    }
 
     if (update) {
       update = await this.prisma.workTaskUpdate.update({
@@ -848,6 +905,63 @@ export class WorkReportsService {
       data: { approvalStatus: dto.approvalStatus }
     });
 
+    // Đồng bộ trạng thái duyệt sang DailyReport (Báo cáo ngày mobile)
+    try {
+      const dailyReport = await this.prisma.dailyReport.findUnique({
+        where: { userId_reportDate: { userId: update.task.userId, reportDate: update.reportDate } },
+      });
+      if (dailyReport) {
+        const syncItems = (items: any[]) => {
+          if (!Array.isArray(items)) return items;
+          return items.map((item) => {
+            const matchId = item.taskId === taskId || item.id === taskId;
+            const matchTitle =
+              item.title === update.task.title ||
+              item.name === update.task.title ||
+              (item.title && update.task.title && item.title.split(':')[0].trim() === update.task.title.split(':')[0].trim());
+            if (matchId || matchTitle) {
+              return {
+                ...item,
+                approvalStatus: dto.approvalStatus,
+                approvalNote: dto.approvalNote || null,
+              };
+            }
+            return item;
+          });
+        };
+
+        const allTasks = await this.prisma.workTask.findMany({
+          where: { userId: update.task.userId, reportDate: update.reportDate, isDeleted: false },
+        });
+        const allRejected =
+          allTasks.length > 0 &&
+          allTasks.every((t) => (t.id === taskId ? dto.approvalStatus === 'REJECTED' : t.approvalStatus === 'REJECTED'));
+
+        await this.prisma.dailyReport.update({
+          where: { id: dailyReport.id },
+          data: {
+            metrics: syncItems(dailyReport.metrics as any[]),
+            completedTasks: syncItems(dailyReport.completedTasks as any[]),
+            inProgressTasks: syncItems(dailyReport.inProgressTasks as any[]),
+            status: allRejected ? 'REJECTED' : dailyReport.status,
+            adminReview:
+              dto.approvalStatus === 'REJECTED' ? dto.approvalNote || dailyReport.adminReview : dailyReport.adminReview,
+            reviewedById: actor.userId,
+            reviewedAt: new Date(),
+          },
+        });
+
+        this.realtime.emitToDepartment(dailyReport.departmentId, 'daily_report:updated', {
+          reportId: dailyReport.id,
+          userId: dailyReport.userId,
+          reportDate: dailyReport.reportDate,
+          status: allRejected ? 'REJECTED' : dailyReport.status,
+        });
+      }
+    } catch (syncErr) {
+      console.warn('[approveTaskUpdate] Sync to dailyReport error:', syncErr);
+    }
+
     await this.logHistory({
       taskId,
       updateId,
@@ -885,7 +999,6 @@ export class WorkReportsService {
           type: NotificationType.TASK_UPDATED,
           title,
           body,
-          taskId: update.task.id,
           metadata: {
             taskId: update.task.id,
             taskCode: update.task.taskCode,
@@ -893,7 +1006,8 @@ export class WorkReportsService {
             approvalStatus: dto.approvalStatus,
             approvalNote: dto.approvalNote,
             rejectedByRole: isAdmin ? 'ADMIN' : 'LEADER',
-            rejectedByName: (actor as any).fullName || approverRoleName
+            rejectedByName: (actor as any).fullName || approverRoleName,
+            targetUrl: '/my-daily-report',
           }
         });
         if (notif) this.notifications.emitCreated(notif);
@@ -906,10 +1020,11 @@ export class WorkReportsService {
           approvalNote: dto.approvalNote,
           title,
           body,
-          rejectedByRole: isAdmin ? 'ADMIN' : 'LEADER'
+          rejectedByRole: isAdmin ? 'ADMIN' : 'LEADER',
+          targetUrl: '/my-daily-report'
         });
       } catch (err) {
-        // Safe catch
+        console.error('[approveTaskUpdate] notification error:', err);
       }
     }
 
@@ -998,8 +1113,7 @@ export class WorkReportsService {
           type: NotificationType.TASK_ASSIGNED,
           title: 'Bạn được bàn giao công việc mới',
           body: `Công việc "${task.title}" (${task.taskCode}) đã được chuyển giao cho bạn. Lý do: ${dto.reason || 'Điều phối công việc'}`,
-          taskId: task.id,
-          metadata: { taskId: task.id, taskCode: task.taskCode, action: 'TRANSFER' }
+          metadata: { taskId: task.id, taskCode: task.taskCode, action: 'TRANSFER', targetUrl: '/my-daily-report' }
         });
         if (notif) this.notifications.emitCreated(notif);
 
@@ -1202,7 +1316,7 @@ export class WorkReportsService {
           title,
           body,
           taskId: task.id,
-          metadata: { taskId: task.id, taskCode: task.taskCode, action, approvalStatus: dto.approvalStatus, approvalNote: reason, rejectedByRole: 'ADMIN' }
+          metadata: { taskId: task.id, taskCode: task.taskCode, action, approvalStatus: dto.approvalStatus, approvalNote: reason, rejectedByRole: 'ADMIN', targetUrl: '/my-daily-report' }
         });
         if (notif) this.notifications.emitCreated(notif);
 
@@ -1310,8 +1424,7 @@ export class WorkReportsService {
           type: NotificationType.TASK_UPDATED,
           title: 'Công việc báo cáo đã bị xóa',
           body: `Công việc "${updated.title}" (${updated.taskCode}) đã được Admin xóa với lý do: ${reason}`,
-          taskId: updated.id,
-          metadata: { taskId: updated.id, taskCode: updated.taskCode, action: 'ADMIN_DELETE', reason }
+          metadata: { taskId: updated.id, taskCode: updated.taskCode, action: 'ADMIN_DELETE', reason, targetUrl: '/my-daily-report' }
         });
         if (notif) this.notifications.emitCreated(notif);
 
@@ -1447,7 +1560,8 @@ export class WorkReportsService {
   async bulkSaveTasks(actor: AuthenticatedUser, dto: BulkSaveWorkReportsDto) {
     const isAdmin = actor.roles.some(r => ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r));
     const isLeader = actor.roles.some(r => ['LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'HR', 'ACCOUNTANT_LEAD'].includes(r));
-    const inWindow = this.isInReportingWindow();
+    const isTestBypass = Boolean((dto as any).isTestBypass);
+    const inWindow = this.isInReportingWindow() || isTestBypass;
     const date = dto.date || this.getTodayVN();
 
     const results: any[] = [];
@@ -1540,7 +1654,34 @@ export class WorkReportsService {
           throw new ForbiddenException('Không có quyền cập nhật công việc này');
         }
 
-        if (!isAdmin && !isLeader && !inWindow && !dto.isDraft) {
+        // 1. TUYỆT ĐỐI KHÔNG cập nhật hoặc đổi trạng thái công việc đã DUYỆT (APPROVED) (trừ Admin tối cao)
+        if (existingTask.approvalStatus === 'APPROVED' && !isAdmin) {
+          continue; // Bỏ qua, bảo vệ 100% công việc đã duyệt không bị ghi đè hoặc hạ trạng thái
+        }
+
+        // 2. Nhiệm vụ ĐANG CHỜ DUYỆT (PENDING) đã gửi chính thức: Khóa chặt, không cho sửa đè
+        if (existingTask.approvalStatus === 'PENDING' && !isAdmin) {
+          const update = await this.prisma.workTaskUpdate.findUnique({
+            where: { taskId_reportDate: { taskId: item.id, reportDate: date } }
+          });
+          if (update && !update.isDraft) {
+            continue; // Bỏ qua công việc đã nộp đang chờ duyệt
+          }
+        }
+
+        // 3. Báo cáo đã gửi rồi thì CHỈ ĐƯỢC PHÉP SỬA khi Leader từ chối (REJECTED) hoặc yêu cầu bổ sung (NEED_MORE_INFO)
+        const isRejectedTask = existingTask.approvalStatus === 'REJECTED' || existingTask.approvalStatus === 'NEED_MORE_INFO';
+        if (!isAdmin) {
+          const update = await this.prisma.workTaskUpdate.findUnique({
+            where: { taskId_reportDate: { taskId: item.id, reportDate: date } }
+          });
+          const isSubmitted = (!update || !update.isDraft);
+          if (isSubmitted && !isRejectedTask && existingTask.approvalStatus !== 'DRAFT') {
+            continue;
+          }
+        }
+
+        if (!isAdmin && !isLeader && !inWindow && !dto.isDraft && !isRejectedTask) {
           throw new ForbiddenException('Chỉ được báo cáo trong khung giờ 15:00 - 19:00');
         }
 

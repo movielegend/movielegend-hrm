@@ -56,7 +56,7 @@ const ORDERED_TABLES = [
 ];
 
 async function importDump() {
-  const dumpPath = path.resolve(__dirname, '../../../movielegend_hrm_export_2026-10-08T07-51-47.json');
+  const dumpPath = process.argv[2] ? path.resolve(process.argv[2]) : path.resolve(__dirname, '../../../movielegend_hrm_export_2026-10-08T07-51-47.json');
   console.log('Reading dump file from:', dumpPath);
   
   if (!fs.existsSync(dumpPath)) {

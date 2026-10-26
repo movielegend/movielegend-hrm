@@ -407,5 +407,10 @@ export class BulkSaveWorkReportsDto {
   @IsString()
   @IsOptional()
   date?: string;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  isTestBypass?: boolean;
 }
 

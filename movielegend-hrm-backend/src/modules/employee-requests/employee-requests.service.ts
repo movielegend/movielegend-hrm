@@ -21,6 +21,7 @@ import {
   FulfillPurchaseByHrDto,
   RequestCancelCompensatoryDto,
   DecideCancelCompensatoryDto,
+  ConfirmReceiptDto,
 } from './dto/employee-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -665,7 +666,11 @@ export class EmployeeRequestsService {
         EmployeeRequestType.OVERTIME,
         EmployeeRequestType.EQUIPMENT,
         EmployeeRequestType.OTHER,
-        EmployeeRequestType.PURCHASE, // HR quản lý và duyệt thẩm định / cấp STK cho đề xuất mua sắm
+        EmployeeRequestType.PURCHASE,
+        EmployeeRequestType.LATE_ARRIVAL,
+        EmployeeRequestType.EARLY_LEAVE,
+        EmployeeRequestType.SHIFT_REGISTRATION,
+        EmployeeRequestType.SHIFT_SWAP,
       ];
 
       if (departmentId) {
@@ -781,6 +786,52 @@ export class EmployeeRequestsService {
     });
 
     if (!request) {
+      const ot = await this.prisma.otReport.findUnique({
+        where: { id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              userCode: true,
+              phone: true,
+              email: true,
+              profile: {
+                select: {
+                  fullName: true,
+                  avatarUrl: true,
+                  position: { select: { name: true } },
+                },
+              },
+            },
+          },
+          department: { select: { id: true, name: true, leaderUserId: true } },
+          photos: { include: { file: true } },
+        },
+      });
+      if (ot) {
+        return {
+          id: ot.id,
+          userId: ot.userId,
+          departmentId: ot.departmentId,
+          type: EmployeeRequestType.OVERTIME,
+          title: `Báo cáo OT Ca Live • ${ot.otDate ? moment.tz(ot.otDate, 'Asia/Ho_Chi_Minh').format('DD/MM/YYYY') : ''}`,
+          content: ot.reason || 'Báo cáo làm thêm ca Live',
+          amount: null,
+          status: ot.status === 'APPROVED' ? EmployeeRequestStatus.APPROVED : ot.status === 'REJECTED' ? EmployeeRequestStatus.REJECTED : EmployeeRequestStatus.PENDING,
+          attachmentMetadata: {
+            isLiveOt: true,
+            otReportId: ot.id,
+            otDate: ot.otDate,
+            proposedPercent: ot.proposedPercent,
+            validOtMinutes: ot.validOtMinutes,
+            photos: ot.photos?.map((p) => p.file?.fileUrl || (p.file as any)?.url) || [],
+          },
+          user: ot.user,
+          department: ot.department,
+          createdAt: ot.createdAt,
+          updatedAt: ot.updatedAt,
+        } as any;
+      }
       throw notFound('REQUEST_NOT_FOUND', 'Yêu cầu không tồn tại');
     }
 
@@ -2342,6 +2393,78 @@ export class EmployeeRequestsService {
     });
   }
 
+
+  async confirmReceipt(id: string, payload: ConfirmReceiptDto, actor: AuthenticatedUser) {
+    const request = await this.prisma.employeeRequest.findUnique({
+      where: { id },
+      include: {
+        user: { select: { profile: { select: { fullName: true } } } },
+        department: true,
+      },
+    });
+    if (!request) throw notFound('EMPLOYEE_REQUEST_NOT_FOUND', 'Không tìm thấy yêu cầu nhân viên');
+    if (request.type !== EmployeeRequestType.PURCHASE) {
+      throw badRequest('INVALID_TYPE', 'Chức năng xác nhận nhận hàng chỉ áp dụng cho Đề xuất mua sắm (PURCHASE).');
+    }
+
+    const isOwner = request.userId === actor.userId;
+    const isGlobalAdmin = (actor.roles.includes('ADMIN') && !this.scope.isRegionAdmin(actor)) || this.scope.isGlobalAdmin(actor);
+    const isHr = await this.isHrActor(actor);
+    if (!isOwner && !isGlobalAdmin && !isHr) {
+      throw forbidden('FORBIDDEN', 'Chỉ người đề xuất mua hàng hoặc HR mới có quyền xác nhận nhận hàng.');
+    }
+
+    const currentMeta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
+      ? { ...(request.attachmentMetadata as Record<string, any>) }
+      : {};
+
+    const receiptStatus = payload.confirmed ? 'CONFIRMED' : 'REJECTED';
+    const existingSteps = Array.isArray(currentMeta.approvalSteps) ? currentMeta.approvalSteps : [];
+    const actorProfile = await this.prisma.employeeProfile.findUnique({ where: { userId: actor.userId } });
+    const actorName = actorProfile?.fullName || 'Người nhận';
+
+    const newStep = {
+      stage: 'RECEIPT_CONFIRMATION',
+      action: receiptStatus === 'CONFIRMED' ? 'RECEIPT_CONFIRMED' : 'RECEIPT_REJECTED',
+      actorId: actor.userId,
+      actorName,
+      note: payload.note?.trim() || (payload.confirmed ? 'Đã nhận đủ hàng hóa' : 'Từ chối nhận hàng'),
+      at: new Date().toISOString(),
+    };
+
+    const updatedMeta = {
+      ...currentMeta,
+      receiptStatus,
+      receiptNote: payload.note?.trim(),
+      receiptConfirmedAt: new Date().toISOString(),
+      receiptConfirmedBy: actor.userId,
+      receiptConfirmedByName: actorName,
+      approvalSteps: [...existingSteps, newStep],
+    };
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.employeeRequest.update({
+        where: { id },
+        data: {
+          attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
+        },
+      });
+
+      const hrUserIds = await this.findHrUserIds(tx);
+      if (hrUserIds.length > 0) {
+        const notif = await this.notifications.createForUsers(tx, hrUserIds, {
+          type: NotificationType.SYSTEM,
+          title: payload.confirmed ? 'Nhân viên đã nhận hàng' : 'Nhân viên từ chối nhận hàng',
+          body: `${actorName} ${payload.confirmed ? 'đã xác nhận nhận đủ hàng' : 'đã từ chối nhận hàng'} cho đơn "${request.title}".${payload.note ? ` Ghi chú: ${payload.note}` : ''}`,
+          metadata: { requestId: id, receiptStatus },
+        });
+        if (notif) this.notifications.emitCreated(notif);
+      }
+
+      return updated;
+    });
+  }
+
   private departmentFilter(
     requestedDepartmentId: string | undefined,
     visibleDepartmentIds: string[] | null,
@@ -2581,7 +2704,8 @@ export class EmployeeRequestsService {
 
   async exportDailyTransactions(query: ExportTransactionsQueryDto, actor: AuthenticatedUser) {
     const isAccountingLead = await this.isAccountingLeaderOnly(actor);
-    if (!isAccountingLead) {
+    const isGlobalAdmin = (actor.roles.includes('ADMIN') && !this.scope.isRegionAdmin(actor)) || this.scope.isGlobalAdmin(actor);
+    if (!isAccountingLead && !isGlobalAdmin) {
       throw forbidden(
         'FINANCIAL_EXPORT_ACCOUNTANT_LEAD_ONLY',
         'Chỉ có duy nhất Trưởng phòng Kế toán mới có quyền xuất Excel tài chính.',
