@@ -427,9 +427,10 @@ export class DailyReportsService {
         progress: 100,
         notes: m.notes || m.note || '',
         obstacles: m.obstacles || '',
-        supportRequest: m.supportRequest || '',
         approvalStatus: m.approvalStatus || 'PENDING',
         approvalNote: m.approvalNote || null,
+        selfRating: m.selfRating ?? 5,
+        attachments: m.attachments || [],
         isSelected: true,
       }));
 
@@ -452,6 +453,8 @@ export class DailyReportsService {
         supportRequest: m.supportRequest || '',
         approvalStatus: m.approvalStatus || 'PENDING',
         approvalNote: m.approvalNote || null,
+        selfRating: m.selfRating ?? 5,
+        attachments: m.attachments || [],
       }));
 
     const report = await this.prisma.dailyReport.upsert({
@@ -2220,8 +2223,10 @@ export class DailyReportsService {
         if (!deptId) continue;
         const isDraft = r.status === 'DRAFT';
 
-        // 1. Sync completedTasks
         const completed = Array.isArray(r.completedTasks) ? r.completedTasks : [];
+        const inProgress = Array.isArray(r.inProgressTasks) ? r.inProgressTasks : [];
+
+        // 1. Sync completedTasks
         for (const t of completed as any[]) {
           if (!t || !t.title || t.isSelected === false) continue;
           await this.upsertTaskFromReportItem({
@@ -2240,14 +2245,17 @@ export class DailyReportsService {
             obstacles: t.obstacles || null,
             supportRequest: t.supportRequest || null,
             selfRating: t.selfRating ?? r.selfRating ?? 5,
-            attachments: t.attachments || [],
+            attachments: (Array.isArray(t.attachments) && t.attachments.length > 0)
+              ? t.attachments
+              : ((completed.length + inProgress.length <= 1 && Array.isArray(r.attachments) && r.attachments.length > 0)
+                  ? r.attachments
+                  : []),
             reportDate: date,
             isDraft,
           });
         }
 
         // 2. Sync inProgressTasks
-        const inProgress = Array.isArray(r.inProgressTasks) ? r.inProgressTasks : [];
         for (const t of inProgress as any[]) {
           if (!t || !t.title) continue;
           await this.upsertTaskFromReportItem({
@@ -2266,7 +2274,11 @@ export class DailyReportsService {
             obstacles: t.obstacles || null,
             supportRequest: t.supportRequest || null,
             selfRating: t.selfRating ?? r.selfRating ?? 5,
-            attachments: t.attachments || [],
+            attachments: (Array.isArray(t.attachments) && t.attachments.length > 0)
+              ? t.attachments
+              : ((completed.length + inProgress.length <= 1 && Array.isArray(r.attachments) && r.attachments.length > 0)
+                  ? r.attachments
+                  : []),
             reportDate: date,
             isDraft,
           });
@@ -2292,8 +2304,8 @@ export class DailyReportsService {
             notes: m.notes || m.note || null,
             obstacles: m.obstacles || null,
             supportRequest: m.supportRequest || null,
-            selfRating: r.selfRating ?? 5,
-            attachments: [],
+            selfRating: m.selfRating ?? r.selfRating ?? 5,
+            attachments: m.attachments || [],
             reportDate: date,
             isDraft,
             metricName: m.name,
