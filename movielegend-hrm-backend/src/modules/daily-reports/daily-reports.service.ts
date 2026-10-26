@@ -1637,8 +1637,15 @@ export class DailyReportsService {
       where: { userId_reportDate: { userId, reportDate } }
     });
 
-    if (report && report.status === 'REVIEWED' && !isAdmin) {
-      throw new ForbiddenException('Báo cáo này đã được phê duyệt, Leader không thể yêu cầu làm lại.');
+    if (report && report.status === 'REVIEWED') {
+      throw new ForbiddenException('Báo cáo này đã được phê duyệt, không thể yêu cầu làm lại.');
+    }
+
+    const dayTasks = await this.prisma.workTask.findMany({
+      where: { reportDate, userId }
+    });
+    if (dayTasks.length > 0 && dayTasks.every(t => t.approvalStatus === 'APPROVED')) {
+      throw new ForbiddenException('Tất cả công việc trong ngày đã được phê duyệt, không thể yêu cầu làm lại.');
     }
 
     const revisionNote = reason || 'Trưởng phòng / Admin yêu cầu làm lại báo cáo';
@@ -1656,7 +1663,11 @@ export class DailyReportsService {
     }
 
     await this.prisma.workTaskUpdate.updateMany({
-      where: { reportDate, task: { userId } },
+      where: {
+        reportDate,
+        task: { userId },
+        approvalStatus: { not: 'APPROVED' }
+      },
       data: {
         approvalStatus: 'NEED_MORE_INFO',
         approvalNote: revisionNote,
@@ -1667,7 +1678,11 @@ export class DailyReportsService {
     });
 
     await this.prisma.workTask.updateMany({
-      where: { reportDate, userId },
+      where: {
+        reportDate,
+        userId,
+        approvalStatus: { not: 'APPROVED' }
+      },
       data: {
         approvalStatus: 'NEED_MORE_INFO'
       }
