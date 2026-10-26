@@ -456,46 +456,57 @@ export class ShiftAssignmentsService {
       await this.scope.assertDepartmentAccessAsync(actor, dId);
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      let count = 0;
-      for (const item of dto.items) {
-        await this.scope.assertUserInDepartment(item.userId, item.departmentId);
-        const workDate = new Date(item.workDate);
+    // Kiểm tra quyền user thuộc phòng ban bên ngoài transaction và loại bỏ trùng lặp
+    const userDeptPairs = Array.from(
+      new Set(dto.items.map((i) => `${i.userId}:::${i.departmentId}`))
+    );
+    for (const pair of userDeptPairs) {
+      const [uId, dId] = pair.split(':::');
+      await this.scope.assertUserInDepartment(uId, dId);
+    }
 
-        const existing = await tx.shiftAssignment.findUnique({
-          where: { userId_workDate: { userId: item.userId, workDate } },
-        });
+    return this.prisma.$transaction(
+      async (tx) => {
+        let count = 0;
+        for (const item of dto.items) {
+          const workDate = new Date(item.workDate);
 
-        if (existing) {
-          const checkedIn = await tx.attendanceRecord.findFirst({
-            where: { userId: item.userId, workDate },
+          const existing = await tx.shiftAssignment.findUnique({
+            where: { userId_workDate: { userId: item.userId, workDate } },
           });
-          if (!checkedIn) {
-            await tx.shiftAssignment.update({
-              where: { id: existing.id },
+
+          if (existing) {
+            const checkedIn = await tx.attendanceRecord.findFirst({
+              where: { userId: item.userId, workDate },
+            });
+            if (!checkedIn) {
+              await tx.shiftAssignment.update({
+                where: { id: existing.id },
+                data: {
+                  departmentId: item.departmentId,
+                  shiftId: item.shiftId,
+                  assignedByUserId: actor.userId,
+                },
+              });
+              count++;
+            }
+          } else {
+            await tx.shiftAssignment.create({
               data: {
+                userId: item.userId,
                 departmentId: item.departmentId,
                 shiftId: item.shiftId,
+                workDate,
                 assignedByUserId: actor.userId,
               },
             });
             count++;
           }
-        } else {
-          await tx.shiftAssignment.create({
-            data: {
-              userId: item.userId,
-              departmentId: item.departmentId,
-              shiftId: item.shiftId,
-              workDate,
-              assignedByUserId: actor.userId,
-            },
-          });
-          count++;
         }
-      }
-      return { count };
-    });
+        return { count };
+      },
+      { timeout: 30000, maxWait: 10000 }
+    );
   }
 }
 
