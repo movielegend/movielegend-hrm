@@ -454,7 +454,8 @@ export class AttendanceReportService {
                 lateMins += Number(r.lateMinutes);
               }
               if (r.latePenaltyAmount !== null && r.latePenaltyAmount !== undefined) {
-                lateDeduction += Number(r.latePenaltyAmount);
+                const isAutoMiss = r.notes?.toLowerCase().includes('quên check-out') || r.notes?.toLowerCase().includes('đóng ca');
+                if (!isAutoMiss) lateDeduction += Number(r.latePenaltyAmount);
               }
             }
 
@@ -463,7 +464,7 @@ export class AttendanceReportService {
               lateDeduction = calculateCompanyLatePenalty(lateMins).amount;
             }
 
-            if (hasApprovedLateAdj) {
+            if (hasApprovedLateAdj || isMissCheckout) {
               lateDeduction = 0;
             }
 
@@ -547,7 +548,8 @@ export class AttendanceReportService {
             } else {
               attendance = record.latePenaltyWorkDays !== null ? Number(record.latePenaltyWorkDays) : (record.isUnplannedOt ? 0 : 1);
             }
-            lateDeduction = record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0;
+            const isAutoMiss = isMissCheckout || record.notes?.toLowerCase().includes('quên check-out') || record.notes?.toLowerCase().includes('đóng ca');
+            lateDeduction = isAutoMiss ? 0 : (record.latePenaltyAmount !== null ? Number(record.latePenaltyAmount) : 0);
             lateMins = record.lateMinutes !== null ? Number(record.lateMinutes) : 0;
             if (lateMins > 0 && lateDeduction === 0 && !hasApprovedLateAdj) {
               lateDeduction = calculateCompanyLatePenalty(lateMins).amount;

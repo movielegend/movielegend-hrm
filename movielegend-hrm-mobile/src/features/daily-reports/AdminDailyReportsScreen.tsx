@@ -21,6 +21,8 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import {
   useAdminReports,
   useReviewDailyReport,
+  useRejectDailyReport,
+  useRejectDailyReportTask,
 } from '../../hooks/useDailyReports';
 import { useDepartments } from '../../hooks/useDepartments';
 import { useAuth } from '../../providers/AuthProvider';
@@ -159,6 +161,15 @@ export function AdminDailyReportsScreen() {
 
   // Review mutation
   const reviewMutation = useReviewDailyReport(activeReport?.id || '');
+  const rejectReportMutation = useRejectDailyReport(activeReport?.id || '');
+  const rejectTaskMutation = useRejectDailyReportTask(activeReport?.id || '');
+
+  // Reject Modal State
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [rejectType, setRejectType] = useState<'REPORT' | 'TASK'>('REPORT');
+  const [rejectTarget, setRejectTarget] = useState<{ id?: string; title: string; taskId?: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [isSubmittingReject, setIsSubmittingReject] = useState(false);
 
   // Reset review form when activeReport changes
   useEffect(() => {
@@ -231,6 +242,100 @@ export function AdminDailyReportsScreen() {
     }
   };
 
+  const handleOpenRejectReport = () => {
+    if (!activeReport) return;
+    if (activeReport.status === 'REJECTED') {
+      Alert.alert('Thông báo', 'Báo cáo này đã được từ chối trước đó rồi, không thể từ chối lại.');
+      return;
+    }
+    setRejectType('REPORT');
+    setRejectTarget({
+      title: 'Báo cáo ngày ' + new Date(activeReport.reportDate).toLocaleDateString('vi-VN'),
+    });
+    setRejectReason('');
+    setRejectModalVisible(true);
+  };
+
+  const handleOpenRejectTask = (task: { taskId?: string; title: string; approvalStatus?: string }) => {
+    if (task.approvalStatus === 'REJECTED') {
+      Alert.alert('Thông báo', `Nhiệm vụ "${task.title}" đã được từ chối trước đó rồi.`);
+      return;
+    }
+    setRejectType('TASK');
+    setRejectTarget(task);
+    setRejectReason('');
+    setRejectModalVisible(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!activeReport || !activeReport.id) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      Alert.alert('Thông báo', 'Vui lòng nhập lý do từ chối để nhân sự chỉnh sửa lại.');
+      return;
+    }
+
+    setIsSubmittingReject(true);
+    try {
+      if (rejectType === 'REPORT') {
+        await rejectReportMutation.mutateAsync(reason);
+        setActiveReport((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'REJECTED',
+                adminReview: reason,
+              }
+            : null
+        );
+        void reportsQuery.refetch();
+        setRejectModalVisible(false);
+        Alert.alert('Thành công', 'Đã từ chối báo cáo. Nhân sự sẽ nhận được thông báo để chỉnh sửa lại.');
+      } else if (rejectType === 'TASK' && rejectTarget) {
+        await rejectTaskMutation.mutateAsync({
+          taskId: rejectTarget.taskId,
+          taskTitle: rejectTarget.title,
+          reason,
+        });
+
+        setActiveReport((prev) => {
+          if (!prev) return null;
+          const markRejected = (list: any[]) => {
+            if (!Array.isArray(list)) return list;
+            return list.map((item) => {
+              const matchId = rejectTarget.taskId && (item.taskId === rejectTarget.taskId || item.id === rejectTarget.taskId);
+              const matchTitle = item.title === rejectTarget.title || item.name === rejectTarget.title;
+              if (matchId || matchTitle) {
+                return {
+                  ...item,
+                  approvalStatus: 'REJECTED',
+                  approvalNote: reason,
+                };
+              }
+              return item;
+            });
+          };
+
+          return {
+            ...prev,
+            metrics: markRejected(prev.metrics as any[]),
+            completedTasks: markRejected(prev.completedTasks as any[]),
+            inProgressTasks: markRejected(prev.inProgressTasks as any[]),
+          };
+        });
+
+        void reportsQuery.refetch();
+        setRejectModalVisible(false);
+        Alert.alert('Thành công', 'Đã từ chối nhiệm vụ: ' + rejectTarget.title);
+      }
+    } catch (err: any) {
+      console.error('Reject error:', err);
+      Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể thực hiện từ chối');
+    } finally {
+      setIsSubmittingReject(false);
+    }
+  };
+
   // -------------------------------------------------------------
   // RENDER DETAIL VIEW
   // -------------------------------------------------------------
@@ -261,22 +366,64 @@ export function AdminDailyReportsScreen() {
 
             <View style={styles.detailTitleRow}>
               <Text style={styles.detailNameText}>{memberName}</Text>
-              <View
-                style={[
-                  styles.badgePill,
-                  isReviewed ? styles.badgePillDone : isSubmitted ? styles.badgePillPending : styles.badgePillDraft,
-                ]}
-              >
-                <Text
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View
                   style={[
-                    styles.badgePillText,
-                    isReviewed ? styles.badgePillDoneText : isSubmitted ? styles.badgePillPendingText : styles.badgePillDraftText,
+                    styles.badgePill,
+                    activeReport.status === 'REJECTED'
+                      ? styles.badgePillRejected
+                      : isReviewed
+                      ? styles.badgePillDone
+                      : isSubmitted
+                      ? styles.badgePillPending
+                      : styles.badgePillDraft,
                   ]}
                 >
-                  {isReviewed ? 'Đã đánh giá' : isSubmitted ? 'Chờ duyệt' : 'Bản nháp'}
-                </Text>
+                  <Text
+                    style={[
+                      styles.badgePillText,
+                      activeReport.status === 'REJECTED'
+                        ? styles.badgePillRejectedText
+                        : isReviewed
+                        ? styles.badgePillDoneText
+                        : isSubmitted
+                        ? styles.badgePillPendingText
+                        : styles.badgePillDraftText,
+                    ]}
+                  >
+                    {activeReport.status === 'REJECTED'
+                      ? 'Đã từ chối'
+                      : isReviewed
+                      ? 'Đã đánh giá'
+                      : isSubmitted
+                      ? 'Chờ duyệt'
+                      : 'Bản nháp'}
+                  </Text>
+                </View>
+
+                {activeReport.status !== 'REJECTED' && (
+                  <TouchableOpacity
+                    style={styles.reportRejectBtn}
+                    onPress={handleOpenRejectReport}
+                  >
+                    <MaterialCommunityIcons name="close-circle-outline" size={15} color="#EF4444" />
+                    <Text style={styles.reportRejectBtnText}>Từ chối báo cáo</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
+
+            {activeReport.status === 'REJECTED' && (
+              <View style={styles.reportRejectedNoticeCard}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <MaterialCommunityIcons name="alert-circle" size={18} color="#DC2626" />
+                  <Text style={styles.reportRejectedNoticeTitle}>BÁO CÁO ĐÃ BỊ TỪ CHỐI</Text>
+                </View>
+                <Text style={styles.reportRejectedNoticeText}>
+                  "{activeReport.adminReview || 'Vui lòng kiểm tra và sửa lại nội dung báo cáo.'}"
+                </Text>
+              </View>
+            )}
 
             <Text style={styles.detailRoleDateText}>
               {deptName} · {roleName} ·{' '}
@@ -360,20 +507,39 @@ export function AdminDailyReportsScreen() {
                 {(!activeReport.metrics || activeReport.metrics.length === 0) ? (
                   <Text style={styles.emptyPromptText}>Chưa có số liệu định lượng</Text>
                 ) : (
-                  activeReport.metrics.map((m, idx) => (
-                    <View key={idx} style={styles.metricItemRow}>
-                      <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={styles.metricItemName}>{m.name}</Text>
-                        {!!m.note && <Text style={styles.metricItemNote}>{m.note}</Text>}
+                  activeReport.metrics.map((m: any, idx) => {
+                    const isRejected = m.approvalStatus === 'REJECTED';
+                    return (
+                      <View key={idx} style={styles.metricItemRow}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <Text style={styles.metricItemName}>{m.name || m.title}</Text>
+                          {!!m.note && <Text style={styles.metricItemNote}>{m.note}</Text>}
+                          {isRejected && (
+                            <View style={styles.taskRejectedTag}>
+                              <MaterialCommunityIcons name="close-circle" size={13} color="#EF4444" />
+                              <Text style={styles.taskRejectedTagText}>
+                                Đã từ chối{m.approvalNote ? `: ${m.approvalNote}` : ''}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                          <Text style={styles.metricItemValue}>
+                            {m.value !== undefined && m.value !== '' ? String(m.value) : 'Chưa nhập'}
+                            {!!m.unit && m.value !== undefined && m.value !== '' ? ` ${m.unit}` : ''}
+                          </Text>
+                          {!isRejected && (
+                            <TouchableOpacity
+                              style={styles.taskRejectSmallBtn}
+                              onPress={() => handleOpenRejectTask({ taskId: m.taskId, title: m.name || m.title })}
+                            >
+                              <Text style={styles.taskRejectSmallBtnText}>✕ Từ chối</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
                       </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.metricItemValue}>
-                          {m.value !== undefined && m.value !== '' ? String(m.value) : 'Chưa nhập'}
-                          {!!m.unit && m.value !== undefined && m.value !== '' ? ` ${m.unit}` : ''}
-                        </Text>
-                      </View>
-                    </View>
-                  ))
+                    );
+                  })
                 )}
               </View>
 
@@ -388,12 +554,33 @@ export function AdminDailyReportsScreen() {
                   <Text style={styles.emptyPromptText}>Chưa có công việc hoàn thành</Text>
                 ) : (
                   <>
-                    {visibleCompleted.map((t, idx) => (
-                      <View key={idx} style={styles.simpleListItem}>
-                        <Text style={styles.simpleListItemText}>{t.title}</Text>
-                        {!!t.note && <Text style={styles.simpleListItemSub}>{t.note}</Text>}
-                      </View>
-                    ))}
+                    {visibleCompleted.map((t: any, idx) => {
+                      const isRejected = t.approvalStatus === 'REJECTED';
+                      return (
+                        <View key={idx} style={styles.simpleListItemWithAction}>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={styles.simpleListItemText}>{t.title}</Text>
+                            {!!t.note && <Text style={styles.simpleListItemSub}>{t.note}</Text>}
+                            {isRejected && (
+                              <View style={styles.taskRejectedTag}>
+                                <MaterialCommunityIcons name="close-circle" size={13} color="#EF4444" />
+                                <Text style={styles.taskRejectedTagText}>
+                                  Đã từ chối{t.approvalNote ? `: ${t.approvalNote}` : ''}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          {!isRejected && (
+                            <TouchableOpacity
+                              style={styles.taskRejectSmallBtn}
+                              onPress={() => handleOpenRejectTask({ taskId: t.taskId, title: t.title })}
+                            >
+                              <Text style={styles.taskRejectSmallBtnText}>✕ Từ chối</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    })}
 
                     {completedCount > 3 && (
                       <Pressable
@@ -421,15 +608,36 @@ export function AdminDailyReportsScreen() {
                 {inProgressCount === 0 ? (
                   <Text style={styles.emptyPromptText}>Không có công việc đang thực hiện</Text>
                 ) : (
-                  activeReport.inProgressTasks.map((t, idx) => (
-                    <View key={idx} style={styles.simpleListItem}>
-                      <Text style={styles.simpleListItemText}>{t.title}</Text>
-                      <Text style={styles.simpleListItemSub}>
-                        Dự kiến hoàn thành · {t.expectedDate || '20/09/2026'}
-                        {t.progress !== undefined ? ` (${t.progress}%)` : ''}
-                      </Text>
-                    </View>
-                  ))
+                  activeReport.inProgressTasks.map((t: any, idx) => {
+                    const isRejected = t.approvalStatus === 'REJECTED';
+                    return (
+                      <View key={idx} style={styles.simpleListItemWithAction}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <Text style={styles.simpleListItemText}>{t.title}</Text>
+                          <Text style={styles.simpleListItemSub}>
+                            Dự kiến hoàn thành · {t.expectedDate || '20/09/2026'}
+                            {t.progress !== undefined ? ` (${t.progress}%)` : ''}
+                          </Text>
+                          {isRejected && (
+                            <View style={styles.taskRejectedTag}>
+                              <MaterialCommunityIcons name="close-circle" size={13} color="#EF4444" />
+                              <Text style={styles.taskRejectedTagText}>
+                                Đã từ chối{t.approvalNote ? `: ${t.approvalNote}` : ''}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        {!isRejected && (
+                          <TouchableOpacity
+                            style={styles.taskRejectSmallBtn}
+                            onPress={() => handleOpenRejectTask({ taskId: t.taskId, title: t.title })}
+                          >
+                            <Text style={styles.taskRejectSmallBtnText}>✕ Từ chối</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })
                 )}
               </View>
             </View>
@@ -638,6 +846,16 @@ export function AdminDailyReportsScreen() {
                   >
                     <Text style={styles.secondaryLinkBtnText}>Quay lại chỉnh sửa</Text>
                   </Pressable>
+
+                  {activeReport.status !== 'REJECTED' && (
+                    <TouchableOpacity
+                      style={[styles.reportRejectBtnLarge, { marginTop: 12 }]}
+                      onPress={handleOpenRejectReport}
+                    >
+                      <MaterialCommunityIcons name="close-circle" size={18} color="#DC2626" />
+                      <Text style={styles.reportRejectBtnLargeText}>Từ chối báo cáo ngày</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
 
@@ -745,6 +963,69 @@ export function AdminDailyReportsScreen() {
           title={pdfPreviewTitle}
           onClose={() => setPdfPreviewUrl(null)}
         />
+
+        {/* Rejection Reason Modal */}
+        <Modal
+          visible={rejectModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => !isSubmittingReject && setRejectModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.rejectModalCard}>
+              <View style={styles.rejectModalHeader}>
+                <View style={styles.rejectModalIconCircle}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#EF4444" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.rejectModalTitle}>
+                    {rejectType === 'REPORT' ? 'Từ chối báo cáo ngày' : 'Từ chối nhiệm vụ'}
+                  </Text>
+                  <Text style={styles.rejectModalSub} numberOfLines={2}>
+                    {rejectTarget?.title || 'Báo cáo'}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.rejectModalInputLabel}>Lý do từ chối (bắt buộc gửi cho nhân sự):</Text>
+              <TextInput
+                style={styles.rejectModalInput}
+                multiline
+                numberOfLines={4}
+                placeholder="Nhập lý do từ chối để nhân sự biết điểm cần sửa và gửi lại..."
+                placeholderTextColor="#94A3B8"
+                value={rejectReason}
+                onChangeText={setRejectReason}
+                autoFocus
+              />
+
+              <View style={styles.rejectModalActions}>
+                <TouchableOpacity
+                  style={styles.rejectModalCancelBtn}
+                  onPress={() => setRejectModalVisible(false)}
+                  disabled={isSubmittingReject}
+                >
+                  <Text style={styles.rejectModalCancelText}>Hủy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.rejectModalConfirmBtn,
+                    (!rejectReason.trim() || isSubmittingReject) && { opacity: 0.5 },
+                  ]}
+                  onPress={handleConfirmReject}
+                  disabled={!rejectReason.trim() || isSubmittingReject}
+                >
+                  {isSubmittingReject ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.rejectModalConfirmText}>Xác nhận từ chối</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </Screen>
     );
   }
@@ -789,7 +1070,7 @@ export function AdminDailyReportsScreen() {
               <Pressable
                 key={dayItem.dateStr}
                 style={[styles.weekDayPill, active && styles.weekDayPillActive]}
-                onPress={() => setSelectedDate(dayItem.dateStr || '')}
+                onPress={() => dayItem.dateStr && setSelectedDate(dayItem.dateStr)}
               >
                 <Text style={[styles.weekDayLabel, active && styles.weekDayLabelActive]}>
                   {dayItem.label}
@@ -956,16 +1237,34 @@ export function AdminDailyReportsScreen() {
                     <View
                       style={[
                         styles.badgePill,
-                        isReviewed ? styles.badgePillDone : isSubmitted ? styles.badgePillPending : styles.badgePillDraft,
+                        report.status === 'REJECTED'
+                          ? styles.badgePillRejected
+                          : isReviewed
+                          ? styles.badgePillDone
+                          : isSubmitted
+                          ? styles.badgePillPending
+                          : styles.badgePillDraft,
                       ]}
                     >
                       <Text
                         style={[
                           styles.badgePillText,
-                          isReviewed ? styles.badgePillDoneText : isSubmitted ? styles.badgePillPendingText : styles.badgePillDraftText,
+                          report.status === 'REJECTED'
+                            ? styles.badgePillRejectedText
+                            : isReviewed
+                            ? styles.badgePillDoneText
+                            : isSubmitted
+                            ? styles.badgePillPendingText
+                            : styles.badgePillDraftText,
                         ]}
                       >
-                        {isReviewed ? 'Đã đánh giá' : isSubmitted ? 'Chờ duyệt' : 'Bản nháp'}
+                        {report.status === 'REJECTED'
+                          ? 'Đã từ chối'
+                          : isReviewed
+                          ? 'Đã đánh giá'
+                          : isSubmitted
+                          ? 'Chờ duyệt'
+                          : 'Bản nháp'}
                       </Text>
                     </View>
                   </View>
@@ -1077,6 +1376,196 @@ export function AdminDailyReportsScreen() {
 // STYLES
 // -------------------------------------------------------------
 const styles = StyleSheet.create({
+  taskRejectedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  taskRejectedTagText: {
+    fontSize: 11,
+    color: '#EF4444',
+    fontWeight: '500',
+  },
+  taskRejectSmallBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    marginTop: 4,
+  },
+  taskRejectSmallBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+  simpleListItemWithAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  reportRejectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FFF1F2',
+  },
+  reportRejectBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+  reportRejectBtnLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F87171',
+    backgroundColor: '#FEF2F2',
+  },
+  reportRejectBtnLargeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+  badgePillRejected: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#F87171',
+    borderWidth: 1,
+  },
+  badgePillRejectedText: {
+    color: '#B91C1C',
+    fontWeight: '600',
+  },
+  reportRejectedNoticeCard: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    padding: 10,
+    marginTop: 10,
+  },
+  reportRejectedNoticeTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B91C1C',
+    letterSpacing: 0.5,
+  },
+  reportRejectedNoticeText: {
+    fontSize: 13,
+    color: '#991B1B',
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  rejectModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  rejectModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  rejectModalIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  rejectModalSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  rejectModalInputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  rejectModalInput: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    backgroundColor: '#F8FAFC',
+    minHeight: 90,
+    textAlignVertical: 'top',
+  },
+  rejectModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 16,
+  },
+  rejectModalCancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  rejectModalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  rejectModalConfirmBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#DC2626',
+    minWidth: 130,
+    alignItems: 'center',
+  },
+  rejectModalConfirmText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
   // LIST HEADER
   listHeaderContainer: {
     paddingHorizontal: 4,

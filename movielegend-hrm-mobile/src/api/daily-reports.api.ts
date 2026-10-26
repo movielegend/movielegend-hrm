@@ -71,7 +71,7 @@ export interface DailyReport {
   adminReview: string | null;
   reviewedById: string | null;
   reviewedAt: string | null;
-  status: 'DRAFT' | 'SUBMITTED' | 'REVIEWED';
+  status: 'DRAFT' | 'SUBMITTED' | 'REVIEWED' | 'REJECTED';
   createdAt?: string;
   updatedAt?: string;
   user?: {
@@ -207,6 +207,19 @@ export async function fetchAdminReports(params?: {
 
 export async function reviewDailyReport(reportId: string, payload: ReviewDailyReportPayload): Promise<DailyReport> {
   const response = await apiClient.post<ApiResponse<DailyReport>>(`/daily-reports/${reportId}/review`, payload);
+  return unwrapData(response);
+}
+
+export async function rejectDailyReport(reportId: string, reason: string): Promise<DailyReport> {
+  const response = await apiClient.post<ApiResponse<DailyReport>>(`/daily-reports/${reportId}/reject`, { reason });
+  return unwrapData(response);
+}
+
+export async function rejectDailyReportTask(
+  reportId: string,
+  payload: { taskId?: string; taskTitle?: string; reason: string }
+): Promise<DailyReport> {
+  const response = await apiClient.post<ApiResponse<DailyReport>>(`/daily-reports/${reportId}/reject-task`, payload);
   return unwrapData(response);
 }
 

@@ -108,6 +108,7 @@ export class DailyReportsController {
   }
 
   @ApiOperation({ summary: 'Leader chuyển kế hoạch ngày mai của nhân viên thành Task' })
+  @Roles('LEADER', 'MANAGER', 'DEPARTMENT_HEAD', 'ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')
   @Post(':id/convert-tasks')
   convertTomorrowPlanToTasks(
     @CurrentUser() user: AuthenticatedUser,
@@ -117,8 +118,8 @@ export class DailyReportsController {
     return this.service.convertTomorrowPlanToTasks(user, id, dto);
   }
 
-  @ApiOperation({ summary: 'Admin xem danh sách báo cáo toàn công ty / toàn miền' })
-  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'HR')
+  @ApiOperation({ summary: 'Admin / Leader / HR xem danh sách báo cáo toàn công ty / toàn miền' })
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'HR', 'LEADER', 'MANAGER', 'DEPARTMENT_HEAD')
   @Get('admin')
   getAdminReports(
     @CurrentUser() user: AuthenticatedUser,
@@ -139,8 +140,8 @@ export class DailyReportsController {
     });
   }
 
-  @ApiOperation({ summary: 'Admin chấm điểm sao & nhận xét báo cáo (Single-Review Lock)' })
-  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')
+  @ApiOperation({ summary: 'Admin / Leader / HR chấm điểm sao & nhận xét báo cáo (Single-Review Lock)' })
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'HR', 'LEADER', 'MANAGER', 'DEPARTMENT_HEAD')
   @Post(':id/review')
   reviewReportByAdmin(
     @CurrentUser() user: AuthenticatedUser,
@@ -150,6 +151,27 @@ export class DailyReportsController {
     return this.service.reviewReportByAdmin(user, id, dto);
   }
 
+  @ApiOperation({ summary: 'Admin / Leader / HR từ chối toàn bộ báo cáo ngày' })
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'HR', 'LEADER', 'MANAGER', 'DEPARTMENT_HEAD')
+  @Post(':id/reject')
+  rejectReport(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: { reason: string }
+  ) {
+    return this.service.rejectReport(user, id, dto);
+  }
+
+  @ApiOperation({ summary: 'Admin / Leader / HR từ chối một nhiệm vụ cụ thể trong báo cáo' })
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'HR', 'LEADER', 'MANAGER', 'DEPARTMENT_HEAD')
+  @Post(':id/reject-task')
+  rejectTaskInReport(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: { taskId?: string; taskTitle?: string; reason: string }
+  ) {
+    return this.service.rejectTaskInReport(user, id, dto);
+  }
   @ApiOperation({ summary: 'Chấm điểm & nhận xét báo cáo ngày theo userId và ngày' })
   @Post('review-by-user-date')
   reviewReportByUserAndDate(
