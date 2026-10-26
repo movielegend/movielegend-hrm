@@ -1262,7 +1262,7 @@ export class AttendanceService {
       if (now.getTime() - record.checkInAt.getTime() > 24 * 60 * 60 * 1000) {
         await this.prisma.attendanceRecord.update({
           where: { id: record.id },
-          data: { status: AttendanceStatus.MISSING, latePenaltyAmount: 50, notes: 'Hệ thống tự động đóng ca (Quên check-out trên 24h), phạt 50' }
+          data: { status: AttendanceStatus.MISSING, latePenaltyAmount: null, notes: 'Hệ thống tự động đóng ca do quên check-out quá 24h (0 công)' }
         });
         continue;
       }
@@ -1301,7 +1301,7 @@ export class AttendanceService {
           if (timeUntilNextShift <= 90 && timeUntilNextShift > 0) {
             await this.prisma.attendanceRecord.update({
               where: { id: record.id },
-              data: { status: AttendanceStatus.MISSING, latePenaltyAmount: 15, notes: 'Hệ thống reset do quên check-out (1h30p trước ca mới), phạt 15' }
+              data: { status: AttendanceStatus.MISSING, latePenaltyAmount: null, notes: 'Hệ thống reset do quên check-out trước ca mới (0 công)' }
             });
           }
         }
