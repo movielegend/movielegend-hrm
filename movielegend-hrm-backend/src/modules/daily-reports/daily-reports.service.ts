@@ -3396,7 +3396,7 @@ export class DailyReportsService {
           continue;
         }
 
-        if (!isAdmin && !isLeader && !inWindow) {
+        if (!isAdmin && !isLeader && !inWindow && !dto.isTestBypass) {
           throw new ForbiddenException('Chỉ được tạo công việc trong khung giờ 15:00 - 19:00');
         }
 
@@ -3474,7 +3474,7 @@ export class DailyReportsService {
           throw new ForbiddenException('Không có quyền cập nhật công việc này');
         }
 
-        if (!isAdmin && !isLeader && !inWindow && !dto.isDraft) {
+        if (!isAdmin && !isLeader && !inWindow && !dto.isDraft && !dto.isTestBypass) {
           throw new ForbiddenException('Chỉ được báo cáo trong khung giờ 15:00 - 19:00');
         }
 

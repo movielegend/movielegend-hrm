@@ -256,6 +256,11 @@ export class CreateDailyReportDto {
   @IsOptional()
   @IsBoolean()
   isDraft?: boolean;
+
+  @ApiPropertyOptional({ description: 'Bỏ qua kiểm tra khung giờ báo cáo (khi test)' })
+  @IsOptional()
+  @IsBoolean()
+  isTestBypass?: boolean;
 }
 
 export class ReviewDailyReportDto {
@@ -689,4 +694,9 @@ export class BulkSaveWorkReportsDto {
   @IsString()
   @IsOptional()
   date?: string;
+
+  @ApiPropertyOptional()
+  @IsBoolean()
+  @IsOptional()
+  isTestBypass?: boolean;
 }
