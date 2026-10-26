@@ -529,8 +529,11 @@ export class TasksService {
       throw forbidden('NOT_GROUP_LEADER', 'You do not have permission to complete this task');
     }
 
+    const isManagerOrAdmin = isGlobalAdmin || isCreator || isGroupLeader || isDeptLeader;
     const isOverdue = Boolean(task.dueAt && new Date(task.dueAt) < new Date());
-    if (isOverdue) {
+    // Cho phép Quản lý / Admin / Người giao việc duyệt hoàn thành kể cả khi task đã quá hạn,
+    // hoặc khi task đang ở trạng thái Chờ duyệt (WAITING_REVIEW)
+    if (isOverdue && !isManagerOrAdmin && task.status !== TaskStatus.WAITING_REVIEW) {
       throw badRequest('TASK_OVERDUE_LOCKED', 'Công việc đã quá hạn nên đã bị khóa. Cần gia hạn công việc trước khi hoàn thành.');
     }
 
@@ -1013,7 +1016,10 @@ export class TasksService {
       (assignment.assignmentDueAt && new Date(assignment.assignmentDueAt) < new Date()) ||
       (assignment.task?.dueAt && new Date(assignment.task.dueAt) < new Date())
     );
-    if (isOverdue) {
+    // Không khóa quyền phê duyệt / nghiệm thu của Leader / Admin khi công việc đã nộp hoặc đang xét duyệt
+    const isReviewAction = status === TaskAssignmentStatus.COMPLETED || status === TaskAssignmentStatus.REJECTED;
+    const isManagerOrAdmin = this.scope.isGlobalAdmin(actor) || actor.roles.includes('ADMIN') || assignment.task.createdByUserId === actor.userId;
+    if (isOverdue && !isReviewAction && !isManagerOrAdmin && assignment.status !== TaskAssignmentStatus.WAITING_REVIEW) {
       throw badRequest('TASK_OVERDUE_LOCKED', 'Công việc đã quá hạn nên đã bị khóa. Cần gia hạn công việc trước khi phê duyệt.');
     }
 
