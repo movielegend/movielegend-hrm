@@ -90,6 +90,15 @@ export class DailyReportMetricItemDto {
   @IsOptional()
   @IsBoolean()
   isCarriedOver?: boolean;
+
+  @ApiPropertyOptional({ description: 'Tự đánh giá số sao (1-5)' })
+  @IsOptional()
+  @IsNumber()
+  selfRating?: number;
+
+  @ApiPropertyOptional({ description: 'Hình ảnh / tệp đính kèm của công việc' })
+  @IsOptional()
+  attachments?: any;
 }
 
 export class DailyReportTaskItemDto {
@@ -176,6 +185,15 @@ export class DailyReportTaskItemDto {
   @IsOptional()
   @IsBoolean()
   isSelected?: boolean;
+
+  @ApiPropertyOptional({ description: 'Tự đánh giá số sao (1-5)' })
+  @IsOptional()
+  @IsNumber()
+  selfRating?: number;
+
+  @ApiPropertyOptional({ description: 'Hình ảnh / tệp đính kèm của công việc' })
+  @IsOptional()
+  attachments?: any;
 }
 
 export class DailyReportAttachmentItemDto {
