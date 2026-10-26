@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Alert,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,6 +21,7 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import {
   useDepartmentReports,
   useConvertPlanToTasks,
+  useRequestReportRevision,
 } from '../../hooks/useDailyReports';
 import { useAuth } from '../../providers/AuthProvider';
 import { DailyReportFormScreen } from './DailyReportFormScreen';
@@ -66,6 +68,10 @@ export function LeaderDepartmentReportsScreen() {
   // Queries & Mutations
   const deptReportsQuery = useDepartmentReports(undefined, dateStr);
   const convertTasksMutation = useConvertPlanToTasks(selectedReport?.id || '');
+  const requestRevisionMutation = useRequestReportRevision();
+
+  const [revisionModalVisible, setRevisionModalVisible] = useState(false);
+  const [revisionReason, setRevisionReason] = useState('');
 
   const data = deptReportsQuery.data;
   const memberReports = data?.memberReports || [];
@@ -142,6 +148,29 @@ export function LeaderDepartmentReportsScreen() {
     }
   };
 
+  const handleConfirmRevision = async () => {
+    if (!selectedUser?.id || !selectedReport?.reportDate) return;
+    if (!revisionReason.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập lý do yêu cầu làm lại báo cáo');
+      return;
+    }
+    try {
+      await requestRevisionMutation.mutateAsync({
+        userId: selectedUser.id,
+        reportDate: selectedReport.reportDate,
+        reason: revisionReason.trim(),
+      });
+      Alert.alert('Thành công', `Đã yêu cầu ${selectedUser?.profile?.fullName || 'nhân sự'} làm lại báo cáo ngày ${selectedReport.reportDate}!`);
+      setRevisionModalVisible(false);
+      setRevisionReason('');
+      setSelectedReport(null);
+      setSelectedUser(null);
+    } catch (err: any) {
+      console.error('Revision error:', err);
+      Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu làm lại');
+    }
+  };
+
   // -------------------------------------------------------------
   // DETAIL VIEW: EMPLOYEE REPORT DETAIL (#employee-detail)
   // -------------------------------------------------------------
@@ -191,6 +220,20 @@ export function LeaderDepartmentReportsScreen() {
                 Tự đánh giá: <Text style={styles.goldStarRating}>★ {selectedReport.selfRating || 5}/5 sao</Text>
               </Text>
             </View>
+
+            {/* Nút Bắt làm lại dành cho Leader */}
+            {selectedReport.status !== 'REVIEWED' && (
+              <Pressable
+                style={styles.revisionBtn}
+                onPress={() => {
+                  setRevisionReason('');
+                  setRevisionModalVisible(true);
+                }}
+              >
+                <MaterialCommunityIcons name="backup-restore" size={18} color="#BE123C" />
+                <Text style={styles.revisionBtnText}>Bắt làm lại báo cáo</Text>
+              </Pressable>
+            )}
 
             {/* Admin Review Feedback Banner */}
             {selectedReport.status === 'REVIEWED' && (
@@ -531,6 +574,59 @@ export function LeaderDepartmentReportsScreen() {
           title={pdfPreviewTitle}
           onClose={() => setPdfPreviewUrl(null)}
         />
+
+        {/* Modal Bắt làm lại báo cáo */}
+        <Modal
+          visible={revisionModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setRevisionModalVisible(false)}
+        >
+          <View style={styles.fullscreenModalOverlayCenter}>
+            <View style={styles.revisionModalCard}>
+              <View style={styles.revisionModalHeader}>
+                <MaterialCommunityIcons name="backup-restore" size={24} color="#BE123C" />
+                <Text style={styles.revisionModalTitle}>Yêu cầu làm lại báo cáo</Text>
+              </View>
+              <Text style={styles.revisionModalSubtitle}>
+                Báo cáo ngày {selectedReport?.reportDate} của{' '}
+                <Text style={{ fontWeight: '700' }}>
+                  {selectedUser?.profile?.fullName || 'nhân sự'}
+                </Text>{' '}
+                sẽ được chuyển về trạng thái Chưa hoàn thành (Nháp) để chỉnh sửa và nộp lại.
+              </Text>
+              <TextInput
+                style={styles.revisionModalInput}
+                placeholder="Nhập lý do hoặc yêu cầu chỉnh sửa (bắt buộc)..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={3}
+                value={revisionReason}
+                onChangeText={setRevisionReason}
+              />
+              <View style={styles.revisionModalFooter}>
+                <TouchableOpacity
+                  style={styles.revisionModalCancelBtn}
+                  onPress={() => setRevisionModalVisible(false)}
+                  disabled={requestRevisionMutation.isPending}
+                >
+                  <Text style={styles.revisionModalCancelText}>Hủy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.revisionModalSubmitBtn}
+                  onPress={handleConfirmRevision}
+                  disabled={requestRevisionMutation.isPending}
+                >
+                  {requestRevisionMutation.isPending ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.revisionModalSubmitText}>Gửi yêu cầu</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </Screen>
     );
   }
@@ -1674,5 +1770,104 @@ const styles = StyleSheet.create({
   fullscreenImage: {
     width: '100%',
     height: '100%',
+  },
+
+  // REVISION REQUEST (BẮT LÀM LẠI)
+  revisionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FFE4E6',
+    borderWidth: 1,
+    borderColor: '#FDA4AF',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  revisionBtnText: {
+    color: '#BE123C',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  fullscreenModalOverlayCenter: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  revisionModalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  revisionModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  revisionModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  revisionModalSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  revisionModalInput: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 13,
+    color: '#1E293B',
+    backgroundColor: '#F8FAFC',
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  revisionModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  revisionModalCancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+  },
+  revisionModalCancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  revisionModalSubmitBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#E11D48',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 110,
+  },
+  revisionModalSubmitText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

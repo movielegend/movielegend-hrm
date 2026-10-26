@@ -214,3 +214,16 @@ export async function fetchReportById(reportId: string): Promise<DailyReport> {
   const response = await apiClient.get<ApiResponse<DailyReport>>(`/daily-reports/${reportId}`);
   return unwrapData(response);
 }
+
+export async function requestReportRevision(payload: {
+  userId: string;
+  reportDate: string;
+  reason?: string;
+}): Promise<{ ok: boolean; message: string }> {
+  const response = await apiClient.post<ApiResponse<{ ok: boolean; message: string }>>(
+    '/daily-reports/request-revision',
+    payload
+  );
+  return unwrapData(response);
+}
+

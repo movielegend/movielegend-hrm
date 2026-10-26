@@ -86,13 +86,13 @@ export function AdminDailyReportsScreen() {
   const handlePrevWeek = () => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() - 7);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    setSelectedDate(d.toISOString().split('T')[0] || '');
   };
 
   const handleNextWeek = () => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + 7);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    setSelectedDate(d.toISOString().split('T')[0] || '');
   };
 
   // Active report for Detail View (if non-null, shows Detail View; if null, shows List View)
@@ -789,7 +789,7 @@ export function AdminDailyReportsScreen() {
               <Pressable
                 key={dayItem.dateStr}
                 style={[styles.weekDayPill, active && styles.weekDayPillActive]}
-                onPress={() => setSelectedDate(dayItem.dateStr)}
+                onPress={() => setSelectedDate(dayItem.dateStr || '')}
               >
                 <Text style={[styles.weekDayLabel, active && styles.weekDayLabelActive]}>
                   {dayItem.label}
