@@ -151,8 +151,8 @@ export class DailyReportsController {
     return this.service.reviewReportByAdmin(user, id, dto);
   }
 
-  @ApiOperation({ summary: 'Admin / Leader / HR từ chối toàn bộ báo cáo ngày' })
-  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'HR', 'LEADER', 'MANAGER', 'DEPARTMENT_HEAD')
+  @ApiOperation({ summary: 'Admin: Từ chối toàn bộ báo cáo ngày' })
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')
   @Post(':id/reject')
   rejectReport(
     @CurrentUser() user: AuthenticatedUser,
@@ -162,8 +162,8 @@ export class DailyReportsController {
     return this.service.rejectReport(user, id, dto);
   }
 
-  @ApiOperation({ summary: 'Admin / Leader / HR từ chối một nhiệm vụ cụ thể trong báo cáo' })
-  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'HR', 'LEADER', 'MANAGER', 'DEPARTMENT_HEAD')
+  @ApiOperation({ summary: 'Admin: Từ chối một nhiệm vụ cụ thể trong báo cáo' })
+  @Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN')
   @Post(':id/reject-task')
   rejectTaskInReport(
     @CurrentUser() user: AuthenticatedUser,

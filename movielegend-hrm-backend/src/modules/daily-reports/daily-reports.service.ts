@@ -1466,6 +1466,17 @@ export class DailyReportsService {
       where: { userId_reportDate: { userId, reportDate } }
     });
 
+    if (report && report.reviewedById && report.reviewedById !== actor.userId && !isAdmin) {
+      const reviewer = await this.prisma.user.findUnique({
+        where: { id: report.reviewedById },
+        select: { profile: { select: { fullName: true } } }
+      });
+      const reviewerName = reviewer?.profile?.fullName || 'Quản lý khác';
+      throw new ForbiddenException(
+        `Báo cáo này đã được ${reviewerName} đánh giá trước đó, bạn không thể thay đổi.`
+      );
+    }
+
     if (!report) {
       const member = await this.prisma.departmentMember.findFirst({
         where: { userId }
@@ -1626,6 +1637,10 @@ export class DailyReportsService {
       where: { userId_reportDate: { userId, reportDate } }
     });
 
+    if (report && report.status === 'REVIEWED' && !isAdmin) {
+      throw new ForbiddenException('Báo cáo này đã được phê duyệt, Leader không thể yêu cầu làm lại.');
+    }
+
     const revisionNote = reason || 'Trưởng phòng / Admin yêu cầu làm lại báo cáo';
 
     if (report) {
@@ -1748,10 +1763,7 @@ export class DailyReportsService {
       ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r)
     );
     if (!isGlobalAdmin) {
-      const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
-      if (visibleDepts !== null && !visibleDepts.includes(report.departmentId)) {
-        throw new ForbiddenException('Bạn chỉ có quyền từ chối báo cáo thuộc phòng ban mình phụ trách');
-      }
+      throw new ForbiddenException('Chỉ Quản trị viên (Admin) mới có quyền từ chối báo cáo');
     }
 
     // Cập nhật trạng thái báo cáo thành REJECTED
@@ -1869,10 +1881,7 @@ export class DailyReportsService {
       ['ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'].includes(r)
     );
     if (!isGlobalAdmin) {
-      const visibleDepts = await this.scopes.getVisibleDepartmentIds(actor);
-      if (visibleDepts !== null && !visibleDepts.includes(report.departmentId)) {
-        throw new ForbiddenException('Bạn chỉ có quyền từ chối báo cáo thuộc phòng ban mình phụ trách');
-      }
+      throw new ForbiddenException('Chỉ Quản trị viên (Admin) mới có quyền từ chối nhiệm vụ');
     }
 
     // 1. Cập nhật task trong WorkTask và WorkTaskUpdate nếu có taskId hoặc tìm theo title
@@ -1890,6 +1899,14 @@ export class DailyReportsService {
     }
 
     if (targetTaskId) {
+      const existingTask = await this.prisma.workTask.findUnique({
+        where: { id: targetTaskId },
+        select: { id: true, approvalStatus: true },
+      });
+      if (existingTask?.approvalStatus === 'APPROVED' && !isGlobalAdmin) {
+        throw new ForbiddenException('Nhiệm vụ này đã được phê duyệt, Leader không thể từ chối.');
+      }
+
       await this.prisma.workTask.update({
         where: { id: targetTaskId },
         data: { approvalStatus: 'REJECTED' },
@@ -2094,20 +2111,31 @@ export class DailyReportsService {
         task = await this.prisma.workTask.findUnique({ where: { id: data.taskId } });
       }
       if (!task) {
-        task = await this.prisma.workTask.findFirst({
+        const rawBase = (data.metricName || data.title).toLowerCase().replace(/:\s*$/, '').split(':')[0].trim();
+        const existingTasks = await this.prisma.workTask.findMany({
           where: {
             userId: data.userId,
             reportDate: data.reportDate,
-            OR: [
-              { title: data.title },
-              ...(data.metricName ? [{ title: { startsWith: data.metricName } }] : []),
-            ],
             isDeleted: false,
           }
+        });
+        task = existingTasks.find(t => {
+          const tTitle = (t.title || '').trim().toLowerCase();
+          const tBase = tTitle.replace(/:\s*$/, '').split(':')[0].trim();
+          return (
+            tTitle === data.title.trim().toLowerCase() ||
+            tBase === rawBase ||
+            (rawBase.length > 3 && tBase.startsWith(rawBase)) ||
+            (tBase.length > 3 && rawBase.startsWith(tBase))
+          );
         });
       }
 
       if (task) {
+        // Tuyệt đối không ghi đè nhiệm vụ đã được Leader/Admin DUYỆT
+        if (task.approvalStatus === 'APPROVED') {
+          return task;
+        }
         const taskUpdateData: any = {
           title: data.title,
           category: data.category || task.category,
@@ -2223,13 +2251,65 @@ export class DailyReportsService {
         if (!deptId) continue;
         const isDraft = r.status === 'DRAFT';
 
+        const syncedTaskIds = new Set<string>();
+        const syncedBaseTitles = new Set<string>();
+
+        // 1. Sync metrics trước (danh sách công việc chuẩn hóa nhất)
+        const metrics = Array.isArray(r.metrics) ? r.metrics : [];
+        for (const m of metrics as any[]) {
+          if (!m) continue;
+          const taskName = (m.name || m.title || '').trim();
+          if (!taskName) continue;
+
+          const valStr = (m.value !== undefined && m.value !== null && String(m.value).trim() !== '')
+            ? `: ${m.value} ${m.unit || ''}`.trim()
+            : '';
+          const cleanName = taskName.replace(/:\s*$/, '');
+          const title = valStr ? `${cleanName}: ${valStr}` : taskName;
+          const status = m.status === 'DONE' ? 'DONE' : (m.status || 'IN_PROGRESS');
+          const progress = status === 'DONE' ? 100 : (m.progress ?? (status === 'NOT_STARTED' ? 0 : 50));
+
+          const task = await this.upsertTaskFromReportItem({
+            taskId: m.taskId,
+            userId,
+            departmentId: deptId,
+            category: m.category || 'Vận hành',
+            title,
+            description: m.description || null,
+            taskType: m.taskType || 'THEO_KE_HOACH',
+            priority: m.priority || 'MEDIUM',
+            deadline: m.deadline || null,
+            workStatus: status,
+            progress,
+            notes: m.notes || m.note || null,
+            obstacles: m.obstacles || null,
+            supportRequest: m.supportRequest || null,
+            selfRating: m.selfRating ?? r.selfRating ?? 5,
+            attachments: m.attachments || [],
+            reportDate: date,
+            isDraft,
+            metricName: cleanName,
+          });
+
+          if (task?.id) syncedTaskIds.add(task.id);
+          if (m.taskId) syncedTaskIds.add(m.taskId);
+          const baseKey = cleanName.toLowerCase().split(':')[0].trim();
+          if (baseKey) syncedBaseTitles.add(baseKey);
+          syncedBaseTitles.add(title.toLowerCase().trim());
+        }
+
         const completed = Array.isArray(r.completedTasks) ? r.completedTasks : [];
         const inProgress = Array.isArray(r.inProgressTasks) ? r.inProgressTasks : [];
 
-        // 1. Sync completedTasks
+        // 2. Sync completedTasks (chỉ các task chưa có trong metrics)
         for (const t of completed as any[]) {
           if (!t || !t.title || t.isSelected === false) continue;
-          await this.upsertTaskFromReportItem({
+          const cleanTitle = t.title.trim().toLowerCase();
+          const baseTitle = cleanTitle.replace(/:\s*$/, '').split(':')[0].trim();
+          if (t.taskId && syncedTaskIds.has(t.taskId)) continue;
+          if (syncedBaseTitles.has(cleanTitle) || syncedBaseTitles.has(baseTitle)) continue;
+
+          const task = await this.upsertTaskFromReportItem({
             taskId: t.taskId,
             userId,
             departmentId: deptId,
@@ -2253,12 +2333,21 @@ export class DailyReportsService {
             reportDate: date,
             isDraft,
           });
+
+          if (task?.id) syncedTaskIds.add(task.id);
+          if (baseTitle) syncedBaseTitles.add(baseTitle);
+          syncedBaseTitles.add(cleanTitle);
         }
 
-        // 2. Sync inProgressTasks
+        // 3. Sync inProgressTasks (chỉ các task chưa có trong metrics)
         for (const t of inProgress as any[]) {
           if (!t || !t.title) continue;
-          await this.upsertTaskFromReportItem({
+          const cleanTitle = t.title.trim().toLowerCase();
+          const baseTitle = cleanTitle.replace(/:\s*$/, '').split(':')[0].trim();
+          if (t.taskId && syncedTaskIds.has(t.taskId)) continue;
+          if (syncedBaseTitles.has(cleanTitle) || syncedBaseTitles.has(baseTitle)) continue;
+
+          const task = await this.upsertTaskFromReportItem({
             taskId: t.taskId,
             userId,
             departmentId: deptId,
@@ -2282,34 +2371,10 @@ export class DailyReportsService {
             reportDate: date,
             isDraft,
           });
-        }
 
-        // 3. Sync metrics
-        const metrics = Array.isArray(r.metrics) ? r.metrics : [];
-        for (const m of metrics as any[]) {
-          if (!m || !m.name) continue;
-          const status = m.status === 'DONE' ? 'DONE' : 'IN_PROGRESS';
-          const progress = status === 'DONE' ? 100 : (m.progress ?? 50);
-          await this.upsertTaskFromReportItem({
-            userId,
-            departmentId: deptId,
-            category: m.category || 'Vận hành',
-            title: m.name + (m.value !== undefined ? `: ${m.value} ${m.unit || ''}` : ''),
-            description: m.description || null,
-            taskType: m.taskType || 'THEO_KE_HOACH',
-            priority: m.priority || 'MEDIUM',
-            deadline: m.deadline || null,
-            workStatus: status,
-            progress,
-            notes: m.notes || m.note || null,
-            obstacles: m.obstacles || null,
-            supportRequest: m.supportRequest || null,
-            selfRating: m.selfRating ?? r.selfRating ?? 5,
-            attachments: m.attachments || [],
-            reportDate: date,
-            isDraft,
-            metricName: m.name,
-          });
+          if (task?.id) syncedTaskIds.add(task.id);
+          if (baseTitle) syncedBaseTitles.add(baseTitle);
+          syncedBaseTitles.add(cleanTitle);
         }
       }
     } catch (err) {
@@ -2792,6 +2857,14 @@ export class DailyReportsService {
       include: { task: true }
     });
     if (!update || update.taskId !== taskId) throw new NotFoundException('Không tìm thấy bản cập nhật');
+
+    if (!isAdmin && dto.approvalStatus === 'REJECTED') {
+      throw new ForbiddenException('Chỉ Quản trị viên (Admin) mới có quyền từ chối nhiệm vụ');
+    }
+
+    if (!isAdmin && update.approvalStatus === 'APPROVED' && dto.approvalStatus !== 'APPROVED') {
+      throw new ForbiddenException('Nhiệm vụ này đã được phê duyệt, Leader không thể thay đổi.');
+    }
 
     if (!isAdmin && isLeader && update.task.departmentId) {
       const allowed = await this.scopes.canAccessDepartment(actor, update.task.departmentId);
