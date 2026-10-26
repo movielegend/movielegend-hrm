@@ -8,6 +8,8 @@ import {
   convertPlanToTasks,
   fetchAdminReports,
   reviewDailyReport,
+  rejectDailyReport,
+  rejectDailyReportTask,
   fetchReportById,
   type SaveDailyReportPayload,
   type ReviewDailyReportPayload,
@@ -97,6 +99,31 @@ export function useReviewDailyReport(reportId: string) {
     mutationFn: (payload: ReviewDailyReportPayload) => reviewDailyReport(reportId, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: dailyReportKeys.all });
+    },
+  });
+}
+
+export function useRejectDailyReport(reportId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (reason: string) => rejectDailyReport(reportId, reason),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: dailyReportKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      void queryClient.invalidateQueries({ queryKey: ['work-reports'] });
+    },
+  });
+}
+
+export function useRejectDailyReportTask(reportId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { taskId?: string; taskTitle?: string; reason: string }) =>
+      rejectDailyReportTask(reportId, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: dailyReportKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      void queryClient.invalidateQueries({ queryKey: ['work-reports'] });
     },
   });
 }
