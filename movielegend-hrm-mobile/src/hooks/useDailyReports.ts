@@ -11,6 +11,7 @@ import {
   rejectDailyReport,
   rejectDailyReportTask,
   fetchReportById,
+  requestReportRevision,
   type SaveDailyReportPayload,
   type ReviewDailyReportPayload,
   type ConvertPlanToTasksPayload,
@@ -133,5 +134,16 @@ export function useReportById(reportId: string | null) {
     queryKey: dailyReportKeys.detail(reportId || ''),
     queryFn: () => fetchReportById(reportId!),
     enabled: !!reportId,
+  });
+}
+
+export function useRequestReportRevision() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { userId: string; reportDate: string; reason?: string }) =>
+      requestReportRevision(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: dailyReportKeys.all });
+    },
   });
 }
