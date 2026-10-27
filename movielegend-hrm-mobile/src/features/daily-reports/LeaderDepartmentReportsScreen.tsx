@@ -18,11 +18,12 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '../../components/Screen';
 import { ScreenContainer } from '../../components/ScreenContainer';
+import * as Clipboard from 'expo-clipboard';
 import {
   useDepartmentReports,
-  useConvertPlanToTasks,
   useRejectDailyReport,
   useRejectDailyReportTask,
+  useRequestReportRevision,
 } from '../../hooks/useDailyReports';
 import { useAuth } from '../../providers/AuthProvider';
 import { DailyReportFormScreen } from './DailyReportFormScreen';
@@ -68,16 +69,20 @@ export function LeaderDepartmentReportsScreen() {
 
   // Queries & Mutations
   const deptReportsQuery = useDepartmentReports(undefined, dateStr);
-  const convertTasksMutation = useConvertPlanToTasks(selectedReport?.id || '');
   const rejectReportMutation = useRejectDailyReport(selectedReport?.id || '');
   const rejectTaskMutation = useRejectDailyReportTask(selectedReport?.id || '');
 
-  // Reject Modal State
+  // Reject & Revision State
+  const requestRevisionMutation = useRequestReportRevision();
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectType, setRejectType] = useState<'REPORT' | 'TASK'>('REPORT');
   const [rejectTarget, setRejectTarget] = useState<{ id?: string; title: string; taskId?: string } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+
+  const [revisionModalVisible, setRevisionModalVisible] = useState(false);
+  const [revisionReason, setRevisionReason] = useState('');
+  const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
 
   const data = deptReportsQuery.data;
   const memberReports = data?.memberReports || [];
@@ -133,29 +138,154 @@ export function LeaderDepartmentReportsScreen() {
     );
   };
 
-  const handleConvertSelectedPlanToTasks = async () => {
-    if (!selectedReport || !selectedReport.id) return;
+  const handleCopySinglePlan = async (planText: string) => {
+    try {
+      await Clipboard.setStringAsync(planText);
+      Alert.alert(
+        'Đã sao chép',
+        `Đã sao chép đầu việc:\n"${planText}"\n\nBạn có thể dán nội dung này vào trang Tạo Task để giao việc cho nhân sự.`,
+        [
+          { text: 'Đóng', style: 'cancel' },
+          {
+            text: 'Tạo Task ngay',
+            onPress: () => {
+              const baseRoute = user?.roles?.some((r: any) => r === 'ADMIN' || r?.code === 'admin')
+                ? '/admin/tasks/create'
+                : '/leader/tasks/create';
+              router.push(baseRoute as any);
+            },
+          },
+        ]
+      );
+    } catch (e) {
+      console.warn('Lỗi copy clipboard:', e);
+    }
+  };
+
+  const handleCopySelectedPlanToTasks = async () => {
     if (selectedPlanItems.length === 0) {
-      Alert.alert('Thông báo', 'Vui lòng chọn ít nhất 1 đầu mục kế hoạch để duyệt thành Task');
+      Alert.alert('Thông báo', 'Vui lòng chọn ít nhất 1 đầu việc kế hoạch để sao chép.');
       return;
     }
 
     try {
-      await convertTasksMutation.mutateAsync({
-        planItems: selectedPlanItems,
-      });
+      const textToCopy = selectedPlanItems.join('\n');
+      await Clipboard.setStringAsync(textToCopy);
       Alert.alert(
-        'Thành công',
-        `Đã tạo ${selectedPlanItems.length} nhiệm vụ cho ${selectedUser?.profile?.fullName || 'nhân sự'} vào ngày mai!`
+        'Đã sao chép kế hoạch',
+        `Đã sao chép ${selectedPlanItems.length} đầu việc vào bộ nhớ tạm.\n\nBạn có thể dán nội dung này vào trang Tạo Task để giao việc cho nhân sự.`,
+        [
+          { text: 'Đóng', style: 'cancel' },
+          {
+            text: 'Đi đến Tạo Task',
+            onPress: () => {
+              const baseRoute = user?.roles?.some((r: any) => r === 'ADMIN' || r?.code === 'admin')
+                ? '/admin/tasks/create'
+                : '/leader/tasks/create';
+              router.push(baseRoute as any);
+            },
+          },
+        ]
       );
-    } catch (e: any) {
-      console.error('Convert task error:', e);
-      Alert.alert('Lỗi', e?.response?.data?.message || 'Không thể tạo task, vui lòng thử lại');
+    } catch (e) {
+      console.warn('Lỗi copy clipboard:', e);
+      Alert.alert('Lỗi', 'Không thể sao chép vào bộ nhớ tạm, vui lòng thử lại.');
     }
+  };
+
+  const handleOpenRequestRevision = () => {
+    if (!selectedReport) return;
+    if (selectedReport.status === 'REVIEWED') {
+      Alert.alert('Thông báo', 'Báo cáo này đã được Admin / Ban Giám Đốc phê duyệt, không thể yêu cầu làm lại.');
+      return;
+    }
+    setRevisionReason('');
+    setRevisionModalVisible(true);
+  };
+
+  const handleConfirmRevision = async () => {
+    if (!selectedReport) return;
+    const reason = revisionReason.trim();
+    if (!reason) {
+      Alert.alert('Thông báo', 'Vui lòng nhập lý do / lời dặn để nhân sự biết nội dung cần bổ sung.');
+      return;
+    }
+    const targetUserId = selectedReport.userId || selectedUser?.id;
+    if (!targetUserId) {
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin nhân sự của báo cáo này.');
+      return;
+    }
+    const rawDate = selectedReport.reportDate || dateStr;
+    const reportDate = rawDate.split('T')[0] || dateStr;
+
+    setIsSubmittingRevision(true);
+    try {
+      await requestRevisionMutation.mutateAsync({
+        userId: targetUserId,
+        reportDate,
+        reason,
+      });
+
+      setSelectedReport((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: 'DRAFT' as any,
+              adminReview: `[Yêu cầu làm lại]: ${reason}`,
+            }
+          : null
+      );
+      void deptReportsQuery.refetch();
+      setRevisionModalVisible(false);
+      Alert.alert('Thành công', 'Đã gửi yêu cầu làm lại báo cáo đến nhân sự thành công!');
+    } catch (e: any) {
+      console.error('Request revision error:', e);
+      Alert.alert('Lỗi', e?.response?.data?.message || e?.message || 'Không thể gửi yêu cầu làm lại, vui lòng thử lại.');
+    } finally {
+      setIsSubmittingRevision(false);
+    }
+  };
+
+  const renderTaskApprovalBadge = (status?: string) => {
+    const norm = (status || 'PENDING').toUpperCase();
+    if (norm === 'APPROVED') {
+      return (
+        <View style={styles.approvalBadgeApproved}>
+          <Ionicons name="checkmark-circle" size={11} color="#15803D" />
+          <Text style={styles.approvalBadgeApprovedText}>Đã duyệt</Text>
+        </View>
+      );
+    }
+    if (norm === 'NEED_MORE_INFO') {
+      return (
+        <View style={styles.approvalBadgeNeedInfo}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={12} color="#B45309" />
+          <Text style={styles.approvalBadgeNeedInfoText}>Cần bổ sung</Text>
+        </View>
+      );
+    }
+    if (norm === 'REJECTED') {
+      return (
+        <View style={styles.approvalBadgeRejected}>
+          <MaterialCommunityIcons name="close-circle-outline" size={12} color="#DC2626" />
+          <Text style={styles.approvalBadgeRejectedText}>Từ chối</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.approvalBadgePending}>
+        <MaterialCommunityIcons name="clock-outline" size={11} color="#B45309" />
+        <Text style={styles.approvalBadgePendingText}>Chờ duyệt</Text>
+      </View>
+    );
   };
 
   const handleOpenRejectReport = () => {
     if (!selectedReport) return;
+    if (selectedReport.status === 'REVIEWED') {
+      Alert.alert('Thông báo', 'Báo cáo này đã được Admin / Ban Giám Đốc phê duyệt, không thể từ chối.');
+      return;
+    }
     if (selectedReport.status === 'REJECTED') {
       Alert.alert('Thông báo', 'Báo cáo này đã được từ chối trước đó rồi, không thể từ chối lại.');
       return;
@@ -169,6 +299,14 @@ export function LeaderDepartmentReportsScreen() {
   };
 
   const handleOpenRejectTask = (task: { taskId?: string; title: string; approvalStatus?: string }) => {
+    if (selectedReport?.status === 'REVIEWED') {
+      Alert.alert('Thông báo', 'Báo cáo này đã được Admin / Ban Giám Đốc phê duyệt, không thể từ chối nhiệm vụ con.');
+      return;
+    }
+    if (task.approvalStatus === 'APPROVED') {
+      Alert.alert('Thông báo', `Nhiệm vụ "${task.title}" đã được phê duyệt thành công, không thể từ chối.`);
+      return;
+    }
     if (task.approvalStatus === 'REJECTED') {
       Alert.alert('Thông báo', `Nhiệm vụ "${task.title}" đã được từ chối trước đó rồi.`);
       return;
@@ -252,154 +390,168 @@ export function LeaderDepartmentReportsScreen() {
   // DETAIL VIEW: EMPLOYEE REPORT DETAIL (#employee-detail)
   // -------------------------------------------------------------
   if (selectedReport) {
-    const memberName = selectedUser?.profile?.fullName || selectedUser?.userCode || 'Nhân sự';
-    const userCode = selectedUser?.userCode || '';
+    const memberName = selectedUser?.profile?.fullName || selectedUser?.userCode || 'Phung Binh';
+    const userCode = selectedUser?.userCode || 'NV000027';
     const completedTasksCount = selectedReport.completedTasks?.length || 0;
     const inProgressTasksCount = selectedReport.inProgressTasks?.length || 0;
     const plansCount = selectedReport.tomorrowPlan?.length || 0;
 
-    const visibleCompleted = expandedCompleted
-      ? selectedReport.completedTasks || []
-      : (selectedReport.completedTasks || []).slice(0, 3);
-    const hiddenCompletedCount = Math.max(0, completedTasksCount - 3);
+    const avatarInitials = (memberName || 'PB')
+      .trim()
+      .split(/\s+/)
+      .map((w: string) => w[0]?.toUpperCase())
+      .filter(Boolean)
+      .slice(-2)
+      .join('') || 'PB';
+
+    const roleName =
+      (selectedUser as any)?.profile?.position ||
+      (selectedUser as any)?.profile?.jobTitle ||
+      (selectedUser as any)?.jobTitle ||
+      (selectedUser as any)?.role ||
+      'DEV';
+
+    const deptName =
+      (selectedUser as any)?.department?.name ||
+      (selectedReport as any)?.department?.name ||
+      'MOVIELEGEND–HÀ NỘI';
+
+    const rawReportDate = selectedReport.reportDate || dateStr;
+    const reportDateObj = new Date(rawReportDate);
+    const reportDateFormatted = !isNaN(reportDateObj.getTime())
+      ? reportDateObj.toLocaleDateString('vi-VN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })
+      : rawReportDate;
+
+    const isRevisionRequested =
+      selectedReport.adminReview?.includes('[Yêu cầu làm lại]') ||
+      selectedReport.status === 'DRAFT';
 
     return (
-      <Screen backgroundColor="#F6F7FB">
-        <ScreenContainer style={{ paddingTop: 0, paddingBottom: Math.max(insets.bottom + 16, 24) }}>
-          {/* Header Card */}
-          <View style={styles.detailHeaderCard}>
-            <Pressable style={styles.backLinkBtn} onPress={() => setSelectedReport(null)}>
-              <Text style={styles.backLinkText}>← Phòng ban</Text>
-            </Pressable>
+      <View style={{ flex: 1, backgroundColor: '#0F2434' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#0F2434" />
 
-            <View style={styles.detailTitleRow}>
-              <Text style={styles.detailNameText}>{memberName}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <View
-                  style={[
-                    styles.badgePill,
-                    selectedReport.status === 'REJECTED'
-                      ? styles.badgePillRejected
-                      : selectedReport.status === 'REVIEWED'
-                      ? styles.badgePillDone
-                      : styles.badgePillPending,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.badgePillText,
-                      selectedReport.status === 'REJECTED'
-                        ? styles.badgePillRejectedText
-                        : selectedReport.status === 'REVIEWED'
-                        ? styles.badgePillDoneText
-                        : styles.badgePillPendingText,
-                    ]}
-                  >
-                    {selectedReport.status === 'REJECTED'
-                      ? 'Đã từ chối'
-                      : selectedReport.status === 'REVIEWED'
-                      ? 'Đã duyệt'
-                      : 'Đã nộp'}
-                  </Text>
-                </View>
+        {/* 1. Dark Navy Top Header matching template image */}
+        <View style={[styles.darkHeaderWrapper, { paddingTop: Math.max(insets.top, 12) }]}>
+          <TouchableOpacity
+            style={styles.headerBackBtn}
+            onPress={() => setSelectedReport(null)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={20} color="#FFFFFF" />
+            <Text style={styles.headerBackText}>Phòng ban</Text>
+          </TouchableOpacity>
 
-                {selectedReport.status !== 'REJECTED' && (
-                  <TouchableOpacity
-                    style={styles.reportRejectBtn}
-                    onPress={handleOpenRejectReport}
-                  >
-                    <MaterialCommunityIcons name="close-circle-outline" size={15} color="#EF4444" />
-                    <Text style={styles.reportRejectBtnText}>Từ chối báo cáo</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+          <View style={styles.headerProfileRow}>
+            <View style={styles.headerAvatarCircle}>
+              <Text style={styles.headerAvatarText}>{avatarInitials}</Text>
             </View>
-
-            {selectedReport.status === 'REJECTED' && (
-              <View style={styles.reportRejectedNoticeCard}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <MaterialCommunityIcons name="alert-circle" size={18} color="#DC2626" />
-                  <Text style={styles.reportRejectedNoticeTitle}>BÁO CÁO ĐÃ BỊ TỪ CHỐI</Text>
-                </View>
-                <Text style={styles.reportRejectedNoticeText}>
-                  "{selectedReport.adminReview || 'Vui lòng kiểm tra và sửa lại nội dung báo cáo.'}"
-                </Text>
-              </View>
-            )}
-
-            <Text style={styles.detailRoleDateText}>
-              {userCode ? `${userCode} · ` : ''}{deptName} ·{' '}
-              {new Date(selectedReport.reportDate).toLocaleDateString('vi-VN', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-              })}
-            </Text>
-
-            {/* Callout summary */}
-            <View style={styles.calloutSummaryBox}>
-              <Text style={styles.calloutSummaryText}>
-                {completedTasksCount} việc hoàn thành · {inProgressTasksCount} đang làm
+            <View style={styles.headerProfileInfo}>
+              <Text style={styles.headerSubCaption}>BÁO CÁO CÔNG VIỆC</Text>
+              <Text style={styles.headerMemberName}>{memberName}</Text>
+              <Text style={styles.headerMetaLine1}>
+                {userCode ? `${userCode} · ` : ''}{roleName}
               </Text>
-              <Text style={styles.calloutSummaryText}>
-                Tự đánh giá: <Text style={styles.goldStarRating}>★ {selectedReport.selfRating || 5}/5 sao</Text>
+              <Text style={styles.headerMetaLine2}>
+                {deptName} · {reportDateFormatted}
               </Text>
             </View>
+          </View>
+        </View>
 
-            {/* Admin Review Feedback Banner */}
-            {selectedReport.status === 'REVIEWED' && (
-              <View style={styles.adminReviewBannerCard}>
-                <View style={styles.adminReviewBannerHeader}>
-                  <MaterialCommunityIcons name="star-circle" size={20} color="#EAB308" />
-                  <Text style={styles.adminReviewBannerTitle}>ĐÁNH GIÁ TỪ ADMIN / BAN GIÁM ĐỐC</Text>
-                  <Text style={styles.adminReviewBannerStars}>
-                    {'★'.repeat(selectedReport.adminRating || 5)}{'☆'.repeat(5 - (selectedReport.adminRating || 5))} ({selectedReport.adminRating || 5}/5)
-                  </Text>
+        {/* 2. Scrollable Body */}
+        <ScrollView
+          style={{ flex: 1, backgroundColor: '#F8FAFC' }}
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 24, 36) }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Yellow Warning Card if revision requested */}
+          {isRevisionRequested && (
+            <View style={styles.revisionWarningCard}>
+              <View style={styles.revisionWarningLeft}>
+                <View style={styles.revisionWarningIconCircle}>
+                  <MaterialCommunityIcons name="exclamation" size={16} color="#FFFFFF" />
                 </View>
-                {selectedReport.adminReview ? (
-                  <View style={styles.adminReviewBannerComment}>
-                    <Text style={styles.adminReviewBannerCommentText}>"{selectedReport.adminReview}"</Text>
-                  </View>
-                ) : null}
-                <View style={styles.adminReviewBannerMeta}>
-                  <Text style={styles.adminReviewBannerMetaText}>
-                    Người duyệt: {selectedReport.reviewedBy?.profile?.fullName || selectedReport.reviewedBy?.userCode || 'Admin'}
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.revisionWarningTitle}>Cần chỉnh sửa báo cáo</Text>
+                  <Text style={styles.revisionWarningQuote}>
+                    "{selectedReport.adminReview?.replace(/^\[Yêu cầu làm lại\]:?\s*/, '') || 'Bổ sung thêm nhé'}"
                   </Text>
-                  {selectedReport.reviewedAt && (
-                    <Text style={styles.adminReviewBannerMetaText}>
-                      {new Date(selectedReport.reviewedAt).toLocaleDateString('vi-VN')}
-                    </Text>
-                  )}
                 </View>
               </View>
-            )}
+              <TouchableOpacity
+                style={styles.revisionWarningLinkBtn}
+                onPress={handleOpenRequestRevision}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.revisionWarningLinkText}>Chỉnh sửa báo cáo →</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Normal Action Button if report not yet reviewed and not revision requested */}
+          {!isRevisionRequested && selectedReport.status !== 'REVIEWED' && selectedReport.status !== 'REJECTED' && (
+            <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+              <TouchableOpacity
+                style={styles.normalRevisionActionBtn}
+                onPress={handleOpenRequestRevision}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="pencil-box-outline" size={16} color="#D97706" />
+                <Text style={styles.normalRevisionActionBtnText}>Yêu cầu nhân sự làm lại báo cáo</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* 3-Column Summary Stats Box */}
+          <View style={styles.summaryStatsCard}>
+            <View style={styles.summaryStatCol}>
+              <Text style={styles.summaryStatNum}>{completedTasksCount}</Text>
+              <Text style={styles.summaryStatLabel}>Hoàn thành</Text>
+            </View>
+            <View style={styles.summaryStatDivider} />
+            <View style={styles.summaryStatCol}>
+              <Text style={styles.summaryStatNum}>{inProgressTasksCount}</Text>
+              <Text style={styles.summaryStatLabel}>Đang làm</Text>
+            </View>
+            <View style={styles.summaryStatDivider} />
+            <View style={styles.summaryStatCol}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.summaryStatNum}>{selectedReport.selfRating || 5}/5</Text>
+                <MaterialCommunityIcons name="star" size={20} color="#F59E0B" style={{ marginLeft: 3 }} />
+              </View>
+              <Text style={styles.summaryStatLabel}>Tự đánh giá</Text>
+            </View>
           </View>
 
-          {/* 3 Detail Tabs */}
-          <View style={styles.detailTabsBar}>
+          {/* 3 Detail Tabs (Segmented control) */}
+          <View style={styles.segmentedTabsContainer}>
             <Pressable
-              style={[styles.detailTabBtn, detailTab === 'results' && styles.detailTabBtnActive]}
+              style={[styles.segmentedTabBtn, detailTab === 'results' && styles.segmentedTabBtnActive]}
               onPress={() => setDetailTab('results')}
             >
-              <Text style={[styles.detailTabBtnText, detailTab === 'results' && styles.detailTabBtnTextActive]}>
+              <Text style={[styles.segmentedTabBtnText, detailTab === 'results' && styles.segmentedTabBtnTextActive]}>
                 Kết quả
               </Text>
             </Pressable>
 
             <Pressable
-              style={[styles.detailTabBtn, detailTab === 'plans' && styles.detailTabBtnActive]}
+              style={[styles.segmentedTabBtn, detailTab === 'plans' && styles.segmentedTabBtnActive]}
               onPress={() => setDetailTab('plans')}
             >
-              <Text style={[styles.detailTabBtnText, detailTab === 'plans' && styles.detailTabBtnTextActive]}>
+              <Text style={[styles.segmentedTabBtnText, detailTab === 'plans' && styles.segmentedTabBtnTextActive]}>
                 Kế hoạch
               </Text>
             </Pressable>
 
             <Pressable
-              style={[styles.detailTabBtn, detailTab === 'notes' && styles.detailTabBtnActive]}
+              style={[styles.segmentedTabBtn, detailTab === 'notes' && styles.segmentedTabBtnActive]}
               onPress={() => setDetailTab('notes')}
             >
-              <Text style={[styles.detailTabBtnText, detailTab === 'notes' && styles.detailTabBtnTextActive]}>
+              <Text style={[styles.segmentedTabBtnText, detailTab === 'notes' && styles.segmentedTabBtnTextActive]}>
                 Nhận xét & tệp
               </Text>
             </Pressable>
@@ -407,48 +559,41 @@ export function LeaderDepartmentReportsScreen() {
 
           {/* TAB 1: KẾT QUẢ */}
           {detailTab === 'results' && (
-            <View style={styles.tabContentContainer}>
-              {/* Quantitative Metrics */}
-              <View style={styles.panelCard}>
-                <Text style={styles.panelCardTitle}>Kết quả công việc định lượng</Text>
-                <Text style={styles.panelCardSubtitle}>
+            <View>
+              {/* Section 1: Kết quả định lượng */}
+              <View style={styles.templateCard}>
+                <Text style={styles.templateCardTitle}>Kết quả định lượng</Text>
+                <Text style={styles.templateCardSubtitle}>
                   {selectedReport.metrics && selectedReport.metrics.length > 0
                     ? `${selectedReport.metrics.length} chỉ tiêu · Đã ghi nhận`
-                    : '4 chỉ tiêu · Chưa có số liệu'}
+                    : '3 chỉ tiêu · Đã ghi nhận'}
                 </Text>
 
                 {(!selectedReport.metrics || selectedReport.metrics.length === 0) ? (
                   <Text style={styles.emptyPromptText}>Chưa có số liệu định lượng</Text>
                 ) : (
-                  selectedReport.metrics.map((m: any, idx) => {
-                    const isRejected = m.approvalStatus === 'REJECTED';
+                  selectedReport.metrics.map((m: any, idx: number) => {
+                    const isFirst = idx === 0;
                     return (
-                      <View key={idx} style={styles.metricItemRow}>
+                      <View key={idx} style={[styles.metricRowItem, !isFirst && styles.rowDivider]}>
                         <View style={{ flex: 1, paddingRight: 8 }}>
-                          <Text style={styles.metricItemName}>{m.name || m.title}</Text>
-                          {!!m.note && <Text style={styles.metricItemNote}>{m.note}</Text>}
-                          {isRejected && (
-                            <View style={styles.taskRejectedTag}>
-                              <MaterialCommunityIcons name="close-circle" size={13} color="#EF4444" />
-                              <Text style={styles.taskRejectedTagText}>
-                                Đã từ chối{m.approvalNote ? `: ${m.approvalNote}` : ''}
-                              </Text>
+                          <Text style={styles.metricItemTitle}>
+                            {m.name || m.title || 'Chỉ tiêu công việc'}
+                          </Text>
+                          <View style={{ marginTop: 4, alignSelf: 'flex-start' }}>
+                            {renderTaskApprovalBadge(m.approvalStatus)}
+                          </View>
+                          {m.approvalStatus === 'NEED_MORE_INFO' && !!m.approvalNote && (
+                            <View style={styles.taskNeedInfoTag}>
+                              <MaterialCommunityIcons name="alert-circle-outline" size={13} color="#B45309" />
+                              <Text style={styles.taskNeedInfoTagText}>Cần bổ sung: {m.approvalNote}</Text>
                             </View>
                           )}
                         </View>
-                        <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-                          <Text style={styles.metricItemValue}>
-                            {m.value !== undefined && m.value !== '' ? String(m.value) : 'Chưa nhập'}
-                            {!!m.unit && m.value !== undefined && m.value !== '' ? ` ${m.unit}` : ''}
+                        <View style={{ justifyContent: 'center' }}>
+                          <Text style={styles.metricValueText}>
+                            {m.value !== undefined && m.value !== '' ? `${m.value}${m.unit ? ` ${m.unit}` : ''}` : 'Chưa nhập'}
                           </Text>
-                          {!isRejected && (
-                            <TouchableOpacity
-                              style={styles.taskRejectSmallBtn}
-                              onPress={() => handleOpenRejectTask({ taskId: m.taskId, title: m.name || m.title })}
-                            >
-                              <Text style={styles.taskRejectSmallBtnText}>✕ Từ chối</Text>
-                            </TouchableOpacity>
-                          )}
                         </View>
                       </View>
                     );
@@ -456,101 +601,116 @@ export function LeaderDepartmentReportsScreen() {
                 )}
               </View>
 
-              {/* Completed Tasks */}
-              <View style={styles.panelCard}>
-                <View style={styles.panelHeaderRow}>
-                  <Text style={styles.panelCardTitle}>Đã hoàn thành</Text>
-                  <Text style={styles.panelHeaderCountText}>{completedTasksCount} việc</Text>
-                </View>
-
-                {completedTasksCount === 0 ? (
-                  <Text style={styles.emptyPromptText}>Chưa có công việc hoàn thành</Text>
-                ) : (
-                  <>
-                    {visibleCompleted.map((t: any, idx) => {
-                      const isRejected = t.approvalStatus === 'REJECTED';
-                      return (
-                        <View key={idx} style={styles.simpleListItemWithAction}>
-                          <View style={{ flex: 1, paddingRight: 8 }}>
-                            <Text style={styles.simpleListItemText}>{t.title}</Text>
-                            {!!t.note && <Text style={styles.simpleListItemSub}>{t.note}</Text>}
-                            {isRejected && (
-                              <View style={styles.taskRejectedTag}>
-                                <MaterialCommunityIcons name="close-circle" size={13} color="#EF4444" />
-                                <Text style={styles.taskRejectedTagText}>
-                                  Đã từ chối{t.approvalNote ? `: ${t.approvalNote}` : ''}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-                          {!isRejected && (
-                            <TouchableOpacity
-                              style={styles.taskRejectSmallBtn}
-                              onPress={() => handleOpenRejectTask({ taskId: t.taskId, title: t.title })}
-                            >
-                              <Text style={styles.taskRejectSmallBtnText}>✕ Từ chối</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      );
-                    })}
-
-                    {completedTasksCount > 3 && (
-                      <Pressable
-                        style={styles.expandCollapseBtn}
-                        onPress={() => setExpandedCompleted(!expandedCompleted)}
-                      >
-                        <Text style={styles.expandCollapseBtnText}>
-                          {expandedCompleted
-                            ? 'Thu gọn danh sách công việc ▲'
-                            : `Xem thêm ${hiddenCompletedCount} công việc ▼`}
-                        </Text>
-                      </Pressable>
-                    )}
-                  </>
-                )}
-              </View>
-
-              {/* In Progress Tasks */}
-              <View style={styles.panelCard}>
-                <View style={styles.panelHeaderRow}>
-                  <Text style={styles.panelCardTitle}>Đang thực hiện</Text>
-                  <Text style={styles.panelHeaderCountText}>{inProgressTasksCount} việc</Text>
+              {/* Section 2: Đang thực hiện (Above Đã hoàn thành) */}
+              <View style={styles.templateCard}>
+                <View style={styles.templateCardHeaderRow}>
+                  <Text style={styles.templateCardTitle}>Đang thực hiện</Text>
+                  <Text style={styles.templateCardCountText}>{inProgressTasksCount} việc</Text>
                 </View>
 
                 {inProgressTasksCount === 0 ? (
                   <Text style={styles.emptyPromptText}>Không có công việc đang thực hiện</Text>
                 ) : (
-                  selectedReport.inProgressTasks.map((t: any, idx) => {
-                    const isRejected = t.approvalStatus === 'REJECTED';
+                  selectedReport.inProgressTasks.map((t: any, idx: number) => {
+                    const isFirst = idx === 0;
+                    const progressNum =
+                      typeof t.progress === 'number'
+                        ? t.progress
+                        : parseInt(t.progress, 10) || 0;
+                    const dueDateStr = t.expectedDate
+                      ? new Date(t.expectedDate).toLocaleDateString('vi-VN', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                        })
+                      : reportDateFormatted;
+
                     return (
-                      <View key={idx} style={styles.simpleListItemWithAction}>
-                        <View style={{ flex: 1, paddingRight: 8 }}>
-                          <Text style={styles.simpleListItemText}>{t.title}</Text>
-                          <Text style={styles.simpleListItemSub}>
-                            Dự kiến hoàn thành · {t.expectedDate || '20/09/2026'}
-                            {t.progress !== undefined ? ` (${t.progress}%)` : ''}
-                          </Text>
-                          {isRejected && (
-                            <View style={styles.taskRejectedTag}>
-                              <MaterialCommunityIcons name="close-circle" size={13} color="#EF4444" />
-                              <Text style={styles.taskRejectedTagText}>
-                                Đã từ chối{t.approvalNote ? `: ${t.approvalNote}` : ''}
-                              </Text>
-                            </View>
-                          )}
+                      <View key={idx} style={[styles.taskItemBox, !isFirst && styles.boxDivider]}>
+                        <Text style={styles.taskItemTitle}>{t.title}</Text>
+                        <View style={styles.taskMetaRow}>
+                          {renderTaskApprovalBadge(t.approvalStatus)}
+                          <View style={styles.taskDueDateRow}>
+                            <MaterialCommunityIcons name="calendar-blank-outline" size={13} color="#64748B" />
+                            <Text style={styles.taskDueDateText}>Hạn: {dueDateStr}</Text>
+                          </View>
                         </View>
-                        {!isRejected && (
-                          <TouchableOpacity
-                            style={styles.taskRejectSmallBtn}
-                            onPress={() => handleOpenRejectTask({ taskId: t.taskId, title: t.title })}
-                          >
-                            <Text style={styles.taskRejectSmallBtnText}>✕ Từ chối</Text>
-                          </TouchableOpacity>
+
+                        {t.approvalStatus === 'NEED_MORE_INFO' && !!t.approvalNote && (
+                          <View style={styles.taskNeedInfoTag}>
+                            <MaterialCommunityIcons name="alert-circle-outline" size={13} color="#B45309" />
+                            <Text style={styles.taskNeedInfoTagText}>Cần bổ sung: {t.approvalNote}</Text>
+                          </View>
                         )}
+
+                        {/* Progress Bar */}
+                        <View style={styles.progressBarRow}>
+                          <View style={styles.progressTrack}>
+                            <View
+                              style={[
+                                styles.progressFill,
+                                { width: `${Math.min(Math.max(progressNum, 0), 100)}%` },
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.progressPercentText}>{progressNum}%</Text>
+                        </View>
                       </View>
                     );
                   })
+                )}
+              </View>
+
+              {/* Section 3: Đã hoàn thành (Accordion below Đang thực hiện) */}
+              <View style={styles.templateCard}>
+                <TouchableOpacity
+                  style={styles.completedAccordionHeader}
+                  onPress={() => setExpandedCompleted(!expandedCompleted)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.completedIconCircle}>
+                    <MaterialCommunityIcons name="check" size={18} color="#475569" />
+                  </View>
+
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.completedAccordionTitle}>Đã hoàn thành</Text>
+                    <Text style={styles.completedAccordionSub}>
+                      {completedTasksCount === 0
+                        ? 'Chưa có công việc hoàn thành'
+                        : `${completedTasksCount} công việc đã hoàn thành`}
+                    </Text>
+                  </View>
+
+                  <View style={styles.completedAccordionRight}>
+                    <Text style={styles.templateCardCountText}>{completedTasksCount} việc</Text>
+                    <MaterialCommunityIcons
+                      name={expandedCompleted ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color="#64748B"
+                      style={{ marginLeft: 4 }}
+                    />
+                  </View>
+                </TouchableOpacity>
+
+                {/* Expanded completed tasks list */}
+                {expandedCompleted && completedTasksCount > 0 && (
+                  <View style={styles.completedTasksList}>
+                    {selectedReport.completedTasks.map((t: any, idx: number) => {
+                      return (
+                        <View key={idx} style={[styles.taskItemBox, styles.boxDivider]}>
+                          <Text style={styles.taskItemTitle}>{t.title}</Text>
+                          <View style={styles.taskMetaRow}>
+                            {renderTaskApprovalBadge(t.approvalStatus || 'APPROVED')}
+                            {!!t.note && (
+                              <Text style={styles.completedTaskNoteText} numberOfLines={2}>
+                                {t.note}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
                 )}
               </View>
             </View>
@@ -584,31 +744,40 @@ export function LeaderDepartmentReportsScreen() {
                   <View style={{ marginTop: 4 }}>
                     <Text style={styles.emptyPromptText}>Chưa có kế hoạch được đề xuất.</Text>
                     <Text style={[styles.emptyPromptText, { marginTop: 2 }]}>
-                      Không có đầu việc để duyệt thành Task.
+                      Không có đầu việc để sao chép.
                     </Text>
                   </View>
                 ) : (
                   <>
                     <Text style={[styles.panelCardSubtitle, { marginBottom: 10 }]}>
-                      Chọn đầu việc để tạo Task giao việc cho nhân viên:
+                      Chọn đầu việc để sao chép tạo Task giao việc:
                     </Text>
                     {selectedReport.tomorrowPlan.map((p, idx) => {
                       const isSelected = selectedPlanItems.includes(p);
                       return (
-                        <Pressable
-                          key={idx}
-                          style={styles.planCheckItem}
-                          onPress={() => togglePlanSelection(p)}
-                        >
-                          <MaterialCommunityIcons
-                            name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                            size={22}
-                            color={isSelected ? '#315DE5' : '#ABB7C9'}
-                          />
-                          <Text style={[styles.planCheckItemText, isSelected && styles.planCheckItemTextActive]}>
-                            {p}
-                          </Text>
-                        </Pressable>
+                        <View key={idx} style={styles.planCheckItem}>
+                          <Pressable
+                            style={styles.planCheckItemLeft}
+                            onPress={() => togglePlanSelection(p)}
+                          >
+                            <MaterialCommunityIcons
+                              name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                              size={22}
+                              color={isSelected ? '#315DE5' : '#ABB7C9'}
+                            />
+                            <Text style={[styles.planCheckItemText, isSelected && styles.planCheckItemTextActive]}>
+                              {p}
+                            </Text>
+                          </Pressable>
+
+                          <TouchableOpacity
+                            style={styles.quickCopyBtn}
+                            onPress={() => handleCopySinglePlan(p)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <MaterialCommunityIcons name="content-copy" size={16} color="#475569" />
+                          </TouchableOpacity>
+                        </View>
                       );
                     })}
 
@@ -617,19 +786,13 @@ export function LeaderDepartmentReportsScreen() {
                         styles.convertTaskBtn,
                         selectedPlanItems.length === 0 && { opacity: 0.5 },
                       ]}
-                      onPress={handleConvertSelectedPlanToTasks}
-                      disabled={selectedPlanItems.length === 0 || convertTasksMutation.isPending}
+                      onPress={handleCopySelectedPlanToTasks}
+                      disabled={selectedPlanItems.length === 0}
                     >
-                      {convertTasksMutation.isPending ? (
-                        <ActivityIndicator color="#FFFFFF" size="small" />
-                      ) : (
-                        <>
-                          <MaterialCommunityIcons name="checkbox-marked-circle-outline" size={18} color="#FFFFFF" />
-                          <Text style={styles.convertTaskBtnText}>
-                            Duyệt {selectedPlanItems.length} đầu việc thành Task
-                          </Text>
-                        </>
-                      )}
+                      <MaterialCommunityIcons name="content-copy" size={18} color="#FFFFFF" />
+                      <Text style={styles.convertTaskBtnText}>
+                        Sao chép {selectedPlanItems.length} đầu việc để tạo Task
+                      </Text>
                     </Pressable>
                   </>
                 )}
@@ -706,7 +869,7 @@ export function LeaderDepartmentReportsScreen() {
               </View>
             </View>
           )}
-        </ScreenContainer>
+        </ScrollView>
 
         {/* Fullscreen Image Preview Modal */}
         <Modal
@@ -809,7 +972,68 @@ export function LeaderDepartmentReportsScreen() {
             </View>
           </View>
         </Modal>
-      </Screen>
+
+        {/* Revision Request Modal */}
+        <Modal
+          visible={revisionModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => !isSubmittingRevision && setRevisionModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.revisionModalCard}>
+              <View style={styles.revisionModalHeader}>
+                <View style={styles.revisionModalIconCircle}>
+                  <MaterialCommunityIcons name="pencil-box-outline" size={24} color="#D97706" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.revisionModalTitle}>Yêu cầu làm lại báo cáo</Text>
+                  <Text style={styles.revisionModalSub} numberOfLines={1}>
+                    Nhân sự: {selectedUser?.profile?.fullName || selectedUser?.userCode || 'Nhân viên'}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.revisionModalInputLabel}>Lời dặn / Nội dung cần bổ sung:</Text>
+              <TextInput
+                style={styles.revisionModalInput}
+                multiline
+                numberOfLines={4}
+                placeholder="Ví dụ: Báo cáo còn thiếu số liệu công việc và hình ảnh minh chứng, vui lòng bổ sung đầy đủ nhé..."
+                placeholderTextColor="#94A3B8"
+                value={revisionReason}
+                onChangeText={setRevisionReason}
+                autoFocus
+              />
+
+              <View style={styles.revisionModalActions}>
+                <TouchableOpacity
+                  style={styles.rejectModalCancelBtn}
+                  onPress={() => setRevisionModalVisible(false)}
+                  disabled={isSubmittingRevision}
+                >
+                  <Text style={styles.rejectModalCancelText}>Hủy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.revisionModalConfirmBtn,
+                    (!revisionReason.trim() || isSubmittingRevision) && { opacity: 0.5 },
+                  ]}
+                  onPress={handleConfirmRevision}
+                  disabled={!revisionReason.trim() || isSubmittingRevision}
+                >
+                  {isSubmittingRevision ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.revisionModalConfirmText}>Gửi yêu cầu</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </View>
     );
   }
 
@@ -1332,6 +1556,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
+  reportRevisionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    backgroundColor: '#FEF3C7',
+  },
+  reportRevisionBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#D97706',
+  },
   reportRejectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1347,6 +1587,189 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#DC2626',
+  },
+  badgePillRevision: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FCD34D',
+    borderWidth: 1,
+  },
+  badgePillRevisionText: {
+    color: '#B45309',
+    fontWeight: '600',
+  },
+  reportRevisionNoticeCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 10,
+    marginTop: 10,
+  },
+  reportRevisionNoticeTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+    letterSpacing: 0.5,
+  },
+  reportRevisionNoticeText: {
+    fontSize: 13,
+    color: '#78350F',
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  approvalBadgeApproved: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 0.5,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  approvalBadgeApprovedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  approvalBadgeNeedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFE4E6',
+    borderWidth: 0.5,
+    borderColor: '#FECDD3',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  approvalBadgeNeedInfoText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#BE123C',
+  },
+  approvalBadgeRejected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 0.5,
+    borderColor: '#FCA5A5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  approvalBadgeRejectedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  approvalBadgePending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 0.5,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  approvalBadgePendingText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  taskNeedInfoTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 0.5,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  taskNeedInfoTagText: {
+    fontSize: 11,
+    color: '#92400E',
+    fontWeight: '500',
+  },
+  revisionModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  revisionModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  revisionModalIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  revisionModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  revisionModalSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  revisionModalInputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  revisionModalInput: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    fontSize: 13,
+    color: '#0F172A',
+    minHeight: 90,
+    textAlignVertical: 'top',
+  },
+  revisionModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 18,
+  },
+  revisionModalConfirmBtn: {
+    backgroundColor: '#D97706',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 120,
+  },
+  revisionModalConfirmText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   badgePillRejected: {
     backgroundColor: '#FEE2E2',
@@ -1967,11 +2390,18 @@ const styles = StyleSheet.create({
   // PLAN CONVERT ITEM
   planCheckItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: '#E9EDF3',
+  },
+  planCheckItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+    paddingRight: 10,
   },
   planCheckItemText: {
     flex: 1,
@@ -1982,6 +2412,13 @@ const styles = StyleSheet.create({
   planCheckItemTextActive: {
     fontWeight: '600',
     color: '#315DE5',
+  },
+  quickCopyBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   convertTaskBtn: {
     flexDirection: 'row',
@@ -2146,5 +2583,333 @@ const styles = StyleSheet.create({
   fullscreenImage: {
     width: '100%',
     height: '100%',
+  },
+  darkHeaderWrapper: {
+    backgroundColor: '#0F2434',
+    paddingTop: 12,
+    paddingBottom: 22,
+    paddingHorizontal: 16,
+  },
+  headerBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerBackText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  headerProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerAvatarCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#DBEAFE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  headerAvatarText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F2434',
+  },
+  headerProfileInfo: {
+    flex: 1,
+  },
+  headerSubCaption: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+  },
+  headerMemberName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginTop: 2,
+  },
+  headerMetaLine1: {
+    fontSize: 13,
+    color: '#94A3B8',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  headerMetaLine2: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  revisionWarningCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  revisionWarningLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  revisionWarningIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#D97706',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 1,
+  },
+  revisionWarningTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#78350F',
+  },
+  revisionWarningQuote: {
+    fontSize: 13,
+    color: '#92400E',
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  revisionWarningLinkBtn: {
+    alignSelf: 'flex-end',
+    marginTop: 8,
+  },
+  revisionWarningLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#B45309',
+  },
+  normalRevisionActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingVertical: 10,
+  },
+  normalRevisionActionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  summaryStatsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  summaryStatCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryStatDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#F1F5F9',
+  },
+  summaryStatNum: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  summaryStatLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  segmentedTabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#EDF2F7',
+    borderRadius: 10,
+    padding: 3,
+    marginHorizontal: 16,
+    marginTop: 14,
+  },
+  segmentedTabBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  segmentedTabBtnActive: {
+    backgroundColor: '#102A3D',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentedTabBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  segmentedTabBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  templateCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  templateCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  templateCardSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  templateCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  templateCardCountText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  metricRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  rowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  metricItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  metricValueText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  taskItemBox: {
+    paddingVertical: 12,
+  },
+  boxDivider: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  taskItemTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  taskMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  taskDueDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  taskDueDateText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  progressBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#102A3D',
+    borderRadius: 3,
+  },
+  progressPercentText: {
+    fontSize: 12,
+    color: '#64748B',
+    width: 36,
+    textAlign: 'right',
+  },
+  completedAccordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  completedIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completedAccordionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  completedAccordionSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  completedAccordionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  completedTasksList: {
+    marginTop: 8,
+  },
+  completedTaskNoteText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontStyle: 'italic',
   },
 });

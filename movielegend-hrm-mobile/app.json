@@ -2,16 +2,10 @@
   "expo": {
     "name": "ML Group",
     "slug": "movielegend-hrm-mobile",
-    "privacy": "public",
     "scheme": "movielegend-hrm",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/app-icon.png",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
-    },
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
@@ -64,6 +58,17 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-sharing",
+      "expo-status-bar",
       "expo-router",
       "expo-secure-store",
       [
@@ -126,7 +131,6 @@
         "projectId": "8f0cce1a-a3e4-4754-8965-6f6fc48f4b80"
       }
     },
-    "newArchEnabled": false,
     "runtimeVersion": "1.0.0",
     "owner": "hocdinh"
   }

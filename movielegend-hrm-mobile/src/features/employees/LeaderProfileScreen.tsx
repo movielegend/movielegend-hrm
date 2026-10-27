@@ -67,7 +67,11 @@ export function LeaderProfileScreen() {
 
   const seniorityText = formatSeniority(user?.joinDate || (user as any)?.createdAt) || 'Chưa cập nhật';
   const userCodeText = user?.userCode || 'NV000008';
-  const roleLabel = user?.position?.name || 'Trưởng phòng / Quản lý';
+  const rawPosName = user?.position?.name;
+  const roleLabel =
+    rawPosName && !rawPosName.toLowerCase().includes('chuyên viên')
+      ? rawPosName
+      : 'Trưởng phòng / Quản lý';
   const rawDeptName = user?.department?.name || 'Phòng ban';
   const rawBranchName =
     (user?.department as any)?.branch?.name ||

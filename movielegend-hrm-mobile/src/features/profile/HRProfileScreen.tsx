@@ -74,9 +74,36 @@ export function HRProfileScreen() {
     return (first + last).toUpperCase() || (isAccountant ? 'KT' : 'HR');
   };
 
+  const isLeader = Boolean(
+    user?.roles?.some((r: any) => {
+      const code = String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+      return ['LEADER', 'DEPARTMENT_HEAD', 'MANAGER', 'TRUONG_PHONG', 'BRANCH_MANAGER'].includes(code);
+    }) ||
+    user?.scopes?.some((s: any) => {
+      const code = String(s?.role || '').toUpperCase();
+      return ['LEADER', 'DEPARTMENT_HEAD', 'MANAGER', 'TRUONG_PHONG', 'BRANCH_MANAGER'].includes(code);
+    })
+  );
+
+  const getPositionTitle = () => {
+    const rawPosName = user?.position?.name;
+    if (isLeader) {
+      if (
+        rawPosName &&
+        (rawPosName.toLowerCase().includes('trưởng') ||
+          rawPosName.toLowerCase().includes('quản lý') ||
+          rawPosName.toLowerCase().includes('lead'))
+      ) {
+        return rawPosName;
+      }
+      return isAccountant ? 'Trưởng phòng Kế toán / Kế toán trưởng' : 'Trưởng phòng Hành chính Nhân sự';
+    }
+    return rawPosName || (isAccountant ? 'Kế toán & Tài chính' : 'Chuyên viên Nhân sự');
+  };
+
   const seniorityText = formatSeniority(user?.joinDate || (user as any)?.createdAt) || 'Chưa cập nhật';
   const userCodeText = user?.userCode || 'NV000008';
-  const roleLabel = user?.position?.name || (isAccountant ? 'Kế toán & Tài chính' : 'Chuyên viên Nhân sự');
+  const roleLabel = getPositionTitle();
   const rawDeptName = user?.department?.name || 'Phòng ban';
   const rawBranchName =
     (user?.department as any)?.branch?.name ||

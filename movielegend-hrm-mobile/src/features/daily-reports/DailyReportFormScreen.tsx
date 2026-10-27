@@ -105,6 +105,18 @@ const ASSESSMENT_LEVELS = [
   },
 ];
 
+export function deduplicateAttachments(list: DailyReportAttachmentItem[]): DailyReportAttachmentItem[] {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  return list.filter((item) => {
+    if (!item) return false;
+    const key = (item.url || item.fileName || '').trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export interface DailyReportFormScreenProps {
   headerSlot?: React.ReactNode | ((props: { currentStep: number }) => React.ReactNode);
   hideHeaderTitle?: boolean;
@@ -137,8 +149,11 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
   // Detailed view of an approved report
   const [selectedApprovedReport, setSelectedApprovedReport] = useState<DailyReport | null>(null);
 
-  // Status and Attachment Picker Modals
+  // Status, Category, TaskType, Priority and Attachment Picker Modals
   const [activeStatusPickerIdx, setActiveStatusPickerIdx] = useState<number | null>(null);
+  const [activeCategoryPickerIdx, setActiveCategoryPickerIdx] = useState<number | null>(null);
+  const [activeTaskTypePickerIdx, setActiveTaskTypePickerIdx] = useState<number | null>(null);
+  const [activePriorityPickerIdx, setActivePriorityPickerIdx] = useState<number | null>(null);
   const [activeAttachPickerIdx, setActiveAttachPickerIdx] = useState<number | null>(null);
 
   // STEP 1: HÔM NAY (Danh sách công việc & nhiệm vụ hợp nhất)
@@ -158,7 +173,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
       progress: 50,
       obstacles: '',
       supportRequest: '',
-      selfRating: 5,
+      selfRating: 3,
       attachments: [],
       isCarriedOver: false,
     },
@@ -243,6 +258,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
   const isSubmittedToday = reportData?.status === 'SUBMITTED' || reportData?.status === 'REVIEWED';
   const isReviewedToday = reportData?.status === 'REVIEWED';
   const isRejectedToday = reportData?.status === 'REJECTED';
+  const isRevisionRequested = reportData?.status === 'DRAFT' && Boolean(reportData?.adminReview?.includes('[Yêu cầu làm lại]'));
+  const revisionComment = reportData?.adminReview?.replace(/^\[Yêu cầu làm lại\]:?\s*/, '').trim() || '';
 
   // Lấy danh sách các báo cáo đã duyệt
   const approvedReports = useMemo(() => {
@@ -266,6 +283,22 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
       const webMetrics: DailyReportMetricItem[] = webTasks.map((t) => {
         const isDone = t.workStatus === 'DONE';
         const displayTitle = t.title;
+        const prog = t.latestUpdate?.progress ?? (isDone ? 100 : t.workStatus === 'NOT_STARTED' ? 0 : 50);
+        const resolvedRating =
+          typeof (t as any).selfRating === 'number' && (t as any).selfRating > 0
+            ? (t as any).selfRating
+            : typeof (t as any).latestUpdate?.selfRating === 'number' && (t as any).latestUpdate?.selfRating > 0
+            ? (t as any).latestUpdate.selfRating
+            : isDone || prog >= 100
+            ? 5
+            : prog >= 75
+            ? 4
+            : prog >= 40
+            ? 3
+            : prog > 0
+            ? 2
+            : 1;
+
         return {
           taskId: t.id,
           taskCode: t.taskCode,
@@ -275,15 +308,17 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
           taskType: t.taskType || 'THEO_KE_HOACH',
           priority: (t.priority as any) || 'MEDIUM',
           status: t.workStatus || (isDone ? 'DONE' : 'IN_PROGRESS'),
-          progress: t.latestUpdate?.progress ?? (isDone ? 100 : t.workStatus === 'NOT_STARTED' ? 0 : 50),
+          progress: prog,
           deadline: t.deadline || '',
           note: t.latestUpdate?.notes || '',
           notes: t.latestUpdate?.notes || '',
           obstacles: t.latestUpdate?.obstacles || '',
           supportRequest: t.latestUpdate?.supportRequest || '',
-          selfRating: (t as any).selfRating ?? (t as any).latestUpdate?.selfRating ?? 5,
+          selfRating: resolvedRating,
           attachments: (t as any).attachments || (t as any).latestUpdate?.attachments || [],
           isCarriedOver: Boolean(t.isCarriedOver),
+          approvalStatus: (t as any).approvalStatus || 'PENDING',
+          approvalNote: (t as any).latestUpdate?.approvalNote || '',
         };
       });
 
@@ -335,9 +370,11 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
             progress: m.status === 'DONE' ? 100 : (m.progress ?? (m.status === 'NOT_STARTED' ? 0 : 50)),
             obstacles: m.obstacles || '',
             supportRequest: m.supportRequest || '',
-            selfRating: m.selfRating ?? 5,
+            selfRating: m.selfRating ?? (m.status === 'DONE' || Number(m.progress) === 100 ? 5 : Number(m.progress) === 0 ? 1 : 3),
             attachments: Array.isArray(m.attachments) ? m.attachments : [],
             isCarriedOver: Boolean(m.isCarriedOver),
+            approvalStatus: m.approvalStatus || 'PENDING',
+            approvalNote: m.approvalNote || '',
           }));
 
         if (isSubmittedToday && validMetrics.length > 0) {
@@ -363,9 +400,11 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
               progress: 50,
               obstacles: '',
               supportRequest: '',
-              selfRating: 5,
+              selfRating: 3,
               attachments: [],
               isCarriedOver: false,
+              approvalStatus: 'PENDING',
+              approvalNote: '',
             },
           ]);
         }
@@ -391,6 +430,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                 supportRequest: t.supportRequest || '',
                 selfRating: t.selfRating ?? 5,
                 attachments: Array.isArray(t.attachments) ? t.attachments : [],
+                approvalStatus: t.approvalStatus || 'APPROVED',
+                approvalNote: t.approvalNote || '',
               });
             }
           });
@@ -412,8 +453,10 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                 notes: t.notes || t.note || '',
                 obstacles: t.obstacles || '',
                 supportRequest: t.supportRequest || '',
-                selfRating: t.selfRating ?? 5,
+                selfRating: t.selfRating ?? 3,
                 attachments: Array.isArray(t.attachments) ? t.attachments : [],
+                approvalStatus: t.approvalStatus || 'PENDING',
+                approvalNote: t.approvalNote || '',
               });
             }
           });
@@ -431,7 +474,16 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         setTomorrowPlan(reportData.tomorrowPlan);
       }
       if (reportData.attachments) {
-        setAttachments(reportData.attachments);
+        // Chỉ lưu các tệp đính kèm độc lập không thuộc về từng nhiệm vụ (để tránh bị nhân đôi / nhân ba)
+        const metricAttachmentKeys = new Set(
+          (reportData.metrics || []).flatMap((m: any) =>
+            (m.attachments || []).map((a: any) => (a.url || a.fileName || '').trim().toLowerCase()).filter(Boolean)
+          )
+        );
+        const standalone = (reportData.attachments || []).filter(
+          (a: any) => !metricAttachmentKeys.has((a.url || a.fileName || '').trim().toLowerCase())
+        );
+        setAttachments(deduplicateAttachments(standalone));
       }
       if (reportData.selfRating) {
         setSelfRating(reportData.selfRating);
@@ -491,6 +543,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
         deadline: '',
         obstacles: '',
         supportRequest: '',
+        selfRating: 3,
+        approvalStatus: 'PENDING',
       },
     ]);
   };
@@ -947,9 +1001,9 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
           };
         });
 
-      // Tổng hợp attachments & tự đánh giá từ các nhiệm vụ
+      // Tổng hợp attachments & tự đánh giá từ các nhiệm vụ (lọc trùng lặp tuyệt đối)
       const taskAttachments = cleanTasks.flatMap((t) => t.attachments || []);
-      const allAttachments = [...attachments, ...taskAttachments];
+      const allAttachments = deduplicateAttachments([...attachments, ...taskAttachments]);
       const validRatings = cleanTasks
         .map((t) => t.selfRating)
         .filter((r): r is number => typeof r === 'number' && r > 0);
@@ -1079,6 +1133,41 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
       desc: 'Đã đạt kế hoạch và có thêm kết quả ngoài mục tiêu đã đặt ra.',
     };
   }, [selfRating]);
+
+  // Helper render Badge trạng thái duyệt của từng việc
+  const renderTaskApprovalBadge = (status?: string) => {
+    const norm = (status || 'PENDING').toUpperCase();
+    if (norm === 'APPROVED') {
+      return (
+        <View style={styles.taskApprovalBadgeApproved}>
+          <Ionicons name="checkmark-circle" size={11} color="#15803D" />
+          <Text style={styles.taskApprovalBadgeApprovedText}>Đã duyệt</Text>
+        </View>
+      );
+    }
+    if (norm === 'NEED_MORE_INFO') {
+      return (
+        <View style={styles.taskApprovalBadgeNeedInfo}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={12} color="#BE123C" />
+          <Text style={styles.taskApprovalBadgeNeedInfoText}>Cần bổ sung</Text>
+        </View>
+      );
+    }
+    if (norm === 'REJECTED') {
+      return (
+        <View style={styles.taskApprovalBadgeRejected}>
+          <MaterialCommunityIcons name="close-circle-outline" size={12} color="#DC2626" />
+          <Text style={styles.taskApprovalBadgeRejectedText}>Từ chối</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.taskApprovalBadgePending}>
+        <MaterialCommunityIcons name="clock-outline" size={11} color="#B45309" />
+        <Text style={styles.taskApprovalBadgePendingText}>Chờ duyệt</Text>
+      </View>
+    );
+  };
 
   if (todayReportQuery.isLoading && isInitializing) {
     return (
@@ -1218,6 +1307,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                     styles.statusBadge,
                     reportData?.status === 'REVIEWED' && styles.statusBadgeReviewed,
                     reportData?.status === 'SUBMITTED' && styles.statusBadgeSubmitted,
+                    isRevisionRequested && styles.statusBadgeRevision,
+                    isRejectedToday && styles.statusBadgeRejected,
                   ]}
                 >
                   <Text
@@ -1225,17 +1316,45 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                       styles.statusBadgeText,
                       reportData?.status === 'REVIEWED' && styles.statusBadgeTextReviewed,
                       reportData?.status === 'SUBMITTED' && styles.statusBadgeTextSubmitted,
+                      isRevisionRequested && styles.statusBadgeTextRevision,
+                      isRejectedToday && styles.statusBadgeTextRejected,
                     ]}
                   >
                     {reportData?.status === 'REVIEWED'
                       ? 'Đã duyệt'
                       : reportData?.status === 'SUBMITTED'
                       ? 'Đã nộp'
+                      : isRevisionRequested
+                      ? 'Yêu cầu làm lại'
+                      : isRejectedToday
+                      ? 'Đã từ chối'
                       : 'Chưa nộp'}
                   </Text>
                 </View>
               </View>
             </View>
+
+            {/* Banner cảnh báo: Quản lý / Admin yêu cầu làm lại báo cáo */}
+            {isRevisionRequested && (
+              <View style={styles.revisionCalloutCard}>
+                <View style={styles.revisionCalloutHeader}>
+                  <MaterialCommunityIcons
+                    name="comment-alert-outline"
+                    size={22}
+                    color="#D97706"
+                  />
+                  <Text style={styles.revisionCalloutTitle}>
+                    Quản lý yêu cầu làm lại báo cáo
+                  </Text>
+                </View>
+                <Text style={styles.revisionCalloutContent}>
+                  "{revisionComment || 'Vui lòng bổ sung đầy đủ thông tin/hình ảnh và gửi lại báo cáo.'}"
+                </Text>
+                <Text style={styles.revisionCalloutHint}>
+                  Vui lòng cập nhật các nội dung/ảnh minh chứng cần thiết và bấm "Gửi báo cáo" để nộp lại.
+                </Text>
+              </View>
+            )}
 
             {/* Thông báo nếu báo cáo bị từ chối */}
             {isRejectedToday && (
@@ -1379,6 +1498,10 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                       const isExpanded = expandedTasks[metricKey] !== false; // Mặc định mở
                       const currentStatus = m.status || (Number(m.progress) === 100 ? 'DONE' : 'IN_PROGRESS');
                       const currentStatusObj = TASK_STATUSES.find((st) => st.value === currentStatus) || TASK_STATUSES[1]!;
+                      const currentTypeObj = TASK_TYPES.find((tt) => tt.value === m.taskType) || TASK_TYPES[0]!;
+                      const currentCategory = m.category || 'Vận hành';
+                      const currentPriority = m.priority || 'MEDIUM';
+                      const currentPriorityObj = TASK_PRIORITIES.find((pr) => pr.value === currentPriority) || TASK_PRIORITIES[1]!;
                       const currentProgress =
                         typeof m.progress === 'number' && !isNaN(m.progress)
                           ? Math.max(0, Math.min(100, m.progress))
@@ -1398,6 +1521,8 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                   NHIỆM VỤ {String(idx + 1).padStart(2, '0')}
                                 </Text>
                               </View>
+
+                              {renderTaskApprovalBadge(m.approvalStatus)}
 
                               {m.isCarriedOver && (
                                 <View style={styles.carriedOverBadge}>
@@ -1438,6 +1563,31 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                             </View>
                           </View>
 
+                          {/* Phản hồi từ Quản lý / Leader nếu cần bổ sung hoặc bị từ chối */}
+                          {Boolean(m.approvalNote) && (m.approvalStatus === 'NEED_MORE_INFO' || m.approvalStatus === 'REJECTED') && (
+                            <View
+                              style={[
+                                styles.taskApprovalFeedbackBox,
+                                m.approvalStatus === 'REJECTED' && styles.taskApprovalFeedbackBoxRejected,
+                              ]}
+                            >
+                              <MaterialCommunityIcons
+                                name={m.approvalStatus === 'NEED_MORE_INFO' ? 'alert-circle' : 'close-circle'}
+                                size={14}
+                                color={m.approvalStatus === 'NEED_MORE_INFO' ? '#B45309' : '#DC2626'}
+                              />
+                              <Text
+                                style={[
+                                  styles.taskApprovalFeedbackText,
+                                  m.approvalStatus === 'REJECTED' && styles.taskApprovalFeedbackTextRejected,
+                                ]}
+                              >
+                                {m.approvalStatus === 'NEED_MORE_INFO' ? 'Cần bổ sung: ' : 'Lý do từ chối: '}
+                                {m.approvalNote}
+                              </Text>
+                            </View>
+                          )}
+
                           {/* THỂ HIỆN KHI THU GỌN: CARD TỔNG QUAN THEO MOCKUP */}
                           {!isExpanded ? (
                             <TouchableOpacity
@@ -1456,9 +1606,16 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 <Text style={[styles.taskSummaryStatusText, { color: currentStatusObj.color }]}>
                                   {currentStatusObj.label}
                                 </Text>
+                                <View style={styles.categoryPillSmall}>
+                                  <Text style={styles.categoryPillSmallText}>{currentCategory}</Text>
+                                </View>
+                                <View style={[styles.typePillSmall, { backgroundColor: currentTypeObj.bg }]}>
+                                  <Text style={[styles.typePillSmallText, { color: currentTypeObj.color }]}>{currentTypeObj.label}</Text>
+                                </View>
                                 <Text style={styles.taskSummaryDeadlineText}>
                                   • {m.deadline ? `Hạn: ${m.deadline}` : 'Hạn hôm nay'}
                                 </Text>
+                                {renderTaskApprovalBadge(m.approvalStatus)}
                               </View>
                               {/* Progress bar preview */}
                               <View style={styles.taskSummaryProgressRow}>
@@ -1490,20 +1647,78 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 editable={!isSubmittedToday}
                               />
 
-                              {/* 2. Trạng thái (Dropdown) */}
-                              <Text style={styles.inputFieldLabel}>Trạng thái</Text>
-                              <TouchableOpacity
-                                style={[styles.dropdownSelectBox, isSubmittedToday && styles.readOnlyInput]}
-                                onPress={() => !isSubmittedToday && setActiveStatusPickerIdx(idx)}
-                                activeOpacity={0.7}
-                                disabled={isSubmittedToday}
-                              >
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                  <View style={[styles.statusCircleDot, { backgroundColor: currentStatusObj.color }]} />
-                                  <Text style={styles.dropdownValueText}>{currentStatusObj.label}</Text>
+                              {/* Hàng 2 cột: Hạng mục & Loại công việc (Chuẩn 100% như Web) */}
+                              <View style={styles.twoColumnRow}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.inputFieldLabel}>Hạng mục</Text>
+                                  <TouchableOpacity
+                                    style={[styles.dropdownSelectBox, isSubmittedToday && styles.readOnlyInput]}
+                                    onPress={() => !isSubmittedToday && setActiveCategoryPickerIdx(idx)}
+                                    activeOpacity={0.7}
+                                    disabled={isSubmittedToday}
+                                  >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                      <Ionicons name="folder-outline" size={15} color="#475569" />
+                                      <Text style={styles.dropdownValueText} numberOfLines={1}>{currentCategory}</Text>
+                                    </View>
+                                    <Ionicons name="chevron-down" size={16} color="#64748B" />
+                                  </TouchableOpacity>
                                 </View>
-                                <Ionicons name="chevron-down" size={18} color="#64748B" />
-                              </TouchableOpacity>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.inputFieldLabel}>Loại công việc</Text>
+                                  <TouchableOpacity
+                                    style={[styles.dropdownSelectBox, isSubmittedToday && styles.readOnlyInput]}
+                                    onPress={() => !isSubmittedToday && setActiveTaskTypePickerIdx(idx)}
+                                    activeOpacity={0.7}
+                                    disabled={isSubmittedToday}
+                                  >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                      <View style={[styles.taskTypeBadgeTag, { backgroundColor: currentTypeObj.bg }]}>
+                                        <Text style={[styles.taskTypeBadgeTagText, { color: currentTypeObj.color }]} numberOfLines={1}>
+                                          {currentTypeObj.label}
+                                        </Text>
+                                      </View>
+                                    </View>
+                                    <Ionicons name="chevron-down" size={16} color="#64748B" />
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
+
+                              {/* Hàng 2 cột: Trạng thái & Mức độ ưu tiên */}
+                              <View style={styles.twoColumnRow}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.inputFieldLabel}>Trạng thái</Text>
+                                  <TouchableOpacity
+                                    style={[styles.dropdownSelectBox, isSubmittedToday && styles.readOnlyInput]}
+                                    onPress={() => !isSubmittedToday && setActiveStatusPickerIdx(idx)}
+                                    activeOpacity={0.7}
+                                    disabled={isSubmittedToday}
+                                  >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                      <View style={[styles.statusCircleDot, { backgroundColor: currentStatusObj.color }]} />
+                                      <Text style={styles.dropdownValueText} numberOfLines={1}>{currentStatusObj.label}</Text>
+                                    </View>
+                                    <Ionicons name="chevron-down" size={16} color="#64748B" />
+                                  </TouchableOpacity>
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.inputFieldLabel}>Mức độ ưu tiên</Text>
+                                  <TouchableOpacity
+                                    style={[styles.dropdownSelectBox, isSubmittedToday && styles.readOnlyInput]}
+                                    onPress={() => !isSubmittedToday && setActivePriorityPickerIdx(idx)}
+                                    activeOpacity={0.7}
+                                    disabled={isSubmittedToday}
+                                  >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                      <Ionicons name="flag" size={14} color={currentPriorityObj.color} />
+                                      <Text style={[styles.dropdownValueText, { color: currentPriorityObj.color }]} numberOfLines={1}>
+                                        {currentPriorityObj.label}
+                                      </Text>
+                                    </View>
+                                    <Ionicons name="chevron-down" size={16} color="#64748B" />
+                                  </TouchableOpacity>
+                                </View>
+                              </View>
 
                               {/* 3. Tiến độ hoàn thành (Header + Slider + Presets) */}
                               <View style={styles.progressRowHeader}>
@@ -1561,33 +1776,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 editable={!isSubmittedToday}
                               />
 
-                              {/* 5. Hai cột: Kết quả (nếu có số liệu) & Đơn vị tính */}
-                              <View style={styles.twoColumnRow}>
-                                <View style={{ flex: 1 }}>
-                                  <Text style={styles.inputFieldLabel}>Kết quả (nếu có số liệu)</Text>
-                                  <TextInput
-                                    style={[styles.formInput, isSubmittedToday && styles.readOnlyInput]}
-                                    placeholder="10"
-                                    placeholderTextColor="#94A3B8"
-                                    value={String(m.value ?? '')}
-                                    onChangeText={(v) => handleUpdateMetric(idx, 'value', v)}
-                                    editable={!isSubmittedToday}
-                                  />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                  <Text style={styles.inputFieldLabel}>Đơn vị tính</Text>
-                                  <TextInput
-                                    style={[styles.formInput, isSubmittedToday && styles.readOnlyInput]}
-                                    placeholder="Khách hàng"
-                                    placeholderTextColor="#94A3B8"
-                                    value={m.unit || ''}
-                                    onChangeText={(v) => handleUpdateMetric(idx, 'unit', v)}
-                                    editable={!isSubmittedToday}
-                                  />
-                                </View>
-                              </View>
-
-                              {/* 6. Hạn chót (Deadline) */}
+                              {/* 5. Hạn chót (Deadline) */}
                               <Text style={styles.inputFieldLabel}>Hạn chót (Deadline)</Text>
                               <View style={styles.datePickerInputWrap}>
                                 <TextInput
@@ -1616,7 +1805,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 <MaterialCommunityIcons name="file-document-outline" size={18} color="#102739" />
                                 <View style={{ flex: 1, marginLeft: 8 }}>
                                   <Text style={styles.additionalInfoTitle}>Thông tin bổ sung</Text>
-                                  <Text style={styles.additionalInfoSub}>Khó khăn, hỗ trợ, ghi chú · Không bắt buộc</Text>
+                                  <Text style={styles.additionalInfoSub}>Khó khăn, hỗ trợ · Không bắt buộc</Text>
                                 </View>
                               </View>
 
@@ -1643,22 +1832,6 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                                 numberOfLines={2}
                                 value={m.supportRequest || ''}
                                 onChangeText={(v) => handleUpdateMetric(idx, 'supportRequest', v)}
-                                editable={!isSubmittedToday}
-                              />
-
-                              {/* Ghi chú */}
-                              <Text style={styles.inputFieldLabel}>Ghi chú</Text>
-                              <TextInput
-                                style={[styles.formTextareaSmall, isSubmittedToday && styles.readOnlyInput]}
-                                placeholder="Thông tin khác về nhiệm vụ..."
-                                placeholderTextColor="#94A3B8"
-                                multiline
-                                numberOfLines={2}
-                                value={m.notes || m.note || ''}
-                                onChangeText={(v) => {
-                                  handleUpdateMetric(idx, 'note', v);
-                                  handleUpdateMetric(idx, 'notes', v);
-                                }}
                                 editable={!isSubmittedToday}
                               />
 
@@ -1780,7 +1953,7 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                   <Text style={styles.sectionCardSubtitle}>
                     {isSubmittedToday
                       ? 'Kế hoạch các đầu việc cho ngày làm việc tiếp theo.'
-                      : 'Ghi các đầu việc dự kiến thực hiện trong ngày làm việc tiếp theo. Leader có thể duyệt thành Task.'}
+                      : 'Ghi các đầu việc dự kiến thực hiện trong ngày làm việc tiếp theo để Leader theo dõi và giao việc.'}
                   </Text>
 
                   {tomorrowPlan.map((plan, idx) => (
@@ -1812,235 +1985,230 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
               </View>
             )}
 
-            {/* PANEL 2: XEM LẠI */}
+            {/* PANEL 2: XEM LẠI BÁO CÁO (CHUẨN THEO TEMPLATE MOCKUP) */}
             {currentStep === 2 && (
               <View style={styles.panelContainer}>
-                {/* TÓM TẮT BÁO CÁO */}
-                <View style={styles.sectionCard}>
-                  <Text style={styles.sectionCardTitle}>Tóm tắt báo cáo cuối ngày</Text>
-                  <Text style={styles.sectionCardSubtitle}>
-                    Kiểm tra lại toàn bộ nội dung trước khi nộp chính thức.
-                  </Text>
+                {/* Tiêu đề tóm tắt */}
+                <View style={{ marginBottom: 14 }}>
+                  <Text style={styles.reviewMainTitle}>Tóm tắt báo cáo cuối ngày</Text>
+                  <Text style={styles.reviewMainSubtitle}>Kiểm tra lại toàn bộ nội dung báo cáo.</Text>
+                </View>
 
-                  <View style={styles.summaryTable}>
-                    {/* CÔNG VIỆC & NHIỆM VỤ HÔM NAY */}
-                    <View style={styles.summaryBoxItem}>
-                      <View style={styles.summaryBoxHeaderRow}>
-                        <Text style={styles.summaryBoxTitle}>CÔNG VIỆC & NHIỆM VỤ HÔM NAY</Text>
-                        <View style={styles.summaryBoxCountBadge}>
-                          <Text style={styles.summaryBoxCountText}>
-                            {metrics.filter((m) => (m.name || '').trim().length > 0).length}
-                          </Text>
-                        </View>
+                {/* 1. THẺ CÔNG VIỆC HÔM NAY */}
+                {(() => {
+                  const validMetrics = metrics.filter((m) => (m.name || m.title || '').trim().length > 0);
+                  return (
+                    <View style={styles.reviewCard}>
+                      <View style={styles.reviewCardHeaderRow}>
+                        <Text style={styles.reviewCardTitle}>Công việc hôm nay</Text>
+                        <Text style={styles.reviewCardCountBadge}>{validMetrics.length} nhiệm vụ</Text>
                       </View>
-                      {metrics.filter((m) => (m.name || '').trim().length > 0).length === 0 ? (
-                        <Text style={styles.summaryBoxEmptyText}>Chưa có công việc nào</Text>
+
+                      {validMetrics.length === 0 ? (
+                        <Text style={styles.reviewEmptyText}>Chưa có công việc nào</Text>
                       ) : (
-                        metrics
-                          .filter((m) => (m.name || '').trim().length > 0)
-                          .map((m, idx) => {
-                            const isDone = m.status === 'DONE';
-                            const statusObj = TASK_STATUSES.find((s) => s.value === m.status) || TASK_STATUSES[1]!;
-                            return (
-                              <View key={idx} style={{ marginBottom: 6 }}>
-                                <Text style={styles.summaryBoxContentText}>
-                                  {isDone ? '✓' : '🕒'} <Text style={{ fontWeight: '700' }}>{m.name || m.title}</Text>
-                                  {m.value ? ` · Số liệu: ${m.value} ${m.unit || ''}` : ''}
-                                </Text>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                                  <View style={[styles.metaChip, { backgroundColor: statusObj.bg }]}>
-                                    <Text style={[styles.metaChipText, { color: statusObj.color, fontWeight: '700' }]}>
-                                      {statusObj.label} ({m.progress ?? (isDone ? 100 : 50)}%)
-                                    </Text>
-                                  </View>
-                                  {m.selfRating ? (
-                                    <View style={[styles.metaChip, { backgroundColor: '#FEF3C7' }]}>
-                                      <Text style={[styles.metaChipText, { color: '#B45309', fontWeight: '700' }]}>
-                                        ⭐ {m.selfRating}/5 sao
-                                      </Text>
-                                    </View>
-                                  ) : null}
-                                  {m.isCarriedOver && (
-                                    <View style={styles.carriedOverBadge}>
-                                      <Text style={styles.carriedOverBadgeText}>Dở dang hôm qua</Text>
-                                    </View>
-                                  )}
-                                  {m.deadline ? (
-                                    <Text style={{ fontSize: 11, color: '#64748B' }}>
-                                      Hạn chót: {m.deadline}
-                                    </Text>
-                                  ) : null}
+                        validMetrics.map((m, idx) => {
+                          const isDone = m.status === 'DONE';
+                          const statusObj = TASK_STATUSES.find((s) => s.value === m.status) || TASK_STATUSES[1]!;
+                          const cat = m.category || 'Vận hành';
+                          const typeObj = TASK_TYPES.find((t) => t.value === m.taskType) || TASK_TYPES[0]!;
+                          const progress = typeof m.progress === 'number' ? m.progress : (isDone ? 100 : 50);
+
+                          return (
+                            <View key={idx} style={[styles.reviewTaskBox, idx > 0 && styles.reviewTaskBoxDivider]}>
+                              {/* Tên nhiệm vụ */}
+                              <Text style={styles.reviewTaskTitle}>{m.name || m.title}</Text>
+
+                              {/* Tags: [Trạng thái - %], [Hạng mục], [Loại công việc] */}
+                              <View style={styles.reviewTagsRow}>
+                                <View style={[styles.reviewStatusPill, { backgroundColor: statusObj.bg }]}>
+                                  <Text style={[styles.reviewStatusPillText, { color: statusObj.color }]}>
+                                    {statusObj.label} · {progress}%
+                                  </Text>
                                 </View>
-                                {m.obstacles ? (
-                                  <Text style={[styles.summaryBoxContentText, { fontSize: 11, color: '#DC2626', marginTop: 2 }]}>
-                                    ⚠️ Khó khăn: {m.obstacles}
-                                  </Text>
-                                ) : null}
-                                {m.supportRequest ? (
-                                  <Text style={[styles.summaryBoxContentText, { fontSize: 11, color: '#0284C7', marginTop: 1 }]}>
-                                    🤝 Đề xuất hỗ trợ: {m.supportRequest}
-                                  </Text>
-                                ) : null}
-                                {(m.notes || m.note) ? (
-                                  <Text style={[styles.summaryBoxContentText, { fontSize: 11, color: '#64748B', fontStyle: 'italic', marginTop: 1 }]}>
-                                    📝 Ghi chú: {m.notes || m.note}
-                                  </Text>
-                                ) : null}
-                                {m.attachments && m.attachments.length > 0 && (
-                                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                                    {m.attachments.map((att, aIdx) => (
-                                      <TouchableOpacity
-                                        key={aIdx}
-                                        style={styles.reviewAttachChip}
-                                        onPress={() => handlePreviewAttachment(att)}
-                                        activeOpacity={0.7}
-                                      >
-                                        <MaterialCommunityIcons
-                                          name={att.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
-                                          size={14}
-                                          color="#166534"
-                                        />
-                                        <Text style={styles.reviewAttachChipText} numberOfLines={1}>
-                                          {att.fileName || `Tệp ${aIdx + 1}`}
-                                        </Text>
-                                      </TouchableOpacity>
-                                    ))}
-                                  </View>
-                                )}
+                                <View style={styles.reviewTagGray}>
+                                  <Text style={styles.reviewTagGrayText}>{cat}</Text>
+                                </View>
+                                <View style={styles.reviewTagGray}>
+                                  <Text style={styles.reviewTagGrayText}>{typeObj.label}</Text>
+                                </View>
                               </View>
-                            );
-                          })
+
+                              {/* Thanh tiến độ */}
+                              <View style={styles.reviewProgressBarTrack}>
+                                <View style={[styles.reviewProgressBarFill, { width: `${progress}%` }]} />
+                              </View>
+
+                              {/* Footer dòng hạn chót & đánh giá */}
+                              <View style={styles.reviewTaskFooterRow}>
+                                <Text style={styles.reviewDeadlineText}>
+                                  Hạn chót: {m.deadline ? m.deadline.split(' · ')[0] : (displayDate.split(', ')[1] || 'Hôm nay')}
+                                </Text>
+                                <Text style={styles.reviewRatingText}>
+                                  Đánh giá nhiệm vụ: <Text style={{ fontWeight: '700' }}>{m.selfRating ?? 3}/5</Text>
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })
                       )}
                     </View>
+                  );
+                })()}
 
-                    {/* 4. Ngày mai */}
-                    <View style={styles.summaryBoxItem}>
-                      <View style={styles.summaryBoxHeaderRow}>
-                        <Text style={styles.summaryBoxTitle}>KẾ HOẠCH NGÀY MAI</Text>
-                        <View style={styles.summaryBoxCountBadge}>
-                          <Text style={styles.summaryBoxCountText}>
-                            {tomorrowPlan.filter((p) => p.trim()).length}
-                          </Text>
-                        </View>
+                {/* 2. THẺ KẾ HOẠCH NGÀY MAI */}
+                {(() => {
+                  const cleanPlan = tomorrowPlan.filter((p) => p.trim());
+                  return (
+                    <View style={styles.reviewCard}>
+                      <View style={styles.reviewCardHeaderRow}>
+                        <Text style={styles.reviewCardTitle}>Kế hoạch ngày mai</Text>
+                        <Text style={styles.reviewCardCountBadge}>{cleanPlan.length} việc</Text>
                       </View>
-                      {tomorrowPlan.filter((p) => p.trim()).length === 0 ? (
-                        <Text style={styles.summaryBoxEmptyText}>Chưa thêm kế hoạch ngày mai</Text>
+
+                      {cleanPlan.length === 0 ? (
+                        <Text style={styles.reviewEmptyText}>Chưa thêm kế hoạch ngày mai</Text>
                       ) : (
-                        tomorrowPlan
-                          .filter((p) => p.trim())
-                          .map((p, idx) => (
-                            <Text key={idx} style={styles.summaryBoxContentText}>
+                        <View style={{ gap: 8, marginTop: 4 }}>
+                          {cleanPlan.map((p, idx) => (
+                            <Text key={idx} style={styles.reviewPlanItemText}>
                               {idx + 1}. {p}
                             </Text>
-                          ))
+                          ))}
+                        </View>
                       )}
                     </View>
+                  );
+                })()}
 
-                    {/* 5. Hỗ trợ */}
-                    <View style={styles.summaryBoxItem}>
-                      <View style={styles.summaryBoxHeaderRow}>
-                        <Text style={styles.summaryBoxTitle}>VƯỚNG MẮC & HỖ TRỢ</Text>
-                      </View>
-                      {metrics.some((m) => (m.obstacles || '').trim() || (m.supportRequest || '').trim()) || (hasObstacles && obstacleText.trim()) ? (
-                        <View style={{ gap: 4 }}>
-                          {metrics
-                            .filter((m) => (m.obstacles || '').trim() || (m.supportRequest || '').trim())
-                            .map((m, idx) => (
-                              <View key={idx} style={{ marginTop: 2 }}>
-                                <Text style={[styles.summaryBoxContentText, { fontWeight: '700' }]}>
-                                  • {m.name || `Nhiệm vụ ${idx + 1}`}:
-                                </Text>
-                                {m.obstacles ? (
-                                  <Text style={[styles.summaryBoxContentText, { marginLeft: 12, color: '#DC2626' }]}>
-                                    Khó khăn: {m.obstacles}
-                                  </Text>
-                                ) : null}
-                                {m.supportRequest ? (
-                                  <Text style={[styles.summaryBoxContentText, { marginLeft: 12, color: '#0284C7' }]}>
-                                    Đề xuất hỗ trợ: {m.supportRequest}
-                                  </Text>
-                                ) : null}
-                              </View>
-                            ))}
-                          {hasObstacles && obstacleText.trim() ? (
-                            <View style={{ marginTop: 2 }}>
-                              <Text style={[styles.summaryBoxContentText, { fontWeight: '700' }]}>• Khó khăn chung:</Text>
-                              <Text style={[styles.summaryBoxContentText, { marginLeft: 12, color: '#DC2626' }]}>
-                                {obstacleText.trim()}
-                              </Text>
-                              {supportWish.trim() ? (
-                                <Text style={[styles.summaryBoxContentText, { marginLeft: 12, color: '#0284C7' }]}>
-                                  Đề xuất hỗ trợ: {supportWish.trim()}
-                                </Text>
-                              ) : null}
+                {/* 3. THẺ VƯỚNG MẮC & HỖ TRỢ */}
+                {(() => {
+                  const tasksWithHelp = metrics.filter(
+                    (m) => (m.obstacles || '').trim() || (m.supportRequest || '').trim()
+                  );
+                  const hasGen = hasObstacles && obstacleText.trim();
+                  if (tasksWithHelp.length === 0 && !hasGen) return null;
+
+                  return (
+                    <View style={styles.reviewCard}>
+                      <Text style={styles.reviewCardTitle}>Vướng mắc & hỗ trợ</Text>
+
+                      {tasksWithHelp.map((m, idx) => (
+                        <View key={idx} style={{ marginTop: idx > 0 ? 14 : 6 }}>
+                          <Text style={styles.reviewSubTaskHeader}>{m.name || m.title || `Nhiệm vụ ${idx + 1}`}</Text>
+
+                          {m.obstacles ? (
+                            <View style={styles.obstacleBox}>
+                              <Text style={styles.obstacleBoxLabel}>Khó khăn</Text>
+                              <Text style={styles.obstacleBoxContent}>{m.obstacles}</Text>
+                            </View>
+                          ) : null}
+
+                          {m.supportRequest ? (
+                            <View style={styles.supportBox}>
+                              <Text style={styles.supportBoxLabel}>Đề xuất hỗ trợ</Text>
+                              <Text style={styles.supportBoxContent}>{m.supportRequest}</Text>
                             </View>
                           ) : null}
                         </View>
-                      ) : (
-                        <Text style={styles.summaryBoxEmptyText}>Không có vướng mắc ghi nhận</Text>
-                      )}
-                    </View>
+                      ))}
 
-                    {/* 6. Tự đánh giá */}
-                    <View style={styles.summaryBoxItem}>
-                      <View style={styles.summaryBoxHeaderRow}>
-                        <Text style={styles.summaryBoxTitle}>TỰ ĐÁNH GIÁ</Text>
-                      </View>
-                      <Text style={styles.summaryBoxContentText}>
-                        ★ <Text style={{ fontWeight: '700' }}>{selfRating}/5 sao</Text> · {currentAssessment.title}
-                      </Text>
-                      {selfReview.trim() ? (
-                        <Text style={[styles.summaryBoxContentText, { marginTop: 4, fontStyle: 'italic', color: '#475569' }]}>
-                          "{selfReview.trim()}"
-                        </Text>
+                      {hasGen ? (
+                        <View style={{ marginTop: tasksWithHelp.length > 0 ? 14 : 6 }}>
+                          <Text style={styles.reviewSubTaskHeader}>Vấn đề chung</Text>
+                          <View style={styles.obstacleBox}>
+                            <Text style={styles.obstacleBoxLabel}>Khó khăn</Text>
+                            <Text style={styles.obstacleBoxContent}>{obstacleText.trim()}</Text>
+                          </View>
+                          {supportWish.trim() ? (
+                            <View style={styles.supportBox}>
+                              <Text style={styles.supportBoxLabel}>Đề xuất hỗ trợ</Text>
+                              <Text style={styles.supportBoxContent}>{supportWish.trim()}</Text>
+                            </View>
+                          ) : null}
+                        </View>
                       ) : null}
                     </View>
+                  );
+                })()}
 
-                    {/* 7. Đính kèm */}
-                    {(() => {
-                      const allStepAttachments = [
-                        ...attachments,
-                        ...metrics.flatMap((m) => m.attachments || []),
-                      ];
-                      return (
-                        <View style={styles.summaryBoxItem}>
-                          <View style={styles.summaryBoxHeaderRow}>
-                            <Text style={styles.summaryBoxTitle}>ĐÍNH KÈM</Text>
-                            <View style={styles.summaryBoxCountBadge}>
-                              <Text style={styles.summaryBoxCountText}>{allStepAttachments.length}</Text>
-                            </View>
-                          </View>
-                          {allStepAttachments.length === 0 ? (
-                            <Text style={styles.summaryBoxEmptyText}>Không có tệp đính kèm</Text>
-                          ) : (
-                            <View style={{ gap: 6, marginTop: 4 }}>
-                              {allStepAttachments.map((a, idx) => (
-                                <TouchableOpacity
-                                  key={idx}
-                                  style={styles.reviewAttachChip}
-                                  onPress={() => handlePreviewAttachment(a)}
-                                  activeOpacity={0.7}
-                                >
-                                  <MaterialCommunityIcons
-                                    name={a.fileType === 'IMAGE' ? 'image-outline' : 'file-document-outline'}
-                                    size={16}
-                                    color="#166534"
-                                  />
-                                  <Text style={styles.reviewAttachChipText} numberOfLines={1}>
-                                    {a.fileName || `Tệp ${idx + 1}`}
-                                  </Text>
-                                  <Ionicons name="eye-outline" size={14} color="#166534" />
-                                </TouchableOpacity>
-                              ))}
-                            </View>
-                          )}
-                        </View>
-                      );
-                    })()}
+                {/* 4. THẺ TỰ ĐÁNH GIÁ CUỐI NGÀY */}
+                <View style={styles.reviewCard}>
+                  <Text style={styles.reviewCardTitle}>Tự đánh giá cuối ngày</Text>
+                  <Text style={styles.reviewCardSubtitle}>Đánh giá tổng thể trong ngày</Text>
+                  <View style={styles.reviewRatingRow}>
+                    <Text style={styles.reviewRatingScore}>{selfRating}/5</Text>
+                    <Text style={styles.reviewRatingLevelText}>{currentAssessment.title}</Text>
                   </View>
+                  {selfReview.trim() ? (
+                    <Text style={styles.reviewSelfReviewQuote}>"{selfReview.trim()}"</Text>
+                  ) : null}
                 </View>
 
-                {/* Checkbox Xác nhận (chỉ khi chưa nộp) */}
+                {/* 5. THẺ TỆP ĐÍNH KÈM (ĐÃ LỌC TRÙNG LẶP TRIỆT ĐỂ) */}
+                {(() => {
+                  const allStepAttachments = deduplicateAttachments([
+                    ...attachments,
+                    ...metrics.flatMap((m) => m.attachments || []),
+                  ]);
+
+                  return (
+                    <View style={styles.reviewCard}>
+                      <View style={styles.reviewCardHeaderRow}>
+                        <Text style={styles.reviewCardTitle}>Tệp đính kèm</Text>
+                        <Text style={styles.reviewCardCountBadge}>{allStepAttachments.length} tệp</Text>
+                      </View>
+
+                      {allStepAttachments.length === 0 ? (
+                        <Text style={styles.reviewEmptyText}>Chưa có tệp đính kèm</Text>
+                      ) : (
+                        <View style={{ marginTop: 6 }}>
+                          {allStepAttachments.map((file, idx) => {
+                            const ext = (file.fileName || '').split('.').pop()?.toUpperCase() || (file.fileType === 'IMAGE' ? 'PNG' : 'TỆP');
+                            return (
+                              <View
+                                key={idx}
+                                style={[
+                                  styles.reviewAttachmentRow,
+                                  idx > 0 && styles.reviewAttachmentRowBorder,
+                                ]}
+                              >
+                                <View style={{ flex: 1, paddingRight: 12 }}>
+                                  <Text style={styles.reviewAttachmentName} numberOfLines={1}>
+                                    {file.fileName || `Tệp đính kèm ${idx + 1}`}
+                                  </Text>
+                                  <Text style={styles.reviewAttachmentExt}>{ext}</Text>
+                                </View>
+                                <TouchableOpacity
+                                  onPress={() => handlePreviewAttachment(file)}
+                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                >
+                                  <Text style={styles.reviewAttachmentActionText}>Xem</Text>
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })()}
+
+                {/* NÚT QUAY LẠI TOÀN MÀN HÌNH NẾU ĐÃ NỘP HÔM NAY */}
+                {isSubmittedToday && (
+                  <TouchableOpacity
+                    style={styles.reviewFullBackBtn}
+                    onPress={() => {
+                      if (router.canGoBack()) router.back();
+                      else setCurrentStep(0);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.reviewFullBackBtnText}>Quay lại</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* CHECKBOX XÁC NHẬN (CHỈ KHI CHƯA NỘP) */}
                 {!isSubmittedToday && (
                   <TouchableOpacity
                     style={styles.confirmCheckRow}
@@ -2480,6 +2648,180 @@ export function DailyReportFormScreen({ headerSlot, hideHeaderTitle, topContentS
                       </Text>
                     </View>
                     {isSelected && <Ionicons name="checkmark-circle" size={20} color={st.color} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* CATEGORY PICKER BOTTOM SHEET MODAL                                        */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={activeCategoryPickerIdx !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setActiveCategoryPickerIdx(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setActiveCategoryPickerIdx(null)}>
+          <Pressable style={styles.bottomSheetContainer} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="folder-outline" size={20} color="#102739" />
+                <Text style={styles.sheetTitle}>Chọn hạng mục công việc</Text>
+              </View>
+              <TouchableOpacity onPress={() => setActiveCategoryPickerIdx(null)} hitSlop={10}>
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ gap: 8, marginTop: 12 }}>
+              {TASK_CATEGORIES.map((cat) => {
+                const currentVal = activeCategoryPickerIdx !== null
+                  ? (metrics[activeCategoryPickerIdx]?.category || 'Vận hành')
+                  : '';
+                const isSelected = currentVal === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.sheetOptionItem,
+                      isSelected && { backgroundColor: '#F1F5F9', borderColor: '#102739', borderWidth: 1.5 },
+                    ]}
+                    onPress={() => {
+                      if (activeCategoryPickerIdx !== null) {
+                        handleUpdateMetric(activeCategoryPickerIdx, 'category', cat);
+                        setActiveCategoryPickerIdx(null);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={isSelected ? "folder" : "folder-outline"} size={18} color={isSelected ? "#102739" : "#64748B"} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.sheetOptionTitle, isSelected && { color: '#102739', fontWeight: '700' }]}>
+                        {cat}
+                      </Text>
+                    </View>
+                    {isSelected && <Ionicons name="checkmark-circle" size={20} color="#102739" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* TASK TYPE PICKER BOTTOM SHEET MODAL                                       */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={activeTaskTypePickerIdx !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setActiveTaskTypePickerIdx(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setActiveTaskTypePickerIdx(null)}>
+          <Pressable style={styles.bottomSheetContainer} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <MaterialCommunityIcons name="tag-outline" size={20} color="#102739" />
+                <Text style={styles.sheetTitle}>Chọn loại công việc</Text>
+              </View>
+              <TouchableOpacity onPress={() => setActiveTaskTypePickerIdx(null)} hitSlop={10}>
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ gap: 8, marginTop: 12 }}>
+              {TASK_TYPES.map((tt) => {
+                const currentVal = activeTaskTypePickerIdx !== null
+                  ? (metrics[activeTaskTypePickerIdx]?.taskType || 'THEO_KE_HOACH')
+                  : '';
+                const isSelected = currentVal === tt.value;
+                return (
+                  <TouchableOpacity
+                    key={tt.value}
+                    style={[
+                      styles.sheetOptionItem,
+                      isSelected && { backgroundColor: tt.bg, borderColor: tt.color, borderWidth: 1.5 },
+                    ]}
+                    onPress={() => {
+                      if (activeTaskTypePickerIdx !== null) {
+                        handleUpdateMetric(activeTaskTypePickerIdx, 'taskType', tt.value);
+                        setActiveTaskTypePickerIdx(null);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.taskTypeBadgeTag, { backgroundColor: tt.bg }]}>
+                      <Text style={[styles.taskTypeBadgeTagText, { color: tt.color }]}>
+                        {tt.label}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }} />
+                    {isSelected && <Ionicons name="checkmark-circle" size={20} color={tt.color} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* PRIORITY PICKER BOTTOM SHEET MODAL                                        */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={activePriorityPickerIdx !== null}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setActivePriorityPickerIdx(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setActivePriorityPickerIdx(null)}>
+          <Pressable style={styles.bottomSheetContainer} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="flag-outline" size={20} color="#102739" />
+                <Text style={styles.sheetTitle}>Chọn mức độ ưu tiên</Text>
+              </View>
+              <TouchableOpacity onPress={() => setActivePriorityPickerIdx(null)} hitSlop={10}>
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ gap: 8, marginTop: 12 }}>
+              {TASK_PRIORITIES.map((pr) => {
+                const currentVal = activePriorityPickerIdx !== null
+                  ? (metrics[activePriorityPickerIdx]?.priority || 'MEDIUM')
+                  : '';
+                const isSelected = currentVal === pr.value;
+                return (
+                  <TouchableOpacity
+                    key={pr.value}
+                    style={[
+                      styles.sheetOptionItem,
+                      isSelected && { backgroundColor: pr.bg, borderColor: pr.color, borderWidth: 1.5 },
+                    ]}
+                    onPress={() => {
+                      if (activePriorityPickerIdx !== null) {
+                        handleUpdateMetric(activePriorityPickerIdx, 'priority', pr.value);
+                        setActivePriorityPickerIdx(null);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="flag" size={18} color={pr.color} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.sheetOptionTitle, { color: pr.color, fontWeight: isSelected ? '700' : '600' }]}>
+                        Ưu tiên {pr.label}
+                      </Text>
+                    </View>
+                    {isSelected && <Ionicons name="checkmark-circle" size={20} color={pr.color} />}
                   </TouchableOpacity>
                 );
               })}
@@ -4717,5 +5059,413 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1E293B',
     flex: 1,
+  },
+
+  // REVISION & APPROVAL BADGES
+  statusBadgeRevision: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FCD34D',
+  },
+  statusBadgeTextRevision: {
+    color: '#B45309',
+  },
+  statusBadgeRejected: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FCA5A5',
+  },
+  statusBadgeTextRejected: {
+    color: '#B91C1C',
+  },
+  revisionCalloutCard: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 14,
+    marginBottom: 14,
+  },
+  revisionCalloutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  revisionCalloutTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  revisionCalloutContent: {
+    fontSize: 13,
+    color: '#78350F',
+    lineHeight: 18,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+  revisionCalloutHint: {
+    fontSize: 12,
+    color: '#B45309',
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  taskApprovalBadgeApproved: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#DCFCE7',
+    borderWidth: 0.5,
+    borderColor: '#86EFAC',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  taskApprovalBadgeApprovedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  taskApprovalBadgeNeedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFE4E6',
+    borderWidth: 0.5,
+    borderColor: '#FECDD3',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  taskApprovalBadgeNeedInfoText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#BE123C',
+  },
+  taskApprovalBadgeRejected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 0.5,
+    borderColor: '#FCA5A5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  taskApprovalBadgeRejectedText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  taskApprovalBadgePending: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 0.5,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  taskApprovalBadgePendingText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  taskApprovalFeedbackBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginHorizontal: 12,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  taskApprovalFeedbackBoxRejected: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  taskApprovalFeedbackText: {
+    fontSize: 11.5,
+    color: '#92400E',
+    fontWeight: '500',
+    flex: 1,
+  },
+  taskApprovalFeedbackTextRejected: {
+    color: '#991B1B',
+  },
+  categoryPillSmall: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderColor: '#CBD5E1',
+  },
+  categoryPillSmallText: {
+    fontSize: 10.5,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  typePillSmall: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  typePillSmallText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  taskTypeBadgeTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  taskTypeBadgeTagText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // STYLES FOR STEP 3 REVIEW TEMPLATE
+  reviewMainTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  reviewMainSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  reviewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  reviewCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  reviewCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  reviewCardSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  reviewCardCountBadge: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  reviewEmptyText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    paddingVertical: 4,
+  },
+  reviewTaskBox: {
+    paddingVertical: 2,
+  },
+  reviewTaskBoxDivider: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  reviewTaskTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  reviewTagsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  reviewStatusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  reviewStatusPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  reviewTagGray: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  reviewTagGrayText: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  reviewProgressBarTrack: {
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  reviewProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#102739',
+    borderRadius: 3,
+  },
+  reviewTaskFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  reviewDeadlineText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  reviewRatingText: {
+    fontSize: 12,
+    color: '#0F172A',
+  },
+  reviewPlanItemText: {
+    fontSize: 14,
+    color: '#0F172A',
+    lineHeight: 20,
+  },
+  reviewSubTaskHeader: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  obstacleBox: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  obstacleBoxLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  obstacleBoxContent: {
+    fontSize: 13.5,
+    color: '#1E293B',
+    lineHeight: 19,
+  },
+  supportBox: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 4,
+  },
+  supportBoxLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1D4ED8',
+    marginBottom: 4,
+  },
+  supportBoxContent: {
+    fontSize: 13.5,
+    color: '#1E293B',
+    lineHeight: 19,
+  },
+  reviewRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  reviewRatingScore: {
+    fontSize: 30,
+    fontWeight: '900',
+    color: '#102739',
+  },
+  reviewRatingLevelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#102739',
+  },
+  reviewSelfReviewQuote: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: '#64748B',
+    marginTop: 8,
+  },
+  reviewAttachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+  },
+  reviewAttachmentRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  reviewAttachmentName: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  reviewAttachmentExt: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  reviewAttachmentActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1D4ED8',
+    paddingLeft: 8,
+  },
+  reviewFullBackBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#102739',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  reviewFullBackBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#102739',
   },
 });
