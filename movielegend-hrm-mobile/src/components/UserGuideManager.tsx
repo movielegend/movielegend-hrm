@@ -71,6 +71,7 @@ export function UserGuideManager({ children }: { children: React.ReactNode }) {
       {user && showGuide && (
         <UserGuideModal
           userId={user.id}
+          user={user}
           userRoles={user.roles}
           isVisible={showGuide}
           onClose={handleCloseGuide}

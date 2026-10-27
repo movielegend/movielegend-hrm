@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-const GUIDE_VERSION = '1.0';
+const GUIDE_VERSION = '2.0';
 
 export interface GuideStatus {
   status: 'viewed' | 'skipped';
