@@ -491,6 +491,10 @@ export class AuthService {
     permissions.add('employee.request');
     permissions.add('leave.request');
     permissions.add('overtime.request');
+    permissions.add('shift.read');
+    permissions.add('shift.swap');
+    permissions.add('shift.register');
+    permissions.add('attendance.read');
     if (roles.has('LEADER') || scopes.some((s) => s.role === 'LEADER')) {
       permissions.add('contract.read_department');
     }
