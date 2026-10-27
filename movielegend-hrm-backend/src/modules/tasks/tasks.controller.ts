@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Delete, Query } from '@nestjs/common';
+﻿import { Body, Controller, Get, Param, Patch, Post, Delete, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AnyPermissions } from '../../common/decorators/any-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -108,6 +108,16 @@ export class TasksController {
   @AnyPermissions('task.assign_any', 'task.assign_department', 'task.review_department', 'task.review_all', 'task.submit_own', 'task.update_progress_own', 'task.read_department')
   complete(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.tasks.completeTask(id, actor);
+  }
+
+  @Patch(':id/admin-extend')
+  @AnyPermissions('task.assign_any', 'task.assign_department', 'task.review_all', 'task.review_department')
+  adminExtend(
+    @Param('id') id: string,
+    @Body() dto: { dueAt: string; reason?: string; setInProgress?: boolean; isRework?: boolean },
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.tasks.adminExtendTask(id, dto, actor);
   }
 }
 

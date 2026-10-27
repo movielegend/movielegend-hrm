@@ -625,6 +625,144 @@ export class TasksService {
     return payload.updated;
   }
 
+
+  async adminExtendTask(
+    taskId: string,
+    dto: { dueAt: string; reason?: string; setInProgress?: boolean; isRework?: boolean },
+    actor: AuthenticatedUser,
+  ) {
+    if (!isUuid(taskId)) {
+      throw badRequest('INVALID_TASK_ID', 'Mã công việc không hợp lệ');
+    }
+    const task = await this.prisma.task.findUnique({
+      where: { id: taskId },
+      include: { assignments: true },
+    });
+    if (!task) {
+      throw notFound('TASK_NOT_FOUND', 'Không tìm thấy công việc');
+    }
+
+    if (task.status === TaskStatus.COMPLETED || task.status === TaskStatus.CANCELLED) {
+      throw badRequest('TASK_CANNOT_EXTEND', 'Không thể gia hạn công việc đã hoàn thành hoặc đã hủy');
+    }
+
+    const newDue = new Date(dto.dueAt);
+    if (isNaN(newDue.getTime()) || newDue <= new Date()) {
+      throw badRequest('INVALID_DUE_AT', 'Thời hạn gia hạn mới phải lớn hơn thời điểm hiện tại');
+    }
+
+    const deptId = task.departmentContextId ?? (task.assignments[0]?.userId ? await this.scope.getPrimaryDepartmentId(task.assignments[0].userId) : null);
+    if (deptId && !this.scope.isGlobalAdmin(actor) && task.createdByUserId !== actor.userId) {
+      await this.scope.assertDepartmentAccessAsync(actor, deptId);
+    }
+
+    const isRework = Boolean(
+      dto.isRework ||
+      dto.reason?.includes('làm lại') ||
+      dto.reason?.includes('chỉnh sửa') ||
+      task.assignments.some(a => a.status === TaskAssignmentStatus.REJECTED)
+    );
+    const shouldSetInProgress = dto.setInProgress !== false;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // 1. Update task dueAt and optionally status
+      const updatedTask = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          dueAt: newDue,
+          status: shouldSetInProgress ? TaskStatus.IN_PROGRESS : undefined,
+        },
+      });
+
+      // 2. Update assignments
+      if (task.assignments.length > 0) {
+        for (const assign of task.assignments) {
+          if (assign.status !== TaskAssignmentStatus.COMPLETED && assign.status !== TaskAssignmentStatus.CANCELLED) {
+            await tx.taskAssignment.update({
+              where: { id: assign.id },
+              data: {
+                assignmentDueAt: newDue,
+                status: isRework
+                  ? TaskAssignmentStatus.REJECTED
+                  : (shouldSetInProgress ? TaskAssignmentStatus.IN_PROGRESS : undefined),
+              },
+            });
+          }
+        }
+      }
+
+      // 3. Nếu là Bắt làm lại, cập nhật metadata trong mô tả task
+      if (isRework) {
+        let updatedDesc = task.description || '';
+        try {
+          const metaMatch = updatedDesc.match(/<!--\s*TASK_META:({.*?})\s*-->/);
+          let metaObj: any = {};
+          if (metaMatch) {
+            try { metaObj = JSON.parse(metaMatch[1]); } catch (e) {}
+          }
+          metaObj.status = 'REJECTED';
+          metaObj.note = dto.reason || 'Cần chỉnh sửa lại theo yêu cầu của cấp trên';
+          metaObj.progress = 50;
+          const cleanDesc = updatedDesc.replace(/\s*<!--\s*TASK_META:.*?-->\s*/g, '').trim();
+          updatedDesc = `${cleanDesc}\n\n<!-- TASK_META:${JSON.stringify(metaObj)} -->`;
+          await tx.task.update({
+            where: { id: taskId },
+            data: { description: updatedDesc },
+          });
+        } catch (e) {}
+      }
+
+      // 4. Record history & extension request
+      const primaryAssignment = task.assignments[0];
+      if (!isRework) {
+        await tx.taskExtensionRequest.create({
+          data: {
+            taskId,
+            assignmentId: primaryAssignment?.id,
+            requestedByUserId: actor.userId,
+            currentDueAt: task.dueAt,
+            requestedDueAt: newDue,
+            reason: dto.reason || 'Quản lý / Admin trực tiếp gia hạn và lên kế hoạch tiếp tục thực hiện',
+            status: 'APPROVED',
+            decidedByUserId: actor.userId,
+            decidedAt: new Date(),
+          },
+        });
+
+        await tx.taskStatusHistory.create({
+          data: {
+            taskId,
+            assignmentId: primaryAssignment?.id,
+            actorUserId: actor.userId,
+            action: TaskHistoryAction.EXTENSION_APPROVED,
+          },
+        });
+      } else {
+        await tx.taskStatusHistory.create({
+          data: {
+            taskId,
+            assignmentId: primaryAssignment?.id,
+            actorUserId: actor.userId,
+            action: TaskHistoryAction.REJECTED,
+            fromStatus: 'WAITING_REVIEW',
+            toStatus: 'REJECTED',
+            note: `Bắt làm lại & Gia hạn thời hạn mới: ${dto.reason || 'Yêu cầu làm lại theo chỉ đạo'}`,
+          },
+        });
+      }
+
+      return updatedTask;
+    });
+
+        if (task.departmentContextId) {
+      this.realtime.emitToDepartment(task.departmentContextId, 'task:updated', { taskId });
+    }
+    for (const a of task.assignments) {
+      this.realtime.emitToUser(a.userId, 'task:updated', { taskId });
+    }
+    return updated;
+  }
+
   async syncSubtasksResults(id: string, actor: AuthenticatedUser) {
     if (!isUuid(id)) throw notFound('TASK_NOT_FOUND', 'Task not found');
     await this.assertCanViewTask(id, actor);
