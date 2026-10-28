@@ -8,9 +8,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { saveUserGuideStatus } from '../storage/user-guide.storage';
 import { resolveFileUrl } from '../utils/url';
 import Toast from 'react-native-toast-message';
-import type { UserRole } from '../types/user.types';
+import type { UserRole, AuthUser } from '../types/user.types';
 
-export type GuideRoleKey = 'user' | 'leader' | 'admin';
+export type GuideRoleKey =
+  | 'admin'
+  | 'hr'
+  | 'ke_toan_truong'
+  | 'ke_toan_luong'
+  | 'leader'
+  | 'user';
 
 export interface GuideItem {
   id: string;
@@ -24,17 +30,44 @@ export interface GuideItem {
 
 export function getGuideFiles(): Record<GuideRoleKey, GuideItem> {
   return {
-    user: {
+    admin: {
       id: '1',
-      key: 'user',
-      label: 'Hướng dẫn cho Nhân viên',
-      tabLabel: 'Nhân viên',
-      title: 'Cẩm nang Hướng dẫn Sử dụng cho Nhân viên',
-      fileName: 'user.pdf',
-      url: resolveFileUrl('/uploads/user.pdf') || '',
+      key: 'admin',
+      label: 'Hướng dẫn cho Quản trị (Admin)',
+      tabLabel: 'Quản trị (Admin)',
+      title: 'MovieLegend App Guide Chuyên Nghiệp (Admin)',
+      fileName: 'admin.pdf',
+      url: resolveFileUrl('/uploads/admin.pdf') || '',
+    },
+    hr: {
+      id: '2',
+      key: 'hr',
+      label: 'Hướng dẫn cho Nhân sự (HR)',
+      tabLabel: 'Nhân sự (HR)',
+      title: 'Cẩm nang Hướng dẫn Sử dụng cho Nhân sự (HR)',
+      fileName: 'hr.pdf',
+      url: resolveFileUrl('/uploads/hr.pdf') || '',
+    },
+    ke_toan_truong: {
+      id: '3',
+      key: 'ke_toan_truong',
+      label: 'Hướng dẫn cho Kế toán trưởng',
+      tabLabel: 'Kế toán trưởng',
+      title: 'Cẩm nang Hướng dẫn Sử dụng - Kế toán trưởng',
+      fileName: 'ke_toan_truong.pdf',
+      url: resolveFileUrl('/uploads/ke_toan_truong.pdf') || '',
+    },
+    ke_toan_luong: {
+      id: '4',
+      key: 'ke_toan_luong',
+      label: 'Hướng dẫn cho Kế toán lương',
+      tabLabel: 'Kế toán lương',
+      title: 'Cẩm nang Hướng dẫn Sử dụng - Kế toán lương',
+      fileName: 'ke_toan_luong.pdf',
+      url: resolveFileUrl('/uploads/ke_toan_luong.pdf') || '',
     },
     leader: {
-      id: '2',
+      id: '5',
       key: 'leader',
       label: 'Hướng dẫn cho Quản lý (Leader)',
       tabLabel: 'Quản lý (Leader)',
@@ -42,14 +75,14 @@ export function getGuideFiles(): Record<GuideRoleKey, GuideItem> {
       fileName: 'leader.pdf',
       url: resolveFileUrl('/uploads/leader.pdf') || '',
     },
-    admin: {
-      id: '3',
-      key: 'admin',
-      label: 'Hướng dẫn cho Quản trị (Admin)',
-      tabLabel: 'Quản trị (Admin)',
-      title: 'MovieLegend App Guide Chuyên Nghiệp (Admin)',
-      fileName: 'admin.pdf',
-      url: resolveFileUrl('/uploads/admin.pdf') || '',
+    user: {
+      id: '6',
+      key: 'user',
+      label: 'Hướng dẫn cho Nhân viên',
+      tabLabel: 'Nhân viên',
+      title: 'Cẩm nang Hướng dẫn Sử dụng cho Nhân viên',
+      fileName: 'nhan_vien.pdf',
+      url: resolveFileUrl('/uploads/nhan_vien.pdf') || '',
     },
   };
 }
@@ -58,6 +91,7 @@ export const GUIDE_FILES = getGuideFiles();
 
 interface UserGuideModalProps {
   userId: string;
+  user?: AuthUser | null;
   userRoles?: UserRole[];
   isVisible: boolean;
   onClose: () => void;
@@ -66,6 +100,7 @@ interface UserGuideModalProps {
 
 export function UserGuideModal({
   userId,
+  user,
   userRoles = [],
   isVisible,
   onClose,
@@ -74,12 +109,77 @@ export function UserGuideModal({
   const guideFiles = useMemo(() => getGuideFiles(), [isVisible]);
 
   const getRoleGuideKey = (): GuideRoleKey => {
-    if (userRoles.includes('ADMIN')) {
+    const rawRoles = user?.roles || userRoles || [];
+    const roles = rawRoles.map((r: any) =>
+      String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase(),
+    );
+
+    const posName = String(user?.position?.name || '').toLowerCase();
+    const deptName = String(user?.department?.name || '').toLowerCase();
+    const isAccDept =
+      deptName.includes('kế toán') ||
+      deptName.includes('tài chính') ||
+      deptName.includes('accounting') ||
+      deptName.includes('accountant');
+
+    // 1. Quản trị hệ thống (Admin)
+    if (roles.includes('ADMIN') || roles.includes('SUPER_ADMIN')) {
       return 'admin';
     }
-    if (userRoles.includes('LEADER')) {
+
+    // 2. Kế toán trưởng
+    if (
+      roles.includes('ACCOUNTANT_LEAD') ||
+      posName.includes('kế toán trưởng') ||
+      posName.includes('chief accountant') ||
+      posName.includes('trưởng phòng kế toán') ||
+      ((roles.includes('LEADER') || roles.includes('DEPARTMENT_HEAD')) && isAccDept)
+    ) {
+      return 'ke_toan_truong';
+    }
+
+    // 3. Kế toán lương
+    if (
+      roles.includes('ACCOUNTANT_PAYROLL') ||
+      posName.includes('kế toán lương') ||
+      posName.includes('tiền lương') ||
+      posName.includes('payroll')
+    ) {
+      return 'ke_toan_luong';
+    }
+
+    // 4. Kế toán viên & Thuế (Hiện chưa có file riêng -> Đọc file của nhân viên bình thường theo chỉ đạo)
+    if (
+      roles.includes('ACCOUNTANT_GENERAL') ||
+      roles.includes('ACCOUNTANT_TAX') ||
+      posName.includes('kế toán viên') ||
+      posName.includes('thuế') ||
+      posName.includes('tax')
+    ) {
+      return 'user';
+    }
+
+    // 5. Nhân sự (HR)
+    if (
+      roles.includes('HR') ||
+      roles.includes('HUMAN_RESOURCE') ||
+      posName.includes('nhân sự') ||
+      posName.includes('tuyển dụng')
+    ) {
+      return 'hr';
+    }
+
+    // 6. Quản lý / Trưởng phòng (Leader)
+    if (
+      roles.includes('LEADER') ||
+      roles.includes('DEPARTMENT_HEAD') ||
+      roles.includes('BRANCH_MANAGER') ||
+      roles.includes('MANAGER')
+    ) {
       return 'leader';
     }
+
+    // 7. Nhân viên bình thường & Mặc định
     return 'user';
   };
 
@@ -271,7 +371,19 @@ export function UserGuideModal({
           <View style={styles.promptContainer}>
             <View style={styles.iconContainer}>
               <Ionicons
-                name={activeGuideKey === 'admin' ? 'shield-checkmark' : activeGuideKey === 'leader' ? 'people' : 'book'}
+                name={
+                  activeGuideKey === 'admin'
+                    ? 'shield-checkmark'
+                    : activeGuideKey === 'hr'
+                    ? 'people-circle-outline'
+                    : activeGuideKey === 'ke_toan_truong'
+                    ? 'calculator-outline'
+                    : activeGuideKey === 'ke_toan_luong'
+                    ? 'wallet-outline'
+                    : activeGuideKey === 'leader'
+                    ? 'people'
+                    : 'book'
+                }
                 size={44}
                 color="#0F172A"
               />

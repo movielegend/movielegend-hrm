@@ -1,4 +1,4 @@
-const { withGradleProperties } = require('@expo/config-plugins');
+const { withGradleProperties } = require('expo/config-plugins');
 
 function withDisableNewArch(config) {
   return withGradleProperties(config, (cfg) => {
@@ -23,10 +23,8 @@ function withDisableNewArch(config) {
 module.exports = ({ config }) => {
   const customConfig = {
     ...config,
-    newArchEnabled: false,
     android: {
       ...config.android,
-      newArchEnabled: false,
       config: {
         ...config.android?.config,
         googleMaps: {

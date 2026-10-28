@@ -16,11 +16,14 @@ const DOCK_HEIGHT = 60;
 const INDICATOR_WIDTH = 54;
 const INDICATOR_HEIGHT = 44;
 
-export const MagicTabBar = React.memo(function MagicTabBar({
-  state,
-  descriptors,
-  navigation,
-}: BottomTabBarProps) {
+export const MagicTabBar = React.memo(function MagicTabBar(props: any) {
+  const {
+    state,
+    descriptors,
+    navigation,
+    emitter,
+    navigateToTab,
+  } = props;
   const insets = useSafeAreaInsets();
   const screenWidth = Dimensions.get('window').width;
   const [containerWidth, setContainerWidth] = useState(screenWidth - 36);
@@ -151,14 +154,23 @@ export const MagicTabBar = React.memo(function MagicTabBar({
                 : route.name;
 
             const onPress = () => {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: route.key,
-                canPreventDefault: true,
-              });
+              const navEmitter = navigation?.emit ? navigation : emitter;
+              const event = navEmitter?.emit
+                ? navEmitter.emit({
+                    type: 'tabPress',
+                    target: route.key,
+                    canPreventDefault: true,
+                  })
+                : { defaultPrevented: false };
 
-              if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name, route.params);
+              if (!isFocused && !event?.defaultPrevented) {
+                if (navigateToTab) {
+                  navigateToTab(route.key);
+                } else if (navigation?.navigate) {
+                  navigation.navigate(route.name, route.params);
+                } else if (descriptor?.navigation?.navigate) {
+                  descriptor.navigation.navigate(route.name, route.params);
+                }
               } else if (isFocused) {
                 Animated.sequence([
                   Animated.timing(scaleAnim, { toValue: 1.12, duration: 60, useNativeDriver: true }),

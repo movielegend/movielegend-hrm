@@ -970,6 +970,29 @@ export class DailyReportsService {
               },
             })
             .catch(() => {});
+        } else if ((r.status === 'REVIEWED' || r.adminRating) && userTasks.length > 0) {
+          // Báo cáo đã REVIEWED nhưng có tasks còn PENDING -> tự động đồng bộ sang APPROVED
+          const pendingTasks = userTasks.filter((t) => t.approvalStatus === 'PENDING');
+          if (pendingTasks.length > 0) {
+            const pendingIds = pendingTasks.map((t) => t.id);
+            this.prisma.workTask
+              .updateMany({
+                where: { id: { in: pendingIds }, approvalStatus: 'PENDING' },
+                data: { approvalStatus: 'APPROVED' },
+              })
+              .catch(() => {});
+            this.prisma.workTaskUpdate
+              .updateMany({
+                where: { taskId: { in: pendingIds }, reportDate: r.reportDate, approvalStatus: 'PENDING' },
+                data: {
+                  approvalStatus: 'APPROVED',
+                  approvedByUserId: r.reviewedById || undefined,
+                  approvedAt: r.reviewedAt || new Date(),
+                  approvalNote: r.adminReview || 'Đã duyệt theo báo cáo ngày',
+                },
+              })
+              .catch(() => {});
+          }
         }
 
         return {
@@ -1574,6 +1597,26 @@ export class DailyReportsService {
       );
     }
 
+    // Đồng bộ duyệt các công việc trong ngày của nhân sự (trừ những việc đã bị từ chối)
+    const reportDate = report.reportDate;
+    const userId = report.userId;
+
+    const approveJsonItems = (items: any) => {
+      if (!Array.isArray(items)) return items;
+      return items.map((item) => {
+        if (item.approvalStatus === 'REJECTED') return item;
+        return {
+          ...item,
+          approvalStatus: 'APPROVED',
+          approvalNote: dto.adminReview || item.approvalNote || null,
+        };
+      });
+    };
+
+    const updatedMetrics = approveJsonItems(report.metrics);
+    const updatedCompletedTasks = approveJsonItems(report.completedTasks);
+    const updatedInProgressTasks = approveJsonItems(report.inProgressTasks);
+
     const updated = await this.prisma.dailyReport.update({
       where: { id: reportId },
       data: {
@@ -1582,11 +1625,40 @@ export class DailyReportsService {
         reviewedById: actor.userId,
         reviewedAt: new Date(),
         status: 'REVIEWED',
+        metrics: updatedMetrics,
+        completedTasks: updatedCompletedTasks,
+        inProgressTasks: updatedInProgressTasks,
       },
       include: {
         user: { select: { id: true, userCode: true, profile: { select: { fullName: true, avatarUrl: true } } } },
         department: { select: { id: true, name: true } },
         reviewedBy: { select: { id: true, userCode: true, profile: { select: { fullName: true } } } },
+      },
+    });
+
+    // Đồng bộ duyệt các công việc WorkTask & WorkTaskUpdate trong ngày
+    await this.prisma.workTaskUpdate.updateMany({
+      where: {
+        reportDate,
+        task: { userId },
+        approvalStatus: { not: 'REJECTED' },
+      },
+      data: {
+        approvalStatus: 'APPROVED',
+        approvedByUserId: actor.userId,
+        approvedAt: new Date(),
+        approvalNote: dto.adminReview || null,
+      },
+    });
+
+    await this.prisma.workTask.updateMany({
+      where: {
+        reportDate,
+        userId,
+        approvalStatus: { not: 'REJECTED' },
+      },
+      data: {
+        approvalStatus: 'APPROVED',
       },
     });
 

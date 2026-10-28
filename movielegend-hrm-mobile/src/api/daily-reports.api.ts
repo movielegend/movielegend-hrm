@@ -22,6 +22,8 @@ export interface DailyReportMetricItem {
   isCarriedOver?: boolean;
   selfRating?: number;
   attachments?: DailyReportAttachmentItem[];
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'NEED_MORE_INFO' | 'REJECTED' | string;
+  approvalNote?: string;
 }
 
 export interface DailyReportTaskItem {
@@ -44,6 +46,8 @@ export interface DailyReportTaskItem {
   attachments?: DailyReportAttachmentItem[];
   isManual?: boolean;
   isSelected?: boolean;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'NEED_MORE_INFO' | 'REJECTED' | string;
+  approvalNote?: string;
 }
 
 export interface DailyReportAttachmentItem {

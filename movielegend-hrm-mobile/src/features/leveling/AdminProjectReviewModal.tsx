@@ -10,10 +10,12 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
-  Linking} from 'react-native';
+  Linking,
+  StatusBar,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LevelDepartmentProject, BulletSubTask } from './levelProjectsStore';
-import { LEVEL_COLORS, LevelNameBadge } from '../../components/common/LevelNameBadge';
 import { getAbsoluteImageUrl } from '../../utils/image';
 import { CustomAlert } from '../../components/CustomAlert';
 
@@ -44,6 +46,7 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
   onApprove,
   onReject,
 }) => {
+  const insets = useSafeAreaInsets();
   const [adminFeedback, setAdminFeedback] = useState('');
   const [taskAdminNotes, setTaskAdminNotes] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,13 +66,16 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
 
   if (!project) return null;
 
-  const levelColor = LEVEL_COLORS[project.levelNumber] || '#2563EB';
   const completedTasksCount = project.subTasks.filter(
-    (t) => t.status === 'LEADER_APPROVED' || (t.status as any) === 'ADMIN_APPROVED',
+    (t) => t.status === 'LEADER_APPROVED' || (t.status as any) === 'ADMIN_APPROVED'
   ).length;
   const totalTasksCount = project.subTasks.length;
-  const isSubmittedToAdmin = project.status === 'SUBMITTED_TO_ADMIN';
-  const isAdminApproved = project.status === 'ADMIN_APPROVED';
+  const percent = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+  const isApproved = project.status === 'ADMIN_APPROVED';
+  const isSubmitted = project.status === 'SUBMITTED_TO_ADMIN';
+
+  const cleanDeptName = (departmentName || project.departmentName || 'MEDIA').toUpperCase();
+  const branchSubtitle = 'MOVIELEGEND-HÀ NỘI';
 
   const handleOpenUrl = async (url?: string) => {
     if (!url) return;
@@ -96,7 +102,7 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
   const handleApprove = () => {
     CustomAlert.alert(
       'Phê Duyệt Nghiệm Thu Dự Án',
-      `Xác nhận phê duyệt hoàn tất Dự án Level ${project.levelNumber} (${project.projectName}) cho phòng ${departmentName || project.departmentName}? Toàn bộ thành viên tham gia sẽ được ghi nhận hoàn thành dự án thăng cấp.`,
+      `Xác nhận phê duyệt hoàn tất Dự án Level ${project.levelNumber} (${project.projectName}) cho phòng ${cleanDeptName}? Toàn bộ thành viên tham gia sẽ được ghi nhận hoàn thành dự án thăng cấp.`,
       [
         { text: 'Hủy', style: 'cancel' },
         {
@@ -116,7 +122,7 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
             }
           },
         },
-      ],
+      ]
     );
   };
 
@@ -124,14 +130,14 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
     if (!adminFeedback.trim()) {
       CustomAlert.alert(
         'Yêu cầu phản hồi',
-        'Vui lòng nhập lý do hoặc nội dung chỉ đạo cần bổ sung/sửa lại để Leader và các thành viên nắm rõ.',
+        'Vui lòng nhập lý do hoặc nội dung chỉ đạo cần bổ sung/sửa lại để Leader và các thành viên nắm rõ.'
       );
       return;
     }
 
     CustomAlert.alert(
       'Yêu Cầu Bổ Sung / Sửa Lại',
-      `Bạn có chắc chắn muốn trả lại Dự án Level ${project.levelNumber} cho phòng ${departmentName || project.departmentName} để bổ sung/sửa lại?`,
+      `Bạn có chắc chắn muốn trả lại Dự án Level ${project.levelNumber} cho phòng ${cleanDeptName} để bổ sung/sửa lại?`,
       [
         { text: 'Hủy', style: 'cancel' },
         {
@@ -151,149 +157,122 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
             }
           },
         },
-      ],
+      ]
     );
   };
 
   return (
     <>
-      <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-        <View style={styles.overlay}>
-          <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={{ flex: 1, marginRight: 12 }}>
-                <View style={styles.badgeRow}>
-                  <View style={[styles.levelTag, { backgroundColor: `${levelColor}20`, borderColor: levelColor }]}>
-                    <Ionicons name="trophy" size={13} color={levelColor} style={{ marginRight: 4 }} />
-                    <Text style={[styles.levelTagText, { color: levelColor }]}>
-                      Level {project.levelNumber} - {project.levelName}
-                    </Text>
-                  </View>
-                  <View style={styles.deptTag}>
-                    <Text style={styles.deptTagText} numberOfLines={1}>
-                      {departmentName || project.departmentName}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.title} numberOfLines={2}>
-                  {project.projectName}
-                </Text>
-              </View>
+      <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+        <View style={styles.modalRoot}>
+          <StatusBar barStyle="light-content" backgroundColor="#102739" />
 
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-                <Ionicons name="close" size={22} color="#64748B" />
+          {/* ── Top Navy Header (#102739) matching Screenshot 2 ── */}
+          <View style={[styles.modalHeaderWrap, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+            <View style={styles.modalHeaderTopRow}>
+              <Text style={styles.modalHeaderSubtitleSmall}>Chi tiết dự án</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={12} activeOpacity={0.7}>
+                <Text style={styles.modalCloseText}>Đóng</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-              {/* Status Banner */}
-              <View
-                style={[
-                  styles.statusBanner,
-                  isAdminApproved
-                    ? styles.statusBannerApproved
-                    : isSubmittedToAdmin
-                    ? styles.statusBannerSubmitted
-                    : styles.statusBannerInProgress,
-                ]}
-              >
-                <Ionicons
-                  name={
-                    isAdminApproved
-                      ? 'checkmark-circle'
-                      : isSubmittedToAdmin
-                      ? 'time-outline'
-                      : 'hourglass-outline'
-                  }
-                  size={20}
-                  color={
-                    isAdminApproved ? '#10B981' : isSubmittedToAdmin ? '#F59E0B' : '#3B82F6'
-                  }
-                />
-                <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.modalMainTitle}>{project.projectName || `Dự án ${cleanDeptName}`}</Text>
+            <Text style={styles.modalMainSubtitle}>
+              Level {project.levelNumber} · {branchSubtitle}
+            </Text>
+          </View>
+
+          {/* ── Curved Sheet Body ── */}
+          <View style={styles.modalCurvedSheet}>
+            <ScrollView
+              style={styles.modalScrollView}
+              contentContainerStyle={[
+                styles.modalScrollContent,
+                { paddingBottom: Math.max(insets.bottom, 16) + 32 },
+              ]}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* ── Card 1: Tiến độ hoàn thành ── */}
+              <View style={styles.cardBox}>
+                <View
+                  style={[
+                    styles.statusPillBadge,
+                    isApproved
+                      ? styles.statusPillBadgeApproved
+                      : isSubmitted
+                      ? styles.statusPillBadgeSubmitted
+                      : styles.statusPillBadgeInProgress,
+                  ]}
+                >
                   <Text
                     style={[
-                      styles.statusBannerTitle,
-                      {
-                        color: isAdminApproved
-                          ? '#065F46'
-                          : isSubmittedToAdmin
-                          ? '#92400E'
-                          : '#1E40AF',
-                      },
+                      styles.statusPillBadgeText,
+                      isApproved
+                        ? styles.statusPillBadgeTextApproved
+                        : isSubmitted
+                        ? styles.statusPillBadgeTextSubmitted
+                        : styles.statusPillBadgeTextInProgress,
                     ]}
                   >
-                    {isAdminApproved
-                      ? 'Dự án đã được Ban Giám Đốc nghiệm thu hoàn tất'
-                      : isSubmittedToAdmin
-                      ? 'Leader đã nộp báo cáo — Đang chờ Admin nghiệm thu'
-                      : 'Dự án đang trong quá trình thực hiện'}
+                    {isApproved ? 'Đã nghiệm thu' : isSubmitted ? 'Chờ duyệt' : 'Đang thực hiện'}
                   </Text>
-                  <Text style={styles.statusBannerSubtitle}>
-                    Tiến độ hoàn thành: {completedTasksCount}/{totalTasksCount} đầu việc ({totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0}%)
-                  </Text>
+                </View>
+
+                <Text style={styles.progressSubtitleLabel}>Tiến độ hoàn thành</Text>
+                <Text style={styles.progressMetricBig}>
+                  {completedTasksCount}/{totalTasksCount} đầu việc · {percent}%
+                </Text>
+
+                <View style={styles.progressBarTrack}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: `${percent}%`,
+                        backgroundColor: isApproved ? '#059669' : '#102739',
+                      },
+                    ]}
+                  />
                 </View>
               </View>
 
-              {/* Reward & Motivation Card */}
-              {project.rewardItem ? (
-                <View style={styles.card}>
-                  <View style={styles.cardHeader}>
-                    <Ionicons name="gift-outline" size={16} color="#D97706" />
-                    <Text style={styles.cardTitle}>Gói Phần Thưởng & Quyền Lợi Level</Text>
-                  </View>
-                  <Text style={styles.rewardText}>{project.rewardItem}</Text>
-                </View>
-              ) : null}
+              {/* ── Card 2: Báo cáo nghiệm thu ── */}
+              <View style={styles.cardBox}>
+                <Text style={styles.cardBoxTitle}>Báo cáo nghiệm thu</Text>
+                <Text style={styles.cardBoxSubtitle}>Trưởng bộ phận (Leader)</Text>
 
-              {/* Leader's Overall Report Section */}
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Ionicons name="newspaper-outline" size={16} color="#2563EB" />
-                  <Text style={styles.cardTitle}>Báo Cáo Nghiệm Thu Từ Trưởng Bộ Phận (Leader)</Text>
+                <View style={styles.leaderNoteContainer}>
+                  <Text style={styles.leaderNoteTextItalic}>
+                    {project.leaderReportNote || 'Leader chưa để lại ghi chú tổng kết.'}
+                  </Text>
                 </View>
-
-                {project.leaderReportNote ? (
-                  <View style={styles.leaderNoteBox}>
-                    <Text style={styles.leaderNoteText}>{project.leaderReportNote}</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.emptyText}>Leader chưa để lại ghi chú tổng kết.</Text>
-                )}
 
                 {project.leaderReportUrl ? (
                   <TouchableOpacity
-                    style={styles.linkCard}
+                    style={styles.linkAttachmentBtn}
                     activeOpacity={0.8}
                     onPress={() => handleOpenUrl(project.leaderReportUrl)}
                   >
-                    <Ionicons name="document-text-outline" size={20} color="#2563EB" />
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={styles.linkLabel}>Tài liệu / Link Drive minh chứng tổng hợp:</Text>
-                      <Text style={styles.linkUrl} numberOfLines={1}>
-                        {project.leaderReportUrl}
-                      </Text>
-                    </View>
-                    <Ionicons name="open-outline" size={18} color="#2563EB" />
+                    <Ionicons name="document-text-outline" size={18} color="#2563EB" />
+                    <Text style={styles.linkAttachmentText} numberOfLines={1}>
+                      {project.leaderReportUrl}
+                    </Text>
+                    <Ionicons name="open-outline" size={16} color="#2563EB" />
                   </TouchableOpacity>
                 ) : null}
               </View>
 
-              {/* Sub-Tasks Detailed Breakdown */}
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Ionicons name="list-outline" size={16} color="#059669" />
-                  <Text style={styles.cardTitle}>
-                    Chi Tiết Từng Đầu Việc Con ({project.subTasks.length} việc)
-                  </Text>
-                </View>
+              {/* ── Card 3: Đầu việc con (N) ── */}
+              <View style={styles.cardBox}>
+                <Text style={styles.cardBoxTitle}>
+                  Đầu việc con ({project.subTasks.length})
+                </Text>
 
                 {project.subTasks.length === 0 ? (
-                  <Text style={styles.emptyText}>Chưa có công việc con nào được định cấu hình.</Text>
+                  <Text style={styles.emptySubTaskText}>Chưa có công việc con nào được định cấu hình.</Text>
                 ) : (
                   project.subTasks.map((task, idx) => (
-                    <SubTaskInspectionItem
+                    <SubTaskTemplateItem
                       key={task.id || idx}
                       index={idx + 1}
                       task={task}
@@ -301,7 +280,6 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
                       onAdminNoteChange={(val) => {
                         setTaskAdminNotes((prev) => ({ ...prev, [task.id]: val }));
                       }}
-                      isReadOnly={isAdminApproved}
                       onImagePress={(imgUri) => setSelectedZoomImage(imgUri)}
                       onOpenUrl={handleOpenUrl}
                     />
@@ -309,100 +287,46 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
                 )}
               </View>
 
-              {/* Previous Admin Feedback if any */}
-              {project.adminFeedback ? (
-                <View style={[styles.card, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-                  <View style={styles.cardHeader}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={16} color="#2563EB" />
-                    <Text style={[styles.cardTitle, { color: '#1E40AF' }]}>Ý Kiến Chỉ Đạo Của Admin</Text>
-                  </View>
-                  <Text style={{ fontSize: 13, color: '#1E3A8A', lineHeight: 19 }}>
-                    {project.adminFeedback}
-                  </Text>
-                </View>
-              ) : null}
+              {/* ── Card 4: Nghiệm thu dự án ── */}
+              <View style={styles.cardBox}>
+                <Text style={styles.cardBoxTitle}>Nghiệm thu dự án</Text>
+                <Text style={styles.cardBoxSubtitle}>Ban Giám đốc</Text>
 
-              {/* If already approved: Read-only Completed Notice Card */}
-              {isAdminApproved ? (
-                <View style={[styles.card, styles.approvedNoticeCard]}>
-                  <View style={styles.cardHeader}>
-                    <Ionicons name="checkmark-done-circle" size={22} color="#059669" />
-                    <Text style={[styles.cardTitle, { color: '#065F46', fontSize: 15 }]}>
-                      Dự Án Đã Nghiệm Thu Hoàn Tất
-                    </Text>
-                  </View>
-                  <Text style={styles.approvedNoticeSub}>
-                    Dự án này đã được Ban Giám Đốc nghiệm thu chính thức và lưu trữ vào lịch sử hoàn thành của phòng ban.
-                  </Text>
-                  {project.adminApprovedAt && (
-                    <View style={styles.approvedDateRow}>
-                      <Ionicons name="calendar-outline" size={14} color="#059669" />
-                      <Text style={styles.approvedDateText}>
-                        Thời gian nghiệm thu: {new Date(project.adminApprovedAt).toLocaleString('vi-VN')}
-                      </Text>
-                    </View>
+                <Text style={styles.reviewInputLabel}>
+                  Ghi chú chỉ đạo / Nhận xét nghiệm thu (tùy chọn)
+                </Text>
+                <TextInput
+                  style={styles.reviewTextInput}
+                  placeholder="Nhập nhận xét, đánh giá kết quả dự án hoặc lưu ý bổ sung..."
+                  placeholderTextColor="#94A3B8"
+                  value={adminFeedback}
+                  onChangeText={setAdminFeedback}
+                  multiline
+                  numberOfLines={3}
+                />
+
+                <TouchableOpacity
+                  style={[styles.btnNavyApprove, isSubmitting && styles.btnDisabled]}
+                  onPress={handleApprove}
+                  disabled={isSubmitting}
+                  activeOpacity={0.8}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.btnNavyApproveText}>Phê duyệt nghiệm thu</Text>
                   )}
-                  {Boolean(project.adminFeedback) && (
-                    <View style={styles.approvedFeedbackBox}>
-                      <Text style={styles.approvedFeedbackLabel}>Ý kiến chỉ đạo của Ban Giám Đốc:</Text>
-                      <Text style={styles.approvedFeedbackText}>"{project.adminFeedback}"</Text>
-                    </View>
-                  )}
-                  <TouchableOpacity style={styles.btnCloseArchive} onPress={onClose} activeOpacity={0.8}>
-                    <Ionicons name="checkmark" size={16} color="#059669" style={{ marginRight: 6 }} />
-                    <Text style={styles.btnCloseArchiveText}>Đóng Hồ Sơ Nghiệm Thu</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                /* Admin Decision Section when project is in progress or awaiting review */
-                <View style={styles.card}>
-                  <View style={styles.cardHeader}>
-                    <Ionicons name="shield-checkmark-outline" size={16} color="#4F46E5" />
-                    <Text style={styles.cardTitle}>Quyết Định Nghiệm Thu Của Ban Giám Đốc</Text>
-                  </View>
+                </TouchableOpacity>
 
-                  <Text style={styles.inputLabel}>Ghi chú chỉ đạo / Nhận xét nghiệm thu (tùy chọn):</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Nhập nhận xét, đánh giá kết quả dự án hoặc lưu ý bổ sung..."
-                    placeholderTextColor="#94A3B8"
-                    value={adminFeedback}
-                    onChangeText={setAdminFeedback}
-                    multiline
-                    numberOfLines={3}
-                  />
-
-                  <View style={styles.actionButtonsRow}>
-                    <TouchableOpacity
-                      style={[styles.btnReject, isSubmitting && styles.btnDisabled]}
-                      onPress={handleReject}
-                      disabled={isSubmitting}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="refresh-outline" size={16} color="#DC2626" style={{ marginRight: 6 }} />
-                      <Text style={styles.btnRejectText}>Yêu Cầu Sửa</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.btnApprove, isSubmitting && styles.btnDisabled]}
-                      onPress={handleApprove}
-                      disabled={isSubmitting}
-                      activeOpacity={0.8}
-                    >
-                      {isSubmitting ? (
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                      ) : (
-                        <>
-                          <Ionicons name="checkmark-circle-outline" size={17} color="#FFFFFF" style={{ marginRight: 6 }} />
-                          <Text style={styles.btnApproveText}>Phê Duyệt Nghiệm Thu</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              <View style={{ height: 40 }} />
+                <TouchableOpacity
+                  style={[styles.btnRedReject, isSubmitting && styles.btnDisabled]}
+                  onPress={handleReject}
+                  disabled={isSubmitting}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.btnRedRejectText}>Yêu cầu sửa</Text>
+                </TouchableOpacity>
+              </View>
             </ScrollView>
           </View>
         </View>
@@ -436,573 +360,503 @@ export const AdminProjectReviewModal: React.FC<AdminProjectReviewModalProps> = (
   );
 };
 
-// Sub-component: SubTask Inspection Item
-interface SubTaskInspectionItemProps {
+// ── Sub-component: SubTask Inspection Item matching Screenshot 2 ──
+interface SubTaskTemplateItemProps {
   index: number;
   task: BulletSubTask;
   adminNoteValue?: string;
   onAdminNoteChange?: (text: string) => void;
-  isReadOnly?: boolean;
   onImagePress: (imgUri: string) => void;
   onOpenUrl: (url?: string) => void;
 }
 
-const SubTaskInspectionItem: React.FC<SubTaskInspectionItemProps> = ({
+const SubTaskTemplateItem: React.FC<SubTaskTemplateItemProps> = ({
   index,
   task,
   adminNoteValue,
   onAdminNoteChange,
-  isReadOnly,
   onImagePress,
   onOpenUrl,
 }) => {
-  const isLeaderApproved = task.status === 'LEADER_APPROVED' || (task.status as any) === 'ADMIN_APPROVED';
+  const isApproved = task.status === 'LEADER_APPROVED' || (task.status as any) === 'ADMIN_APPROVED';
   const isSubmitted = task.status === 'SUBMITTED';
 
-  return (
-    <View style={styles.taskItem}>
-      {/* Header of Subtask */}
-      <View style={styles.taskHeader}>
-        <View style={styles.taskIndexBadge}>
-          <Text style={styles.taskIndexText}>#{index}</Text>
-        </View>
-        <Text style={styles.taskTitle} numberOfLines={2}>
-          {task.title}
-        </Text>
-      </View>
+  const padNum = index < 10 ? `0${index}` : `${index}`;
 
-      {/* Assignee & Status Row */}
-      <View style={styles.taskMetaRow}>
-        <View style={styles.assigneeBox}>
-          <Ionicons name="person-circle-outline" size={16} color="#64748B" />
-          <Text style={styles.assigneeText} numberOfLines={1}>
-            {task.assignedToUserName || 'Chưa phân công'}
-          </Text>
+  return (
+    <View style={styles.subTaskBox}>
+      {/* Top row */}
+      <View style={styles.subTaskTopRow}>
+        <View style={styles.subTaskLeftGroup}>
+          <View style={styles.subTaskNumberBadge}>
+            <Text style={styles.subTaskNumberBadgeText}>{padNum}</Text>
+          </View>
+
+          <View style={styles.subTaskTitleCol}>
+            <Text style={styles.subTaskTitleText} numberOfLines={2}>
+              {task.title}
+            </Text>
+            <Text style={styles.subTaskAssigneeText}>
+              Phụ trách: <Text style={styles.subTaskAssigneeBold}>{task.assignedToUserName || 'Chưa phân công'}</Text>
+            </Text>
+          </View>
         </View>
 
         <View
           style={[
-            styles.taskStatusBadge,
-            isLeaderApproved
-              ? styles.taskStatusLeaderApproved
+            styles.subTaskStatusPill,
+            isApproved
+              ? styles.subTaskStatusApproved
               : isSubmitted
-              ? styles.taskStatusSubmitted
-              : styles.taskStatusPending,
+              ? styles.subTaskStatusSubmitted
+              : styles.subTaskStatusInProgress,
           ]}
         >
-          <Ionicons
-            name={
-              isLeaderApproved
-                ? 'checkmark-done-circle'
-                : isSubmitted
-                ? 'checkmark-circle-outline'
-                : 'ellipse-outline'
-            }
-            size={12}
-            color={isLeaderApproved ? '#059669' : isSubmitted ? '#2563EB' : '#94A3B8'}
-          />
           <Text
             style={[
-              styles.taskStatusText,
-              {
-                color: isLeaderApproved
-                  ? '#059669'
-                  : isSubmitted
-                  ? '#2563EB'
-                  : '#64748B',
-              },
+              styles.subTaskStatusPillText,
+              isApproved
+                ? styles.subTaskStatusApprovedText
+                : isSubmitted
+                ? styles.subTaskStatusSubmittedText
+                : styles.subTaskStatusInProgressText,
             ]}
           >
-            {isLeaderApproved ? 'Leader Đã Duyệt V1' : isSubmitted ? 'Đã Nộp Báo Cáo' : 'Đang Làm'}
+            {isApproved ? 'Hoàn thành' : isSubmitted ? 'Chờ duyệt' : 'Đang làm'}
           </Text>
         </View>
       </View>
 
-      {/* Description if any */}
+      {/* Description */}
       {task.description ? (
-        <Text style={styles.taskDescription}>{task.description}</Text>
+        <Text style={styles.subTaskDescriptionText}>{task.description}</Text>
       ) : null}
 
-      {/* Submission Details */}
-      {task.submissionNote || task.evidenceUrl || (task.evidenceImages && task.evidenceImages.length > 0) ? (
-        <View style={styles.submissionBox}>
-          <Text style={styles.submissionBoxLabel}>Kết quả nộp từ nhân sự:</Text>
-          {task.submissionNote ? (
-            <Text style={styles.submissionNoteText}>{task.submissionNote}</Text>
-          ) : null}
-
-          {task.evidenceUrl ? (
-            <TouchableOpacity
-              style={styles.subTaskLinkBtn}
-              activeOpacity={0.7}
-              onPress={() => onOpenUrl(task.evidenceUrl)}
-            >
-              <Ionicons name="link-outline" size={14} color="#2563EB" />
-              <Text style={styles.subTaskLinkText} numberOfLines={1}>
-                {task.evidenceUrl}
-              </Text>
-              <Ionicons name="open-outline" size={13} color="#2563EB" />
-            </TouchableOpacity>
-          ) : null}
-
-          {/* Evidence Photos */}
-          {Array.isArray(task.evidenceImages) && task.evidenceImages.length > 0 ? (
-            <View style={styles.imageGalleryContainer}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {task.evidenceImages.map((img, imgIdx) => {
-                  const resolvedImg = getAbsoluteImageUrl(img) || img;
-                  return (
-                    <TouchableOpacity
-                      key={imgIdx}
-                      activeOpacity={0.8}
-                      onPress={() => onImagePress(resolvedImg)}
-                      style={styles.evidenceImageWrapper}
-                    >
-                      <Image source={{ uri: resolvedImg }} style={styles.evidenceThumbnail} />
-                      <View style={styles.imageZoomBadge}>
-                        <Ionicons name="expand" size={12} color="#FFFFFF" />
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          ) : null}
+      {/* Proof / submission note if any */}
+      {task.submissionNote ? (
+        <View style={styles.subTaskProofBox}>
+          <Text style={styles.subTaskProofLabel}>Báo cáo nộp: </Text>
+          <Text style={styles.subTaskProofText}>{task.submissionNote}</Text>
         </View>
       ) : null}
 
-      {/* Leader Feedback Note */}
-      {task.leaderFeedback ? (
-        <View style={styles.leaderFeedbackBox}>
-          <Ionicons name="chatbox-ellipses-outline" size={14} color="#D97706" />
-          <Text style={styles.leaderFeedbackText}>
-            <Text style={{ fontWeight: '700' }}>Leader nhận xét: </Text>
-            {task.leaderFeedback}
+      {task.evidenceUrl ? (
+        <TouchableOpacity
+          style={styles.subTaskLinkRow}
+          activeOpacity={0.7}
+          onPress={() => onOpenUrl(task.evidenceUrl)}
+        >
+          <Ionicons name="link-outline" size={13} color="#2563EB" />
+          <Text style={styles.subTaskLinkText} numberOfLines={1}>
+            {task.evidenceUrl}
           </Text>
-        </View>
+        </TouchableOpacity>
       ) : null}
 
-      {/* Admin Note: Nhận xét riêng cho từng nhân sự / việc con */}
-      {isReadOnly ? (
-        task.adminNote ? (
-          <View style={styles.adminTaskNoteBox}>
-            <Ionicons name="chatbubble-ellipses" size={14} color="#4F46E5" />
-            <Text style={styles.adminTaskNoteText}>
-              <Text style={{ fontWeight: '700' }}>Admin nhận xét cho {task.assignedToUserName || 'nhân sự'}: </Text>
-              {task.adminNote}
-            </Text>
-          </View>
-        ) : null
-      ) : (
-        <View style={styles.adminTaskInputWrap}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-            <Ionicons name="create-outline" size={13} color="#4F46E5" style={{ marginRight: 4 }} />
-            <Text style={styles.adminTaskInputLabel}>
-              Nhận xét riêng cho {task.assignedToUserName ? `${task.assignedToUserName}` : `đầu việc #${index}`}:
-            </Text>
-          </View>
-          <TextInput
-            style={styles.adminTaskInput}
-            value={adminNoteValue !== undefined ? adminNoteValue : (task.adminNote || '')}
-            onChangeText={onAdminNoteChange}
-            placeholder={`Nhập nhận xét / đánh giá riêng cho ${task.assignedToUserName || 'nhân sự'}...`}
-            placeholderTextColor="#94A3B8"
-            multiline
-          />
-        </View>
-      )}
+      {Array.isArray(task.evidenceImages) && task.evidenceImages.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+          {task.evidenceImages.map((img, i) => {
+            const resolvedImg = getAbsoluteImageUrl(img) || img;
+            return (
+              <TouchableOpacity
+                key={i}
+                onPress={() => onImagePress(resolvedImg)}
+                style={styles.subTaskImgThumb}
+              >
+                <Image source={{ uri: resolvedImg }} style={styles.subTaskImg} />
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
+      {/* Review Note for this subtask */}
+      <Text style={styles.subTaskReviewLabel}>
+        Nhận xét riêng cho đầu việc {task.orderNumber || index}
+      </Text>
+      <TextInput
+        style={styles.subTaskReviewInput}
+        placeholder="Nhập nhận xét / đánh giá riêng cho nhân sự..."
+        placeholderTextColor="#94A3B8"
+        value={adminNoteValue !== undefined ? adminNoteValue : (task.adminNote || '')}
+        onChangeText={onAdminNoteChange}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalRoot: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'flex-end',
+    backgroundColor: '#102739',
   },
-  container: {
-    backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '92%',
-    minHeight: '60%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  levelTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  levelTagText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  deptTag: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  deptTagText: {
-    fontSize: 12,
-    color: '#475569',
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#0F172A',
-    lineHeight: 22,
-  },
-  closeBtn: {
-    padding: 6,
-    borderRadius: 20,
-    backgroundColor: '#F1F5F9',
-  },
-  body: {
+
+  /* ── Header (#102739) ── */
+  modalHeaderWrap: {
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingBottom: 20,
+    backgroundColor: '#102739',
   },
-  statusBanner: {
+  modalHeaderTopRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 14,
-    marginBottom: 12,
-    borderWidth: 1,
+    marginBottom: 8,
   },
-  statusBannerApproved: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  statusBannerSubmitted: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-  },
-  statusBannerInProgress: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-  },
-  statusBannerTitle: {
+  modalHeaderSubtitleSmall: {
     fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  modalCloseText: {
+    fontSize: 14,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
-  statusBannerSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
+  modalMainTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  modalMainSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
     marginTop: 2,
+    fontWeight: '500',
   },
-  card: {
+
+  /* ── Curved Sheet Body ── */
+  modalCurvedSheet: {
+    flex: 1,
+    backgroundColor: '#F4F6F9',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    padding: 16,
+  },
+
+  /* ── Card Box ── */
+  cardBox: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 6,
+  cardBoxTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
   },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  rewardText: {
+  cardBoxSubtitle: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#B45309',
-    lineHeight: 19,
-  },
-  leaderNoteBox: {
-    backgroundColor: '#F8FAFC',
-    padding: 12,
-    borderRadius: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: '#2563EB',
-    marginBottom: 8,
-  },
-  leaderNoteText: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 20,
-  },
-  linkCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    marginTop: 6,
-  },
-  linkLabel: {
-    fontSize: 11,
     color: '#64748B',
-    fontWeight: '600',
+    marginTop: 2,
+    marginBottom: 12,
   },
-  linkUrl: {
-    fontSize: 12,
-    color: '#2563EB',
-    fontWeight: '700',
-    marginTop: 1,
-  },
-  emptyText: {
-    fontSize: 12,
-    color: '#94A3B8',
-    fontStyle: 'italic',
-  },
-  taskItem: {
-    backgroundColor: '#F8FAFC',
+
+  /* ── Status Pill Badge ── */
+  statusPillBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
-    padding: 12,
+    alignSelf: 'flex-start',
     marginBottom: 10,
+  },
+  statusPillBadgeApproved: {
+    backgroundColor: '#DCFCE7',
+  },
+  statusPillBadgeSubmitted: {
+    backgroundColor: '#EFF6FF',
+  },
+  statusPillBadgeInProgress: {
+    backgroundColor: '#FEF3C7',
+  },
+  statusPillBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  statusPillBadgeTextApproved: {
+    color: '#15803D',
+  },
+  statusPillBadgeTextSubmitted: {
+    color: '#2563EB',
+  },
+  statusPillBadgeTextInProgress: {
+    color: '#B45309',
+  },
+
+  /* ── Progress Card Metrics ── */
+  progressSubtitleLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  progressMetricBig: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 10,
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+
+  /* ── Leader Note Box ── */
+  leaderNoteContainer: {
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 14,
+    backgroundColor: '#F8FAFC',
   },
-  taskHeader: {
+  leaderNoteTextItalic: {
+    fontStyle: 'italic',
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  linkAttachmentBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    gap: 8,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 10,
   },
-  taskIndexBadge: {
-    backgroundColor: '#E2E8F0',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+  linkAttachmentText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#2563EB',
+    fontWeight: '600',
+  },
+
+  /* ── SubTask Inspection Item ── */
+  emptySubTaskText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    paddingVertical: 8,
+  },
+  subTaskBox: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  subTaskTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  subTaskLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
     marginRight: 8,
   },
-  taskIndexText: {
+  subTaskNumberBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  subTaskNumberBadgeText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  subTaskTitleCol: {
+    flex: 1,
+  },
+  subTaskTitleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 19,
+  },
+  subTaskAssigneeText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  subTaskAssigneeBold: {
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  subTaskStatusPill: {
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  subTaskStatusApproved: {
+    backgroundColor: '#DCFCE7',
+  },
+  subTaskStatusSubmitted: {
+    backgroundColor: '#EFF6FF',
+  },
+  subTaskStatusInProgress: {
+    backgroundColor: '#FEF3C7',
+  },
+  subTaskStatusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  subTaskStatusApprovedText: {
+    color: '#15803D',
+  },
+  subTaskStatusSubmittedText: {
+    color: '#2563EB',
+  },
+  subTaskStatusInProgressText: {
+    color: '#B45309',
+  },
+  subTaskDescriptionText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontStyle: 'italic',
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  subTaskProofBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 8,
+  },
+  subTaskProofLabel: {
     fontSize: 11,
     fontWeight: '700',
     color: '#475569',
   },
-  taskTitle: {
+  subTaskProofText: {
+    fontSize: 12,
+    color: '#1E293B',
+    marginTop: 2,
+  },
+  subTaskLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  subTaskLinkText: {
+    fontSize: 12,
+    color: '#2563EB',
+    textDecorationLine: 'underline',
+  },
+  subTaskImgThumb: {
+    width: 60,
+    height: 60,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  subTaskImg: {
+    width: '100%',
+    height: '100%',
+  },
+  subTaskReviewLabel: {
     fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',
-    flex: 1,
-  },
-  taskMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  assigneeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  assigneeText: {
-    fontSize: 12,
-    color: '#475569',
-    fontWeight: '600',
-  },
-  taskStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    gap: 4,
-  },
-  taskStatusLeaderApproved: {
-    backgroundColor: '#ECFDF5',
-  },
-  taskStatusSubmitted: {
-    backgroundColor: '#EFF6FF',
-  },
-  taskStatusPending: {
-    backgroundColor: '#F1F5F9',
-  },
-  taskStatusText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  taskDescription: {
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 6,
-    lineHeight: 17,
-  },
-  submissionBox: {
-    backgroundColor: '#FFFFFF',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginTop: 6,
-  },
-  submissionBoxLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-    marginBottom: 4,
-  },
-  submissionNoteText: {
-    fontSize: 12,
-    color: '#334155',
-    lineHeight: 18,
+    marginTop: 12,
     marginBottom: 6,
   },
-  subTaskLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F9FF',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-    gap: 6,
-    marginBottom: 6,
-  },
-  subTaskLinkText: {
-    flex: 1,
-    fontSize: 11,
-    color: '#0284C7',
-    fontWeight: '600',
-  },
-  imageGalleryContainer: {
-    marginTop: 4,
-  },
-  evidenceImageWrapper: {
-    position: 'relative',
-    marginRight: 8,
-    borderRadius: 8,
-    overflow: 'hidden',
+  subTaskReviewInput: {
     borderWidth: 1,
     borderColor: '#CBD5E1',
-  },
-  evidenceThumbnail: {
-    width: 68,
-    height: 68,
-    borderRadius: 7,
-  },
-  imageZoomBadge: {
-    position: 'absolute',
-    right: 4,
-    bottom: 4,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 4,
-    padding: 2,
-  },
-  leaderFeedbackBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FFFBEB',
-    padding: 8,
     borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#F59E0B',
-    marginTop: 6,
-    gap: 6,
-  },
-  leaderFeedbackText: {
-    fontSize: 12,
-    color: '#92400E',
-    flex: 1,
-    lineHeight: 17,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
     color: '#0F172A',
-    minHeight: 70,
+    backgroundColor: '#FFFFFF',
+    minHeight: 44,
+  },
+
+  /* ── Card 4 Inputs & Action Buttons ── */
+  reviewInputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 6,
+  },
+  reviewTextInput: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#0F172A',
+    backgroundColor: '#FFFFFF',
+    minHeight: 74,
     textAlignVertical: 'top',
-    marginBottom: 14,
   },
-  actionButtonsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  btnReject: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+  btnNavyApprove: {
+    backgroundColor: '#102739',
+    borderRadius: 8,
+    height: 48,
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
-  },
-  btnRejectText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
-  btnApprove: {
-    flex: 1.5,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#059669',
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    marginTop: 14,
   },
-  btnApproveText: {
-    fontSize: 13,
-    fontWeight: '700',
+  btnNavyApproveText: {
+    fontSize: 15,
+    fontWeight: '800',
     color: '#FFFFFF',
+  },
+  btnRedReject: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+    borderRadius: 8,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  btnRedRejectText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#DC2626',
   },
   btnDisabled: {
     opacity: 0.6,
   },
+
+  /* ── Zoom Overlay ── */
   zoomOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.92)',
@@ -1018,107 +872,5 @@ const styles = StyleSheet.create({
   zoomImage: {
     width: SCREEN_WIDTH - 20,
     height: '80%',
-  },
-
-  /* Approved Read-Only Notice Styles */
-  approvedNoticeCard: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-    borderWidth: 1.5,
-  },
-  approvedNoticeSub: {
-    fontSize: 13,
-    color: '#065F46',
-    lineHeight: 18,
-    marginBottom: 10,
-  },
-  approvedDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  approvedDateText: {
-    fontSize: 12,
-    color: '#047857',
-    fontWeight: '600',
-  },
-  approvedFeedbackBox: {
-    backgroundColor: '#FFFFFF',
-    borderLeftWidth: 3,
-    borderLeftColor: '#059669',
-    padding: 10,
-    borderRadius: 8,
-    marginVertical: 8,
-  },
-  approvedFeedbackLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#065F46',
-    marginBottom: 3,
-  },
-  approvedFeedbackText: {
-    fontSize: 13,
-    color: '#1E293B',
-    fontStyle: 'italic',
-    lineHeight: 18,
-  },
-  btnCloseArchive: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#059669',
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  btnCloseArchiveText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#059669',
-  },
-  adminTaskInputWrap: {
-    marginTop: 10,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    padding: 10,
-  },
-  adminTaskInputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4F46E5',
-  },
-  adminTaskInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
-    color: '#0F172A',
-    minHeight: 46,
-    textAlignVertical: 'top',
-  },
-  adminTaskNoteBox: {
-    marginTop: 8,
-    backgroundColor: '#EEF2FF',
-    borderLeftWidth: 3,
-    borderLeftColor: '#4F46E5',
-    padding: 8,
-    borderRadius: 6,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-  },
-  adminTaskNoteText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#312E81',
-    lineHeight: 17,
   },
 });
