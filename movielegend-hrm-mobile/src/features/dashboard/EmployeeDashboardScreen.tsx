@@ -100,7 +100,7 @@ export function EmployeeDashboardScreen() {
   // Queries
   const { data: currentAttendance } = useCurrentAttendance();
   const { data: schedule } = useMySchedule();
-  const { data: myTasks } = useMyTasks({ limit: 100 });
+  const { data: myTasks } = useMyTasks({ limit: 50 });
   const { data: myRequestsData } = useMyEmployeeRequests({ status: 'PENDING' });
   const { data: unreadNotifications = 0 } = useUnreadNotificationCount();
   const { data: unreadChat = 0 } = useUnreadChatCount();

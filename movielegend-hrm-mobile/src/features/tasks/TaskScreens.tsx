@@ -109,7 +109,15 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   const { user } = useAuth();
   const tabBarScroll = useTabBarScroll();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [status, setStatus] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const isAdmin = Boolean(
     user?.roles?.includes('ADMIN') ||
@@ -125,10 +133,10 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
   const filters: TaskListFilters = useMemo(() => ({
     page: 1,
     limit: 20,
-    ...(search ? { search } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(status === 'OVERDUE' ? { overdue: true } : status ? { status: status as never } : {}),
     ...(isDelegatedArea && user?.id && !isGlobalAdmin ? { createdById: user.id } : {})
-  }), [search, status, isDelegatedArea, user?.id, isGlobalAdmin]);
+  }), [debouncedSearch, status, isDelegatedArea, user?.id, isGlobalAdmin]);
 
   const tasks = area === 'employee' ? useMyTasks(filters) : useTasks(filters);
   const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;

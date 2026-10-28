@@ -4,6 +4,7 @@ import { AnyPermissions } from '../../common/decorators/any-permissions.decorato
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
+import { SkipThrottle } from '@nestjs/throttler';
 import {
   CreateTaskAttachmentDto,
   CreateTaskCommentDto,
@@ -32,12 +33,14 @@ export class TasksController {
     return this.tasks.create(dto, actor);
   }
 
+  @SkipThrottle()
   @Get()
   @AnyPermissions('task.read_all', 'task.read_department', 'task.read_own')
   findAll(@CurrentUser() actor: AuthenticatedUser, @Query() query: TaskQueryDto) {
     return this.tasks.findAll(actor, query);
   }
 
+  @SkipThrottle()
   @Get('me')
   @AnyPermissions('task.read_own', 'task.read_department', 'task.read_all')
   findMine(@CurrentUser() actor: AuthenticatedUser, @Query() query: TaskQueryDto) {

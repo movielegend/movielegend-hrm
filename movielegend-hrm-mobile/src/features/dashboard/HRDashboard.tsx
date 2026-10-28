@@ -194,7 +194,7 @@ export function HRDashboard() {
   }, [allFinancialRequests]);
 
   // Due Tasks (for "Công việc đến hạn")
-  const { data: myTasks } = useMyTasks({ limit: 20 });
+  const { data: myTasks } = useMyTasks({ limit: 50 });
   const dueTasksCount = useMemo(() => {
     const list = myTasks?.items || [];
     return list.filter((t: any) => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length;
