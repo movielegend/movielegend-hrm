@@ -99,7 +99,7 @@ export function LeaderDashboard() {
   const { data: currentAttendance } = useCurrentAttendance();
 
   // Tasks
-  const { data: myTasks } = useMyTasks({ limit: 30 });
+  const { data: myTasks } = useMyTasks({ limit: 50 });
   const myTasksUncompletedCount = useMemo(() => {
     return myTasks?.items?.filter((t: any) => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(t.status)).length || 0;
   }, [myTasks]);
