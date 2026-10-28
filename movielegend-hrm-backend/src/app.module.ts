@@ -102,7 +102,7 @@ import { OtReportModule } from './modules/ot-report/ot-report.module';
         ];
       },
     }),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     CacheModule.register({ isGlobal: true, ttl: 300_000 }),
     ScheduleModule.forRoot(),
     DatabaseModule,

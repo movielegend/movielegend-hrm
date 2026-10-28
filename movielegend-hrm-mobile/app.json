@@ -23,7 +23,8 @@
         ],
         "NSMicrophoneUsageDescription": "Ứng dụng cần quyền sử dụng microphone để thực hiện các cuộc gọi âm thanh.",
         "NSCameraUsageDescription": "Ứng dụng cần quyền truy cập camera để chụp ảnh xác thực khuôn mặt khi chấm công."
-      }
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "googleServicesFile": "./google-services.json",
