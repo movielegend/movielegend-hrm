@@ -25,8 +25,8 @@ async function bootstrap() {
   (app.getHttpAdapter().getInstance() as any).set('trust proxy', true);
 
   app.use(compression());
-  app.use(json({ limit: '5mb' }));
-  app.use(urlencoded({ extended: true, limit: '5mb' }));
+  app.use(json({ limit: '25mb' }));
+  app.use(urlencoded({ extended: true, limit: '25mb' }));
 
   app.enableShutdownHooks();
 

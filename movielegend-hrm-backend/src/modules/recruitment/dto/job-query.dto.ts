@@ -13,6 +13,11 @@ export class JobQueryDto {
   @IsString()
   departmentName?: string;
 
+  @ApiPropertyOptional({ description: 'ID hoặc mã/tên nhóm ngành cần lọc' })
+  @IsOptional()
+  @IsString()
+  workGroupId?: string;
+
   @ApiPropertyOptional({ description: 'Tỉnh thành (Hà Nội, TP. Hồ Chí Minh...)' })
   @IsOptional()
   @IsString()
