@@ -21,6 +21,9 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Cho phép nhận diện real client IP thông qua Nginx Reverse Proxy
+  (app.getHttpAdapter().getInstance() as any).set('trust proxy', true);
+
   app.use(compression());
   app.use(json({ limit: '5mb' }));
   app.use(urlencoded({ extended: true, limit: '5mb' }));

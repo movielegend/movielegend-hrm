@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   cancelTask,
@@ -42,6 +43,7 @@ export function useTasks(filters: TaskListFilters = {}) {
   return useQuery({
     queryKey: queryKeys.tasks(filters),
     queryFn: () => getTasks(filters),
+    staleTime: 30_000,
   });
 }
 
@@ -49,12 +51,15 @@ export function useMyTasks(filters: TaskListFilters = {}) {
   const query = useQuery({
     queryKey: queryKeys.myTasks(filters),
     queryFn: () => getMyTasks(filters),
+    staleTime: 30_000,
   });
 
-  if (query.data?.items) {
-    const { scheduleTaskNotifications } = require('../services/NotificationService');
-    scheduleTaskNotifications(query.data.items).catch(() => undefined);
-  }
+  useEffect(() => {
+    if (query.data?.items?.length) {
+      const { scheduleTaskNotifications } = require('../services/NotificationService');
+      scheduleTaskNotifications(query.data.items).catch(() => undefined);
+    }
+  }, [query.data?.items]);
 
   return query;
 }
