@@ -1,4 +1,4 @@
-import { hasUserRole } from '../utils/role-routing';
+import { hasUserRole, isAccountingLeader } from '../utils/role-routing';
 
 export interface AppRegistryItem {
   key: string;
@@ -112,7 +112,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   shifts: {
     key: 'shifts',
     title: 'Phân ca làm',
-    employeeTitle: 'Ca làm',
     leaderTitle: 'Phân ca làm',
     adminTitle: 'Phân ca làm',
     hrTitle: 'Phân ca làm',
@@ -122,7 +121,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     bgColor: '#FFEDD5',
     adminRoute: '/admin/shifts/assign',
     leaderRoute: '/leader/shift-management',
-    employeeRoute: '/employee/schedule',
     hrRoute: '/hr/shift-management',
   },
   my_schedule: {
@@ -144,7 +142,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   shifts_list: {
     key: 'shifts_list',
     title: 'Danh sách ca',
-    employeeTitle: 'Danh sách ca',
     leaderTitle: 'Danh sách ca',
     adminTitle: 'Danh sách ca',
     hrTitle: 'Danh sách ca',
@@ -154,7 +151,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     bgColor: '#CCFBF1',
     adminRoute: '/admin/shifts',
     leaderRoute: '/leader/shifts',
-    employeeRoute: '/employee/schedule',
     hrRoute: '/admin/shifts',
   },
   shift_reassign: {
@@ -513,6 +509,16 @@ export function isAppAllowedForRole(
   // Không hiển thị dịch vụ "Vá ca đột xuất" độc lập (nhân viên chỉ dùng "Ca làm" cho /schedule, quản lý thao tác trong "Phân ca làm")
   if (item.key === 'shift_reassign') {
     return false;
+  }
+
+  // Ẩn chức năng quản lý "Phân ca làm" và "Danh sách ca" đối với Nhân viên & Kế toán viên chuyên môn
+  // (Chỉ giữ lại duy nhất 1 chức năng "Ca làm của tôi" [my_schedule] để xem lịch ca làm việc cá nhân)
+  if (item.key === 'shifts' || item.key === 'shifts_list') {
+    if (role === 'EMPLOYEE') return false;
+    const isChiefAccountant = isAccountingLeader(user);
+    if (hasUserRole(user, 'ACCOUNTANT') && !isChiefAccountant && !hasUserRole(user, 'HR') && !hasUserRole(user, 'ADMIN') && !hasUserRole(user, 'LEADER')) {
+      return false;
+    }
   }
 
   // Admin không có và không dùng "Lịch sử chấm công" cá nhân (Admin chỉ quản lý Dữ liệu chấm công qua /admin/attendance)
