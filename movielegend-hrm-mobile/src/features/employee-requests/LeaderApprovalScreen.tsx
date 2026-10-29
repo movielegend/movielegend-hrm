@@ -515,9 +515,44 @@ export function LeaderApprovalScreen() {
     return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const meta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
-    ? (request.attachmentMetadata as Record<string, any>)
-    : {};
+  let meta: Record<string, any> = {};
+  if (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null) {
+    meta = request.attachmentMetadata as Record<string, any>;
+  } else if (typeof request.attachmentMetadata === 'string') {
+    try {
+      meta = JSON.parse(request.attachmentMetadata);
+    } catch {
+      meta = {};
+    }
+  }
+
+  const attachmentImages: string[] = (() => {
+    const list: string[] = [];
+    const addImg = (val: any) => {
+      if (!val) return;
+      if (typeof val === 'string' && val.trim()) {
+        list.push(val.trim());
+      } else if (typeof val === 'object') {
+        const url = val.fileUrl || val.url || val.uri || val.file?.fileUrl || val.file?.url;
+        if (typeof url === 'string' && url.trim()) {
+          list.push(url.trim());
+        }
+      }
+    };
+
+    if (Array.isArray(meta.images)) meta.images.forEach(addImg);
+    if (Array.isArray(meta.photos)) meta.photos.forEach(addImg);
+    if (Array.isArray(meta.photoUrls)) meta.photoUrls.forEach(addImg);
+    if (Array.isArray(meta.attachments)) meta.attachments.forEach(addImg);
+    addImg(meta.image);
+    addImg(meta.photo);
+    addImg(meta.proofUrl);
+    addImg(meta.proofImage);
+    if (Array.isArray((request as any)?.photos)) (request as any).photos.forEach(addImg);
+    if (Array.isArray((request as any)?.attachments)) (request as any).attachments.forEach(addImg);
+
+    return Array.from(new Set(list));
+  })();
   const stage = meta.stage || 'PENDING';
   const approvalSteps = Array.isArray(meta.approvalSteps) ? meta.approvalSteps : [];
   const disburseStep = approvalSteps.find((s: any) => s.action === 'DISBURSED' || s.action === 'DISBURSED_TO_HR');
@@ -1160,10 +1195,12 @@ export function LeaderApprovalScreen() {
           <View style={[styles.card, shadows.sm]}>
             <Text style={styles.metaSectionTitle}>Thông tin làm thêm giờ (OT)</Text>
 
-            {meta.fromDate ? (
+            {(meta.fromDate || meta.otDate || meta.workDate) ? (
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Ngày làm thêm</Text>
-                <Text style={[styles.metaValue, { color: '#047857', fontWeight: '700' }]}>{formatDateStr(meta.fromDate)}</Text>
+                <Text style={[styles.metaValue, { color: '#047857', fontWeight: '700' }]}>
+                  {formatDateStr(meta.fromDate || meta.otDate || meta.workDate)}
+                </Text>
               </View>
             ) : null}
 
@@ -1171,6 +1208,24 @@ export function LeaderApprovalScreen() {
               <View style={styles.metaRow}>
                 <Text style={styles.metaLabel}>Ca làm việc</Text>
                 <Text style={styles.metaValue}>{meta.shiftName}</Text>
+              </View>
+            ) : null}
+
+            {(meta.proposedPercent || meta.percent) ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Mức công đề xuất</Text>
+                <Text style={[styles.metaValue, { color: '#8B5CF6', fontWeight: '700' }]}>
+                  {meta.proposedPercent || meta.percent}%
+                </Text>
+              </View>
+            ) : null}
+
+            {meta.validOtMinutes ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Thời gian hợp lệ</Text>
+                <Text style={[styles.metaValue, { color: '#2563EB', fontWeight: '700' }]}>
+                  {Math.floor(meta.validOtMinutes / 60)}h {meta.validOtMinutes % 60}p
+                </Text>
               </View>
             ) : null}
 
@@ -1427,20 +1482,18 @@ export function LeaderApprovalScreen() {
         )}
 
         {/* 4. Attachments Card */}
-        {((Array.isArray(meta.images) && meta.images.length > 0) || meta.image) && (
+        {attachmentImages.length > 0 && (
           <View style={[styles.card, shadows.sm]}>
             <View style={styles.cardHeaderWithCount}>
               <Text style={styles.metaSectionTitle}>Hình ảnh / Chứng từ đính kèm</Text>
               <Text style={styles.attachmentCountBadge}>
-                {Array.isArray(meta.images) && meta.images.length > 0
-                  ? `${meta.images.length} ảnh đính kèm`
-                  : '1 ảnh đính kèm'}
+                {attachmentImages.length} ảnh đính kèm
               </Text>
             </View>
 
-            {Array.isArray(meta.images) && meta.images.length > 0 ? (
+            {attachmentImages.length > 1 ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
-                {meta.images.map((imgUrl: string, idx: number) => {
+                {attachmentImages.map((imgUrl: string, idx: number) => {
                   const resolvedUrl = resolveFileUrl(imgUrl) || imgUrl;
                   return (
                     <TouchableOpacity
@@ -1463,14 +1516,17 @@ export function LeaderApprovalScreen() {
                   );
                 })}
               </View>
-            ) : meta.image ? (
+            ) : (
               <TouchableOpacity 
                 activeOpacity={0.9}
-                onPress={() => setSelectedImage(resolveFileUrl(meta.image) || meta.image)}
+                onPress={() => {
+                  const resolvedUrl = resolveFileUrl(attachmentImages[0]) || attachmentImages[0];
+                  setSelectedImage(resolvedUrl);
+                }}
                 style={styles.imageCardContainer}
               >
                 <Image 
-                  source={{ uri: resolveFileUrl(meta.image) || meta.image }} 
+                  source={{ uri: resolveFileUrl(attachmentImages[0]) || attachmentImages[0] }} 
                   style={styles.imageCardDisplay} 
                   resizeMode="cover"
                 />
@@ -1481,7 +1537,7 @@ export function LeaderApprovalScreen() {
                   </View>
                 </View>
               </TouchableOpacity>
-            ) : null}
+            )}
           </View>
         )}
 

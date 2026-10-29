@@ -1189,7 +1189,7 @@ export function ChatGroupsScreen({ scope = 'member' }: { scope?: 'member' | 'all
                             </Text>
                           </View>
                         )}
-                        {getLeaderPresence(item.userId).isOnline ? (
+                        {getUserPresence(item.userId).isOnline ? (
                           <View style={adminChatStyles.activeOnlineDotSmall} />
                         ) : null}
                       </View>

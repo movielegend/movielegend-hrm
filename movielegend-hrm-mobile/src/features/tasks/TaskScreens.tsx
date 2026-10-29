@@ -58,6 +58,7 @@ import type { CreateTaskPayload, CreateTaskTargetPayload, TaskDto, TaskListFilte
 import { normalizeApiError } from '../../utils/api-error';
 import { formatDateTime } from '../../utils/date-time';
 import { hasAnyPermission, hasPermission } from '../../utils/permissions';
+import { hasUserRole, isAccountingLeader } from '../../utils/role-routing';
 import {
   AttachmentList,
   AttachmentPicker,
@@ -138,15 +139,19 @@ export function TaskListScreen({ area }: { area: TaskArea }) {
     ...(isDelegatedArea && user?.id && !isGlobalAdmin ? { createdById: user.id } : {})
   }), [debouncedSearch, status, isDelegatedArea, user?.id, isGlobalAdmin]);
 
-  const tasks = area === 'employee' ? useMyTasks(filters) : useTasks(filters);
-  const createRoute = area === 'employee' ? null : `/${area}/tasks/create`;
-  const reviewRoute = area === 'employee' ? null : `/${area}/tasks/review`;
+  const isAccountant = hasUserRole(user, 'ACCOUNTANT');
+  const isChiefAccountant = isAccountingLeader(user);
+  const isRegularAccountant = isAccountant && !isChiefAccountant && !hasUserRole(user, 'ADMIN') && !hasUserRole(user, 'HR') && !hasUserRole(user, 'LEADER');
 
-  const title = area === 'employee'
+  const tasks = (area === 'employee' || isRegularAccountant) ? useMyTasks(filters) : useTasks(filters);
+  const createRoute = (area === 'employee' || isRegularAccountant) ? null : `/${area}/tasks/create`;
+  const reviewRoute = (area === 'employee' || isRegularAccountant) ? null : `/${area}/tasks/review`;
+
+  const title = (area === 'employee' || isRegularAccountant)
     ? 'Công việc của tôi'
     : 'Công việc đã giao';
 
-  const subtitle = area === 'employee'
+  const subtitle = (area === 'employee' || isRegularAccountant)
     ? 'Các công việc được phân công cho bạn thực hiện'
     : 'Quản lý và theo dõi tiến độ công việc bạn đã giao';
 
@@ -3122,6 +3127,31 @@ export function CreateTaskScreen({ area }: { area: Exclude<TaskArea, 'employee'>
   const { parentTaskId } = useLocalSearchParams<{ parentTaskId?: string }>();
   const parentTaskQuery = useTask(parentTaskId);
   const { user } = useAuth();
+  const isAccountant = hasUserRole(user, 'ACCOUNTANT');
+  const isChiefAccountant = isAccountingLeader(user);
+  const isRegularAccountant = isAccountant && !isChiefAccountant && !hasUserRole(user, 'ADMIN') && !hasUserRole(user, 'HR') && !hasUserRole(user, 'LEADER');
+  if (isRegularAccountant) {
+    return (
+      <Screen backgroundColor="#102739" statusBarStyle="light">
+        <PageHeader title="Giao việc" onBack={() => router.back()} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#F8FAFC' }}>
+          <MaterialCommunityIcons name="shield-lock-outline" size={64} color="#EF4444" />
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#0F172A', marginTop: 16, textAlign: 'center' }}>
+            Không có quyền giao việc
+          </Text>
+          <Text style={{ fontSize: 14, color: '#64748B', marginTop: 8, textAlign: 'center', lineHeight: 22 }}>
+            Chức năng giao việc chỉ dành riêng cho Trưởng phòng Kế toán hoặc Quản lý. Kế toán viên chuyên môn chỉ nhận và xử lý công việc.
+          </Text>
+          <Pressable
+            onPress={() => router.back()}
+            style={{ marginTop: 24, backgroundColor: '#102739', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>Quay lại</Text>
+          </Pressable>
+        </View>
+      </Screen>
+    );
+  }
   const { showAlert } = useAppAlert();
   const mutation = useCreateTask();
   

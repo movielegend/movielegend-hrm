@@ -1166,12 +1166,44 @@ export class TasksService {
   private async assertCanCreate(dto: CreateTaskDto, actor: AuthenticatedUser): Promise<void> {
     const isGlobalAdmin = this.scope.isGlobalAdmin(actor);
     const isRegionAdmin = this.scope.isRegionAdmin(actor);
-    const isHR = actor.roles.includes('HR') || actor.roles.includes('ACCOUNTANT');
-    const isLeader = actor.roles.includes('LEADER') || this.has(actor, 'task.assign_department');
+    const isHR = actor.roles.includes('HR');
 
-    // Nhân viên thông thường (không có quyền Admin, HR, Leader) KHÔNG có quyền khởi tạo / giao việc
+    // Kiểm tra nếu là Trưởng phòng Kế toán / Kế toán trưởng
+    let isAccountingLeader = false;
+    const normalizedRoles = (actor.roles || []).map((r) => r.toUpperCase());
+    if (normalizedRoles.some((r) => ['ACCOUNTANT_LEAD', 'CHIEF_ACCOUNTANT', 'KT_TRUONG', 'LEAD_ACCOUNTANT', 'TRUONG_PHONG_KE_TOAN', 'TP_KETOAN', 'TP_KE_TOAN'].includes(r))) {
+      isAccountingLeader = true;
+    } else {
+      const user = await this.prisma.user.findUnique({
+        where: { id: actor.userId },
+        select: {
+          ledDepartments: { select: { name: true, code: true } },
+          profile: { select: { position: { select: { name: true, code: true } } } },
+        },
+      });
+      const posName = user?.profile?.position?.name?.toLowerCase() || '';
+      const posCode = user?.profile?.position?.code?.toUpperCase() || '';
+      const isChiefPosition =
+        posName.includes('kế toán trưởng') ||
+        posName.includes('trưởng phòng kế toán') ||
+        posName.includes('trưởng phòng tài chính') ||
+        ['KT_TRUONG', 'TP_KT', 'CHIEF_ACC'].includes(posCode);
+      const isLeadingAccountingDept = (user?.ledDepartments || []).some(
+        (d) =>
+          d.name.toLowerCase().includes('kế toán') ||
+          d.name.toLowerCase().includes('tài chính') ||
+          ['KT', 'TC', 'ACC'].includes(d.code?.toUpperCase() || ''),
+      );
+      if (isChiefPosition || isLeadingAccountingDept) {
+        isAccountingLeader = true;
+      }
+    }
+
+    const isLeader = actor.roles.includes('LEADER') || this.has(actor, 'task.assign_department') || isAccountingLeader;
+
+    // Nhân viên thông thường và Kế toán viên chuyên môn (không phải Leader/Kế toán trưởng) KHÔNG có quyền khởi tạo / giao việc
     if (!isGlobalAdmin && !isRegionAdmin && !isHR && !isLeader) {
-      throw forbidden('EMPLOYEE_CANNOT_ASSIGN', 'Nhân viên không có quyền khởi tạo hoặc giao việc');
+      throw forbidden('EMPLOYEE_CANNOT_ASSIGN', 'Bạn không có quyền khởi tạo hoặc giao việc');
     }
 
     // Trưởng phòng (Leader) chỉ được giao việc cho nhân sự cấp dưới trong phòng ban / nhóm, không được giao việc cho cả phòng ban

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useAppAlert } from '../../../src/contexts/AlertContext';
-import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, Image, Modal, FlatList, TouchableOpacity, StatusBar, Alert, Keyboard } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -149,6 +149,74 @@ function formatDate(date: Date | string | null | undefined): string {
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+interface IosTimePickerModalProps {
+  visible: boolean;
+  title: string;
+  initialDate: Date;
+  onClose: () => void;
+  onConfirm: (date: Date) => void;
+}
+
+function IosTimePickerModal({
+  visible,
+  title,
+  initialDate,
+  onClose,
+  onConfirm,
+}: IosTimePickerModalProps) {
+  const [localDate, setLocalDate] = useState<Date>(initialDate);
+
+  useEffect(() => {
+    if (visible) {
+      setLocalDate(initialDate);
+    }
+  }, [visible, initialDate]);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.iosDatePickerOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.iosDatePickerCard}>
+          <View style={styles.iosDatePickerHeader}>
+            <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.iosDatePickerActionBtn}>
+              <Text style={styles.iosDatePickerCancelText}>Hủy</Text>
+            </TouchableOpacity>
+            <Text style={styles.iosDatePickerTitle}>{title}</Text>
+            <TouchableOpacity
+              onPress={() => onConfirm(localDate)}
+              hitSlop={12}
+              style={styles.iosDatePickerActionBtn}
+            >
+              <Text style={styles.iosDatePickerDoneText}>Xong</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.iosDatePickerBody}>
+            <DateTimePicker
+              value={localDate}
+              mode="time"
+              is24Hour={true}
+              display="spinner"
+              themeVariant="light"
+              textColor="#0F172A"
+              onChange={(_, date) => {
+                if (date) {
+                  setLocalDate(date);
+                }
+              }}
+              style={{ height: 216, width: '100%' }}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function CreateRequestScreen() {
   const { showAlert } = useAppAlert();
   const router = useRouter();
@@ -156,6 +224,22 @@ export default function CreateRequestScreen() {
   const insets = useSafeAreaInsets();
   const modalTopInset = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 44);
   const scrollViewRef = useRef<any>(null);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   
   const userFullName = user?.fullName || (user as any)?.profile?.fullName || 'Admin Movie Legend';
   const userInitials = React.useMemo(() => {
@@ -311,6 +395,7 @@ export default function CreateRequestScreen() {
   const [calendarViewDate, setCalendarViewDate] = useState<Date>(new Date());
   const [selectedHour, setSelectedHour] = useState<number>(8);
   const [selectedMinute, setSelectedMinute] = useState<number>(0);
+  const [iosPickerDate, setIosPickerDate] = useState<Date>(new Date());
   const [timePickerTab, setTimePickerTab] = useState<'hour' | 'minute'>('hour');
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState<'start' | 'end' | null>(null);
@@ -415,14 +500,18 @@ export default function CreateRequestScreen() {
                 if (selectedType === 'LATE_ARRIVAL' && shift) {
                   const check = validateShiftTime(shift, res, 'LATE_ARRIVAL');
                   if (!check.valid) {
-                    showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+                    setTimeout(() => {
+                      showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+                    }, 200);
                     return;
                   }
                 }
                 if (isExplanation && ['Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) && shift) {
                   const check = validateShiftTime(shift, res, 'LATE_ARRIVAL');
                   if (!check.valid) {
-                    showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+                    setTimeout(() => {
+                      showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+                    }, 200);
                     return;
                   }
                 }
@@ -431,14 +520,18 @@ export default function CreateRequestScreen() {
                 if (selectedType === 'EARLY_LEAVE' && shift) {
                   const check = validateShiftTime(shift, res, 'EARLY_LEAVE');
                   if (!check.valid) {
-                    showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+                    setTimeout(() => {
+                      showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+                    }, 200);
                     return;
                   }
                 }
                 if (isExplanation && ['Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && shift) {
                   const check = validateShiftTime(shift, res, 'EARLY_LEAVE');
                   if (!check.valid) {
-                    showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+                    setTimeout(() => {
+                      showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+                    }, 200);
                     return;
                   }
                 }
@@ -453,7 +546,10 @@ export default function CreateRequestScreen() {
       }
     }
 
-    // Dự phòng cho iOS hoặc Web
+    // Khởi tạo thời gian cho iOS Picker và Web Modal
+    const initDate = new Date(baseDate);
+    initDate.setHours(initialTime.getHours(), initialTime.getMinutes(), 0, 0);
+    setIosPickerDate(initDate);
     setSelectedHour(initialTime.getHours());
     setSelectedMinute(initialTime.getMinutes());
     setTimePickerTab('hour');
@@ -918,44 +1014,59 @@ export default function CreateRequestScreen() {
     }
   };
 
-  const handleConfirmTime = () => {
-    const baseDate = (showTimeModal === 'start' ? fromDate : (toDate || fromDate)) || new Date();
+  const handleConfirmTime = (overrideDate?: Date) => {
+    const currentMode = showTimeModal;
+    setShowTimeModal(null);
+
+    const baseDate = (currentMode === 'start' ? fromDate : (toDate || fromDate)) || new Date();
     const resultTime = new Date(baseDate);
-    resultTime.setHours(selectedHour, selectedMinute, 0, 0);
-    if (showTimeModal === 'start') {
+    if (overrideDate instanceof Date && !isNaN(overrideDate.getTime())) {
+      resultTime.setHours(overrideDate.getHours(), overrideDate.getMinutes(), 0, 0);
+    } else {
+      resultTime.setHours(selectedHour, selectedMinute, 0, 0);
+    }
+
+    if (currentMode === 'start') {
       if (selectedType === 'LATE_ARRIVAL' && shift) {
         const check = validateShiftTime(shift, resultTime, 'LATE_ARRIVAL');
         if (!check.valid) {
-          showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+          setTimeout(() => {
+            showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+          }, 250);
           return;
         }
       }
       if (isExplanation && ['Check-in muộn', 'Check-in muộn & Check-out sớm'].includes(explanationType) && shift) {
         const check = validateShiftTime(shift, resultTime, 'LATE_ARRIVAL');
         if (!check.valid) {
-          showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+          setTimeout(() => {
+            showAlert('Giờ không hợp lệ', check.message || 'Giờ vào thực tế phải nằm trong ca làm việc.');
+          }, 250);
           return;
         }
       }
       setStartTime(resultTime);
-    } else {
+    } else if (currentMode === 'end') {
       if (selectedType === 'EARLY_LEAVE' && shift) {
         const check = validateShiftTime(shift, resultTime, 'EARLY_LEAVE');
         if (!check.valid) {
-          showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+          setTimeout(() => {
+            showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+          }, 250);
           return;
         }
       }
       if (isExplanation && ['Check-out sớm', 'Check-in muộn & Check-out sớm'].includes(explanationType) && shift) {
         const check = validateShiftTime(shift, resultTime, 'EARLY_LEAVE');
         if (!check.valid) {
-          showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+          setTimeout(() => {
+            showAlert('Giờ không hợp lệ', check.message || 'Giờ ra thực tế phải nằm trong ca làm việc.');
+          }, 250);
           return;
         }
       }
       setEndTime(resultTime);
     }
-    setShowTimeModal(null);
   };
 
   const handleSelectPresetTime = (h: number, m: number) => {
@@ -1639,7 +1750,10 @@ export default function CreateRequestScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#102739' }}>
+    <KeyboardAvoidingView 
+      style={{ flex: 1, backgroundColor: '#102739' }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#102739' }}>
         <View style={styles.header}>
@@ -1658,25 +1772,21 @@ export default function CreateRequestScreen() {
         </View>
       </SafeAreaView>
 
-      <KeyboardAvoidingView 
-        style={styles.curvedSheet} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
-      >
+      <View style={styles.curvedSheet}>
 
       <KeyboardAwareScrollView 
         ref={scrollViewRef}
         style={{ flex: 1 }}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: Math.max(insets.bottom, 24) + 140 },
+          { paddingBottom: Math.max(insets.bottom, 24) + 60 },
         ]} 
         showsVerticalScrollIndicator={false}
         enableOnAndroid={true}
         enableAutomaticScroll={true}
-        extraScrollHeight={Platform.OS === 'ios' ? 120 : 150}
-        extraHeight={150}
-        keyboardOpeningTime={0}
+        extraScrollHeight={Platform.OS === 'ios' ? 24 : 40}
+        extraHeight={Platform.OS === 'ios' ? 24 : 40}
+        keyboardOpeningTime={250}
         keyboardShouldPersistTaps="handled"
       >
         {/* 01 CHỌN LOẠI ĐƠN */}
@@ -1846,9 +1956,8 @@ export default function CreateRequestScreen() {
                     value={content}
                     onChangeText={setContent}
                     textAlignVertical="top"
-                    onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
-                    }}
+                    autoCorrect={false}
+                    spellCheck={false}
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
@@ -2364,12 +2473,12 @@ export default function CreateRequestScreen() {
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
+                    autoCorrect={false}
+                    spellCheck={false}
                     value={content}
                     onChangeText={setContent}
                     textAlignVertical="top"
-                    onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
-                    }}
+
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
@@ -2677,12 +2786,12 @@ export default function CreateRequestScreen() {
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
+                    autoCorrect={false}
+                    spellCheck={false}
                     value={content}
                     onChangeText={setContent}
                     textAlignVertical="top"
-                    onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
-                    }}
+
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
@@ -2780,12 +2889,12 @@ export default function CreateRequestScreen() {
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
+                    autoCorrect={false}
+                    spellCheck={false}
                     value={content}
                     onChangeText={setContent}
                     textAlignVertical="top"
-                    onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
-                    }}
+
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
@@ -2999,12 +3108,12 @@ export default function CreateRequestScreen() {
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
+                    autoCorrect={false}
+                    spellCheck={false}
                     value={content}
                     onChangeText={setContent}
                     textAlignVertical="top"
-                    onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
-                    }}
+
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
@@ -3110,12 +3219,12 @@ export default function CreateRequestScreen() {
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
+                    autoCorrect={false}
+                    spellCheck={false}
                     value={content}
                     onChangeText={setContent}
                     textAlignVertical="top"
-                    onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
-                    }}
+
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
@@ -3266,12 +3375,12 @@ export default function CreateRequestScreen() {
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
+                    autoCorrect={false}
+                    spellCheck={false}
                     value={content}
                     onChangeText={setContent}
                     textAlignVertical="top"
-                    onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
-                    }}
+
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
@@ -3383,12 +3492,12 @@ export default function CreateRequestScreen() {
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
+                    autoCorrect={false}
+                    spellCheck={false}
                     value={content}
                     onChangeText={setContent}
                     textAlignVertical="top"
-                    onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
-                    }}
+
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
@@ -3514,12 +3623,12 @@ export default function CreateRequestScreen() {
                     placeholderTextColor="#94A3B8"
                     multiline
                     maxLength={500}
+                    autoCorrect={false}
+                    spellCheck={false}
                     value={content}
                     onChangeText={setContent}
                     textAlignVertical="top"
-                    onFocus={() => {
-                      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 250);
-                    }}
+
                   />
                   <Text style={styles.counterText}>{content.length}/500</Text>
                 </View>
@@ -3660,7 +3769,19 @@ export default function CreateRequestScreen() {
         </View>
       </Modal>
 
-      {/* Modern High-End Time Picker Modal (Hoạt động mượt mà trên mọi nền tảng: Web, iOS, Android) */}
+      {/* Native iOS Time Picker Modal (Isolated to prevent re-renders) */}
+      {Platform.OS === 'ios' && (
+        <IosTimePickerModal
+          visible={showTimeModal !== null}
+          title={showTimeModal === 'start' ? 'Chọn giờ bắt đầu' : 'Chọn giờ kết thúc'}
+          initialDate={iosPickerDate}
+          onClose={() => setShowTimeModal(null)}
+          onConfirm={(selectedDate) => handleConfirmTime(selectedDate)}
+        />
+      )}
+
+      {/* Modern High-End Time Picker Modal (Dành riêng cho Web / fallback khi không phải iOS) */}
+      {Platform.OS !== 'ios' && (
       <Modal visible={showTimeModal !== null} transparent animationType="fade" onRequestClose={() => setShowTimeModal(null)}>
         <View style={styles.modalOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowTimeModal(null)} />
@@ -3896,6 +4017,7 @@ export default function CreateRequestScreen() {
           </View>
         </View>
       </Modal>
+      )}
 
       {/* Full Screen Photo Modal */}
       <Modal visible={isFullScreenPhoto} transparent animationType="fade">
@@ -4350,8 +4472,14 @@ export default function CreateRequestScreen() {
         </View>
       </Modal>
 
-      <SafeAreaView edges={['bottom']} style={styles.footerContainer}>
-        <Text style={styles.requiredNoteText}>
+      <SafeAreaView 
+        edges={isKeyboardVisible ? [] : ['bottom']} 
+        style={[
+          styles.footerContainer,
+          isKeyboardVisible && { paddingBottom: 2, paddingTop: 4 }
+        ]}
+      >
+        <Text style={[styles.requiredNoteText, isKeyboardVisible && { marginBottom: 4, fontSize: 11 }]}>
           <Text style={styles.required}>* </Text>Thông tin bắt buộc
         </Text>
         <Pressable 
@@ -4369,8 +4497,8 @@ export default function CreateRequestScreen() {
           )}
         </Pressable>
       </SafeAreaView>
-    </KeyboardAvoidingView>
-  </View>
+    </View>
+  </KeyboardAvoidingView>
   );
 }
 
@@ -5525,5 +5653,59 @@ const styles = StyleSheet.create({
     color: '#102739',
     flex: 1,
     fontWeight: '600',
+  },
+  // Native iOS DateTimePicker Modal styles
+  iosDatePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  iosDatePickerCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 36,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  iosDatePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  iosDatePickerActionBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  iosDatePickerCancelText: {
+    fontSize: 16,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  iosDatePickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  iosDatePickerDoneText: {
+    fontSize: 16,
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+  iosDatePickerBody: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
   },
 });
