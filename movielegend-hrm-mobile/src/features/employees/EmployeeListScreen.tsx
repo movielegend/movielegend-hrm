@@ -12,7 +12,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useEmployees, useEmployeeReport, useDeleteEmployee, useUpdateAnyEmployee } from '../../hooks/useEmployees';
@@ -56,10 +56,26 @@ function UserInitialAvatar({ name, size = 48 }: { name: string; size?: number })
 
 export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   const router = useRouter();
+  const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const basePath = scope === 'leader' ? '/leader' : '/admin';
   const { user } = useAuth();
   const { departmentId, branchId } = useLocalSearchParams<{ departmentId?: string; branchId?: string }>();
+
+  const isHrPath = pathname?.startsWith('/hr');
+  const isAccountantReadOnly = useMemo(() => {
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    const roles = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || r?.role?.code || '').toUpperCase());
+    const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+    const isHr = roles.includes('HR') || roles.includes('HUMAN_RESOURCE');
+    const isAcct =
+      roles.includes('ACCOUNTANT') ||
+      Boolean((user as any)?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean((user as any)?.department?.name?.toLowerCase().includes('kế toán'));
+    return isAcct && !isAdmin && !isHr;
+  }, [user]);
+
+  const basePath = scope === 'leader' ? '/leader' : (isHrPath || isAccountantReadOnly ? '/hr' : '/admin');
 
   // Filter state
   const [search, setSearch] = useState('');
@@ -135,23 +151,37 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
   }, [selectedDeptId, departments]);
 
   const handleActionMenu = (emp: any) => {
+    if (isAccountantReadOnly) return;
     setSelectedEmployeeMenu(emp);
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+      <StatusBar barStyle="light-content" />
 
-      {/* Screen Header: Title + Subtitle + "+ Thêm" button */}
+      {/* Screen Header: Back button + Title + Subtitle + "+ Thêm" button */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
+        <Pressable
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace(basePath === '/hr' ? '/hr/(tabs)' : basePath === '/leader' ? '/leader/(tabs)' : '/admin/(tabs)');
+            }
+          }}
+          style={styles.headerBackBtn}
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+        </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Nhân viên</Text>
-          <Text style={styles.subtitle}>Quản lý hồ sơ đội ngũ</Text>
+          <Text style={styles.subtitle}>{isAccountantReadOnly ? 'Danh sách hồ sơ nhân sự' : 'Quản lý hồ sơ đội ngũ'}</Text>
         </View>
 
-        {scope === 'admin' && (
+        {scope === 'admin' && !isAccountantReadOnly && (
           <Pressable
-            onPress={() => router.push(departmentId ? `/admin/employees/create?departmentId=${departmentId}` : '/admin/employees/create')}
+            onPress={() => router.push(departmentId ? `${basePath}/employees/create?departmentId=${departmentId}` : `${basePath}/employees/create`)}
             style={styles.addBtn}
             android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
           >
@@ -263,7 +293,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                 else if (roleCodes.includes('HR') || roleCodes.includes('HUMAN_RESOURCE')) displayRole = 'Nhân sự HR';
                 else if (!displayRole) displayRole = 'Nhân viên';
 
-                const empLevel = (employee as any).currentLevelNumber || employee.profile?.currentLevelNumber || 1;
+                const empLevel = (employee as any).currentLevelNumber || (employee.profile as any)?.currentLevelNumber || 1;
                 const levelColor = LEVEL_COLORS[empLevel] || '#2563EB';
                 const empVaultEnabled = Boolean((employee as any).isRewardVaultEnabled || (employee as any)?.profile?.isRewardVaultEnabled);
 
@@ -325,7 +355,7 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                       </Pressable>
 
                       <View style={styles.cardActionsRight}>
-                        {scope === 'admin' && (
+                        {scope === 'admin' && !isAccountantReadOnly && (
                           <Pressable
                             onPress={() => router.push({ pathname: `${basePath}/employees/[id]` as any, params: { id: employee.id, edit: '1' } })}
                             style={styles.iconActionBtn}
@@ -334,13 +364,15 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
                             <Ionicons name="pencil-outline" size={18} color="#0F172A" />
                           </Pressable>
                         )}
-                        <Pressable
-                          onPress={() => handleActionMenu(employee)}
-                          style={styles.iconActionBtn}
-                          hitSlop={8}
-                        >
-                          <Ionicons name="ellipsis-vertical" size={18} color="#0F172A" />
-                        </Pressable>
+                        {!isAccountantReadOnly && (
+                          <Pressable
+                            onPress={() => handleActionMenu(employee)}
+                            style={styles.iconActionBtn}
+                            hitSlop={8}
+                          >
+                            <Ionicons name="ellipsis-vertical" size={18} color="#0F172A" />
+                          </Pressable>
+                        )}
                       </View>
                     </View>
                   </View>
@@ -836,6 +868,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     backgroundColor: '#102739',
+  },
+  headerBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   title: {
     fontSize: 26,

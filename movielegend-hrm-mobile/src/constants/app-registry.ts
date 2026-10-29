@@ -572,12 +572,28 @@ export function getAppRoute(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'E
   return item.adminRoute || item.leaderRoute || item.hrRoute || item.employeeRoute || '/admin/(tabs)';
 }
 
-export function getAppTitle(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN'): string {
+export function getAppTitle(
+  item: AppRegistryItem,
+  role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN',
+  user?: any
+): string {
+  if (item.key === 'tasks' && role === 'HR' && user) {
+    const isChiefAccountant = isAccountingLeader(user);
+    const isAcct =
+      hasUserRole(user, 'ACCOUNTANT') ||
+      Boolean((user as any)?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean((user as any)?.department?.name?.toLowerCase().includes('kế toán'));
+    const isHrOrAdmin = hasUserRole(user, 'HR') || hasUserRole(user, 'ADMIN');
+    if (isAcct && !isChiefAccountant && !isHrOrAdmin) {
+      return 'Công việc';
+    }
+  }
   if (role === 'ADMIN' && item.adminTitle) return item.adminTitle;
   if (role === 'LEADER' && item.leaderTitle) return item.leaderTitle;
   if (role === 'EMPLOYEE' && item.employeeTitle) return item.employeeTitle;
   if (role === 'HR' && item.hrTitle) return item.hrTitle;
   return item.title;
 }
+
 
 
