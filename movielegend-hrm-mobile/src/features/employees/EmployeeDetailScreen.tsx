@@ -276,7 +276,11 @@ export function EmployeeDetailScreen() {
                 </View>
                 <Text style={styles.tableLabel}>Phòng ban</Text>
               </View>
-              <Text style={styles.tableValue}>{deptName} • {branchName}</Text>
+              <Text style={styles.tableValue}>
+                {branchName && !deptName.toLowerCase().includes(branchName.toLowerCase())
+                  ? `${deptName} • ${branchName}`
+                  : deptName}
+              </Text>
             </View>
 
             {/* Vị trí */}
@@ -703,11 +707,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F8FAFC',
+    gap: 8,
   },
   tableLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 0,
+    marginRight: 6,
   },
   tableLabel: {
     fontSize: 13,
@@ -715,6 +722,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tableValue: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '700',
     color: '#0F172A',

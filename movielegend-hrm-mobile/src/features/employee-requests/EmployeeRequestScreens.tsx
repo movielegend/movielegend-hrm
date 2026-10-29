@@ -349,9 +349,44 @@ export function EmployeeRequestDetailScreen() {
     return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const meta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null) 
-    ? (request.attachmentMetadata as Record<string, any>) 
-    : {};
+  let meta: Record<string, any> = {};
+  if (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null) {
+    meta = request.attachmentMetadata as Record<string, any>;
+  } else if (typeof request.attachmentMetadata === 'string') {
+    try {
+      meta = JSON.parse(request.attachmentMetadata);
+    } catch {
+      meta = {};
+    }
+  }
+
+  const attachmentImages: string[] = (() => {
+    const list: string[] = [];
+    const addImg = (val: any) => {
+      if (!val) return;
+      if (typeof val === 'string' && val.trim()) {
+        list.push(val.trim());
+      } else if (typeof val === 'object') {
+        const url = val.fileUrl || val.url || val.uri || val.file?.fileUrl || val.file?.url;
+        if (typeof url === 'string' && url.trim()) {
+          list.push(url.trim());
+        }
+      }
+    };
+
+    if (Array.isArray(meta.images)) meta.images.forEach(addImg);
+    if (Array.isArray(meta.photos)) meta.photos.forEach(addImg);
+    if (Array.isArray(meta.photoUrls)) meta.photoUrls.forEach(addImg);
+    if (Array.isArray(meta.attachments)) meta.attachments.forEach(addImg);
+    addImg(meta.image);
+    addImg(meta.photo);
+    addImg(meta.proofUrl);
+    addImg(meta.proofImage);
+    if (Array.isArray((request as any)?.photos)) (request as any).photos.forEach(addImg);
+    if (Array.isArray((request as any)?.attachments)) (request as any).attachments.forEach(addImg);
+
+    return Array.from(new Set(list));
+  })();
   const statusObj = getStatusDisplay(request);
   const isCompensatory = request.type === 'COMPENSATORY_WORK' || request.title?.includes('[LÀM BÙ]') || meta.requestType === 'COMPENSATORY_WORK';
   const typeConfig = isCompensatory ? { label: 'Làm bù', color: '#0284C7', icon: 'calendar-sync-outline' } : getTypeConfig(request.type);
@@ -779,10 +814,12 @@ export function EmployeeRequestDetailScreen() {
                   </Text>
                 </View>
 
-                {meta.fromDate ? (
+                {(meta.fromDate || meta.otDate || meta.workDate) ? (
                   <View style={styles.metaRow}>
                     <Text style={styles.metaLabel}>Ngày làm thêm:</Text>
-                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>{formatDateStr(meta.fromDate)}</Text>
+                    <Text style={[styles.metaValueBold, { color: '#2563EB' }]}>
+                      {formatDateStr(meta.fromDate || meta.otDate || meta.workDate)}
+                    </Text>
                   </View>
                 ) : null}
 
@@ -790,6 +827,24 @@ export function EmployeeRequestDetailScreen() {
                   <View style={styles.metaRow}>
                     <Text style={styles.metaLabel}>Ca làm việc:</Text>
                     <Text style={styles.metaValueBold}>{meta.shiftName}</Text>
+                  </View>
+                ) : null}
+
+                {(meta.proposedPercent || meta.percent) ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Mức công đề xuất:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#8B5CF6' }]}>
+                      {meta.proposedPercent || meta.percent}%
+                    </Text>
+                  </View>
+                ) : null}
+
+                {meta.validOtMinutes ? (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Thời gian hợp lệ:</Text>
+                    <Text style={[styles.metaValueBold, { color: '#059669' }]}>
+                      {Math.floor(meta.validOtMinutes / 60)}h {meta.validOtMinutes % 60}p
+                    </Text>
                   </View>
                 ) : null}
 
@@ -988,39 +1043,42 @@ export function EmployeeRequestDetailScreen() {
               </View>
             )}
 
-            {Array.isArray(meta.images) && meta.images.length > 0 ? (
+            {attachmentImages.length > 0 && (
               <View style={styles.attachmentBox}>
-                <Text style={styles.attachmentLabel}>Hình ảnh minh họa ({meta.images.length} ảnh):</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
-                  {meta.images.map((imgUrl: string, idx: number) => {
-                    const resolvedUrl = resolveFileUrl(imgUrl) || imgUrl;
-                    return (
-                      <TouchableOpacity 
-                        key={idx} 
-                        onPress={() => setSelectedImage(resolvedUrl)}
-                        style={{ width: 90, height: 90, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F1F5F9' }}
-                      >
-                        <Image 
-                          source={{ uri: resolvedUrl }} 
-                          style={{ width: '100%', height: '100%', resizeMode: 'cover' }} 
-                        />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                <Text style={styles.attachmentLabel}>
+                  {attachmentImages.length > 1
+                    ? `Hình ảnh minh họa (${attachmentImages.length} ảnh):`
+                    : 'Ảnh chứng từ / minh chứng đính kèm:'}
+                </Text>
+                {attachmentImages.length > 1 ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                    {attachmentImages.map((imgUrl: string, idx: number) => {
+                      const resolvedUrl = resolveFileUrl(imgUrl) || imgUrl;
+                      return (
+                        <TouchableOpacity 
+                          key={idx} 
+                          onPress={() => setSelectedImage(resolvedUrl)}
+                          style={{ width: 90, height: 90, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F1F5F9' }}
+                        >
+                          <Image 
+                            source={{ uri: resolvedUrl }} 
+                            style={{ width: '100%', height: '100%', resizeMode: 'cover' }} 
+                          />
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <TouchableOpacity onPress={() => setSelectedImage(resolveFileUrl(attachmentImages[0]) || attachmentImages[0])}>
+                    <Image 
+                      source={{ uri: resolveFileUrl(attachmentImages[0]) || attachmentImages[0] }} 
+                      style={styles.evidenceImage} 
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                )}
               </View>
-            ) : meta.image ? (
-              <View style={styles.attachmentBox}>
-                <Text style={styles.attachmentLabel}>Ảnh chứng từ/hóa đơn đính kèm:</Text>
-                <TouchableOpacity onPress={() => setSelectedImage(resolveFileUrl(meta.image) || meta.image)}>
-                  <Image 
-                    source={{ uri: resolveFileUrl(meta.image) || meta.image }} 
-                    style={styles.evidenceImage} 
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
-              </View>
-            ) : null}
+            )}
 
             {(() => {
               const disburseStep = Array.isArray(meta.approvalSteps) ? meta.approvalSteps.find((s: any) => s.action === 'DISBURSED' || s.action === 'DISBURSED_TO_HR') : undefined;

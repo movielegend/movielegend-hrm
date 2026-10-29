@@ -53,6 +53,7 @@ import { LEVEL_COLORS, LEVEL_DEFAULT_NAMES } from '../../components/common/Level
 
 import { usePinnedApps } from '../../hooks/usePinnedApps';
 import { getAppRoute, getAppTitle } from '../../constants/app-registry';
+import { isAccountingLeader } from '../../utils/role-routing';
 import { AllServicesModal, renderAppIcon } from './components/AllServicesModal';
 import { DashboardNewsCarousel } from './components/DashboardNewsCarousel';
 import { LiveClockText } from '../../components/common/LiveClockText';
@@ -94,6 +95,9 @@ export function HRDashboard() {
     return code === 'ADMIN' || code === 'SUPER_ADMIN';
   }));
   const isOnlyAccountant = isAccountant && !isHr && !isAdmin;
+  const isChiefAccountant = isAccountingLeader(user);
+  const isRegularAccountant = isOnlyAccountant && !isChiefAccountant;
+  const dashboardRole: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = isRegularAccountant ? 'EMPLOYEE' : 'HR';
 
   // Branches System
   const branchesQuery = useBranches();
@@ -708,7 +712,7 @@ export function HRDashboard() {
               {/* Row 1: 4 app đầu tiên luôn hiển thị trên 1 dòng */}
               <View style={styles.quickGrid4Row}>
                 {row1Apps.map((item) => {
-                  const route = getAppRoute(item, 'HR');
+                  const route = getAppRoute(item, dashboardRole);
                   const badge =
                     item.badgeKey === 'pendingRequests'
                       ? (pendingRequestCount > 0 ? pendingRequestCount : undefined)
@@ -721,7 +725,7 @@ export function HRDashboard() {
                   return (
                     <QuickGrid8Item
                       key={item.key}
-                      title={getAppTitle(item, 'HR')}
+                      title={getAppTitle(item, dashboardRole)}
                       bgColor={item.bgColor}
                       badge={badge}
                       icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
@@ -740,11 +744,11 @@ export function HRDashboard() {
                     /* Hàng 2: các app phụ + nút Thêm + ô trống + nút Tất cả ở ô thứ 4 */
                     <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
                       {extraPinnedApps.map((item) => {
-                        const route = getAppRoute(item, 'HR');
+                        const route = getAppRoute(item, dashboardRole);
                         return (
                           <QuickGrid8Item
                             key={item.key}
-                            title={getAppTitle(item, 'HR')}
+                            title={getAppTitle(item, dashboardRole)}
                             bgColor={item.bgColor}
                             icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                             onPress={() => {
@@ -792,11 +796,11 @@ export function HRDashboard() {
                       {/* Hàng 2: 4 app phụ đầu tiên */}
                       <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
                         {extraPinnedApps.slice(0, 4).map((item) => {
-                          const route = getAppRoute(item, 'HR');
+                          const route = getAppRoute(item, dashboardRole);
                           return (
                             <QuickGrid8Item
                               key={item.key}
-                              title={getAppTitle(item, 'HR')}
+                              title={getAppTitle(item, dashboardRole)}
                               bgColor={item.bgColor}
                               icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                               onPress={() => {
@@ -811,11 +815,11 @@ export function HRDashboard() {
                       {extraPinnedApps.slice(4).length <= 2 && (
                         <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
                           {extraPinnedApps.slice(4).map((item) => {
-                            const route = getAppRoute(item, 'HR');
+                            const route = getAppRoute(item, dashboardRole);
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={getAppTitle(item, 'HR')}
+                                title={getAppTitle(item, dashboardRole)}
                                 bgColor={item.bgColor}
                                 icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                 onPress={() => {
@@ -846,11 +850,11 @@ export function HRDashboard() {
                       {extraPinnedApps.slice(4).length === 3 && (
                         <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
                           {extraPinnedApps.slice(4).map((item) => {
-                            const route = getAppRoute(item, 'HR');
+                            const route = getAppRoute(item, dashboardRole);
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={getAppTitle(item, 'HR')}
+                                title={getAppTitle(item, dashboardRole)}
                                 bgColor={item.bgColor}
                                 icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                 onPress={() => {
@@ -870,11 +874,11 @@ export function HRDashboard() {
                         <>
                           <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
                             {extraPinnedApps.slice(4).map((item) => {
-                              const route = getAppRoute(item, 'HR');
+                              const route = getAppRoute(item, dashboardRole);
                               return (
                                 <QuickGrid8Item
                                   key={item.key}
-                                  title={getAppTitle(item, 'HR')}
+                                  title={getAppTitle(item, dashboardRole)}
                                   bgColor={item.bgColor}
                                   icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                   onPress={() => {
@@ -995,7 +999,7 @@ export function HRDashboard() {
       <AllServicesModal
         visible={showAllServicesModal}
         onClose={() => setShowAllServicesModal(false)}
-        role="HR"
+        role={dashboardRole}
         initialEditMode={modalEditMode}
         pendingCounts={{
           pendingRequests: pendingRequestCount,

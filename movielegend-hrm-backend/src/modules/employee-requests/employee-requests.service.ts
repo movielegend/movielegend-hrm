@@ -647,6 +647,12 @@ export class EmployeeRequestsService {
       if (departmentId) {
         where = { departmentId };
       }
+    } else if (isHr && isAccountant) {
+      // User has BOTH HR and Accountant permissions (or HCNS dept with accounting duties):
+      // Can see ALL requests (both financial and non-financial) company-wide
+      if (departmentId) {
+        where = { departmentId };
+      }
     } else if (isHr) {
       // HR: manages all non-financial requests across company,
       // PLUS all requests in their own department(s)
@@ -739,7 +745,7 @@ export class EmployeeRequestsService {
       ? { AND: [where, { status }] }
       : where;
 
-    return this.prisma.employeeRequest.findMany({
+    const items = await this.prisma.employeeRequest.findMany({
       where: finalWhere,
       include: {
         user: {
@@ -760,6 +766,37 @@ export class EmployeeRequestsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Cách 2: Kế toán viên chỉ thấy đơn tài chính của phòng ban khác khi Leader đã duyệt xong
+    // (tức đã chuyển sang bước PENDING_ACCOUNTANT, PENDING_ADMIN, PENDING_DISBURSEMENT hoặc đã duyệt hoàn tất)
+    if (isAccountant && !isGlobalAdmin) {
+      const ledDeptIds = await this.scope.getLedDepartmentIds(actor);
+      const ownDeptIds = [...ledDeptIds];
+      try {
+        const primaryDeptId = await this.scope.getPrimaryDepartmentId(actor.userId);
+        if (primaryDeptId && !ownDeptIds.includes(primaryDeptId)) {
+          ownDeptIds.push(primaryDeptId);
+        }
+      } catch {}
+
+      return items.filter((item) => {
+        // Đơn thuộc phòng ban của chính kế toán: xem đầy đủ theo quy trình nội bộ
+        if (item.departmentId && ownDeptIds.includes(item.departmentId)) return true;
+
+        const meta = (typeof item.attachmentMetadata === 'object' && item.attachmentMetadata !== null)
+          ? (item.attachmentMetadata as any)
+          : {};
+        const stage = meta.stage;
+
+        // Nếu đơn của phòng ban khác còn đang chờ Leader duyệt hoặc chờ HR báo giá, ẩn khỏi Kế toán
+        if (stage === 'PENDING_LEADER' || stage === 'PENDING_HR' || stage === 'PENDING_HR_PURCHASE') {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    return items;
   }
 
   async findOne(id: string, actor: AuthenticatedUser) {
@@ -825,6 +862,7 @@ export class EmployeeRequestsService {
             proposedPercent: ot.proposedPercent,
             validOtMinutes: ot.validOtMinutes,
             photos: ot.photos?.map((p) => p.file?.fileUrl || (p.file as any)?.url) || [],
+            images: ot.photos?.map((p) => p.file?.fileUrl || (p.file as any)?.url) || [],
           },
           user: ot.user,
           department: ot.department,
@@ -2500,8 +2538,20 @@ export class EmployeeRequestsService {
       'ACCOUNTING',
       'ACC',
       'DIRECTOR',
+      'KETOAN',
+      'KE_TOAN',
+      'KT',
+      'CHIEF_ACCOUNTANT',
+      'LEAD_ACCOUNTANT',
+      'ACCOUNTANT_MEMBER',
+      'ACCOUNTANT_STAFF',
+      'ACCOUNTING_STAFF',
+      'THU_QUY',
     ];
-    if (isGlobalAdmin || actor.roles.some((r) => accountantRoleCodes.includes(r.toUpperCase()))) {
+    if (
+      isGlobalAdmin ||
+      actor.roles.some((r) => accountantRoleCodes.includes(r.toUpperCase()) || r.toUpperCase().includes('ACCOUNTANT') || r.toUpperCase().includes('KETOAN'))
+    ) {
       return true;
     }
     const user = await this.prisma.user.findUnique({
@@ -2513,9 +2563,30 @@ export class EmployeeRequestsService {
         departmentLinks: {
           select: { department: { select: { name: true, code: true } } },
         },
+        profile: {
+          select: {
+            position: {
+              select: { name: true, code: true },
+            },
+          },
+        },
       },
     });
     if (!user) return false;
+
+    // Check position (chức danh kế toán viên, kế toán tổng hợp, thủ quỹ...)
+    const posName = user.profile?.position?.name?.toLowerCase() || '';
+    const posCode = user.profile?.position?.code?.toUpperCase() || '';
+    if (
+      posName.includes('kế toán') ||
+      posName.includes('tài chính') ||
+      posName.includes('thủ quỹ') ||
+      posName.includes('accountant') ||
+      ['KT', 'TC', 'ACC', 'ACCOUNTANT', 'KETOAN'].includes(posCode)
+    ) {
+      return true;
+    }
+
     const isLed = user.ledDepartments.some(
       (d) =>
         d.name.toLowerCase().includes('kế toán') ||
