@@ -64,6 +64,16 @@ export function HRProfileScreen() {
     user?.department?.name?.toLowerCase().includes('kế toán')
   );
 
+  const isHr = Boolean(user?.roles?.some((r: any) => {
+    const code = String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+    return code === 'HR' || code.includes('HR_');
+  }));
+  const isAdmin = Boolean(user?.roles?.some((r: any) => {
+    const code = String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+    return code === 'ADMIN' || code === 'SUPER_ADMIN';
+  }));
+  const isOnlyAccountant = isAccountant && !isHr && !isAdmin;
+
   const getInitials = (name?: string) => {
     if (!name) return isAccountant ? 'KT' : 'HR';
     const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -115,7 +125,7 @@ export function HRProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+      <StatusBar barStyle="light-content" />
 
       <ScrollView
         style={styles.scrollBody}
@@ -276,13 +286,15 @@ export function HRProfileScreen() {
                   <View style={styles.subGroupSection}>
                     <Text style={styles.subGroupTitle}>Phê duyệt & Điều phối</Text>
                     <View style={styles.featureGrid}>
-                      <FeatureItem
-                        icon="clipboard-check-outline"
-                        iconType="mci"
-                        title="Duyệt đơn từ"
-                        onPress={() => router.push('/hr/employee-requests' as any)}
-                      />
-                      {hasUserRole(user, 'ACCOUNTANT') && (
+                      {!isOnlyAccountant && (
+                        <FeatureItem
+                          icon="clipboard-check-outline"
+                          iconType="mci"
+                          title="Duyệt đơn từ"
+                          onPress={() => router.push('/hr/employee-requests' as any)}
+                        />
+                      )}
+                      {(hasUserRole(user, 'ACCOUNTANT') || isAccountant) && (
                         <FeatureItem
                           icon="receipt"
                           iconType="ionicons"
@@ -290,18 +302,22 @@ export function HRProfileScreen() {
                           onPress={() => router.push('/hr/financial-requests' as any)}
                         />
                       )}
-                      <FeatureItem
-                        icon="account-check-outline"
-                        iconType="mci"
-                        title="Duyệt tài khoản"
-                        onPress={() => router.push('/hr/approvals/account' as any)}
-                      />
-                      <FeatureItem
-                        icon="swap-horizontal"
-                        iconType="mci"
-                        title="Luân chuyển PB"
-                        onPress={() => router.push('/hr/cross-department' as any)}
-                      />
+                      {!isOnlyAccountant && (
+                        <FeatureItem
+                          icon="account-check-outline"
+                          iconType="mci"
+                          title="Duyệt tài khoản"
+                          onPress={() => router.push('/hr/approvals/account' as any)}
+                        />
+                      )}
+                      {!isOnlyAccountant && (
+                        <FeatureItem
+                          icon="swap-horizontal"
+                          iconType="mci"
+                          title="Luân chuyển PB"
+                          onPress={() => router.push('/hr/cross-department' as any)}
+                        />
+                      )}
                       <FeatureItem
                         icon="help-circle-outline"
                         iconType="mci"
@@ -335,18 +351,22 @@ export function HRProfileScreen() {
                         title="Bảng lương"
                         onPress={() => router.push('/hr/payslip' as any)}
                       />
-                      <FeatureItem
-                        icon="calendar-check"
-                        iconType="mci"
-                        title="Phân ca làm"
-                        onPress={() => router.push('/hr/shift-management' as any)}
-                      />
-                      <FeatureItem
-                        icon="calendar-sync-outline"
-                        iconType="mci"
-                        title="Đổi ca làm việc"
-                        onPress={() => router.push('/hr/shift-swaps' as any)}
-                      />
+                      {!isOnlyAccountant && (
+                        <FeatureItem
+                          icon="calendar-check"
+                          iconType="mci"
+                          title="Phân ca làm"
+                          onPress={() => router.push('/hr/shift-management' as any)}
+                        />
+                      )}
+                      {!isOnlyAccountant && (
+                        <FeatureItem
+                          icon="calendar-sync-outline"
+                          iconType="mci"
+                          title="Đổi ca làm việc"
+                          onPress={() => router.push('/hr/shift-swaps' as any)}
+                        />
+                      )}
                       <FeatureItem
                         icon="folder-text-outline"
                         iconType="mci"
