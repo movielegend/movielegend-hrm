@@ -1137,25 +1137,42 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
     ? data.contractTemplateVersion.mappingConfig.some((f: any) => f.role === "COMPANY")
     : false;
 
+  const isAccountantOnly = useMemo(() => {
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    const roles = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || r?.role?.code || '').toUpperCase());
+    const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+    const isHr = roles.includes('HR') || roles.includes('HUMAN_RESOURCE');
+    const isAcct =
+      roles.includes('ACCOUNTANT') ||
+      roles.some((r: any) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('FINANCE') || r.includes('CFO')) ||
+      Boolean((user as any)?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean((user as any)?.department?.name?.toLowerCase().includes('kế toán'));
+    return isAcct && !isAdmin && !isHr;
+  }, [user]);
+
   const canSignCompany =
     status === "WAITING_COMPANY_SIGNATURE" &&
+    !isAccountantOnly &&
     (user?.roles?.includes("ADMIN") || (user as any)?.role === "ADMIN");
 
   const canSignEmployee =
     status === "WAITING_EMPLOYEE_SIGNATURE" &&
-    (data?.userId === user?.id || (user as any)?.roles?.includes("ADMIN"));
+    (data?.userId === user?.id || ((user as any)?.roles?.includes("ADMIN") && !isAccountantOnly));
 
   const canActivate =
     (status === "COMPLETED" || status === "APPROVED") &&
+    !isAccountantOnly &&
     (user?.roles?.includes("ADMIN") || (user as any)?.role === "ADMIN");
 
   const canDelete =
-    (status === "WAITING_EMPLOYEE_SIGNATURE" &&
+    !isAccountantOnly &&
+    ((status === "WAITING_EMPLOYEE_SIGNATURE" &&
       (user?.roles?.includes("ADMIN") || user?.roles?.includes("HR"))) ||
     (status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN")) ||
     (status === "DRAFT" &&
       (user?.roles?.includes("ADMIN") || user?.roles?.includes("HR"))) ||
-    user?.roles?.includes("ADMIN");
+    user?.roles?.includes("ADMIN"));
 
   async function handleAction(action: () => Promise<unknown>, label: string) {
     try {
@@ -3728,10 +3745,25 @@ export function HRContractListScreen() {
   >("MY_CONTRACTS");
 
   const [filterType, setFilterType] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const myContracts = useMyContracts();
   const managedContracts = useContracts();
   const deleteContract = useDeleteContract();
   const { showAlert, showConfirm } = useAppAlert();
+
+  const isAccountantOnly = useMemo(() => {
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    const roles = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || r?.role?.code || '').toUpperCase());
+    const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+    const isHr = roles.includes('HR') || roles.includes('HUMAN_RESOURCE');
+    const isAcct =
+      roles.includes('ACCOUNTANT') ||
+      roles.some((r: any) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('FINANCE') || r.includes('CFO')) ||
+      Boolean((user as any)?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean((user as any)?.department?.name?.toLowerCase().includes('kế toán'));
+    return isAcct && !isAdmin && !isHr;
+  }, [user]);
 
   const myContractItems = Array.isArray(myContracts.data)
     ? myContracts.data
@@ -3739,6 +3771,18 @@ export function HRContractListScreen() {
   const managedContractItems = Array.isArray(managedContracts.data)
     ? managedContracts.data
     : [];
+
+  const filteredManagedContracts = useMemo(() => {
+    if (!searchQuery.trim()) return managedContractItems;
+    const q = searchQuery.toLowerCase().trim();
+    return managedContractItems.filter((contract: any) => {
+      const empName = (contract.user?.profile?.fullName ?? contract.user?.userCode ?? "").toLowerCase();
+      const code = (contract.user?.userCode ?? "").toLowerCase();
+      const title = (contract.title ?? "").toLowerCase();
+      const cCode = (contract.contractCode ?? "").toLowerCase();
+      return empName.includes(q) || code.includes(q) || title.includes(q) || cCode.includes(q);
+    });
+  }, [managedContractItems, searchQuery]);
 
   const isRefreshing =
     activeTab === "MY_CONTRACTS"
@@ -3755,39 +3799,54 @@ export function HRContractListScreen() {
 
   return (
     <View style={leaderContractStyles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={Platform.OS === "android"} />
+      <StatusBar barStyle="light-content" />
 
       {/* Dark Forest Green Header Banner */}
       <View style={leaderContractStyles.headerBanner}>
         <View style={{ paddingTop: Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8) }}>
           <View style={leaderContractStyles.headerTopRow}>
+            <Pressable
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/hr/(tabs)");
+                }
+              }}
+              style={leaderContractStyles.headerBackBtn}
+              hitSlop={8}
+            >
+              <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            </Pressable>
             <View style={leaderContractStyles.headerTitleWrap}>
               <Text style={leaderContractStyles.headerTitle}>Hợp đồng</Text>
               <Text style={leaderContractStyles.headerSubtitle}>
-                Quản lý và cá nhân
+                {isAccountantOnly ? "Hồ sơ và cá nhân" : "Quản lý và cá nhân"}
               </Text>
             </View>
-            <Pressable
-              style={leaderContractStyles.templateBtn}
-              onPress={() =>
-                router.push(`${roleBase(user)}/contracts/templates` as any)
-              }
-              hitSlop={8}
-            >
-              <MaterialCommunityIcons
-                name="file-cog-outline"
-                size={17}
-                color="#FFFFFF"
-              />
-              <Text style={leaderContractStyles.templateBtnText}>Mẫu HĐ</Text>
-            </Pressable>
+            {!isAccountantOnly && (
+              <Pressable
+                style={leaderContractStyles.templateBtn}
+                onPress={() =>
+                  router.push(`${roleBase(user)}/contracts/templates` as any)
+                }
+                hitSlop={8}
+              >
+                <MaterialCommunityIcons
+                  name="file-cog-outline"
+                  size={17}
+                  color="#FFFFFF"
+                />
+                <Text style={leaderContractStyles.templateBtnText}>Mẫu HĐ</Text>
+              </Pressable>
+            )}
           </View>
         </View>
       </View>
 
       {/* Main Curved White Body */}
       <View style={leaderContractStyles.bodyContainer}>
-        {/* Primary Segment Switcher: [ Của tôi | Tôi giao ] */}
+        {/* Primary Segment Switcher: [ Của tôi | Hợp đồng nhân sự / Tôi giao ] */}
         <View style={leaderContractStyles.segmentContainer}>
           <Pressable
             style={[
@@ -3822,10 +3881,26 @@ export function HRContractListScreen() {
                   leaderContractStyles.segmentTextActive,
               ]}
             >
-              Tôi giao
+              {isAccountantOnly ? "Hợp đồng nhân sự" : "Tôi giao"}
             </Text>
           </Pressable>
         </View>
+
+        {activeTab === "MANAGED_CONTRACTS" && (
+          <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+            <View style={leaderContractStyles.searchRow}>
+              <Ionicons name="search" size={18} color="#94A3B8" style={{ marginRight: 8 }} />
+              <TextInput
+                placeholder="Tìm tên nhân viên, mã HĐ..."
+                placeholderTextColor="#94A3B8"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                style={leaderContractStyles.searchInput}
+                clearButtonMode="while-editing"
+              />
+            </View>
+          </View>
+        )}
 
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
@@ -3918,8 +3993,8 @@ export function HRContractListScreen() {
                   </Text>
                 </View>
               ) : null
-            ) : managedContractItems.length > 0 ? (
-              managedContractItems.map((contract: any) => {
+            ) : filteredManagedContracts.length > 0 ? (
+              filteredManagedContracts.map((contract: any) => {
                 const empName =
                   contract.user?.profile?.fullName ??
                   contract.user?.userCode ??
@@ -3963,9 +4038,10 @@ export function HRContractListScreen() {
                           }
                           tone={getStatusTone(contract.status)}
                         />
-                        {(contract.status === "WAITING_EMPLOYEE_SIGNATURE" ||
-                          contract.status === "DRAFT" ||
-                          (contract.status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN"))) && (
+                        {!isAccountantOnly &&
+                          (contract.status === "WAITING_EMPLOYEE_SIGNATURE" ||
+                            contract.status === "DRAFT" ||
+                            (contract.status === "WAITING_COMPANY_SIGNATURE" && user?.roles?.includes("ADMIN"))) && (
                           <Pressable
                             onPress={(e) => {
                               e.stopPropagation();
@@ -4040,7 +4116,11 @@ export function HRContractListScreen() {
                   Chưa có hợp đồng
                 </Text>
                 <Text style={leaderContractStyles.emptySubtitle}>
-                  Bạn hiện chưa giao hợp đồng lao động nào.
+                  {isAccountantOnly
+                    ? searchQuery.trim()
+                      ? "Không tìm thấy hợp đồng nào khớp với tìm kiếm."
+                      : "Chưa có hợp đồng nhân sự nào trong hệ thống."
+                    : "Bạn hiện chưa giao hợp đồng lao động nào."}
                 </Text>
               </View>
             ) : null}
@@ -4065,6 +4145,31 @@ const leaderContractStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  headerBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 44,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: "#0F172A",
+    paddingVertical: 0,
   },
   headerTitleWrap: {
     flex: 1,

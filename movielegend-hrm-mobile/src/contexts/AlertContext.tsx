@@ -5,6 +5,7 @@ interface AlertOptions {
   title: string;
   message?: string;
   confirmLabel?: string;
+  confirmTone?: 'primary' | 'danger';
   onConfirm?: () => void;
   onCancel?: () => void;
   hideCancel?: boolean;
@@ -131,6 +132,7 @@ export function AlertProvider({ children }: { children: ReactNode }) {
         title={config.title}
         message={config.message}
         confirmLabel={config.confirmLabel}
+        confirmTone={config.confirmTone}
         hideCancel={config.hideCancel}
         onCancel={handleCancel}
         onConfirm={config.onConfirm || (() => setVisible(false))}
