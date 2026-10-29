@@ -1072,6 +1072,20 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
   const [viewingSignatureUrl, setViewingSignatureUrl] = useState<string | null>(null);
   const [detailMenuVisible, setDetailMenuVisible] = useState(false);
 
+  const isAccountantOnly = useMemo(() => {
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    const roles = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || r?.role?.code || '').toUpperCase());
+    const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+    const isHr = roles.includes('HR') || roles.includes('HUMAN_RESOURCE');
+    const isAcct =
+      roles.includes('ACCOUNTANT') ||
+      roles.some((r: any) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('FINANCE') || r.includes('CFO')) ||
+      Boolean((user as any)?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean((user as any)?.department?.name?.toLowerCase().includes('kế toán'));
+    return isAcct && !isAdmin && !isHr;
+  }, [user]);
+
   if (contract.isLoading) {
     return (
       <SafeAreaView style={cStyles.safeArea} edges={["top", "left", "right"]}>
@@ -1137,19 +1151,6 @@ export function ContractDetailScreen({ contractId }: { contractId: string }) {
     ? data.contractTemplateVersion.mappingConfig.some((f: any) => f.role === "COMPANY")
     : false;
 
-  const isAccountantOnly = useMemo(() => {
-    const rawRoles = user?.roles || [];
-    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
-    const roles = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || r?.role?.code || '').toUpperCase());
-    const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
-    const isHr = roles.includes('HR') || roles.includes('HUMAN_RESOURCE');
-    const isAcct =
-      roles.includes('ACCOUNTANT') ||
-      roles.some((r: any) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('FINANCE') || r.includes('CFO')) ||
-      Boolean((user as any)?.position?.name?.toLowerCase().includes('kế toán')) ||
-      Boolean((user as any)?.department?.name?.toLowerCase().includes('kế toán'));
-    return isAcct && !isAdmin && !isHr;
-  }, [user]);
 
   const canSignCompany =
     status === "WAITING_COMPANY_SIGNATURE" &&
