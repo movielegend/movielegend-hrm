@@ -545,9 +545,25 @@ export function isAppAllowedForRole(
     }
   }
 
-  // Admin không hiển thị dịch vụ "Quản lý chấm công" (Admin chỉ dùng "Chấm công" để vào Dữ liệu chấm công /admin/attendance)
-  if (role === 'ADMIN' && item.key === 'attendance_management') {
-    return false;
+  // 1. Admin không hiển thị dịch vụ "Quản lý chấm công" (Admin chỉ dùng "Chấm công" để vào Dữ liệu chấm công /admin/attendance)
+  // 2. Kế toán viên không được xem "Quản lý chấm công" toàn công ty (Chỉ HR/Admin phụ trách; Kế toán chỉ dùng Chấm công cá nhân, Lịch sử cá nhân và Bảng công)
+  if (item.key === 'attendance_management') {
+    if (role === 'ADMIN') return false;
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    const roles = roleList.map((r: any) =>
+      String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+    );
+    const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+    const isHr = roles.includes('HR') || roles.includes('HUMAN_RESOURCE');
+    const isAcct =
+      roles.includes('ACCOUNTANT') ||
+      roles.some((r: any) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('KT') || r.includes('KETOAN')) ||
+      Boolean(user?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean(user?.department?.name?.toLowerCase().includes('kế toán'));
+    if (isAcct && !isAdmin && !isHr) {
+      return false;
+    }
   }
 
   if (role === 'ADMIN') return true;

@@ -296,9 +296,20 @@ export function AdminAttendanceScreen() {
       {/* 1. Header (Brand: movielegend PEOPLE + Title + Date Pill) */}
       <View style={[styles.headerContainer, isLeader && { paddingBottom: 10 }]}>
         <View style={styles.headerTopRow}>
-          <Text style={styles.screenTitle} numberOfLines={1}>
-            {isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+            {router.canGoBack() && (
+              <Pressable
+                onPress={() => router.back()}
+                hitSlop={8}
+                style={{ padding: 4, marginRight: 2 }}
+              >
+                <Ionicons name="chevron-back" size={24} color="#0F172A" />
+              </Pressable>
+            )}
+            <Text style={styles.screenTitle} numberOfLines={1}>
+              {isLeader ? 'Chấm công phòng ban' : 'Quản lý chấm công'}
+            </Text>
+          </View>
 
           {/* Date Picker Pill Trigger */}
           <Pressable
