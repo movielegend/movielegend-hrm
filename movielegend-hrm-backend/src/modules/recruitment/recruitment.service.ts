@@ -89,6 +89,35 @@ export class RecruitmentService {
       where.departmentName = { contains: query.departmentName.trim(), mode: 'insensitive' };
     }
 
+    if (query.workGroupId?.trim()) {
+      const rawGroupId = query.workGroupId.trim();
+      const workGroups = await this.getWorkGroups();
+      const matched = workGroups.find(
+        (g) =>
+          String(g.id) === rawGroupId ||
+          g.code.toLowerCase() === rawGroupId.toLowerCase() ||
+          g.name.toLowerCase() === rawGroupId.toLowerCase(),
+      );
+      if (matched) {
+        const lowerMatched = matched.name.toLowerCase();
+        if (lowerMatched.includes('phần mềm') || lowerMatched.includes('phan mem')) {
+          where.OR = [
+            { departmentName: { contains: matched.name, mode: 'insensitive' } },
+            { departmentName: { contains: 'IT', mode: 'insensitive' } },
+          ];
+        } else if (lowerMatched === 'kỹ thuật' || lowerMatched === 'ky thuat') {
+          where.OR = [
+            { departmentName: { contains: matched.name, mode: 'insensitive' } },
+            { departmentName: { contains: 'Máy chiếu', mode: 'insensitive' } },
+          ];
+        } else {
+          where.departmentName = { contains: matched.name, mode: 'insensitive' };
+        }
+      } else {
+        where.departmentName = { contains: rawGroupId, mode: 'insensitive' };
+      }
+    }
+
     if (query.province?.trim()) {
       where.province = { contains: query.province.trim(), mode: 'insensitive' };
     }
@@ -166,10 +195,13 @@ export class RecruitmentService {
   }
 
   /**
-   * Lấy danh sách các phòng ban đang mở tuyển dụng (kèm số lượng tin)
+   * Lấy danh sách các nhóm ngành tuyển dụng (từ cấu hình danh mục kèm số lượng tin)
    */
-  async getDepartments() {
-    const groups = await this.prisma.jobPosting.groupBy({
+  async getWorkGroups() {
+    const categories = await this.getCategories();
+    const configuredGroups: string[] = categories.workGroups || [];
+
+    const jobCounts = await this.prisma.jobPosting.groupBy({
       by: ['departmentName'],
       where: {
         status: JobStatus.PUBLISHED,
@@ -180,13 +212,67 @@ export class RecruitmentService {
       },
     });
 
-    return groups.map((g, index) => ({
-      id: index + 1,
-      code: g.departmentName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-      name: g.departmentName,
-      total: g._count.id,
-      iconUrl: `/assets/images/${index % 2 === 0 ? 'cong-nghe' : 'kinh-doanh'}.png`,
-    }));
+    const countMap = new Map<string, number>();
+    for (const jc of jobCounts) {
+      if (jc.departmentName) {
+        countMap.set(jc.departmentName.trim().toLowerCase(), jc._count.id);
+      }
+    }
+
+    const slugify = (text: string): string =>
+      text
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    const result: Array<{
+      id: number;
+      code: string;
+      name: string;
+      total: number;
+      iconUrl: string;
+      bannerImage?: string;
+    }> = [];
+    const handledNames = new Set<string>();
+
+    configuredGroups.forEach((groupItem: any, index: number) => {
+      const groupName = typeof groupItem === 'string' ? groupItem : groupItem.name;
+      const groupBanner = typeof groupItem === 'object' ? String(groupItem.bannerImage || groupItem.iconUrl || '').trim() : '';
+
+      const lower = groupName.trim().toLowerCase();
+      let total = countMap.get(lower) || 0;
+
+      // Ánh xạ tương thích cho IT và Kỹ thuật & Setup Máy chiếu
+      if (lower.includes('phần mềm') || lower.includes('phan mem')) {
+        total += countMap.get('it') || 0;
+      }
+      if (lower === 'kỹ thuật' || lower === 'ky thuat') {
+        total += (countMap.get('kỹ thuật & setup máy chiếu') || 0) + (countMap.get('ky thuat & setup may chieu') || 0);
+      }
+
+      const code = slugify(groupName) || ('group-' + (index + 1));
+
+      result.push({
+        id: index + 1,
+        code,
+        name: groupName,
+        total,
+        iconUrl: groupBanner || ('/assets/images/' + (index % 2 === 0 ? 'cong-nghe' : 'kinh-doanh') + '.png'),
+        bannerImage: groupBanner || '',
+      });
+    });
+
+    return result;
+  }
+
+  /**
+   * Lấy danh sách các phòng ban đang mở tuyển dụng (kèm số lượng tin)
+   */
+  async getDepartments() {
+    return this.getWorkGroups();
   }
 
   /**
@@ -252,9 +338,22 @@ export class RecruitmentService {
         const raw = fs.readFileSync(filePath, 'utf-8');
         const parsed = JSON.parse(raw);
         if (parsed && (Array.isArray(parsed.skills) || Array.isArray(parsed.workGroups))) {
+          const rawGroups = Array.isArray(parsed.workGroups) ? parsed.workGroups : [];
+          const normalizedGroups = rawGroups
+            .map((g: any) => {
+              if (typeof g === 'string') {
+                return { name: g.trim(), bannerImage: '' };
+              }
+              return {
+                name: String(g?.name || '').trim(),
+                bannerImage: String(g?.bannerImage || g?.imageUrl || '').trim(),
+              };
+            })
+            .filter((g: any) => g.name);
+
           return {
             skills: Array.isArray(parsed.skills) ? parsed.skills : [],
-            workGroups: Array.isArray(parsed.workGroups) ? parsed.workGroups : [],
+            workGroups: normalizedGroups,
           };
         }
       }
@@ -277,25 +376,38 @@ export class RecruitmentService {
         'Quản lý kho',
       ],
       workGroups: [
-        'Kỹ thuật & Setup Máy chiếu',
-        'Kinh doanh & Tư vấn giải pháp',
-        'Marketing & Truyền thông',
-        'Vận hành & Hậu cần',
-        'Tài chính & Kế toán',
-        'Nhân sự & Hành chính',
+        { name: 'Kỹ thuật & Setup Máy chiếu', bannerImage: '/assets/images/cong-nghe.png' },
+        { name: 'Kinh doanh & Tư vấn giải pháp', bannerImage: '/assets/images/kinh-doanh.png' },
+        { name: 'Marketing & Truyền thông', bannerImage: '/assets/images/truyen-thong.png' },
+        { name: 'Vận hành & Hậu cần', bannerImage: '/assets/images/van-hanh.png' },
+        { name: 'Tài chính & Kế toán', bannerImage: '/assets/images/tai-chinh.png' },
+        { name: 'Nhân sự & Hành chính', bannerImage: '/assets/images/workplace.png' },
       ],
     };
   }
 
-  async updateCategories(dto: { skills?: string[]; workGroups?: string[] }) {
+  async updateCategories(dto: { skills?: string[]; workGroups?: Array<string | { name: string; bannerImage?: string; iconUrl?: string }> }) {
     const current = await this.getCategories();
+
+    let updatedGroups = current.workGroups;
+    if (Array.isArray(dto.workGroups)) {
+      const seen = new Set<string>();
+      updatedGroups = [];
+      for (const item of dto.workGroups) {
+        const name = typeof item === 'string' ? item.trim() : String(item?.name || '').trim();
+        const bannerImage = typeof item === 'object' ? String(item?.bannerImage || item?.iconUrl || '').trim() : '';
+        if (name && !seen.has(name.toLowerCase())) {
+          seen.add(name.toLowerCase());
+          updatedGroups.push({ name, bannerImage });
+        }
+      }
+    }
+
     const updated = {
       skills: Array.isArray(dto.skills)
         ? Array.from(new Set(dto.skills.map((s: string) => String(s).trim()).filter(Boolean)))
         : current.skills,
-      workGroups: Array.isArray(dto.workGroups)
-        ? Array.from(new Set(dto.workGroups.map((w: string) => String(w).trim()).filter(Boolean)))
-        : current.workGroups,
+      workGroups: updatedGroups,
     };
     try {
       const filePath = this.getCategoriesFilePath();
@@ -305,6 +417,572 @@ export class RecruitmentService {
     } catch (err) {
       this.logger.error('Failed to save categories to storage:', err);
     }
+    return updated;
+  }
+
+  // ==========================================
+  // CAMPAIGN BANNERS (Khám phá / Cơ hội đặc biệt)
+  // ==========================================
+
+  private getCampaignBannersFilePath(): string {
+    return path.resolve(process.cwd(), 'storage', 'recruitment_banners.json');
+  }
+
+  async getCampaignBanners() {
+    const defaultBanners = [
+      {
+        id: 'slide-cinema-flagship',
+        title: 'Đam mê Điện ảnh - Kiến tạo Rạp phim Tại Gia',
+        subtitle: 'Trải nghiệm công nghệ máy chiếu Laser TV siêu gần, độ phân giải 4K HDR và âm thanh vòm Dolby Atmos chuẩn Hollywood.',
+        image: '/assets/images/showcase-fifa-cinema.jpg',
+        tag: 'Home Cinema Flagship',
+        bgClass: 'bg-slate-950',
+        active: true,
+        order: 1,
+      },
+      {
+        id: 'slide-tay-bac',
+        title: 'Ai yêu cung đường Tây Bắc hơn Anh?',
+        subtitle: 'Đồng hành cùng tuổi trẻ trên mọi nẻo đường đất nước - Movie Legend Showroom',
+        image: '/assets/images/home_about/sp_op_1.png',
+        tag: 'Miền Bắc • Tây Bắc',
+        bgClass: 'bg-white',
+        active: true,
+        order: 2,
+      },
+      {
+        id: 'slide-mien-trung',
+        title: 'Ai yêu non nước đại ngàn Miền Trung hơn Anh?',
+        subtitle: 'Đồng hành cùng các dự án homestay, villa & rạp chiếu nghỉ dưỡng cao cấp',
+        image: '/assets/images/home_about/sp_op_3.png',
+        tag: 'Miền Trung • Nghỉ dưỡng',
+        bgClass: 'bg-[#FFFDF7]',
+        active: true,
+        order: 3,
+      },
+      {
+        id: 'slide-mien-tay',
+        title: 'Ai yêu hạt gạo Đồng bằng Sông Cửu Long hơn Anh?',
+        subtitle: 'MANG CÔNG NGHỆ VỀ LẠI MIỀN TÂY CÙNG NHAU CHUNG SỨC, DỰNG XÂY QUÊ MÌNH!',
+        image: '/assets/images/home_about/sp_op_2.png',
+        tag: 'Miền Tây • Sông Cửu Long',
+        bgClass: 'bg-[#FEFCE8]',
+        active: true,
+        order: 4,
+      },
+      {
+        id: 'slide-dai-su-movielegend',
+        title: 'Đại sứ Trẻ Movie Legend - Khởi Đầu Đột Phá',
+        subtitle: 'Lộ trình phát triển chuyên sâu ngành công nghệ máy chiếu và nghe nhìn cao cấp',
+        image: '/assets/images/workplace.png',
+        tag: 'Gen Z Triển Vọng',
+        bgClass: 'bg-white',
+        active: true,
+        order: 5,
+      },
+    ];
+
+    try {
+      const filePath = this.getCampaignBannersFilePath();
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (err) {
+      this.logger.error('Failed to read campaign banners from storage:', err);
+    }
+
+    try {
+      const filePath = this.getCampaignBannersFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(defaultBanners, null, 2), 'utf-8');
+    } catch (e) {
+      // bỏ qua lỗi khởi tạo
+    }
+
+    return defaultBanners;
+  }
+
+  async updateCampaignBanners(banners: any[]) {
+    if (!Array.isArray(banners)) {
+      return this.getCampaignBanners();
+    }
+
+    const cleanBanners = banners.map((b: any, idx: number) => ({
+      id: String(b?.id || `slide-${Date.now()}-${idx}`),
+      title: String(b?.title || '').trim(),
+      subtitle: String(b?.subtitle || '').trim(),
+      image: String(b?.image || '').trim(),
+      tag: String(b?.tag || '').trim(),
+      bgClass: String(b?.bgClass || 'bg-white').trim(),
+      active: b?.active !== false,
+      order: typeof b?.order === 'number' ? b?.order : idx + 1,
+    }));
+
+    try {
+      const filePath = this.getCampaignBannersFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(cleanBanners, null, 2), 'utf-8');
+    } catch (err) {
+      this.logger.error('Failed to save campaign banners to storage:', err);
+    }
+
+    return cleanBanners;
+  }
+
+  // ==========================================
+  // HERO BANNER TRANG CHỦ TUYỂN DỤNG
+  // ==========================================
+
+  private getHeroBannerFilePath(): string {
+    return path.resolve(process.cwd(), 'storage', 'recruitment_hero.json');
+  }
+
+  async getHeroBanner() {
+    const defaultHero = {
+      imageUrl: '/assets/images/hero-banner-jovie.jpg',
+      eyebrow: 'Cơ hội việc làm & phát triển nghề nghiệp',
+      title: 'Gửi Hồ Sơ & Đón Nhận Công Việc Bạn Mơ Ước!',
+      subtitle: 'Cùng Movie Legend kiến tạo không gian điện ảnh đỉnh cao và phát triển sự nghiệp vững chắc ngay hôm nay.',
+    };
+
+    try {
+      const filePath = this.getHeroBannerFilePath();
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            imageUrl: String(parsed.imageUrl || defaultHero.imageUrl).trim(),
+            eyebrow: String(parsed.eyebrow || defaultHero.eyebrow).trim(),
+            title: String(parsed.title || defaultHero.title).trim(),
+            subtitle: String(parsed.subtitle || defaultHero.subtitle).trim(),
+          };
+        }
+      }
+    } catch (err) {
+      this.logger.error('Failed to read hero banner from storage:', err);
+    }
+
+    try {
+      const filePath = this.getHeroBannerFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(defaultHero, null, 2), 'utf-8');
+    } catch (e) {
+      // bỏ qua lỗi khởi tạo
+    }
+
+    return defaultHero;
+  }
+
+  async updateHeroBanner(data: { imageUrl?: string; eyebrow?: string; title?: string; subtitle?: string }) {
+    const current = await this.getHeroBanner();
+    const updated = {
+      imageUrl: data.imageUrl !== undefined ? String(data.imageUrl).trim() : current.imageUrl,
+      eyebrow: data.eyebrow !== undefined ? String(data.eyebrow).trim() : current.eyebrow,
+      title: data.title !== undefined ? String(data.title).trim() : current.title,
+      subtitle: data.subtitle !== undefined ? String(data.subtitle).trim() : current.subtitle,
+    };
+
+    try {
+      const filePath = this.getHeroBannerFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(updated, null, 2), 'utf-8');
+    } catch (err) {
+      this.logger.error('Failed to save hero banner to storage:', err);
+    }
+
+    return updated;
+  }
+
+  private getDiscoverFilePath(): string {
+    return path.resolve(process.cwd(), 'storage', 'recruitment_discover_content.json');
+  }
+
+  async getDiscoverContent() {
+    const defaultDiscover = {
+      hero: {
+        imageUrl: '/assets/images/home_about/bannerd2508.png',
+        title: 'Không Gian Đỉnh Cao – Văn Hóa Sáng Tạo',
+        subtitle: 'Nơi công nghệ quang học và tình yêu điện ảnh cùng thăng hoa.',
+      },
+      newsEvents: [
+        {
+          id: 1,
+          title: 'Movie Legend Careers – Cùng thổi hồn điện ảnh',
+          subtitle: 'Cơ hội làm việc trong môi trường sáng tạo, chuyên nghiệp và đầy cảm hứng.',
+          link: 'https://movielegend.vn/tin-tuc/1',
+          imageUrl: '/assets/images/home_about/sp_op_3.png',
+        },
+        {
+          id: 2,
+          title: 'Hậu Trường Tạo Nên Huyền Thoại',
+          subtitle: 'Khám phá những câu chuyện phía sau màn ảnh cùng đội ngũ MovieLegend.',
+          link: 'https://movielegend.vn/tin-tuc/2',
+          imageUrl: '/assets/images/home_about/sp_op_1.png',
+        },
+      ],
+      featuredJobs: [
+        {
+          id: 1,
+          title: 'Content Creator (Digital Marketing)',
+          subtitle: 'Sáng tạo nội dung, đồng hành cùng chiến dịch truyền thông của MovieLegend.',
+          link: 'https://movielegend.vn/tuyen-dung/1',
+          imageUrl: '/assets/images/cong-nghe.png',
+        },
+        {
+          id: 2,
+          title: 'Quay Dựng Phim (Part-time/Full-time)',
+          subtitle: 'Tham gia sản xuất các dự án phim ngắn, TVC và nội dung sáng tạo.',
+          link: 'https://movielegend.vn/tuyen-dung/2',
+          imageUrl: '/assets/images/showcase-fifa-cinema.jpg',
+        },
+      ],
+      amenities: [
+        {
+          id: 1,
+          title: 'Phòng Chiếu 150 Inch Chuẩn Rạp',
+          description: 'Trang bị máy chiếu 4K Laser và âm thanh Dolby Atmos 7.1.2 để nhân viên test sản phẩm và xem phim thư giãn cuối tuần.',
+          imageUrl: '/assets/images/showcase-fifa-cinema.jpg',
+        },
+        {
+          id: 2,
+          title: 'Văn Phòng Mở Không Vách Ngăn',
+          description: 'Bàn làm việc nâng hạ công thái học, ánh sáng tự nhiên chan hòa, thúc đẩy tinh thần làm việc nhóm và giao tiếp cởi mở.',
+          imageUrl: '/assets/images/workplace.png',
+        },
+        {
+          id: 3,
+          title: 'Quầy Cà Phê & Nạp Năng Lượng',
+          description: 'Máy pha cà phê hạt nguyên chất, trà hoa quả tươi, bánh ngọt và đồ ăn nhẹ luôn sẵn sàng phục vụ bất cứ lúc nào.',
+          imageUrl: '/assets/images/hero-banner-jovie.jpg',
+        },
+        {
+          id: 4,
+          title: 'Showroom Trải Nghiệm Flagship',
+          description: 'Không gian chuẩn Bắc Âu nơi khách hàng và đối tác trải nghiệm trực tiếp các thiết bị quang học cao cấp nhất.',
+          imageUrl: '/assets/images/movie-legend-storefront.png',
+        },
+      ],
+      gallery: [
+        {
+          id: 1,
+          title: 'Đêm Điện Ảnh Camping Dã Ngoại',
+          category: 'lifestyle',
+          tag: 'Teambuilding',
+          image: '/assets/images/home_about/sp_op_3.png',
+          desc: 'Khoảnh khắc cả đội ngũ quây quần chiếu phim giữa thiên nhiên thoáng đãng.',
+        },
+        {
+          id: 2,
+          title: 'Showroom Trải Nghiệm Flagship',
+          category: 'workplace',
+          tag: 'Không gian mở',
+          image: '/assets/images/movie-legend-storefront.png',
+          desc: 'Showroom phong cách tối giản Bắc Âu, nơi đội ngũ tiếp đón khách hàng VIP.',
+        },
+        {
+          id: 3,
+          title: 'Phòng Chiếu Thử Nghiệm 4K HDR',
+          category: 'cinema',
+          tag: 'Phòng Lab Cinema',
+          image: '/assets/images/room-living-projector-hdr.png',
+          desc: 'Phòng chiếu chuẩn studio 150 inch ngay tại trụ sở để test sản phẩm.',
+        },
+        {
+          id: 4,
+          title: 'Studio Cân Chỉnh Quang Học Chuyên Sâu',
+          category: 'cinema',
+          tag: 'R&D Lab',
+          image: '/assets/images/cong-nghe.png',
+          desc: 'Nơi các kỹ sư tinh chỉnh từng thấu kính 8 lớp và độ tương phản quang học.',
+        },
+        {
+          id: 5,
+          title: 'Góc Cà Phê & Thảo Luận Sáng Tạo',
+          category: 'workplace',
+          tag: 'Pantry 24/7',
+          image: '/assets/images/home_about/sp_op_1.png',
+          desc: 'Không gian nạp năng lượng với cà phê specialty và đồ ăn nhẹ tươi mỗi ngày.',
+        },
+        {
+          id: 6,
+          title: 'Công Chiếu Phim & Buổi Xem Chung',
+          category: 'cinema',
+          tag: 'Movie Night',
+          image: '/assets/images/room-projection-wall.jpg',
+          desc: 'Buổi chiếu phim bom tấn định kỳ dành riêng cho Movie Legenders.',
+        },
+        {
+          id: 7,
+          title: 'Trụ Sở Văn Phòng Hiện Đại',
+          category: 'workplace',
+          tag: 'Trụ sở chính',
+          image: '/assets/images/workplace.png',
+          desc: 'Tòa nhà văn phòng kính hiện đại, vị trí đắc địa thuận tiện di chuyển.',
+        },
+        {
+          id: 8,
+          title: 'Đội Ngũ Trẻ Đam Mê & Nhiệt Huyết',
+          category: 'lifestyle',
+          tag: 'Movie Legenders',
+          image: '/assets/images/kinh-doanh.png',
+          desc: 'Những nụ cười rạng rỡ và tinh thần đồng đội gắn kết không khoảng cách.',
+        },
+      ],
+    };
+
+    try {
+      const filePath = this.getDiscoverFilePath();
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            ...defaultDiscover,
+            ...parsed,
+            hero: { ...defaultDiscover.hero, ...(parsed.hero || {}) },
+            amenities: Array.isArray(parsed.amenities) && parsed.amenities.length > 0 ? parsed.amenities : defaultDiscover.amenities,
+            gallery: Array.isArray(parsed.gallery) && parsed.gallery.length > 0 ? parsed.gallery : defaultDiscover.gallery,
+          };
+        }
+      }
+    } catch (e) {
+      this.logger.warn('Failed to parse discover content file, using default');
+    }
+
+    try {
+      const filePath = this.getDiscoverFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(defaultDiscover, null, 2), 'utf-8');
+    } catch (e) {
+      // ignore init error
+    }
+
+    return defaultDiscover;
+  }
+
+  async updateDiscoverContent(data: any) {
+    const current = await this.getDiscoverContent();
+    const updated = {
+      ...current,
+      hero: {
+        imageUrl: data?.hero?.imageUrl !== undefined ? String(data.hero.imageUrl).trim() : current.hero.imageUrl,
+        title: data?.hero?.title !== undefined ? String(data.hero.title).trim() : current.hero.title,
+        subtitle: data?.hero?.subtitle !== undefined ? String(data.hero.subtitle).trim() : current.hero.subtitle,
+      },
+      amenities: Array.isArray(data?.amenities) ? data.amenities : current.amenities,
+      gallery: Array.isArray(data?.gallery) ? data.gallery : current.gallery,
+      newsEvents: Array.isArray(data?.newsEvents) ? data.newsEvents : (current.newsEvents || []),
+      featuredJobs: Array.isArray(data?.featuredJobs) ? data.featuredJobs : (current.featuredJobs || []),
+    };
+
+    try {
+      const filePath = this.getDiscoverFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(updated, null, 2), 'utf-8');
+    } catch (err) {
+      this.logger.error('Failed to save discover content to storage:', err);
+    }
+
+    return updated;
+  }
+
+  private getAboutFilePath(): string {
+    return path.resolve(process.cwd(), 'storage', 'recruitment_about_content.json');
+  }
+
+  async getAboutContent() {
+    const defaultAbout = {
+      hero: {
+        imageUrl: '/assets/images/home_about/bannerd2508.png',
+        title: 'Hành Trình Kiến Tạo Giấc Mơ Điện Ảnh',
+        subtitle: 'Mang chuẩn mực rạp chiếu phim chuyên nghiệp vào từng không gian sống.',
+      },
+      missionVision: {
+        visionImage: '/assets/images/movie-legend-storefront.png',
+        visionTag: 'Không gian trải nghiệm Bắc Âu',
+        visionTitle: 'Tầm Nhìn Chiến Lược',
+        visionDesc: 'Trở thành hệ sinh thái thiết bị quang học và rạp chiếu phim thông minh tại gia số 1 Đông Nam Á. Chúng tôi hướng tới tương lai nơi mọi gia đình đều có thể dễ dàng sở hữu một không gian nghe nhìn đỉnh cao chuẩn studio mà không cần đầu tư những hệ thống rườm rà, đắt đỏ.',
+        visionSubtext: 'Dẫn đầu công nghệ quang học tại gia',
+        missionImage: '/assets/images/hero-banner-jovie.jpg',
+        missionTag: 'Điện ảnh trong từng tổ ấm',
+        missionTitle: 'Sứ Mệnh Phụng Sự',
+        missionDesc: 'Biến mỗi tối bên gia đình thành một trải nghiệm điện ảnh trọn vẹn cảm xúc. Chúng tôi cam kết không ngừng đổi mới về công nghệ, nâng cao độ tinh xảo trong chế tác và đem lại sự an tâm tuyệt đối bằng chế độ bảo hành chuyên nghiệp và tận tâm nhất.',
+        missionSubtext: 'Trải nghiệm vượt trên kỳ vọng',
+      },
+      milestones: [
+        {
+          year: 'Năm 2020',
+          title: 'Khởi Đầu Với Niềm Đam Mê Quang Học',
+          description: 'Thành lập Movie Legend Lab tại Hà Nội, tập trung nghiên cứu giải pháp máy chiếu LED kích thước nhỏ gọn nhưng đạt độ sắc nét cao dành cho các căn hộ trẻ.',
+          imageUrl: '/assets/images/home_about/sp_op_2.png',
+        },
+        {
+          year: 'Năm 2022',
+          title: 'Định Hình Chuỗi K-Series & Khai Trương Showroom Đầu Tiên',
+          description: 'Ra mắt máy chiếu K-Series với hệ điều hành thông minh tùy biến, đồng thời khai trương Showroom trải nghiệm phòng chiếu thực tế đầu tiên tại Hà Nội, thu hút hàng ngàn lượt khách tham quan.',
+          imageUrl: '/assets/images/movie-legend-storefront.png',
+        },
+        {
+          year: 'Năm 2024',
+          title: 'Đột Phá Màn Quang Học ALR Chống Chói 93% & Loa Dolby Atmos',
+          description: 'Tự hào giới thiệu dòng màn chiếu chuyên dụng ALR khử ánh sáng môi trường kết hợp loa Dolby Atmos, giúp người dùng thoải mái xem phim chất lượng cao ngay cả trong phòng khách bật đèn sáng.',
+          imageUrl: '/assets/images/room-projection-wall.jpg',
+        },
+        {
+          year: 'Năm 2025',
+          title: 'Mở Rộng Chi Nhánh TP.HCM & Đà Nẵng',
+          description: 'Chính thức khai trương văn phòng và showroom tại TP. Hồ Chí Minh & Đà Nẵng; cán mốc phục vụ hơn 15,000+ phòng khách gia đình và hàng trăm dự án villa, resort nghỉ dưỡng cao cấp trên toàn quốc.',
+          imageUrl: '/assets/images/showcase-fifa-cinema.jpg',
+        },
+        {
+          year: 'Năm 2026 - Hiện tại',
+          title: 'Thế Hệ Máy Chiếu Laser 4K H8Pro Max - V2 & Tuyển Dụng Nhân Tài',
+          description: 'Nâng tầm hệ sinh thái toàn diện với dòng Flagship H8Pro Max - V2, mở rộng quy mô nhân sự với hơn 28+ vị trí chiến lược để đưa sản phẩm vươn tầm khu vực Đông Nam Á.',
+          imageUrl: '/assets/images/home_about/bannerd2508.png',
+        },
+      ],
+      pillarsSection: {
+        eyebrow: 'Hệ sinh thái sản phẩm',
+        title: 'Giải Pháp Trọn Gói Rạp Phim Tại Gia',
+        subtitle: 'Sự phối hợp hoàn hảo giữa các trụ cột thiết bị mang đến chất lượng hiển thị chuẩn rạp thương mại.',
+      },
+      pillars: [
+        {
+          title: 'Máy Chiếu Laser & 4K',
+          description: 'Dòng Flagship H8Pro Max - V2, K9 CineLux với thấu kính 8 lớp chống méo viền, tự động lấy nét và căn khung hình bằng AI thông minh.',
+          imageUrl: '/assets/images/home_about/sp_op_1.png',
+        },
+        {
+          title: 'Màn Quang Học ALR',
+          description: 'Cấu trúc vi mô triệt tiêu 93% ánh sáng tạp từ trần nhà và môi trường, đem lại độ tương phản vô tận và màu đen sâu thẳm chuẩn HDR.',
+          imageUrl: '/assets/images/room-projection-wall.jpg',
+        },
+        {
+          title: 'Âm Thanh Dolby Atmos',
+          description: 'Soundbar đa kênh tích hợp loa Subwoofer siêu trầm, tái tạo dải âm không gian 3D sống động như đang ngồi tại rạp chiếu IMAX.',
+          imageUrl: '/assets/images/room-living-projector-hdr.png',
+        },
+        {
+          title: 'Thi Công & Phụ Kiện',
+          description: 'Chân đế xoay 360°, giá treo trần giấu dây tự động, hỗ trợ nhà thông minh Smart Home và dịch vụ lắp đặt tận nơi chuyên nghiệp.',
+          imageUrl: '/assets/images/showcase-fifa-cinema.jpg',
+        },
+      ],
+      showcasesSection: {
+        eyebrow: 'Showcase rạp phim tại gia',
+        title: 'Từ Bản Vẽ Đến Không Gian Thực Tế',
+        subtitle: 'Hơn 15,000+ phòng khách và căn hộ cao cấp đã tin tưởng đồng hành cùng Movie Legend.',
+      },
+      showcases: [
+        {
+          tag: 'Penthouse Master',
+          title: 'Rạp Chiếu 150" Màn ALR Quang Học',
+          imageUrl: '/assets/images/room-living-projector-hdr.png',
+        },
+        {
+          tag: 'Căn Hộ Cao Cấp',
+          title: 'Không Gian Chiếu Phim Phòng Ngủ',
+          imageUrl: '/assets/images/home_about/sp_op_2.png',
+        },
+        {
+          tag: 'Villa & Dã Ngoại',
+          title: 'Rạp Chiếu Phim Ngoài Trời Dã Ngoại',
+          imageUrl: '/assets/images/home_about/sp_op_3.png',
+        },
+      ],
+    };
+
+    try {
+      const filePath = this.getAboutFilePath();
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            ...defaultAbout,
+            ...parsed,
+            hero: { ...defaultAbout.hero, ...(parsed.hero || {}) },
+            missionVision: { ...defaultAbout.missionVision, ...(parsed.missionVision || {}) },
+            milestones: Array.isArray(parsed.milestones) && parsed.milestones.length > 0 ? parsed.milestones : defaultAbout.milestones,
+            pillarsSection: { ...defaultAbout.pillarsSection, ...(parsed.pillarsSection || {}) },
+            pillars: Array.isArray(parsed.pillars) && parsed.pillars.length > 0 ? parsed.pillars : defaultAbout.pillars,
+            showcasesSection: { ...defaultAbout.showcasesSection, ...(parsed.showcasesSection || {}) },
+            showcases: Array.isArray(parsed.showcases) && parsed.showcases.length > 0 ? parsed.showcases : defaultAbout.showcases,
+          };
+        }
+      }
+    } catch (e) {
+      this.logger.warn('Failed to parse about content file, using default');
+    }
+
+    try {
+      const filePath = this.getAboutFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(defaultAbout, null, 2), 'utf-8');
+    } catch (e) {
+      // ignore init error
+    }
+
+    return defaultAbout;
+  }
+
+  async updateAboutContent(data: any) {
+    const current = await this.getAboutContent();
+    const updated = {
+      ...current,
+      hero: {
+        imageUrl: data?.hero?.imageUrl !== undefined ? String(data.hero.imageUrl).trim() : current.hero.imageUrl,
+        title: data?.hero?.title !== undefined ? String(data.hero.title).trim() : current.hero.title,
+        subtitle: data?.hero?.subtitle !== undefined ? String(data.hero.subtitle).trim() : current.hero.subtitle,
+      },
+      missionVision: {
+        visionImage: data?.missionVision?.visionImage !== undefined ? String(data.missionVision.visionImage).trim() : current.missionVision.visionImage,
+        visionTag: data?.missionVision?.visionTag !== undefined ? String(data.missionVision.visionTag).trim() : current.missionVision.visionTag,
+        visionTitle: data?.missionVision?.visionTitle !== undefined ? String(data.missionVision.visionTitle).trim() : current.missionVision.visionTitle,
+        visionDesc: data?.missionVision?.visionDesc !== undefined ? String(data.missionVision.visionDesc).trim() : current.missionVision.visionDesc,
+        visionSubtext: data?.missionVision?.visionSubtext !== undefined ? String(data.missionVision.visionSubtext).trim() : current.missionVision.visionSubtext,
+        missionImage: data?.missionVision?.missionImage !== undefined ? String(data.missionVision.missionImage).trim() : current.missionVision.missionImage,
+        missionTag: data?.missionVision?.missionTag !== undefined ? String(data.missionVision.missionTag).trim() : current.missionVision.missionTag,
+        missionTitle: data?.missionVision?.missionTitle !== undefined ? String(data.missionVision.missionTitle).trim() : current.missionVision.missionTitle,
+        missionDesc: data?.missionVision?.missionDesc !== undefined ? String(data.missionVision.missionDesc).trim() : current.missionVision.missionDesc,
+        missionSubtext: data?.missionVision?.missionSubtext !== undefined ? String(data.missionVision.missionSubtext).trim() : current.missionVision.missionSubtext,
+      },
+      milestones: Array.isArray(data?.milestones) ? data.milestones : current.milestones,
+      pillarsSection: {
+        eyebrow: data?.pillarsSection?.eyebrow !== undefined ? String(data.pillarsSection.eyebrow).trim() : (current.pillarsSection?.eyebrow || 'Hệ sinh thái sản phẩm'),
+        title: data?.pillarsSection?.title !== undefined ? String(data.pillarsSection.title).trim() : (current.pillarsSection?.title || 'Giải Pháp Trọn Gói Rạp Phim Tại Gia'),
+        subtitle: data?.pillarsSection?.subtitle !== undefined ? String(data.pillarsSection.subtitle).trim() : (current.pillarsSection?.subtitle || 'Sự phối hợp hoàn hảo giữa các trụ cột thiết bị mang đến chất lượng hiển thị chuẩn rạp thương mại.'),
+      },
+      pillars: Array.isArray(data?.pillars) ? data.pillars : current.pillars,
+      showcasesSection: {
+        eyebrow: data?.showcasesSection?.eyebrow !== undefined ? String(data.showcasesSection.eyebrow).trim() : (current.showcasesSection?.eyebrow || 'Showcase rạp phim tại gia'),
+        title: data?.showcasesSection?.title !== undefined ? String(data.showcasesSection.title).trim() : (current.showcasesSection?.title || 'Từ Bản Vẽ Đến Không Gian Thực Tế'),
+        subtitle: data?.showcasesSection?.subtitle !== undefined ? String(data.showcasesSection.subtitle).trim() : (current.showcasesSection?.subtitle || 'Hơn 15,000+ phòng khách và căn hộ cao cấp đã tin tưởng đồng hành cùng Movie Legend.'),
+      },
+      showcases: Array.isArray(data?.showcases) ? data.showcases : current.showcases,
+    };
+
+    try {
+      const filePath = this.getAboutFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(updated, null, 2), 'utf-8');
+    } catch (err) {
+      this.logger.error('Failed to save about content to storage:', err);
+    }
+
     return updated;
   }
 
@@ -1288,7 +1966,7 @@ export class RecruitmentService {
     });
 
     // 1. Tiêu đề chính
-    sheet.mergeCells('A1:R1');
+    sheet.mergeCells('A1:H1');
     const titleCell = sheet.getCell('A1');
     titleCell.value = 'BÁO CÁO DANH SÁCH ỨNG VIÊN TUYỂN DỤNG';
     titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -1303,35 +1981,25 @@ export class RecruitmentService {
     // 2. Thông tin tin tuyển dụng & thời gian xuất
     sheet.getCell('A2').value = `Vị trí tuyển dụng: ${job ? job.name : 'Tất cả vị trí'}`;
     sheet.getCell('A2').font = { bold: true, size: 11 };
-    sheet.getCell('G2').value = `Mã tin: ${job?.newCode || 'Tất cả'}`;
-    sheet.getCell('G2').font = { bold: true, size: 11 };
+    sheet.getCell('E2').value = `Mã tin: ${job?.newCode || 'Tất cả'}`;
+    sheet.getCell('E2').font = { bold: true, size: 11 };
 
     sheet.getCell('A3').value = `Phòng ban: ${job?.departmentName || 'N/A'} | Khu vực: ${job?.regionName || job?.province || 'Toàn quốc'}`;
     sheet.getCell('A3').font = { size: 10, italic: true };
-    sheet.getCell('G3').value = `Mức lương: ${job?.salary || 'Thỏa thuận'}`;
-    sheet.getCell('G3').font = { size: 10, italic: true };
+    sheet.getCell('E3').value = `Mức lương: ${job?.salary || 'Thỏa thuận'}`;
+    sheet.getCell('E3').font = { size: 10, italic: true };
 
     sheet.getCell('A4').value = `Thời gian xuất: ${formatDateTimeVn(new Date())} | Tổng cộng: ${applications.length} hồ sơ ứng viên`;
     sheet.getCell('A4').font = { size: 10, color: { argb: 'FF4B5563' } };
 
-    // 3. Tiêu đề bảng
+    // 3. Tiêu đề bảng tinh giản tối đa (8 cột cốt lõi: STT, Họ tên, Vị trí, SĐT, Email, Khu vực, Ngày nộp, File CV)
     const headers = [
       'STT',
-      'Mã hồ sơ',
       'Họ và tên ứng viên',
-      'Trạng thái hồ sơ',
+      'Vị trí ứng tuyển',
       'Số điện thoại',
       'Email',
       'Khu vực',
-      'Trình độ học vấn',
-      'Trường đào tạo',
-      'Chuyên ngành',
-      'Kinh nghiệm',
-      'Công ty gần nhất',
-      'Kỹ năng nổi bật',
-      'Lịch hẹn phỏng vấn',
-      'Đánh giá của HR',
-      'Lý do từ chối',
       'Ngày nộp hồ sơ',
       'File CV ứng tuyển',
     ];
@@ -1361,8 +2029,6 @@ export class RecruitmentService {
       const rowIndex = 7 + index;
       const row = sheet.getRow(rowIndex);
 
-      const statusText = statusMapText[app.status] || app.status;
-      const interviewText = app.interviewDate ? formatDateTimeVn(new Date(app.interviewDate)) : 'Chưa có lịch';
       const createdText = formatDateTimeVn(new Date(app.createdAt));
       const cvUrl = app.cvFileUrl
         ? (app.cvFileUrl.startsWith('http') ? app.cvFileUrl : `http://localhost:3001${app.cvFileUrl}`)
@@ -1370,21 +2036,11 @@ export class RecruitmentService {
 
       row.values = [
         index + 1,
-        app.applicationCode || app.id.slice(0, 8),
         app.fullName,
-        statusText,
+        app.job?.name || 'Vị trí Movie Legend',
         app.phone,
         app.email,
-        app.city || 'N/A',
-        app.educationLevel || 'N/A',
-        app.university || 'N/A',
-        app.major || 'N/A',
-        app.experienceYears || 'N/A',
-        app.currentCompany || 'N/A',
-        app.skills || 'N/A',
-        interviewText,
-        app.hrNotes || '',
-        app.rejectionReason || '',
+        app.city || app.job?.province || 'Toàn quốc',
         createdText,
         cvUrl ? 'Xem CV' : 'Không có CV',
       ];
@@ -1401,35 +2057,13 @@ export class RecruitmentService {
         };
         cell.alignment = { vertical: 'middle' };
 
-        if ([1, 2, 4, 5, 7, 14, 17].includes(colNumber)) {
+        // Căn giữa các cột STT, SĐT, Khu vực, Ngày nộp, File CV
+        if ([1, 4, 6, 7, 8].includes(colNumber)) {
           cell.alignment = { vertical: 'middle', horizontal: 'center' };
         }
 
-        // Highlight màu theo trạng thái
-        if (colNumber === 4) {
-          if (app.status === 'HIRED') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
-            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF065F46' } };
-          } else if (app.status === 'INTERVIEW') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE9FE' } };
-            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF5B21B6' } };
-          } else if (app.status === 'OFFER') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
-            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1E40AF' } };
-          } else if (app.status === 'REJECTED') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
-            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF991B1B' } };
-          } else if (app.status === 'REVIEWING') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
-            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF92400E' } };
-          } else {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0F2FE' } };
-            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0369A1' } };
-          }
-        }
-
-        // Hyperlink CV
-        if (colNumber === 18 && cvUrl) {
+        // Hyperlink CV ở cột 8
+        if (colNumber === 8 && cvUrl) {
           cell.value = {
             text: 'Mở CV',
             hyperlink: cvUrl,
@@ -1440,26 +2074,16 @@ export class RecruitmentService {
       });
     });
 
-    // 5. Cột độ rộng
+    // 5. Cột độ rộng (8 cột chuẩn A4)
     sheet.columns = [
-      { width: 6 },
-      { width: 16 },
-      { width: 25 },
-      { width: 24 },
-      { width: 15 },
-      { width: 26 },
-      { width: 14 },
-      { width: 15 },
-      { width: 25 },
-      { width: 22 },
-      { width: 15 },
-      { width: 25 },
-      { width: 30 },
-      { width: 24 },
-      { width: 30 },
-      { width: 24 },
-      { width: 24 },
-      { width: 15 },
+      { width: 6 },  // STT
+      { width: 26 }, // Họ tên ứng viên
+      { width: 30 }, // Vị trí ứng tuyển
+      { width: 16 }, // Số điện thoại
+      { width: 28 }, // Email
+      { width: 18 }, // Khu vực
+      { width: 20 }, // Ngày nộp hồ sơ
+      { width: 16 }, // File CV
     ];
 
     const rawBuffer = await workbook.xlsx.writeBuffer();

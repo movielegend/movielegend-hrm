@@ -669,6 +669,13 @@ export class AuthService {
       permissions.add('contract.read_department');
     }
     const primaryDepartment = user.departmentLinks[0];
+    const deptName = (primaryDepartment?.department?.name ?? '').toLowerCase();
+    const deptCode = (primaryDepartment?.department?.code ?? '').toLowerCase();
+    const isHRDept = deptName.includes('nhân sự') || deptName.includes('hr') || deptCode.includes('hcns');
+    if (isHRDept && !roles.includes('HR')) {
+      roles.push('HR');
+      scopes.push({ role: 'HR', scopeType: 'GLOBAL' as any, scopeId: null });
+    }
     return {
       id: user.id,
       userCode: user.userCode,

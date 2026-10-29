@@ -16,3 +16,5 @@ movielegend-hrm-web/
 /storage/
 !movielegend-hrm-mobile/src/storage/
 scratch_check_attendance.js
+
+.agents/

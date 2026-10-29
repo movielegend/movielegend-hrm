@@ -55,7 +55,7 @@ export class RecruitmentPublicController {
   @Get('work-groups')
   @ApiOperation({ summary: 'Lấy danh sách nhóm ngành (tương thích giao diện)' })
   getWorkGroups() {
-    return this.recruitmentService.getDepartments();
+    return this.recruitmentService.getWorkGroups();
   }
 
   @Get('showrooms')
@@ -68,6 +68,30 @@ export class RecruitmentPublicController {
   @ApiOperation({ summary: 'Lấy danh mục kỹ năng và nhóm ngành tuyển dụng' })
   getCategories() {
     return this.recruitmentService.getCategories();
+  }
+
+  @Get('campaign-banners')
+  @ApiOperation({ summary: 'Lấy danh sách banner khám phá / cơ hội đặc biệt công khai' })
+  getCampaignBanners() {
+    return this.recruitmentService.getCampaignBanners();
+  }
+
+  @Get('hero')
+  @ApiOperation({ summary: 'Lấy thông tin Hero banner trang chủ công khai' })
+  getHeroBanner() {
+    return this.recruitmentService.getHeroBanner();
+  }
+
+  @Get('discover-content')
+  @ApiOperation({ summary: 'Lấy toàn bộ nội dung và hình ảnh trang Khám Phá công khai' })
+  getDiscoverContent() {
+    return this.recruitmentService.getDiscoverContent();
+  }
+
+  @Get('about-content')
+  @ApiOperation({ summary: 'Lấy toàn bộ nội dung và hình ảnh trang Về Movie Legend công khai' })
+  getAboutContent() {
+    return this.recruitmentService.getAboutContent();
   }
 
   @Get('jobs/:id')

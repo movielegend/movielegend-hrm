@@ -122,8 +122,56 @@ export class RecruitmentAdminController {
 
   @Put('categories')
   @ApiOperation({ summary: 'HR cập nhật danh mục kỹ năng và nhóm ngành' })
-  updateCategories(@Body() dto: { skills?: string[]; workGroups?: string[] }) {
+  updateCategories(@Body() dto: { skills?: string[]; workGroups?: Array<string | { name: string; bannerImage?: string; iconUrl?: string }> }) {
     return this.recruitmentService.updateCategories(dto);
+  }
+
+  @Get('campaign-banners')
+  @ApiOperation({ summary: 'HR xem danh sách banner khám phá / cơ hội đặc biệt' })
+  getCampaignBanners() {
+    return this.recruitmentService.getCampaignBanners();
+  }
+
+  @Put('campaign-banners')
+  @ApiOperation({ summary: 'HR cập nhật danh sách banner khám phá / cơ hội đặc biệt' })
+  updateCampaignBanners(@Body() dto: { banners: any[] }) {
+    return this.recruitmentService.updateCampaignBanners(dto?.banners || []);
+  }
+
+  @Get('hero')
+  @ApiOperation({ summary: 'HR xem thông tin Hero banner trang chủ tuyển dụng' })
+  getHeroBanner() {
+    return this.recruitmentService.getHeroBanner();
+  }
+
+  @Put('hero')
+  @ApiOperation({ summary: 'HR cập nhật Hero banner trang chủ tuyển dụng' })
+  updateHeroBanner(@Body() dto: { imageUrl?: string; eyebrow?: string; title?: string; subtitle?: string }) {
+    return this.recruitmentService.updateHeroBanner(dto);
+  }
+
+  @Get('discover-content')
+  @ApiOperation({ summary: 'HR xem toàn bộ nội dung và hình ảnh trang Khám Phá' })
+  getDiscoverContent() {
+    return this.recruitmentService.getDiscoverContent();
+  }
+
+  @Put('discover-content')
+  @ApiOperation({ summary: 'HR cập nhật nội dung và hình ảnh trang Khám Phá' })
+  updateDiscoverContent(@Body() dto: any) {
+    return this.recruitmentService.updateDiscoverContent(dto);
+  }
+
+  @Get('about-content')
+  @ApiOperation({ summary: 'HR xem toàn bộ nội dung và hình ảnh trang Về Movie Legend' })
+  getAboutContent() {
+    return this.recruitmentService.getAboutContent();
+  }
+
+  @Put('about-content')
+  @ApiOperation({ summary: 'HR cập nhật nội dung và hình ảnh trang Về Movie Legend' })
+  updateAboutContent(@Body() dto: any) {
+    return this.recruitmentService.updateAboutContent(dto);
   }
 
   // ==========================================
