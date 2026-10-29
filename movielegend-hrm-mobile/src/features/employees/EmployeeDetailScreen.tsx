@@ -74,10 +74,6 @@ export function EmployeeDetailScreen() {
   const departmentsQuery = useDepartments({ limit: 100 });
   const departments = departmentsQuery.data?.items || [];
 
-  const [isEditing, setIsEditing] = useState(edit === '1');
-  const [deptModalVisible, setDeptModalVisible] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
   const currentUserRoles = useMemo(() => {
     const rawRoles = user?.roles || [];
     const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
@@ -91,6 +87,10 @@ export function EmployeeDetailScreen() {
   const isCurrentUserManager = useMemo(() => {
     return isCurrentUserAdmin || currentUserRoles.includes('HR') || currentUserRoles.includes('HUMAN_RESOURCE');
   }, [currentUserRoles, isCurrentUserAdmin]);
+
+  const [isEditing, setIsEditing] = useState(isCurrentUserManager && edit === '1');
+  const [deptModalVisible, setDeptModalVisible] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const emp = employeeQuery.data;
 
@@ -188,7 +188,7 @@ export function EmployeeDetailScreen() {
   };
 
   // ================= VIEW MODE (Hồ sơ nhân viên) =================
-  if (!isEditing) {
+  if (!isEditing || !isCurrentUserManager) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         {/* Header Bar */}

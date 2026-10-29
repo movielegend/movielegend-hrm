@@ -125,6 +125,7 @@ export function renderAppIcon(iconName: string, color: string, size = 24, stroke
 const ServiceTile = React.memo(function ServiceTile({
   item,
   role = 'ADMIN',
+  user,
   isPinned,
   isEditMode,
   badgeStr,
@@ -132,6 +133,7 @@ const ServiceTile = React.memo(function ServiceTile({
 }: {
   item: AppRegistryItem;
   role?: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR';
+  user?: any;
   isPinned: boolean;
   isEditMode: boolean;
   badgeStr?: string;
@@ -180,7 +182,7 @@ const ServiceTile = React.memo(function ServiceTile({
       </View>
 
       <Text style={styles.modalTileText} numberOfLines={1}>
-        {getAppTitle(item, role)}
+        {getAppTitle(item, role, user)}
       </Text>
     </Pressable>
   );
@@ -190,10 +192,12 @@ const ServiceTile = React.memo(function ServiceTile({
 const PinnedChip = React.memo(function PinnedChip({
   appKey,
   role = 'ADMIN',
+  user,
   onRemove,
 }: {
   appKey: string;
   role?: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR';
+  user?: any;
   onRemove: (key: string) => void;
 }) {
   const app = APP_REGISTRY[appKey];
@@ -205,7 +209,7 @@ const PinnedChip = React.memo(function PinnedChip({
         {renderAppIcon(app.icon, app.color, 14)}
       </View>
       <Text style={styles.pinnedChipText} numberOfLines={1}>
-        {getAppTitle(app, role)}
+        {getAppTitle(app, role, user)}
       </Text>
       <Pressable
         hitSlop={8}
@@ -430,6 +434,7 @@ export function AllServicesModal({
                       key={key}
                       appKey={key}
                       role={role}
+                      user={user}
                       onRemove={handleTogglePin}
                     />
                   ))}
@@ -457,6 +462,7 @@ export function AllServicesModal({
                         key={item.key}
                         item={item}
                         role={role}
+                        user={user}
                         isPinned={isPinned}
                         isEditMode={isEditMode}
                         badgeStr={badgeStr}

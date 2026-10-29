@@ -97,7 +97,7 @@ export function HRDashboard() {
   const isOnlyAccountant = isAccountant && !isHr && !isAdmin;
   const isChiefAccountant = isAccountingLeader(user);
   const isRegularAccountant = isOnlyAccountant && !isChiefAccountant;
-  const dashboardRole: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = isRegularAccountant ? 'EMPLOYEE' : 'HR';
+  const dashboardRole: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'HR';
 
   // Branches System
   const branchesQuery = useBranches();
@@ -725,7 +725,7 @@ export function HRDashboard() {
                   return (
                     <QuickGrid8Item
                       key={item.key}
-                      title={getAppTitle(item, dashboardRole)}
+                      title={getAppTitle(item, dashboardRole, user)}
                       bgColor={item.bgColor}
                       badge={badge}
                       icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
@@ -748,7 +748,7 @@ export function HRDashboard() {
                         return (
                           <QuickGrid8Item
                             key={item.key}
-                            title={getAppTitle(item, dashboardRole)}
+                            title={getAppTitle(item, dashboardRole, user)}
                             bgColor={item.bgColor}
                             icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                             onPress={() => {
@@ -800,7 +800,7 @@ export function HRDashboard() {
                           return (
                             <QuickGrid8Item
                               key={item.key}
-                              title={getAppTitle(item, dashboardRole)}
+                              title={getAppTitle(item, dashboardRole, user)}
                               bgColor={item.bgColor}
                               icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                               onPress={() => {
@@ -819,7 +819,7 @@ export function HRDashboard() {
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={getAppTitle(item, dashboardRole)}
+                                title={getAppTitle(item, dashboardRole, user)}
                                 bgColor={item.bgColor}
                                 icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                 onPress={() => {
@@ -854,7 +854,7 @@ export function HRDashboard() {
                             return (
                               <QuickGrid8Item
                                 key={item.key}
-                                title={getAppTitle(item, dashboardRole)}
+                                title={getAppTitle(item, dashboardRole, user)}
                                 bgColor={item.bgColor}
                                 icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                 onPress={() => {
@@ -878,7 +878,7 @@ export function HRDashboard() {
                               return (
                                 <QuickGrid8Item
                                   key={item.key}
-                                  title={getAppTitle(item, dashboardRole)}
+                                  title={getAppTitle(item, dashboardRole, user)}
                                   bgColor={item.bgColor}
                                   icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                                   onPress={() => {

@@ -1,4 +1,4 @@
-import { hasUserRole } from '../utils/role-routing';
+import { hasUserRole, isAccountingLeader } from '../utils/role-routing';
 
 export interface AppRegistryItem {
   key: string;
@@ -112,7 +112,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   shifts: {
     key: 'shifts',
     title: 'Phân ca làm',
-    employeeTitle: 'Ca làm',
     leaderTitle: 'Phân ca làm',
     adminTitle: 'Phân ca làm',
     hrTitle: 'Phân ca làm',
@@ -122,7 +121,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     bgColor: '#FFEDD5',
     adminRoute: '/admin/shifts/assign',
     leaderRoute: '/leader/shift-management',
-    employeeRoute: '/employee/schedule',
     hrRoute: '/hr/shift-management',
   },
   my_schedule: {
@@ -144,7 +142,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
   shifts_list: {
     key: 'shifts_list',
     title: 'Danh sách ca',
-    employeeTitle: 'Danh sách ca',
     leaderTitle: 'Danh sách ca',
     adminTitle: 'Danh sách ca',
     hrTitle: 'Danh sách ca',
@@ -154,7 +151,6 @@ export const APP_REGISTRY: Record<string, AppRegistryItem> = {
     bgColor: '#CCFBF1',
     adminRoute: '/admin/shifts',
     leaderRoute: '/leader/shifts',
-    employeeRoute: '/employee/schedule',
     hrRoute: '/admin/shifts',
   },
   shift_reassign: {
@@ -515,6 +511,16 @@ export function isAppAllowedForRole(
     return false;
   }
 
+  // Ẩn chức năng quản lý "Phân ca làm" và "Danh sách ca" đối với Nhân viên & Kế toán viên chuyên môn
+  // (Chỉ giữ lại duy nhất 1 chức năng "Ca làm của tôi" [my_schedule] để xem lịch ca làm việc cá nhân)
+  if (item.key === 'shifts' || item.key === 'shifts_list') {
+    if (role === 'EMPLOYEE') return false;
+    const isChiefAccountant = isAccountingLeader(user);
+    if (hasUserRole(user, 'ACCOUNTANT') && !isChiefAccountant && !hasUserRole(user, 'HR') && !hasUserRole(user, 'ADMIN') && !hasUserRole(user, 'LEADER')) {
+      return false;
+    }
+  }
+
   // Admin không có và không dùng "Lịch sử chấm công" cá nhân (Admin chỉ quản lý Dữ liệu chấm công qua /admin/attendance)
   if (role === 'ADMIN' && item.key === 'attendance_history') {
     return false;
@@ -566,12 +572,28 @@ export function getAppRoute(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'E
   return item.adminRoute || item.leaderRoute || item.hrRoute || item.employeeRoute || '/admin/(tabs)';
 }
 
-export function getAppTitle(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN'): string {
+export function getAppTitle(
+  item: AppRegistryItem,
+  role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN',
+  user?: any
+): string {
+  if (item.key === 'tasks' && role === 'HR' && user) {
+    const isChiefAccountant = isAccountingLeader(user);
+    const isAcct =
+      hasUserRole(user, 'ACCOUNTANT') ||
+      Boolean((user as any)?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean((user as any)?.department?.name?.toLowerCase().includes('kế toán'));
+    const isHrOrAdmin = hasUserRole(user, 'HR') || hasUserRole(user, 'ADMIN');
+    if (isAcct && !isChiefAccountant && !isHrOrAdmin) {
+      return 'Công việc';
+    }
+  }
   if (role === 'ADMIN' && item.adminTitle) return item.adminTitle;
   if (role === 'LEADER' && item.leaderTitle) return item.leaderTitle;
   if (role === 'EMPLOYEE' && item.employeeTitle) return item.employeeTitle;
   if (role === 'HR' && item.hrTitle) return item.hrTitle;
   return item.title;
 }
+
 
 
