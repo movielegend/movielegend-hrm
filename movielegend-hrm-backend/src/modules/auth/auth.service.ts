@@ -483,9 +483,20 @@ export class AuthService {
       });
       userRole.role.permissions.forEach((item) => permissions.add(item.permission.code));
     }
-    if (roles.has('ACCOUNTANT_PAYROLL') || roles.has('ACCOUNTANT_LEAD')) {
-      permissions.add('contract.sign_company');
-      permissions.add('contract.read_all');
+    if (
+      roles.has('ACCOUNTANT') ||
+      roles.has('ACCOUNTANT_LEAD') ||
+      roles.has('ACCOUNTANT_PAYROLL') ||
+      roles.has('ACCOUNTANT_TAX') ||
+      roles.has('ACCOUNTANT_GENERAL') ||
+      [...roles].some((r) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('FINANCE') || r.includes('CFO'))
+    ) {
+      permissions.add('user.read');
+      permissions.add('employee.read');
+      if (roles.has('ACCOUNTANT_PAYROLL') || roles.has('ACCOUNTANT_LEAD')) {
+        permissions.add('contract.sign_company');
+        permissions.add('contract.read_all');
+      }
     }
     // Mọi nhân sự và trưởng phòng đều có quyền tạo và xem đơn của chính mình
     permissions.add('employee.request');
@@ -658,9 +669,20 @@ export class AuthService {
       });
       return userRole.role.code;
     });
-    if (roles.includes('ACCOUNTANT_PAYROLL') || roles.includes('ACCOUNTANT_LEAD')) {
-      permissions.add('contract.sign_company');
-      permissions.add('contract.read_all');
+    if (
+      roles.includes('ACCOUNTANT') ||
+      roles.includes('ACCOUNTANT_LEAD') ||
+      roles.includes('ACCOUNTANT_PAYROLL') ||
+      roles.includes('ACCOUNTANT_TAX') ||
+      roles.includes('ACCOUNTANT_GENERAL') ||
+      roles.some((r) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('FINANCE') || r.includes('CFO'))
+    ) {
+      permissions.add('user.read');
+      permissions.add('employee.read');
+      if (roles.includes('ACCOUNTANT_PAYROLL') || roles.includes('ACCOUNTANT_LEAD')) {
+        permissions.add('contract.sign_company');
+        permissions.add('contract.read_all');
+      }
     }
     permissions.add('employee.request');
     permissions.add('leave.request');

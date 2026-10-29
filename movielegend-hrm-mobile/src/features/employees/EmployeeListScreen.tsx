@@ -256,6 +256,16 @@ export function EmployeeListScreen({ scope }: { scope: 'admin' | 'leader' }) {
               <ActivityIndicator color="#102739" size="small" />
               <Text style={{ marginTop: 8, fontSize: 13, color: '#64748B' }}>Đang tải danh sách nhân viên...</Text>
             </View>
+          ) : adminUsers.isError ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center', paddingHorizontal: 20 }}>
+              <Ionicons name="alert-circle-outline" size={36} color="#DC2626" />
+              <Text style={{ marginTop: 10, fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
+                Không thể tải danh sách nhân viên
+              </Text>
+              <Text style={{ marginTop: 4, fontSize: 13, color: '#64748B', textAlign: 'center' }}>
+                {(adminUsers.error as any)?.response?.data?.message || (adminUsers.error as any)?.message || 'Vui lòng thử lại sau'}
+              </Text>
+            </View>
           ) : employees.length === 0 ? (
             <EmptyState
               title="Chưa có nhân viên phù hợp"

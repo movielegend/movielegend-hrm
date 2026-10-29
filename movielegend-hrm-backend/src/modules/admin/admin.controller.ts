@@ -26,7 +26,7 @@ import {
 
 @ApiTags('Users')
 @ApiBearerAuth()
-@Roles('ADMIN', 'LEADER', 'ACCOUNTANT')
+@Roles('ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN', 'LEADER', 'HR', 'ACCOUNTANT', 'ACCOUNTANT_LEAD', 'ACCOUNTANT_PAYROLL', 'ACCOUNTANT_TAX', 'ACCOUNTANT_GENERAL')
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
@@ -67,13 +67,13 @@ export class AdminController {
     return this.adminService.revokeAccountant(userId, actor);
   }
 
-  @Permissions('user.read')
+  @AnyPermissions('user.read', 'salary_profile.read', 'payroll.read_all', 'employee.read')
   @Get('users')
   findUsers(@Query() query: UserQueryDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.adminService.findUsers(query, actor);
   }
 
-  @Permissions('user.read')
+  @AnyPermissions('user.read', 'salary_profile.read', 'payroll.read_all', 'employee.read')
   @Get('users/:id')
   findUser(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.adminService.findUser(id, actor);

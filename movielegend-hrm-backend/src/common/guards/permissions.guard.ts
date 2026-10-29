@@ -20,7 +20,20 @@ export class PermissionsGuard implements CanActivate {
     ]);
     if (!required?.length && !anyRequired?.length) return true;
     const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
-    const permissions = new Set(request.user?.permissions ?? []);
+    const user = request.user;
+    const permissions = new Set(user?.permissions ?? []);
+    // Kế toán viên có quyền đọc danh sách nhân viên phục vụ quản lý lương và đối soát chi
+    const isAccountant = user?.roles?.some(
+      (r: string) =>
+        r.startsWith('ACCOUNTANT') ||
+        r.includes('ACCOUNTANT') ||
+        r.includes('FINANCE') ||
+        r.includes('CFO'),
+    );
+    if (isAccountant) {
+      permissions.add('user.read');
+      permissions.add('employee.read');
+    }
     const allowed =
       (required?.every((permission) => permissions.has(permission)) ?? true) &&
       (!anyRequired?.length || anyRequired.some((permission) => permissions.has(permission)));
