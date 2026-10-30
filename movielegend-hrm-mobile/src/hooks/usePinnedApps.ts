@@ -56,13 +56,18 @@ export function usePinnedApps(roleOverride?: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | '
       ? data.pinnedApps
       : [...CORE_APP_KEYS];
 
-    // Nếu chưa tùy chỉnh, đảm bảo có attendance_history (chỉ áp dụng cho role có chấm công cá nhân, ADMIN không có lịch sử chấm công)
-    if (!data?.isCustomized && role !== 'ADMIN' && !rawKeys.includes('attendance_history')) {
-      const attIndex = rawKeys.indexOf('attendance');
-      if (attIndex !== -1) {
-        rawKeys = [...rawKeys.slice(0, attIndex + 1), 'attendance_history', ...rawKeys.slice(attIndex + 1)];
-      } else {
-        rawKeys = ['attendance_history', ...rawKeys];
+    // Nếu chưa tùy chỉnh, đảm bảo có attendance_history và shift_swaps (chỉ áp dụng cho role có chấm công / đổi ca cá nhân, ADMIN không có)
+    if (!data?.isCustomized && role !== 'ADMIN') {
+      if (!rawKeys.includes('attendance_history')) {
+        const attIndex = rawKeys.indexOf('attendance');
+        if (attIndex !== -1) {
+          rawKeys = [...rawKeys.slice(0, attIndex + 1), 'attendance_history', ...rawKeys.slice(attIndex + 1)];
+        } else {
+          rawKeys = ['attendance_history', ...rawKeys];
+        }
+      }
+      if (!rawKeys.includes('shift_swaps')) {
+        rawKeys = [...rawKeys, 'shift_swaps'];
       }
     }
 
