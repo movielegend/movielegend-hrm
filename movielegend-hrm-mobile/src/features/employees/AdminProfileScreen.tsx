@@ -385,6 +385,12 @@ export function AdminProfileScreen() {
                         onPress={() => router.push('/admin/tasks')}
                       />
                       <FeatureItem
+                        icon="document-text-outline"
+                        iconType="ionicons"
+                        title="Báo cáo ngày"
+                        onPress={() => router.push('/admin/daily-reports')}
+                      />
+                      <FeatureItem
                         icon="alert-circle-outline"
                         iconType="ionicons"
                         title="Báo cáo sự cố"

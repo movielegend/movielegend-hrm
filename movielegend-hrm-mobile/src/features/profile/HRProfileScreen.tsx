@@ -20,7 +20,7 @@ import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from '../employees/components/AvatarPicker';
 import { formatSeniority } from '../../utils/seniority';
 import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
-import { hasUserRole } from '../../utils/role-routing';
+import { hasUserRole, isAccountingLeader } from '../../utils/role-routing';
 
 export function HRProfileScreen() {
   const router = useRouter();
@@ -73,6 +73,7 @@ export function HRProfileScreen() {
     return code === 'ADMIN' || code === 'SUPER_ADMIN';
   }));
   const isOnlyAccountant = isAccountant && !isHr && !isAdmin;
+  const isChiefAccountant = isAccountingLeader(user);
 
   const getInitials = (name?: string) => {
     if (!name) return isAccountant ? 'KT' : 'HR';
@@ -418,25 +419,25 @@ export function HRProfileScreen() {
                         icon="newspaper-outline"
                         iconType="ionicons"
                         title="Bảng tin"
-                        onPress={() => router.push('/hr/newsfeed' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/newsfeed' : '/hr/newsfeed') as any)}
                       />
                       <FeatureItem
                         icon="chatbubbles-outline"
                         iconType="ionicons"
                         title="Nhóm Chat"
-                        onPress={() => router.push('/hr/chat' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/chat' : '/hr/chat') as any)}
                       />
                       <FeatureItem
                         icon="briefcase-outline"
                         iconType="ionicons"
                         title="Công việc"
-                        onPress={() => router.push('/hr/tasks' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? (isChiefAccountant ? '/accountant/tasks' : '/accountant/my-tasks') : '/hr/tasks') as any)}
                       />
                       <FeatureItem
                         icon="document-text-outline"
                         iconType="ionicons"
                         title="Báo cáo ngày"
-                        onPress={() => router.push('/hr/daily-report' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/daily-report' : '/hr/daily-report') as any)}
                       />
                     </View>
                   </View>
@@ -450,19 +451,19 @@ export function HRProfileScreen() {
                         icon="laptop"
                         iconType="mci"
                         title="Tài sản của tôi"
-                        onPress={() => router.push('/hr/assets' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/assets' : '/hr/assets') as any)}
                       />
                       <FeatureItem
                         icon="robot"
                         iconType="mci"
                         title="Trợ lý AI"
-                        onPress={() => router.push('/hr/ai-chat' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/ai-chat' : '/hr/ai-chat') as any)}
                       />
                       <FeatureItem
                         icon="message-draw"
                         iconType="mci"
                         title="Gửi góp ý"
-                        onPress={() => router.push('/hr/feedbacks' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/feedbacks' : '/hr/feedbacks') as any)}
                       />
                     </View>
                   </View>
