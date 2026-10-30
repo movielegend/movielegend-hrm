@@ -1,4 +1,5 @@
-export { hasUserRole, isAccountingLeader } from '../utils/role-routing';
+import { hasUserRole, isAccountingLeader } from '../utils/role-routing';
+export { hasUserRole, isAccountingLeader };
 
 export interface AppRegistryItem {
   key: string;
