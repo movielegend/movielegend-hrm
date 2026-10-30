@@ -153,11 +153,25 @@ export function NewsfeedListScreen({
   const likePost = useLikePost();
   const removePost = useDeletePost();
 
-  const isModerator = canModerate || user?.roles?.some((r: any) => {
+  const isAccountantOnly = useMemo(() => {
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    const roles = roleList.map((r: any) => (typeof r === 'string' ? r : r?.code || r?.name || r?.role?.code || '').toUpperCase());
+    const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+    const isHr = roles.includes('HR') || roles.includes('HUMAN_RESOURCE');
+    const isAcct =
+      roles.includes('ACCOUNTANT') ||
+      roles.some((r: any) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('KT') || r.includes('KETOAN')) ||
+      Boolean((user as any)?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean((user as any)?.department?.name?.toLowerCase().includes('kế toán'));
+    return isAcct && !isAdmin && !isHr;
+  }, [user]);
+
+  const isModerator = !isAccountantOnly && (canModerate || user?.roles?.some((r: any) => {
     const code = typeof r === 'string' ? r : r.role?.code || r.name || '';
     const upper = String(code).toUpperCase();
     return upper.includes('ADMIN') || upper.includes('LEADER') || upper.includes('HR');
-  });
+  }));
 
   const pendingItems = Array.isArray(pendingPostsQuery.data)
     ? pendingPostsQuery.data

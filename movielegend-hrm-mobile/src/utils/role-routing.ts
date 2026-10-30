@@ -3,17 +3,18 @@ import type { AuthUser, UserRole } from '../types/user.types';
 export type AppRoute =
   | '/admin/(tabs)'
   | '/hr/(tabs)'
+  | '/accountant/(tabs)'
   | '/leader/(tabs)'
   | '/employee/(tabs)'
   | '/warehouse-manager'
   | '/login';
 
-export type RoleBaseRoute = '/admin' | '/hr' | '/leader' | '/employee' | '/warehouse-manager';
+export type RoleBaseRoute = '/admin' | '/hr' | '/accountant' | '/leader' | '/employee' | '/warehouse-manager';
 
 export const roleRoutePriority: Array<{ role: UserRole; route: AppRoute }> = [
   { role: 'ADMIN', route: '/admin/(tabs)' },
   { role: 'HR', route: '/hr/(tabs)' },
-  { role: 'ACCOUNTANT', route: '/hr/(tabs)' },
+  { role: 'ACCOUNTANT', route: '/accountant/(tabs)' },
   { role: 'WAREHOUSE_MANAGER', route: '/warehouse-manager' },
   { role: 'LEADER', route: '/leader/(tabs)' },
   { role: 'EMPLOYEE', route: '/employee/(tabs)' },
@@ -83,8 +84,8 @@ export function hasUserRole(
 export function getRoleBaseRoute(user: AuthUser | null): RoleBaseRoute {
   if (!user) return '/employee';
   if (hasUserRole(user, 'ADMIN')) return '/admin';
+  if (hasUserRole(user, 'ACCOUNTANT') && !hasUserRole(user, 'HR')) return '/accountant';
   if (hasUserRole(user, 'HR')) return '/hr';
-  if (hasUserRole(user, 'ACCOUNTANT')) return '/hr';
   if (hasUserRole(user, 'WAREHOUSE_MANAGER')) return '/warehouse-manager';
   if (hasUserRole(user, 'LEADER')) return '/leader';
   return '/employee';
@@ -94,8 +95,8 @@ export function getHomeRouteForUser(user: AuthUser | null): AppRoute | '/deactiv
   if (!user) return '/login';
   if (user.accountStatus === 'DEACTIVATED_30_DAYS' || Boolean(user.deletionScheduledAt)) return '/deactivated-account';
   if (hasUserRole(user, 'ADMIN')) return '/admin/(tabs)';
+  if (hasUserRole(user, 'ACCOUNTANT') && !hasUserRole(user, 'HR')) return '/accountant/(tabs)';
   if (hasUserRole(user, 'HR')) return '/hr/(tabs)';
-  if (hasUserRole(user, 'ACCOUNTANT')) return '/hr/(tabs)';
   if (hasUserRole(user, 'WAREHOUSE_MANAGER')) return '/warehouse-manager';
   if (hasUserRole(user, 'LEADER')) return '/leader/(tabs)';
   return '/employee/(tabs)';
@@ -106,10 +107,22 @@ export function canAccessRoleRoute(user: AuthUser | null, route: string): boolea
   // Allow ADMIN to access any route
   if (hasUserRole(user, 'ADMIN')) return true;
   
-  // Cho phép Nhân sự (HR) và Kế toán (ACCOUNTANT) có thẩm quyền quản trị & nghiệp vụ được phép truy cập các màn hình HR, Leader, Employee, Admin
-  if (hasUserRole(user, 'HR') || hasUserRole(user, 'ACCOUNTANT')) {
+  // Cho phép Kế toán (ACCOUNTANT) và Nhân sự (HR) có thẩm quyền quản trị & nghiệp vụ được phép truy cập
+  if (hasUserRole(user, 'ACCOUNTANT')) {
+    if (
+      route.startsWith('/accountant') ||
+      route.startsWith('/hr') ||
+      route.startsWith('/leader') ||
+      route.startsWith('/employee') ||
+      route.startsWith('/warehouse-manager') ||
+      route.startsWith('/admin')
+    ) return true;
+  }
+
+  if (hasUserRole(user, 'HR')) {
     if (
       route.startsWith('/hr') ||
+      route.startsWith('/accountant') ||
       route.startsWith('/leader') ||
       route.startsWith('/employee') ||
       route.startsWith('/warehouse-manager') ||

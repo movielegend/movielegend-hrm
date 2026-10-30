@@ -336,11 +336,11 @@ export function AllServicesModal({
 
   const handleOpenApp = useCallback((item: AppRegistryItem) => {
     onClose();
-    const targetRoute = getAppRoute(item, role);
+    const targetRoute = getAppRoute(item, role, user);
     if (targetRoute) {
       router.push(targetRoute as any);
     }
-  }, [onClose, role, router]);
+  }, [onClose, role, user, router]);
 
   const handleTilePress = useCallback((item: AppRegistryItem) => {
     if (isEditMode) {

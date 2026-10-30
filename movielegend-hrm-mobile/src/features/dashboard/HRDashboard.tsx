@@ -712,10 +712,10 @@ export function HRDashboard() {
               {/* Row 1: 4 app đầu tiên luôn hiển thị trên 1 dòng */}
               <View style={styles.quickGrid4Row}>
                 {row1Apps.map((item) => {
-                  const route = getAppRoute(item, dashboardRole);
+                  const route = getAppRoute(item, dashboardRole, user);
                   const badge =
                     item.badgeKey === 'pendingRequests'
-                      ? (pendingRequestCount > 0 ? pendingRequestCount : undefined)
+                      ? (isOnlyAccountant ? undefined : (pendingRequestCount > 0 ? pendingRequestCount : undefined))
                       : item.badgeKey === 'dueTasks'
                       ? (dueTaskCount > 0 ? dueTaskCount : undefined)
                       : item.badgeKey === 'pendingFinancial'
@@ -744,7 +744,7 @@ export function HRDashboard() {
                     /* Hàng 2: các app phụ + nút Thêm + ô trống + nút Tất cả ở ô thứ 4 */
                     <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
                       {extraPinnedApps.map((item) => {
-                        const route = getAppRoute(item, dashboardRole);
+                        const route = getAppRoute(item, dashboardRole, user);
                         return (
                           <QuickGrid8Item
                             key={item.key}
@@ -796,7 +796,7 @@ export function HRDashboard() {
                       {/* Hàng 2: 4 app phụ đầu tiên */}
                       <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
                         {extraPinnedApps.slice(0, 4).map((item) => {
-                          const route = getAppRoute(item, dashboardRole);
+                          const route = getAppRoute(item, dashboardRole, user);
                           return (
                             <QuickGrid8Item
                               key={item.key}
@@ -815,7 +815,7 @@ export function HRDashboard() {
                       {extraPinnedApps.slice(4).length <= 2 && (
                         <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
                           {extraPinnedApps.slice(4).map((item) => {
-                            const route = getAppRoute(item, dashboardRole);
+                            const route = getAppRoute(item, dashboardRole, user);
                             return (
                               <QuickGrid8Item
                                 key={item.key}
@@ -850,7 +850,7 @@ export function HRDashboard() {
                       {extraPinnedApps.slice(4).length === 3 && (
                         <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
                           {extraPinnedApps.slice(4).map((item) => {
-                            const route = getAppRoute(item, dashboardRole);
+                            const route = getAppRoute(item, dashboardRole, user);
                             return (
                               <QuickGrid8Item
                                 key={item.key}
@@ -874,7 +874,7 @@ export function HRDashboard() {
                         <>
                           <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
                             {extraPinnedApps.slice(4).map((item) => {
-                              const route = getAppRoute(item, dashboardRole);
+                              const route = getAppRoute(item, dashboardRole, user);
                               return (
                                 <QuickGrid8Item
                                   key={item.key}
