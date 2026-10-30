@@ -348,20 +348,20 @@ export function HRProfileScreen() {
                       <FeatureItem
                         icon="account-multiple"
                         iconType="mci"
-                        title="Nhân sự phòng"
-                        onPress={() => router.push('/hr/employees' as any)}
+                        title={isOnlyAccountant ? "Hồ sơ nhân sự" : "Nhân sự phòng"}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/employees' : '/hr/employees') as any)}
                       />
                       <FeatureItem
                         icon="file-document-outline"
                         iconType="mci"
                         title="Hợp đồng LĐ"
-                        onPress={() => router.push('/hr/contracts' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/contracts' : '/hr/contracts') as any)}
                       />
                       <FeatureItem
                         icon="cash-multiple"
                         iconType="mci"
                         title="Bảng lương"
-                        onPress={() => router.push('/hr/payslip' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/payslip' : '/hr/payslip') as any)}
                       />
                       {!isOnlyAccountant && (
                         <FeatureItem
@@ -381,7 +381,7 @@ export function HRProfileScreen() {
                         icon="folder-text-outline"
                         iconType="mci"
                         title="Tài liệu nội bộ"
-                        onPress={() => router.push('/hr/documents' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/documents' : '/hr/documents') as any)}
                       />
                     </View>
                   </View>
