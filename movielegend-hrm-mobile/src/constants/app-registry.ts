@@ -604,7 +604,7 @@ export function getAppRoute(
       if (item.key === 'requests') {
         const isChiefAccountant = isAccountingLeader(user);
         if (isChiefAccountant) {
-          return '/accountant/employee-requests';
+          return '/accountant/approvals';
         }
         return '/employee/requests';
       }

@@ -305,7 +305,7 @@ export function HRProfileScreen() {
                           icon="clipboard-check-outline"
                           iconType="mci"
                           title="Duyệt đơn từ"
-                          onPress={() => router.push((isAccountant ? '/accountant/employee-requests' : '/hr/employee-requests') as any)}
+                          onPress={() => router.push((isAccountant ? '/accountant/approvals' : '/hr/requests') as any)}
                         />
                       )}
                       {(hasUserRole(user, 'ACCOUNTANT') || isAccountant) && (

@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../providers/AuthProvider';
 import { roleBase } from '../../utils/notification-routing';
 import { isUserInLiveDepartment } from '../../constants/app-registry';
-import { hasUserRole } from '../../utils/role-routing';
+import { hasUserRole, isAccountingLeader } from '../../utils/role-routing';
 import { getEmployeeRequests } from '../../api/employee-requests.api';
 import { useApprovals } from '../../hooks/useApprovals';
 import { useCrossDepartmentRequests } from '../../hooks/useCrossDepartment';
@@ -54,8 +54,9 @@ export function ApprovalMenuScreen() {
     roleCodes.includes('LEADER') ||
     Boolean((user as any)?.isDepartmentLeader);
 
+  const isChiefAccountant = isAccountingLeader(user);
   const isFinancialReviewer = isAccountantOrAdmin || isHr || isLeader;
-  const isAccountantOnly = isAccountantOrAdmin && !isAdmin && !isHr;
+  const isAccountantOnly = isAccountantOrAdmin && !isAdmin && !isHr && !isChiefAccountant;
 
   // 1. Pending Employee Requests
   const { data: pendingRequests = [] } = useQuery({
@@ -338,14 +339,18 @@ export function ApprovalMenuScreen() {
                 </View>
                 <View style={styles.menuCardInfo}>
                   <Text style={styles.menuCardTitle}>
-                    {isAccountantOrAdmin
+                    {isChiefAccountant
+                      ? 'Duyệt tài chính & Mua sắm'
+                      : isAccountantOrAdmin
                       ? 'Duyệt tài chính & Xuất Excel'
                       : isHr
                       ? 'Đơn tài chính & Mua sắm'
                       : 'Duyệt tài chính & Mua sắm'}
                   </Text>
                   <Text style={styles.menuCardSubtitle}>
-                    {isAccountantOrAdmin
+                    {isChiefAccountant
+                      ? 'Duyệt đơn thanh toán, mua sắm, tạm ứng của phòng ban'
+                      : isAccountantOrAdmin
                       ? 'Thanh toán, mua sắm, tạm ứng & xuất bảng kê 13 cột'
                       : isHr
                       ? 'Đối chứng báo giá, nhận tiền & xác nhận hoàn tất mua hàng'
