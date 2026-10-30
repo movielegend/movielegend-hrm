@@ -371,14 +371,12 @@ export function HRProfileScreen() {
                           onPress={() => router.push('/hr/shift-management' as any)}
                         />
                       )}
-                      {!isOnlyAccountant && (
-                        <FeatureItem
-                          icon="calendar-sync-outline"
-                          iconType="mci"
-                          title="Đổi ca làm việc"
-                          onPress={() => router.push('/hr/shift-swaps' as any)}
-                        />
-                      )}
+                      <FeatureItem
+                        icon="calendar-sync-outline"
+                        iconType="mci"
+                        title={isOnlyAccountant ? "Đơn đổi ca" : "Đổi ca làm việc"}
+                        onPress={() => router.push((isOnlyAccountant ? '/employee/shift-swaps' : '/hr/shift-swaps') as any)}
+                      />
                       <FeatureItem
                         icon="folder-text-outline"
                         iconType="mci"

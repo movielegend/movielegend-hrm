@@ -1,4 +1,4 @@
-import { hasUserRole, isAccountingLeader } from '../utils/role-routing';
+export { hasUserRole, isAccountingLeader } from '../utils/role-routing';
 
 export interface AppRegistryItem {
   key: string;
@@ -603,6 +603,15 @@ export function getAppRoute(
       if (item.key === 'requests') {
         return '/employee/requests';
       }
+      if (item.key === 'shift_swaps') {
+        return '/employee/shift-swaps';
+      }
+      if (item.key === 'tasks') {
+        const isChiefAccountant = isAccountingLeader(user);
+        if (!isChiefAccountant) {
+          return '/accountant/my-tasks';
+        }
+      }
       if (item.hrRoute) {
         return item.hrRoute.replace('/hr/', '/accountant/');
       }
@@ -635,6 +644,23 @@ export function getAppTitle(
       Boolean(user?.department?.name?.toLowerCase().includes('kế toán'));
     if (isAcct && !isAdmin && !isHr) {
       return 'Đơn từ';
+    }
+  }
+  if (item.key === 'shift_swaps' && role === 'HR' && user) {
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    const roles = roleList.map((r: any) =>
+      String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+    );
+    const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+    const isHr = roles.includes('HR') || roles.includes('HUMAN_RESOURCE');
+    const isAcct =
+      roles.includes('ACCOUNTANT') ||
+      roles.some((r: any) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('KT') || r.includes('KETOAN')) ||
+      Boolean(user?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean(user?.department?.name?.toLowerCase().includes('kế toán'));
+    if (isAcct && !isAdmin && !isHr) {
+      return 'Đơn đổi ca';
     }
   }
   if (item.key === 'tasks' && role === 'HR' && user) {
