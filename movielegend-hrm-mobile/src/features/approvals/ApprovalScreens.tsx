@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { RefreshControl, StyleSheet, Text, View, Image, Modal, TouchableOpacity, Pressable, Platform, StatusBar, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +27,7 @@ import { spacing } from '../../theme/spacing';
 import type { ApprovalStatus } from '../../types/employee.types';
 import { normalizeApiError } from '../../utils/api-error';
 import { hasPermission } from '../../utils/permissions';
+import { hasUserRole, isAccountingLeader } from '../../utils/role-routing';
 import { maskPhone } from '../../utils/privacy';
 import { getAbsoluteImageUrl } from '../../utils/image';
 import { formatSeniority } from '../../utils/seniority';
@@ -39,12 +40,40 @@ const statusLabels: Record<string, string> = {
 };
 const rejectSchema = z.object({ reason: z.string().min(3, 'Vui lòng nhập lý do từ chối') });
 
-export function ApprovalListScreen({ title, detailRoute }: { title: string, detailRoute?: (id: string) => string }) {
+export function ApprovalListScreen({
+  title,
+  detailRoute,
+  departmentFilter,
+}: {
+  title?: string;
+  detailRoute?: (id: string) => string;
+  departmentFilter?: 'ACCOUNTING' | string;
+}) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
   const [status, setStatus] = useState<ApprovalStatus | undefined>('PENDING');
   const [search, setSearch] = useState('');
-  const approvals = useApprovals({ ...(status ? { status } : {}), search, page: 1, limit: 20 });
+
+  const isChiefAccountant = isAccountingLeader(user);
+  const isOnlyChiefAccountant = isChiefAccountant && !hasUserRole(user, 'ADMIN') && !hasUserRole(user, 'HR');
+  const shouldFilterAccounting = departmentFilter === 'ACCOUNTING' || isOnlyChiefAccountant;
+
+  const approvals = useApprovals({ ...(status ? { status } : {}), search, page: 1, limit: 50 });
+
+  const rawItems = approvals.data?.items ?? [];
+  const items = useMemo(() => {
+    if (!shouldFilterAccounting) return rawItems;
+    const userDeptId = (user as any)?.department?.id;
+    return rawItems.filter((item) => {
+      const deptName = item.requestedDepartment?.name?.toLowerCase() || '';
+      return (
+        (userDeptId && item.requestedDepartmentId === userDeptId) ||
+        deptName.includes('kế toán') ||
+        deptName.includes('tài chính')
+      );
+    });
+  }, [rawItems, shouldFilterAccounting, user]);
 
   const getInitials = (name?: string) => {
     if (!name) return 'NV';
@@ -80,8 +109,12 @@ export function ApprovalListScreen({ title, detailRoute }: { title: string, deta
             <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
           </Pressable>
           <View style={localStyles.headerTitleWrap}>
-            <Text style={localStyles.headerTitle}>{title || 'Duyệt tài khoản phòng'}</Text>
-            <Text style={localStyles.headerSubtitle}>Xét duyệt đăng ký nhân viên mới</Text>
+            <Text style={localStyles.headerTitle}>
+              {title || (shouldFilterAccounting ? 'Duyệt tài khoản phòng Kế toán' : 'Duyệt tài khoản phòng')}
+            </Text>
+            <Text style={localStyles.headerSubtitle}>
+              {shouldFilterAccounting ? 'Xét duyệt đăng ký nhân sự phòng Kế toán' : 'Xét duyệt đăng ký nhân viên mới'}
+            </Text>
           </View>
         </View>
       </View>
@@ -140,7 +173,7 @@ export function ApprovalListScreen({ title, detailRoute }: { title: string, deta
               <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Thử lại</Text>
             </Pressable>
           </View>
-        ) : !approvals.data?.items?.length ? (
+        ) : !items.length ? (
           <ScrollView
             contentContainerStyle={localStyles.emptyContainer}
             refreshControl={<RefreshControl refreshing={approvals.isRefetching} onRefresh={() => void approvals.refetch()} />}
@@ -157,7 +190,7 @@ export function ApprovalListScreen({ title, detailRoute }: { title: string, deta
             refreshControl={<RefreshControl refreshing={approvals.isRefetching} onRefresh={() => void approvals.refetch()} />}
             showsVerticalScrollIndicator={false}
           >
-            {approvals.data?.items?.map((approval) => {
+            {items.map((approval) => {
               const fullName = approval.user?.profile?.fullName ?? 'Chưa có tên';
               const initials = getInitials(fullName);
               const badge = getBadgeStyle(approval.status);

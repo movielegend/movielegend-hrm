@@ -81,11 +81,20 @@ export function ApprovalMenuScreen() {
   }, [pendingRequests]);
 
   const pendingGeneralRequestsCount = useMemo(() => {
-    if (!isFinancialReviewer) return pendingRequests.length;
-    return pendingRequests.filter((r: any) => {
-      return !['ADVANCE', 'EXPENSE', 'PURCHASE'].includes(r.type);
-    }).length;
-  }, [pendingRequests, isFinancialReviewer]);
+    let list = pendingRequests.filter((r: any) => !['ADVANCE', 'EXPENSE', 'PURCHASE'].includes(r.type));
+    if (isChiefAccountant && !isAdmin && !isHr) {
+      const userDeptId = (user as any)?.department?.id;
+      list = list.filter((r: any) => {
+        const deptName = r.user?.department?.name?.toLowerCase() || (user as any)?.department?.name?.toLowerCase() || '';
+        return (
+          (userDeptId && (r.departmentId === userDeptId || r.user?.departmentId === userDeptId)) ||
+          deptName.includes('kế toán') ||
+          deptName.includes('tài chính')
+        );
+      });
+    }
+    return list.length;
+  }, [pendingRequests, isChiefAccountant, isAdmin, isHr, user]);
 
   // 2. Pending Account Approvals
   const { data: approvalsData } = useApprovals({
@@ -93,7 +102,21 @@ export function ApprovalMenuScreen() {
     page: 1,
     limit: 100,
   });
-  const pendingAccountsCount = approvalsData?.pagination?.total ?? approvalsData?.items?.length ?? 0;
+  const pendingAccountsCount = useMemo(() => {
+    const rawItems = approvalsData?.items ?? [];
+    if (isChiefAccountant && !isAdmin && !isHr) {
+      const userDeptId = (user as any)?.department?.id;
+      return rawItems.filter((item: any) => {
+        const deptName = item.requestedDepartment?.name?.toLowerCase() || '';
+        return (
+          (userDeptId && item.requestedDepartmentId === userDeptId) ||
+          deptName.includes('kế toán') ||
+          deptName.includes('tài chính')
+        );
+      }).length;
+    }
+    return approvalsData?.pagination?.total ?? rawItems.length;
+  }, [approvalsData, isChiefAccountant, isAdmin, isHr, user]);
 
   // 3. Pending Cross Department Requests
   const { data: crossDeptData } = useCrossDepartmentRequests({
@@ -237,9 +260,13 @@ export function ApprovalMenuScreen() {
                   />
                 </View>
                 <View style={styles.menuCardInfo}>
-                  <Text style={styles.menuCardTitle}>Duyệt yêu cầu</Text>
+                  <Text style={styles.menuCardTitle}>
+                    {isChiefAccountant && !isAdmin && !isHr ? 'Duyệt yêu cầu phòng Kế toán' : 'Duyệt yêu cầu'}
+                  </Text>
                   <Text style={styles.menuCardSubtitle}>
-                    Nghỉ phép, giải trình công, đi muộn về sớm
+                    {isChiefAccountant && !isAdmin && !isHr
+                      ? 'Nghỉ phép, giải trình công của nhân sự Kế toán'
+                      : 'Nghỉ phép, giải trình công, đi muộn về sớm'}
                   </Text>
                 </View>
                 <View style={styles.menuCardRight}>
@@ -272,9 +299,13 @@ export function ApprovalMenuScreen() {
                   />
                 </View>
                 <View style={styles.menuCardInfo}>
-                  <Text style={styles.menuCardTitle}>Duyệt tài khoản</Text>
+                  <Text style={styles.menuCardTitle}>
+                    {isChiefAccountant && !isAdmin && !isHr ? 'Duyệt tài khoản phòng Kế toán' : 'Duyệt tài khoản'}
+                  </Text>
                   <Text style={styles.menuCardSubtitle}>
-                    Xét duyệt đăng ký nhân viên mới
+                    {isChiefAccountant && !isAdmin && !isHr
+                      ? 'Xét duyệt tài khoản nhân sự phòng Kế toán'
+                      : 'Xét duyệt đăng ký nhân viên mới'}
                   </Text>
                 </View>
                 <View style={styles.menuCardRight}>

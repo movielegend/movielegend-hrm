@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
 import LeaderRequestsScreen from '../../leader/employee-requests/index';
 import { useAuth } from '../../../src/providers/AuthProvider';
+import { isAccountingLeader } from '../../../src/utils/role-routing';
 
 export default function HREmployeeRequestListRoute() {
   const { user } = useAuth();
