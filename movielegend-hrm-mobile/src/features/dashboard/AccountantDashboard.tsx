@@ -585,8 +585,9 @@ export function AccountantDashboard() {
               </Pressable>
             </View>
 
-            <View style={styles.quickGridCard}>
-              {/* Row 1: 4 app đầu tiên */}
+            {/* Box trắng bo góc chứa 1 dòng 4 icons và dropdown mở rộng khi bấm nút mũi tên */}
+            <View style={styles.quickAccessBox}>
+              {/* Row 1: 4 app đầu tiên luôn hiển thị trên 1 dòng */}
               <View style={styles.quickGrid4Row}>
                 {row1Apps.map((item) => {
                   const route = getAppRoute(item, dashboardRole, user);
@@ -601,9 +602,9 @@ export function AccountantDashboard() {
                     <QuickGrid8Item
                       key={item.key}
                       title={getAppTitle(item, dashboardRole, user)}
-                      icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                       bgColor={item.bgColor}
                       badge={badge}
+                      icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
                       onPress={() => {
                         if (route) router.push(route as any);
                       }}
@@ -612,59 +613,133 @@ export function AccountantDashboard() {
                 })}
               </View>
 
-              {/* Row 2: các app phụ */}
+              {/* Dropdown Rows: Hiển thị khi bấm nút mũi tên xuống */}
               {isQuickExpanded && (
-                <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
-                  {extraPinnedApps.map((item) => {
-                    const route = getAppRoute(item, dashboardRole, user);
-                    return (
-                      <QuickGrid8Item
-                        key={item.key}
-                        title={getAppTitle(item, dashboardRole, user)}
-                        icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
-                        bgColor={item.bgColor}
+                <View style={styles.extraRowsContainer}>
+                  {extraPinnedApps.length <= 3 ? (
+                    /* Hàng 2: các app phụ + nút Thêm + ô trống + nút Tất cả ở ô thứ 4 */
+                    <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                      {extraPinnedApps.map((item) => {
+                        const route = getAppRoute(item, dashboardRole, user);
+                        return (
+                          <QuickGrid8Item
+                            key={item.key}
+                            title={getAppTitle(item, dashboardRole, user)}
+                            bgColor={item.bgColor}
+                            icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
+                            onPress={() => {
+                              if (route) router.push(route as any);
+                            }}
+                          />
+                        );
+                      })}
+
+                      {/* Nút Thêm lối tắt nếu chưa đủ 3 app phụ */}
+                      <Pressable
+                        style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
                         onPress={() => {
-                          if (route) router.push(route as any);
+                          setModalEditMode(true);
+                          setShowAllServicesModal(true);
+                        }}
+                      >
+                        <View style={[styles.quickIconBox8, styles.quickIconBoxAdd]}>
+                          <Plus size={22} color="#94A3B8" strokeWidth={1.4} />
+                        </View>
+                        <Text style={[styles.quickGrid8Label, { color: '#64748B' }]} numberOfLines={1}>
+                          Thêm
+                        </Text>
+                      </Pressable>
+
+                      {/* Ô trống để căn đều 4 cột */}
+                      {Array.from({ length: Math.max(0, 2 - extraPinnedApps.length) }).map((_, emptyIdx) => (
+                        <View key={`empty-${emptyIdx}`} style={styles.quickGrid8Item} />
+                      ))}
+
+                      {/* Ô thứ 4 luôn là "Tất cả" */}
+                      <QuickGrid8Item
+                        title="Tất cả"
+                        bgColor="#F1F5F9"
+                        icon={<LayoutGrid size={22} color="#475569" strokeWidth={1.4} />}
+                        onPress={() => {
+                          setModalEditMode(false);
+                          setShowAllServicesModal(true);
                         }}
                       />
-                    );
-                  })}
+                    </View>
+                  ) : (
+                    /* Khi có từ 4 app phụ trở lên */
+                    <>
+                      {/* Hàng 2: 4 app phụ đầu tiên */}
+                      <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                        {extraPinnedApps.slice(0, 4).map((item) => {
+                          const route = getAppRoute(item, dashboardRole, user);
+                          return (
+                            <QuickGrid8Item
+                              key={item.key}
+                              title={getAppTitle(item, dashboardRole, user)}
+                              bgColor={item.bgColor}
+                              icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
+                              onPress={() => {
+                                if (route) router.push(route as any);
+                              }}
+                            />
+                          );
+                        })}
+                      </View>
+
+                      {/* Hàng 3: app phụ còn lại + Thêm + Tất cả */}
+                      <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                        {extraPinnedApps.slice(4).map((item) => {
+                          const route = getAppRoute(item, dashboardRole, user);
+                          return (
+                            <QuickGrid8Item
+                              key={item.key}
+                              title={getAppTitle(item, dashboardRole, user)}
+                              bgColor={item.bgColor}
+                              icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
+                              onPress={() => {
+                                if (route) router.push(route as any);
+                              }}
+                            />
+                          );
+                        })}
+                        <Pressable
+                          style={({ pressed }) => [styles.quickGrid8Item, pressed && styles.quickGrid8ItemPressed]}
+                          onPress={() => { setModalEditMode(true); setShowAllServicesModal(true); }}
+                        >
+                          <View style={[styles.quickIconBox8, styles.quickIconBoxAdd]}>
+                            <Plus size={22} color="#94A3B8" strokeWidth={1.4} />
+                          </View>
+                          <Text style={[styles.quickGrid8Label, { color: '#64748B' }]} numberOfLines={1}>Thêm</Text>
+                        </Pressable>
+                        {Array.from({ length: Math.max(0, 2 - extraPinnedApps.slice(4).length) }).map((_, i) => (
+                          <View key={`empty-r3-${i}`} style={styles.quickGrid8Item} />
+                        ))}
+                        <QuickGrid8Item
+                          title="Tất cả" bgColor="#F1F5F9"
+                          icon={<LayoutGrid size={22} color="#475569" strokeWidth={1.4} />}
+                          onPress={() => { setModalEditMode(false); setShowAllServicesModal(true); }}
+                        />
+                      </View>
+                    </>
+                  )}
                 </View>
               )}
 
-              {extraPinnedApps.length > 0 && (
-                <View style={styles.expandDropdownTrigger}>
-                  <Pressable
-                    style={styles.expandDropdownButton}
-                    onPress={handleToggleQuickExpanded}
-                    android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
-                  >
-                    <Text style={styles.expandDropdownText}>
-                      {isQuickExpanded ? 'Thu gọn' : `Xem thêm ${extraPinnedApps.length} ứng dụng`}
-                    </Text>
-                    {isQuickExpanded ? (
-                      <ChevronUp size={16} color="#64748B" strokeWidth={2} />
-                    ) : (
-                      <ChevronDown size={16} color="#64748B" strokeWidth={2} />
-                    )}
-                  </Pressable>
+              {/* Nút mũi tên xuống (Chevron Down / Up) thiết kế capsule tinh tế */}
+              <Pressable
+                style={styles.expandToggleButton}
+                onPress={handleToggleQuickExpanded}
+                hitSlop={8}
+              >
+                <View style={styles.expandTogglePill}>
+                  {isQuickExpanded ? (
+                    <ChevronUp size={18} color="#64748B" strokeWidth={1.5} />
+                  ) : (
+                    <ChevronDown size={18} color="#64748B" strokeWidth={1.5} />
+                  )}
                 </View>
-              )}
-
-              {/* Nút Tất cả dịch vụ */}
-              <View style={styles.allServicesRow}>
-                <Pressable
-                  style={styles.allServicesButton}
-                  onPress={() => {
-                    setModalEditMode(false);
-                    setShowAllServicesModal(true);
-                  }}
-                >
-                  <LayoutGrid size={16} color="#102739" />
-                  <Text style={styles.allServicesButtonText}>Tất cả tiện ích &amp; dịch vụ</Text>
-                  <ChevronRight size={16} color="#102739" />
-                </Pressable>
-              </View>
+              </Pressable>
             </View>
           </View>
 
@@ -789,7 +864,7 @@ const QuickGrid8Item = React.memo(function QuickGrid8Item({
           </View>
         )}
       </View>
-      <Text style={styles.quickLabel8} numberOfLines={2} ellipsizeMode="tail">
+      <Text style={styles.quickGrid8Label} numberOfLines={2}>
         {title}
       </Text>
     </Pressable>
@@ -1241,101 +1316,113 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#DC2626',
   },
-  quickGridCard: {
+  // 4. Quick Access Box (1 dòng thu gọn, dropdown mở rộng, tràn đều box)
+  quickAccessBox: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingTop: 16,
+    paddingBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
   },
   quickGrid4Row: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    width: '100%',
   },
   quickGrid8Item: {
-    width: (SCREEN_WIDTH - 32 - 32) / 4,
+    flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 2,
   },
   quickGrid8ItemPressed: {
-    opacity: 0.7,
+    opacity: 0.8,
+    transform: [{ scale: 0.94 }],
   },
   quickIconWrapper: {
+    width: 58,
+    height: 58,
+    marginBottom: 6,
     position: 'relative',
-  },
-  quickIconBox8: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quickIconBox8: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.92)',
+    shadowColor: '#334155',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  quickIconBoxAdd: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#94A3B8',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  quickGrid8Label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  extraRowsContainer: {
+    width: '100%',
   },
   quickItemBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    top: -5,
+    right: -5,
     backgroundColor: '#EF4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
+    zIndex: 20,
+    elevation: 4,
   },
   quickItemBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
     color: '#FFFFFF',
-  },
-  quickLabel8: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
-    marginTop: 6,
+    fontSize: 9.5,
+    fontWeight: '800',
     textAlign: 'center',
+    includeFontPadding: false,
   },
-  expandDropdownTrigger: {
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
-    paddingTop: 8,
-    alignItems: 'center',
-  },
-  expandDropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  expandDropdownText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  allServicesRow: {
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingTop: 10,
-  },
-  allServicesButton: {
-    flexDirection: 'row',
+  expandToggleButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: 2,
+    marginTop: 2,
   },
-  allServicesButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#102739',
+  expandTogglePill: {
+    width: 38,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   feedbackCard: {
     backgroundColor: '#FFFFFF',
