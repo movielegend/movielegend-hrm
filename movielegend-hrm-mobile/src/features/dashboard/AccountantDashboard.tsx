@@ -1112,10 +1112,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    marginTop: 8,
+    paddingTop: 8,
   },
   metricColLocation: {
     flexDirection: 'row',
