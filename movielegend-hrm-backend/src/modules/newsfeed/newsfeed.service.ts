@@ -132,12 +132,7 @@ export class NewsfeedService {
     const isGlobalAdmin = user.roles.includes('ADMIN') && visibleDepts === null;
     
     // If not admin, they can only see pending posts for departments they lead
-    const leaderDepartments = await this.prisma.department.findMany({
-      where: { leaderUserId: user.userId },
-      select: { id: true }
-    });
-    
-    const leaderDepIds = leaderDepartments.map(d => d.id);
+    const leaderDepIds = await this.scope.getLedDepartmentIds(user);
     
     // Admin có quyền duyệt: Global Admin duyệt tất cả, Regional Admin duyệt trong phạm vi.
     // Leader duyệt trong phạm vi leaderDepIds.
@@ -145,16 +140,27 @@ export class NewsfeedService {
     
     if (visibleDepts !== null) {
       visibleDepts.forEach(d => allowedDepts.add(d));
-      leaderDepIds.forEach(d => allowedDepts.add(d));
     }
-    
-    if (visibleDepts !== null) {
-      visibleDepts.forEach(d => allowedDepts.add(d));
-      leaderDepIds.forEach(d => allowedDepts.add(d));
+    leaderDepIds.forEach(d => allowedDepts.add(d));
+
+    // Also support accounting leader
+    const isAccountantLeader =
+      user.roles.includes('ACCOUNTANT_LEAD') ||
+      (this.scope.isAccountant(user) && (user.roles.includes('LEADER') || user.scopes.some(s => s.role === 'LEADER')));
+    if (isAccountantLeader) {
+      try {
+        const member = await this.prisma.departmentMember.findFirst({
+          where: { userId: user.userId, leftAt: null },
+          select: { departmentId: true }
+        });
+        if (member?.departmentId) {
+          allowedDepts.add(member.departmentId);
+        }
+      } catch {}
     }
     
     if (!isGlobalAdmin && allowedDepts.size === 0) {
-      throw new ForbiddenException('Bạn không có quyền duyệt bài viết');
+      return [];
     }
 
     let depFilter: any = isGlobalAdmin ? undefined : { in: Array.from(allowedDepts) };
@@ -195,17 +201,26 @@ export class NewsfeedService {
         throw new ForbiddenException('Chỉ admin toàn cầu mới được duyệt bài viết toàn công ty');
       }
       
-      const leaderDepartments = await this.prisma.department.findMany({
-        where: { leaderUserId: user.userId },
-        select: { id: true }
-      });
-      
-      const leaderDepIds = leaderDepartments.map(d => d.id);
+      const leaderDepIds = await this.scope.getLedDepartmentIds(user);
       const isLeader = leaderDepIds.includes(post.departmentId);
       const isRegionalAdmin = visibleDepts && visibleDepts.includes(post.departmentId);
       
+      let isAcctLeaderOfDept = false;
       if (!isLeader && !isRegionalAdmin) {
-        throw new ForbiddenException('Chỉ leader hoặc quản trị viên vùng tương ứng mới được duyệt bài viết này');
+        const isAccountantLeader =
+          user.roles.includes('ACCOUNTANT_LEAD') ||
+          (this.scope.isAccountant(user) && (user.roles.includes('LEADER') || user.scopes.some(s => s.role === 'LEADER')));
+        if (isAccountantLeader) {
+          const member = await this.prisma.departmentMember.findFirst({
+            where: { userId: user.userId, departmentId: post.departmentId, leftAt: null },
+            select: { id: true }
+          });
+          if (member) isAcctLeaderOfDept = true;
+        }
+      }
+
+      if (!isLeader && !isRegionalAdmin && !isAcctLeaderOfDept) {
+        throw new ForbiddenException('Chỉ leader hoặc quản trị viên tương ứng mới được duyệt bài viết này');
       }
     }
 

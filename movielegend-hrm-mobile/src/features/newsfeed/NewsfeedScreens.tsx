@@ -35,6 +35,7 @@ import { useAuth } from '../../providers/AuthProvider';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { normalizeApiError } from '../../utils/api-error';
+import { isAccountingLeader } from '../../utils/role-routing';
 import { roleBase } from '../../utils/notification-routing';
 import {
   useNewsfeedPosts,
@@ -153,6 +154,7 @@ export function NewsfeedListScreen({
   const likePost = useLikePost();
   const removePost = useDeletePost();
 
+  const isChiefAccountant = isAccountingLeader(user);
   const isAccountantOnly = useMemo(() => {
     const rawRoles = user?.roles || [];
     const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
@@ -164,18 +166,37 @@ export function NewsfeedListScreen({
       roles.some((r: any) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('KT') || r.includes('KETOAN')) ||
       Boolean((user as any)?.position?.name?.toLowerCase().includes('kế toán')) ||
       Boolean((user as any)?.department?.name?.toLowerCase().includes('kế toán'));
-    return isAcct && !isAdmin && !isHr;
-  }, [user]);
+    return isAcct && !isAdmin && !isHr && !isChiefAccountant;
+  }, [user, isChiefAccountant]);
 
-  const isModerator = !isAccountantOnly && (canModerate || user?.roles?.some((r: any) => {
-    const code = typeof r === 'string' ? r : r.role?.code || r.name || '';
-    const upper = String(code).toUpperCase();
-    return upper.includes('ADMIN') || upper.includes('LEADER') || upper.includes('HR');
-  }));
+  const isModerator =
+    canModerate ||
+    isChiefAccountant ||
+    (!isAccountantOnly &&
+      Boolean(
+        user?.roles?.some((r: any) => {
+          const code = typeof r === 'string' ? r : r.role?.code || r.name || '';
+          const upper = String(code).toUpperCase();
+          return upper.includes('ADMIN') || upper.includes('LEADER') || upper.includes('HR');
+        })
+      ));
 
-  const pendingItems = Array.isArray(pendingPostsQuery.data)
+  const rawPendingItems = Array.isArray(pendingPostsQuery.data)
     ? pendingPostsQuery.data
     : (pendingPostsQuery.data as any)?.items ?? [];
+  const pendingItems = useMemo(() => {
+    if (!isChiefAccountant) return rawPendingItems;
+    const userDeptId = (user as any)?.department?.id;
+    return rawPendingItems.filter((post: any) => {
+      const deptName = post.department?.name?.toLowerCase() || '';
+      return (
+        (userDeptId && post.departmentId === userDeptId) ||
+        deptName.includes('kế toán') ||
+        deptName.includes('tài chính') ||
+        !post.departmentId
+      );
+    });
+  }, [rawPendingItems, isChiefAccountant, user]);
   const pendingCount = pendingItems.length;
 
   function confirmDelete(postId: string) {
@@ -413,6 +434,8 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
   const reactCommentMutation = useReactComment();
   const removePost = useDeletePost();
   const { user } = useAuth();
+  const isChiefAccountant = isAccountingLeader(user);
+  const effectiveCanModerate = canModerate || isChiefAccountant;
   const { showAlert, showConfirm } = useAppAlert();
   const [commentText, setCommentText] = useState('');
   const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string } | null>(null);
@@ -565,7 +588,7 @@ export function NewsfeedDetailScreen({ postId, canModerate = false }: { postId: 
             <Text style={newsStyles.headerTitleInline}>Chi tiết bài đăng</Text>
             <Text style={newsStyles.headerSubtitleInline}>Bình luận & tương tác</Text>
           </View>
-          {canModerate && (
+          {effectiveCanModerate && (
             <Pressable style={newsStyles.headerIconBtn} onPress={confirmDelete} hitSlop={10}>
               <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FFFFFF" />
             </Pressable>
@@ -1219,9 +1242,23 @@ export function PendingNewsfeedListScreen() {
   const approvePost = useApprovePost();
   const { showAlert, showConfirm } = useAppAlert();
 
-  const postItems = Array.isArray(posts.data) ? posts.data : (posts.data as any)?.items ?? [];
-
   const { user } = useAuth();
+  const isChiefAccountant = isAccountingLeader(user);
+  const rawPostItems = Array.isArray(posts.data) ? posts.data : (posts.data as any)?.items ?? [];
+
+  const postItems = useMemo(() => {
+    if (!isChiefAccountant) return rawPostItems;
+    const userDeptId = (user as any)?.department?.id;
+    return rawPostItems.filter((post: any) => {
+      const deptName = post.department?.name?.toLowerCase() || '';
+      return (
+        (userDeptId && post.departmentId === userDeptId) ||
+        deptName.includes('kế toán') ||
+        deptName.includes('tài chính') ||
+        !post.departmentId
+      );
+    });
+  }, [rawPostItems, isChiefAccountant, user]);
 
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -1285,7 +1322,9 @@ export function PendingNewsfeedListScreen() {
           </Pressable>
           <View style={newsStyles.headerTextWrap}>
             <Text style={newsStyles.headerTitleInline}>Bài đăng chờ duyệt</Text>
-            <Text style={newsStyles.headerSubtitleInline}>Các bài đăng từ nhân viên</Text>
+            <Text style={newsStyles.headerSubtitleInline}>
+              {isChiefAccountant ? 'Các bài đăng từ nhân sự phòng Kế toán' : 'Các bài đăng từ nhân viên'}
+            </Text>
           </View>
         </View>
       </View>
