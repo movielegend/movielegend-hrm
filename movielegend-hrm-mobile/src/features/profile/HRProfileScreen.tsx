@@ -221,7 +221,7 @@ export function HRProfileScreen() {
               {/* Bảng công */}
               <Pressable
                 style={styles.utilityCard}
-                onPress={() => router.push('/hr/timesheet' as any)}
+                onPress={() => router.push((isOnlyAccountant ? '/accountant/timesheet' : '/hr/timesheet') as any)}
               >
                 <View style={styles.utilityIconWrap}>
                   <Ionicons name="calendar-outline" size={24} color="#0F172A" />
@@ -232,7 +232,7 @@ export function HRProfileScreen() {
               {/* Phiếu lương */}
               <Pressable
                 style={styles.utilityCard}
-                onPress={() => router.push('/hr/payslip' as any)}
+                onPress={() => router.push((isOnlyAccountant ? '/accountant/payslip' : '/hr/payslip') as any)}
               >
                 <View style={styles.utilityIconWrap}>
                   <View style={styles.payslipIconBox}>
@@ -245,7 +245,7 @@ export function HRProfileScreen() {
               {/* Chấm công */}
               <Pressable
                 style={styles.utilityCard}
-                onPress={() => router.push('/hr/attendance-history' as any)}
+                onPress={() => router.push((isOnlyAccountant ? '/accountant/attendance-history' : '/hr/attendance-history') as any)}
               >
                 <View style={styles.utilityIconWrap}>
                   <Ionicons name="time-outline" size={24} color="#0F172A" />
@@ -311,7 +311,7 @@ export function HRProfileScreen() {
                           icon="receipt"
                           iconType="ionicons"
                           title="Duyệt tài chính"
-                          onPress={() => router.push('/hr/financial-requests' as any)}
+                          onPress={() => router.push((isOnlyAccountant ? '/accountant/financial-requests' : '/hr/financial-requests') as any)}
                         />
                       )}
                       {!isOnlyAccountant && (
@@ -424,19 +424,19 @@ export function HRProfileScreen() {
                         icon="chatbubbles-outline"
                         iconType="ionicons"
                         title="Nhóm Chat"
-                        onPress={() => router.push('/hr/chat' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/(tabs)/chat' : '/hr/chat') as any)}
                       />
                       <FeatureItem
                         icon="briefcase-outline"
                         iconType="ionicons"
                         title="Công việc"
-                        onPress={() => router.push('/hr/tasks' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/my-tasks' : '/hr/tasks') as any)}
                       />
                       <FeatureItem
                         icon="document-text-outline"
                         iconType="ionicons"
                         title="Báo cáo ngày"
-                        onPress={() => router.push('/hr/daily-report' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/daily-report' : '/hr/daily-report') as any)}
                       />
                     </View>
                   </View>
@@ -450,19 +450,19 @@ export function HRProfileScreen() {
                         icon="laptop"
                         iconType="mci"
                         title="Tài sản của tôi"
-                        onPress={() => router.push('/hr/assets' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/assets' : '/hr/assets') as any)}
                       />
                       <FeatureItem
                         icon="robot"
                         iconType="mci"
                         title="Trợ lý AI"
-                        onPress={() => router.push('/hr/ai-chat' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/ai-chat' : '/hr/ai-chat') as any)}
                       />
                       <FeatureItem
                         icon="message-draw"
                         iconType="mci"
                         title="Gửi góp ý"
-                        onPress={() => router.push('/hr/feedbacks' as any)}
+                        onPress={() => router.push((isOnlyAccountant ? '/accountant/feedbacks' : '/hr/feedbacks') as any)}
                       />
                     </View>
                   </View>
