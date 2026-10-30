@@ -14,13 +14,17 @@ export async function setupNotificationChannel() {
   // Setup notification handler here (NOT at module level) to avoid Hermes native crash
   try {
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
+      handleNotification: async (notification: any) => {
+        // Cho phép chuông/banner hệ thống nếu là cuộc gọi đến (WebRTC call)
+        const isCall = notification?.request?.content?.data?.type === 'INCOMING_CALL';
+        return {
+          shouldShowAlert: isCall,
+          shouldPlaySound: isCall,
+          shouldSetBadge: true,
+          shouldShowBanner: isCall,
+          shouldShowList: true,
+        };
+      },
     });
   } catch (e) {
     console.warn('Notification handler init skipped:', e);
