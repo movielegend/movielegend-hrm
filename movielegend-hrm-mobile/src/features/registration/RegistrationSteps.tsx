@@ -12,11 +12,12 @@ import {
   Text, 
   View, 
   Platform, 
-  Modal, 
   ScrollView,
   Keyboard,
   KeyboardAvoidingView,
-  ActivityIndicator} from 'react-native';
+  ActivityIndicator,
+  TextInput,
+} from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -280,71 +281,105 @@ export function RegistrationAccountScreen() {
     } catch (_) {}
   };
 
+  const [securePass, setSecurePass] = useState(true);
+  const [secureConfirmPass, setSecureConfirmPass] = useState(true);
+
   return (
-    <Screen>
-      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-        >
-          <ScrollView
-            contentContainerStyle={{ padding: 24, paddingBottom: 60 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+    <Screen backgroundColor="#F8FAFC" withBottomInset={true}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingTop: 12,
+          paddingBottom: 28,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header Branding */}
+        <View style={{ alignItems: 'center', width: '100%', marginBottom: 12 }}>
+          <Image
+            source={require('../../../assets/ml-logo-only.png')}
+            style={{ width: 92, height: 40, marginBottom: 8 }}
+            resizeMode="contain"
+          />
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A', letterSpacing: 2, textAlign: 'center' }}>
+            MOVIE LEGEND
+          </Text>
+          <View style={{ width: '100%', height: 1, backgroundColor: '#E2E8F0', marginTop: 22 }} />
+        </View>
+
+        {/* Back button */}
+        <Pressable onPress={() => router.back()} hitSlop={10} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 12 }}>
+          <Ionicons name="arrow-back" size={18} color="#0F172A" />
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A' }}>Quay lại</Text>
+        </Pressable>
+
+        {/* Title & Step */}
+        <Text style={{ fontSize: 28, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginTop: 4 }}>
+          Thông tin tài khoản
+        </Text>
+        <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center', marginTop: 4, marginBottom: 4 }}>
+          Bước 1 / 4
+        </Text>
+
+        <StepBar currentStep={1} />
+
+        {duplicateError ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              backgroundColor: '#FEF2F2',
+              borderWidth: 1,
+              borderColor: '#FCA5A5',
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 14,
+            }}
           >
-            <View style={{ marginBottom: 24, paddingTop: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-                  <Ionicons name="arrow-back" size={24} color="#102739" />
-                </Pressable>
-                <Text style={{ fontSize: 20, fontWeight: '700', color: '#102739' }}>Thông tin tài khoản</Text>
-              </View>
-              <StepBar currentStep={1} />
-            </View>
+            <Ionicons name="alert-circle" size={20} color="#DC2626" />
+            <Text style={{ flex: 1, fontSize: 13, fontWeight: '500', color: '#B91C1C' }}>
+              {duplicateError}
+            </Text>
+          </View>
+        ) : null}
 
-            {duplicateError ? (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
-                  backgroundColor: '#FEF2F2',
-                  borderWidth: 1,
-                  borderColor: '#FCA5A5',
-                  borderRadius: 12,
-                  padding: 14,
-                  marginBottom: 18,
-                }}
-              >
-                <Ionicons name="alert-circle" size={22} color="#DC2626" />
-                <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: '#B91C1C', lineHeight: 18 }}>
-                  {duplicateError}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={{ gap: 20 }}>
-              <Controller
-                control={control}
-                name="fullName"
-                render={({ field }) => (
-                  <FormField
-                    label="Họ tên"
+        {/* Form Fields */}
+        <View style={{ gap: 14 }}>
+          {/* Họ và tên */}
+          <View>
+            <Controller
+              control={control}
+              name="fullName"
+              render={({ field }) => (
+                <View style={{ height: 50, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: errors.fullName ? '#EF4444' : '#E2E8F0', borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' }}>
+                  <TextInput
+                    placeholder="Nhập họ và tên"
+                    placeholderTextColor="#64748B"
                     value={field.value}
                     onChangeText={field.onChange}
-                    error={errors.fullName?.message}
+                    style={{ fontSize: 15, color: '#0F172A', paddingVertical: 0 }}
                   />
-                )}
-              />
-              <Controller
-                control={control}
-                name="phone"
-                render={({ field }) => (
-                  <FormField
+                </View>
+              )}
+            />
+            {errors.fullName ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4 }}>{errors.fullName.message}</Text> : null}
+          </View>
+
+          {/* Số điện thoại */}
+          <View>
+            <Controller
+              control={control}
+              name="phone"
+              render={({ field }) => (
+                <View style={{ height: 50, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: errors.phone ? '#EF4444' : '#E2E8F0', borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' }}>
+                  <TextInput
                     keyboardType="phone-pad"
                     maxLength={10}
-                    label="Số điện thoại"
+                    placeholder="Nhập số điện thoại"
+                    placeholderTextColor="#64748B"
                     value={field.value}
                     onChangeText={(val) => {
                       if (duplicateError) setDuplicateError(null);
@@ -352,18 +387,26 @@ export function RegistrationAccountScreen() {
                       field.onChange(val.replace(/\D/g, '').slice(0, 10));
                     }}
                     onBlur={() => handleCheckPhoneBlur(field.value || '')}
-                    error={errors.phone?.message}
+                    style={{ fontSize: 15, color: '#0F172A', paddingVertical: 0 }}
                   />
-                )}
-              />
-              <Controller
-                control={control}
-                name="email"
-                render={({ field }) => (
-                  <FormField
+                </View>
+              )}
+            />
+            {errors.phone ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4 }}>{errors.phone.message}</Text> : null}
+          </View>
+
+          {/* Email */}
+          <View>
+            <Controller
+              control={control}
+              name="email"
+              render={({ field }) => (
+                <View style={{ height: 50, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: errors.email ? '#EF4444' : '#E2E8F0', borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' }}>
+                  <TextInput
                     autoCapitalize="none"
                     keyboardType="email-address"
-                    label="Email"
+                    placeholder="Nhập email"
+                    placeholderTextColor="#64748B"
                     value={field.value}
                     onChangeText={(val) => {
                       if (duplicateError) setDuplicateError(null);
@@ -371,71 +414,90 @@ export function RegistrationAccountScreen() {
                       field.onChange(val);
                     }}
                     onBlur={() => handleCheckEmailBlur(field.value || '')}
-                    error={errors.email?.message}
+                    style={{ fontSize: 15, color: '#0F172A', paddingVertical: 0 }}
                   />
-                )}
-              />
-              <Controller
-                control={control}
-                name="password"
-                render={({ field }) => (
-                  <FormField
-                    isPassword
-                    label="Mật khẩu"
+                </View>
+              )}
+            />
+            {errors.email ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4 }}>{errors.email.message}</Text> : null}
+          </View>
+
+          {/* Mật khẩu */}
+          <View>
+            <Controller
+              control={control}
+              name="password"
+              render={({ field }) => (
+                <View style={{ height: 50, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: errors.password ? '#EF4444' : '#E2E8F0', borderRadius: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center' }}>
+                  <TextInput
+                    autoCapitalize="none"
+                    secureTextEntry={securePass}
+                    placeholder="Nhập mật khẩu"
+                    placeholderTextColor="#64748B"
                     value={field.value}
                     onChangeText={field.onChange}
-                    error={errors.password?.message}
+                    style={{ flex: 1, fontSize: 15, color: '#0F172A', paddingVertical: 0 }}
                   />
-                )}
-              />
-              <Controller
-                control={control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormField
-                    isPassword
-                    label="Nhập lại mật khẩu"
+                  <Pressable onPress={() => setSecurePass(!securePass)} hitSlop={10} style={{ paddingLeft: 10, paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '500', color: '#0284C7' }}>{securePass ? 'Hiện' : 'Ẩn'}</Text>
+                  </Pressable>
+                </View>
+              )}
+            />
+            {errors.password ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4 }}>{errors.password.message}</Text> : null}
+          </View>
+
+          {/* Xác nhận mật khẩu */}
+          <View>
+            <Controller
+              control={control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <View style={{ height: 50, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: errors.confirmPassword ? '#EF4444' : '#E2E8F0', borderRadius: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center' }}>
+                  <TextInput
+                    autoCapitalize="none"
+                    secureTextEntry={secureConfirmPass}
+                    placeholder="Xác nhận mật khẩu"
+                    placeholderTextColor="#64748B"
                     value={field.value}
                     onChangeText={field.onChange}
-                    error={errors.confirmPassword?.message}
+                    style={{ flex: 1, fontSize: 15, color: '#0F172A', paddingVertical: 0 }}
                   />
-                )}
-              />
-              
-              <Pressable
-                onPress={() => void submit()}
-                disabled={checking}
-                style={{
-                  backgroundColor: checking ? '#475569' : '#0F172A',
-                  height: 56,
-                  borderRadius: 14,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginTop: 16,
-                  flexDirection: 'row',
-                  gap: 8,
-                  shadowColor: '#0F172A',
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.15,
-                  shadowRadius: 8,
-                  elevation: 3,
-                }}
-              >
-                {checking ? (
-                  <>
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
-                      ĐANG KIỂM TRA...
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>TIẾP TỤC</Text>
-                )}
-              </Pressable>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
+                  <Pressable onPress={() => setSecureConfirmPass(!secureConfirmPass)} hitSlop={10} style={{ paddingLeft: 10, paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '500', color: '#0284C7' }}>{secureConfirmPass ? 'Hiện' : 'Ẩn'}</Text>
+                  </Pressable>
+                </View>
+              )}
+            />
+            {errors.confirmPassword ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4 }}>{errors.confirmPassword.message}</Text> : null}
+          </View>
+
+          {/* Tiếp tục Button */}
+          <Pressable
+            onPress={() => void submit()}
+            disabled={checking}
+            style={{
+              backgroundColor: checking ? '#475569' : '#0F2231',
+              height: 50,
+              borderRadius: 10,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: 10,
+            }}
+          >
+            {checking ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Tiếp tục</Text>
+            )}
+          </Pressable>
+        </View>
+
+        {/* Footer */}
+        <Text style={{ marginTop: 36, marginBottom: 16, fontSize: 11, fontWeight: '600', color: '#94A3B8', letterSpacing: 1.5, textAlign: 'center' }}>
+          MOVIE LEGEND  ·  ML GROUP
+        </Text>
+      </ScrollView>
     </Screen>
   );
 }
@@ -516,57 +578,81 @@ export function RegistrationPersonalScreen() {
   };
 
   return (
-    <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-        >
-          <ScrollView
-            contentContainerStyle={{ padding: 24, paddingBottom: 60 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+    <Screen backgroundColor="#F8FAFC" withBottomInset={true}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingTop: 12,
+          paddingBottom: 28,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header Branding */}
+        <View style={{ alignItems: 'center', width: '100%', marginBottom: 12 }}>
+          <Image
+            source={require('../../../assets/ml-logo-only.png')}
+            style={{ width: 92, height: 40, marginBottom: 8 }}
+            resizeMode="contain"
+          />
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A', letterSpacing: 2, textAlign: 'center' }}>
+            MOVIE LEGEND
+          </Text>
+          <View style={{ width: '100%', height: 1, backgroundColor: '#E2E8F0', marginTop: 22 }} />
+        </View>
+
+        {/* Back button */}
+        <Pressable onPress={() => router.back()} hitSlop={10} style={{ alignSelf: 'flex-start', marginVertical: 12 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A' }}>Quay lại</Text>
+        </Pressable>
+
+        {/* Title & Step */}
+        <Text style={{ fontSize: 28, fontWeight: '800', color: '#0F172A', marginTop: 4 }}>
+          Hồ sơ cá nhân
+        </Text>
+        <Text style={{ fontSize: 14, color: '#64748B', marginTop: 4, marginBottom: 4 }}>
+          Bước 2 / 4
+        </Text>
+
+        <StepBar currentStep={2} />
+
+        {duplicateError ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              backgroundColor: '#FEF2F2',
+              borderWidth: 1,
+              borderColor: '#FCA5A5',
+              borderRadius: 10,
+              padding: 12,
+              marginBottom: 14,
+            }}
           >
-            <View style={{ marginBottom: 24, paddingTop: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-                  <Ionicons name="arrow-back" size={24} color="#102739" />
-                </Pressable>
-                <Text style={{ fontSize: 20, fontWeight: '700', color: '#102739' }}>Hồ sơ cá nhân</Text>
-              </View>
-              <StepBar currentStep={2} />
-            </View>
+            <Ionicons name="alert-circle" size={20} color="#DC2626" />
+            <Text style={{ flex: 1, fontSize: 13, fontWeight: '500', color: '#B91C1C' }}>
+              {duplicateError}
+            </Text>
+          </View>
+        ) : null}
 
-            {duplicateError ? (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
-                  backgroundColor: '#FEF2F2',
-                  borderWidth: 1,
-                  borderColor: '#FCA5A5',
-                  borderRadius: 12,
-                  padding: 14,
-                  marginBottom: 18,
-                }}
-              >
-                <Ionicons name="alert-circle" size={22} color="#DC2626" />
-                <Text style={{ flex: 1, fontSize: 13, fontWeight: '600', color: '#B91C1C', lineHeight: 18 }}>
-                  {duplicateError}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={{ gap: 20 }}>
-              <Controller
-                control={control}
-                name="idCardNumber"
-                render={({ field }) => (
-                  <FormField
-                    label="Số CCCD"
+        {/* Form Fields */}
+        <View style={{ gap: 16 }}>
+          {/* Số CCCD */}
+          <View>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A', marginBottom: 8 }}>Số CCCD</Text>
+            <Controller
+              control={control}
+              name="idCardNumber"
+              render={({ field }) => (
+                <View style={{ height: 50, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: errors.idCardNumber ? '#EF4444' : '#E2E8F0', borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' }}>
+                  <TextInput
+                    keyboardType="numeric"
                     maxLength={12}
+                    placeholder="Nhập số CCCD"
+                    placeholderTextColor="#64748B"
                     value={field.value}
                     onChangeText={(val) => {
                       if (duplicateError) setDuplicateError(null);
@@ -574,168 +660,151 @@ export function RegistrationPersonalScreen() {
                       field.onChange(val.replace(/\D/g, '').slice(0, 12));
                     }}
                     onBlur={() => handleCheckIdCardBlur(field.value)}
-                    error={errors.idCardNumber?.message}
-                    keyboardType="numeric"
+                    style={{ fontSize: 15, color: '#0F172A', paddingVertical: 0 }}
                   />
-                )}
-              />
-              
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Ngày sinh</Text>
-                <Pressable 
-                  onPress={() => setShowDatePicker(true)}
-                  style={{ 
-                    height: 56, 
-                    borderWidth: 1, 
-                    borderColor: errors.dateOfBirth ? '#EF4444' : '#ECEEF3', 
-                    borderRadius: 12, 
-                    paddingHorizontal: 16, 
-                    flexDirection: 'row',
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    backgroundColor: '#FFFFFF' 
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <Ionicons name="calendar-outline" size={20} color={dob ? '#102739' : '#9CA3AF'} />
-                    <Text style={{ color: dob ? '#102739' : '#9CA3AF', fontSize: 15, fontWeight: dob ? '600' : '400' }}>
-                      {dob ? (() => {
-                        const parts = dob.split('-');
-                        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dob;
-                      })() : 'Chọn ngày sinh'}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
-                </Pressable>
-                {errors.dateOfBirth ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.dateOfBirth.message}</Text> : null}
-              </View>
-
-              <VietnameseDatePickerModal
-                visible={showDatePicker}
-                onClose={() => setShowDatePicker(false)}
-                initialDate={dob}
-                title="Chọn ngày sinh"
-                onSelect={(selectedDateStr) => {
-                  setValue('dateOfBirth', selectedDateStr);
-                }}
-              />
-
-              <View>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 4, marginLeft: 4 }}>Giới tính</Text>
-                <View style={{ flexDirection: 'row', gap: 12 }}>
-                  {[
-                    { id: 'MALE', label: 'Nam', icon: 'male-outline' },
-                    { id: 'FEMALE', label: 'Nữ', icon: 'female-outline' },
-                    { id: 'OTHER', label: 'Khác', icon: 'male-female-outline' }
-                  ].map((item) => {
-                    const isSelected = gender === item.id;
-                    return (
-                      <Pressable
-                        key={item.id}
-                        onPress={() => setValue('gender', item.id as any)}
-                        style={{ 
-                          flex: 1, 
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 6,
-                          height: 56, 
-                          borderWidth: 1, 
-                          borderColor: isSelected ? '#102739' : '#ECEEF3', 
-                          borderRadius: 12, 
-                          backgroundColor: isSelected ? '#F9FAFB' : '#FFFFFF' 
-                        }}
-                      >
-                        <Ionicons name={item.icon as any} size={18} color={isSelected ? '#102739' : '#6B7280'} />
-                        <Text style={{ color: isSelected ? '#102739' : '#6B7280', fontSize: 15, fontWeight: isSelected ? '600' : '500' }}>
-                          {item.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
                 </View>
-                {errors.gender ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.gender.message}</Text> : null}
-              </View>
+              )}
+            />
+            {errors.idCardNumber ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4 }}>{errors.idCardNumber.message}</Text> : null}
+          </View>
 
-              <View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, marginLeft: 4 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280' }}>Ngày bắt đầu làm việc (Tùy chọn)</Text>
-                  {joinDate ? (
-                    <Pressable onPress={() => setValue('joinDate', '')}>
-                      <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '500' }}>Xóa / Mặc định</Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-                <Pressable 
-                  onPress={() => setShowJoinDatePicker(true)}
-                  style={{ 
-                    height: 56, 
-                    borderWidth: 1, 
-                    borderColor: errors.joinDate ? '#EF4444' : '#ECEEF3', 
-                    borderRadius: 12, 
-                    paddingHorizontal: 16, 
-                    flexDirection: 'row',
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    backgroundColor: '#FFFFFF' 
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 }}>
-                    <Ionicons name="briefcase-outline" size={20} color={joinDate ? '#102739' : '#9CA3AF'} />
-                    <Text numberOfLines={1} style={{ color: joinDate ? '#102739' : '#9CA3AF', fontSize: 15, fontWeight: joinDate ? '600' : '400' }}>
-                      {joinDate ? (() => {
-                        const parts = joinDate.split('-');
-                        return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : joinDate;
-                      })() : 'Dành cho nhân viên cũ (hoặc để trống)'}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
-                </Pressable>
-                <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4, marginLeft: 4 }}>
-                  {joinDate ? 'Thâm niên sẽ được tính từ ngày này.' : 'Nếu để trống, hệ thống sẽ tự động tính thâm niên từ ngày được duyệt tài khoản.'}
-                </Text>
-                {errors.joinDate ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 16 }}>{errors.joinDate.message}</Text> : null}
-              </View>
+          {/* Ngày sinh */}
+          <View>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A', marginBottom: 8 }}>Ngày sinh</Text>
+            <Pressable
+              onPress={() => setShowDatePicker(true)}
+              style={{
+                height: 50,
+                backgroundColor: '#FFFFFF',
+                borderWidth: 1,
+                borderColor: errors.dateOfBirth ? '#EF4444' : '#E2E8F0',
+                borderRadius: 10,
+                paddingHorizontal: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Text style={{ fontSize: 15, color: dob ? '#0F172A' : '#64748B' }}>
+                {dob ? (() => {
+                  const parts = dob.split('-');
+                  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dob;
+                })() : 'Ngày / Tháng / Năm'}
+              </Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>Chọn</Text>
+            </Pressable>
+            {errors.dateOfBirth ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4 }}>{errors.dateOfBirth.message}</Text> : null}
+          </View>
 
-              <VietnameseDatePickerModal
-                visible={showJoinDatePicker}
-                onClose={() => setShowJoinDatePicker(false)}
-                initialDate={joinDate}
-                title="Chọn ngày bắt đầu làm việc"
-                onSelect={(selectedDateStr) => {
-                  setValue('joinDate', selectedDateStr);
-                }}
-              />
-              
-              <Pressable
-                onPress={() => void submit()}
-                disabled={checking}
-                style={{
-                  backgroundColor: checking ? '#475569' : '#102739',
-                  height: 60,
-                  borderRadius: 12,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginTop: 16,
-                  flexDirection: 'row',
-                  gap: 8,
-                }}
-              >
-                {checking ? (
-                  <>
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>
-                      ĐANG KIỂM TRA...
+          <VietnameseDatePickerModal
+            visible={showDatePicker}
+            onClose={() => setShowDatePicker(false)}
+            initialDate={dob}
+            title="Chọn ngày sinh"
+            onSelect={(selectedDateStr) => {
+              setValue('dateOfBirth', selectedDateStr);
+            }}
+          />
+
+          {/* Giới tính */}
+          <View>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A', marginBottom: 8 }}>Giới tính</Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {[
+                { id: 'MALE', label: 'Nam' },
+                { id: 'FEMALE', label: 'Nữ' },
+                { id: 'OTHER', label: 'Khác' },
+              ].map((item) => {
+                const isSelected = gender === item.id;
+                return (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => setValue('gender', item.id as any)}
+                    style={{
+                      flex: 1,
+                      height: 50,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: isSelected ? '#0F2231' : '#E2E8F0',
+                      backgroundColor: isSelected ? '#F1F5F9' : '#FFFFFF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, fontWeight: isSelected ? '700' : '500', color: '#0F172A' }}>
+                      {item.label}
                     </Text>
-                  </>
-                ) : (
-                  <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
-                )}
-              </Pressable>
+                  </Pressable>
+                );
+              })}
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
+            {errors.gender ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4 }}>{errors.gender.message}</Text> : null}
+          </View>
+
+          {/* Ngày bắt đầu làm việc (Tùy chọn) */}
+          <View>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A', marginBottom: 8 }}>Ngày bắt đầu làm việc (Tùy chọn)</Text>
+            <Pressable
+              onPress={() => setShowJoinDatePicker(true)}
+              style={{
+                height: 50,
+                backgroundColor: '#FFFFFF',
+                borderWidth: 1,
+                borderColor: errors.joinDate ? '#EF4444' : '#E2E8F0',
+                borderRadius: 10,
+                paddingHorizontal: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Text style={{ fontSize: 15, color: joinDate ? '#0F172A' : '#64748B' }}>
+                {joinDate ? (() => {
+                  const parts = joinDate.split('-');
+                  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : joinDate;
+                })() : 'Ngày / Tháng / Năm'}
+              </Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>Chọn</Text>
+            </Pressable>
+            {errors.joinDate ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4, marginLeft: 4 }}>{errors.joinDate.message}</Text> : null}
+          </View>
+
+          <VietnameseDatePickerModal
+            visible={showJoinDatePicker}
+            onClose={() => setShowJoinDatePicker(false)}
+            initialDate={joinDate}
+            title="Chọn ngày bắt đầu làm việc"
+            onSelect={(selectedDateStr) => {
+              setValue('joinDate', selectedDateStr);
+            }}
+          />
+
+          {/* Tiếp tục Button */}
+          <Pressable
+            onPress={() => void submit()}
+            disabled={checking}
+            style={{
+              backgroundColor: checking ? '#475569' : '#0F2231',
+              height: 50,
+              borderRadius: 10,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: 16,
+            }}
+          >
+            {checking ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Tiếp tục</Text>
+            )}
+          </Pressable>
+        </View>
+
+        {/* Footer */}
+        <Text style={{ marginTop: 36, marginBottom: 16, fontSize: 11, fontWeight: '600', color: '#94A3B8', letterSpacing: 1.5, textAlign: 'center' }}>
+          MOVIE LEGEND  ·  ML GROUP
+        </Text>
+      </ScrollView>
     </Screen>
   );
 }
@@ -746,7 +815,7 @@ export function RegistrationDepartmentScreen() {
   const router = useRouter();
   const { values, update } = useRegistration();
   const [search, setSearch] = useState('');
-  const departments = usePublicDepartments({ search });
+  const departments = usePublicDepartments({ search: '' });
   
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
@@ -787,94 +856,322 @@ export function RegistrationDepartmentScreen() {
     ? activeDepartments.filter(dept => dept.branch?.id === selectedBranchId)
     : [];
 
+  const selectedRegion = regions.find(r => r.id === selectedRegionId);
+  const selectedBranch = branches.find(b => b.id === selectedBranchId);
+
+  const filteredRegionsBySearch = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return regions;
+    return regions.filter(r => (r.name || '').toLowerCase().includes(q));
+  }, [regions, search]);
+
+  const filteredBranchesBySearch = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return branches;
+    return branches.filter(b => (b.name || '').toLowerCase().includes(q));
+  }, [branches, search]);
+
+  const filteredDeptsBySearch = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return filteredDepartments;
+    return filteredDepartments.filter(d => (d.name || '').toLowerCase().includes(q));
+  }, [filteredDepartments, search]);
+
   const handleBack = () => {
     if (selectedBranchId) {
       setSelectedBranchId(null);
       setValue('requestedDepartmentId', '', { shouldValidate: true });
+      setSearch('');
     } else if (selectedRegionId) {
       setSelectedRegionId(null);
+      setSearch('');
     } else {
       router.back();
     }
   };
 
-  const getTitle = () => {
-    if (!selectedRegionId) return 'Chọn Miền';
-    if (!selectedBranchId) return 'Chọn Chi nhánh';
-    return 'Chọn Phòng ban';
-  };
-
   return (
-    <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-        <ScrollView
-          contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={{ marginBottom: 24, paddingTop: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Pressable onPress={handleBack} style={{ padding: 4, marginRight: 12 }}>
-                <Ionicons name="arrow-back" size={24} color="#102739" />
-              </Pressable>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#102739' }}>{getTitle()}</Text>
-            </View>
-            <StepBar currentStep={3} />
-          </View>
-
-          <SearchInput value={search} onChangeText={setSearch} placeholder="Tìm kiếm..." />
-          <View style={{ height: 16 }} />
-
-          {departments.isLoading ? <LoadingState /> : null}
-          {departments.isError ? <ErrorState error={departments.error} onRetry={() => void departments.refetch()} /> : null}
-          {!departments.isLoading && !activeDepartments.length ? <EmptyState title="Không có dữ liệu khả dụng" /> : null}
-          
-          <View style={{ gap: 12 }}>
-            {!selectedRegionId && regions.map(region => (
-              <Pressable 
-                key={region.id} 
-                onPress={() => setSelectedRegionId(region.id)}
-                style={{ backgroundColor: '#FFFFFF', borderColor: '#ECEEF3', borderRadius: 12, borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-              >
-                <Text style={{ color: '#102739', fontSize: 16, fontWeight: '700' }}>{region.name}</Text>
-                <Ionicons name="chevron-forward" size={24} color="#CBD5E1" />
-              </Pressable>
-            ))}
-
-            {selectedRegionId && !selectedBranchId && branches.map(branch => (
-              <Pressable 
-                key={branch.id} 
-                onPress={() => setSelectedBranchId(branch.id)}
-                style={{ backgroundColor: '#FFFFFF', borderColor: '#ECEEF3', borderRadius: 12, borderWidth: 1, padding: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-              >
-                <Text style={{ color: '#102739', fontSize: 16, fontWeight: '700' }}>{branch.name}</Text>
-                <Ionicons name="chevron-forward" size={24} color="#CBD5E1" />
-              </Pressable>
-            ))}
-
-            {selectedBranchId && filteredDepartments.map((department) => (
-              <DepartmentOption 
-                key={department.id} 
-                department={department} 
-                selected={selectedId === department.id} 
-                onPress={() => setValue('requestedDepartmentId', department.id, { shouldValidate: true })} 
-              />
-            ))}
-          </View>
-          
-          {errors.requestedDepartmentId ? <Text style={{ color: '#EF4444', fontSize: 13, marginTop: 12 }}>{errors.requestedDepartmentId.message}</Text> : null}
-        </ScrollView>
-        
-        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
-           <Pressable 
-             onPress={() => void submit()} 
-             disabled={!selectedId}
-             style={{ backgroundColor: !selectedId ? '#9CA3AF' : '#102739', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>TIẾP TỤC</Text>
-            </Pressable>
+    <Screen backgroundColor="#F8FAFC" withBottomInset={true}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingTop: 12,
+          paddingBottom: 28,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header Branding */}
+        <View style={{ alignItems: 'center', width: '100%', marginBottom: 12 }}>
+          <Image
+            source={require('../../../assets/ml-logo-only.png')}
+            style={{ width: 92, height: 40, marginBottom: 8 }}
+            resizeMode="contain"
+          />
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A', letterSpacing: 2, textAlign: 'center' }}>
+            MOVIE LEGEND
+          </Text>
+          <View style={{ width: '100%', height: 1, backgroundColor: '#E2E8F0', marginTop: 22 }} />
         </View>
-      </View>
+
+        {/* Back button */}
+        <Pressable onPress={handleBack} hitSlop={10} style={{ alignSelf: 'flex-start', marginVertical: 12 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A' }}>Quay lại</Text>
+        </Pressable>
+
+        {/* SUB-STAGE 1: CHỌN MIỀN */}
+        {!selectedRegionId && (
+          <View>
+            <View style={{ alignSelf: 'center', backgroundColor: '#E8EFF5', paddingHorizontal: 16, paddingVertical: 4, borderRadius: 20, marginBottom: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '500', color: '#25507B' }}>Bước 3 / 4</Text>
+            </View>
+            <Text style={{ fontSize: 28, fontWeight: '800', color: '#0F172A', textAlign: 'center' }}>
+              Chọn miền
+            </Text>
+            <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center', marginTop: 4, marginBottom: 4 }}>
+              Chọn khu vực làm việc của bạn.
+            </Text>
+
+            <StepBar currentStep={3} />
+
+            <View style={{ height: 48, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center', marginBottom: 14 }}>
+              <TextInput
+                placeholder="Tìm miền..."
+                placeholderTextColor="#94A3B8"
+                value={search}
+                onChangeText={setSearch}
+                style={{ fontSize: 14, color: '#0F172A', paddingVertical: 0 }}
+              />
+            </View>
+
+            <View style={{ gap: 10 }}>
+              {filteredRegionsBySearch.map((region) => (
+                <Pressable
+                  key={region.id}
+                  onPress={() => {
+                    setSelectedRegionId(region.id);
+                    setSearch('');
+                  }}
+                  style={{
+                    height: 54,
+                    backgroundColor: '#FFFFFF',
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                    borderRadius: 10,
+                    paddingHorizontal: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>{region.name}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#0284C7' }}>Chọn</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={{ marginTop: 24 }}>
+              <Pressable
+                disabled={true}
+                style={{
+                  backgroundColor: '#9BA7B6',
+                  height: 50,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Tiếp tục</Text>
+              </Pressable>
+              <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginTop: 8 }}>
+                Chọn miền để tiếp tục.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* SUB-STAGE 2: CHỌN CHI NHÁNH */}
+        {selectedRegionId && !selectedBranchId && (
+          <View>
+            <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 4 }}>
+              Bước 3 / 4
+            </Text>
+            <Text style={{ fontSize: 28, fontWeight: '800', color: '#0F172A', textAlign: 'center' }}>
+              Chọn chi nhánh
+            </Text>
+
+            <View style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#E8EFF5', paddingHorizontal: 14, paddingVertical: 4, borderRadius: 20, marginTop: 8, marginBottom: 6 }}>
+              <Text style={{ fontSize: 13, fontWeight: '500', color: '#25507B' }}>{selectedRegion?.name}</Text>
+              <Pressable onPress={() => { setSelectedRegionId(null); setSearch(''); }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#0284C7' }}>Đổi</Text>
+              </Pressable>
+            </View>
+
+            <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 4 }}>
+              Chọn chi nhánh làm việc của bạn.
+            </Text>
+
+            <StepBar currentStep={3} />
+
+            <View style={{ height: 48, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center', marginBottom: 14 }}>
+              <TextInput
+                placeholder="Tìm chi nhánh..."
+                placeholderTextColor="#94A3B8"
+                value={search}
+                onChangeText={setSearch}
+                style={{ fontSize: 14, color: '#0F172A', paddingVertical: 0 }}
+              />
+            </View>
+
+            <View style={{ gap: 10 }}>
+              {filteredBranchesBySearch.map((branch) => (
+                <Pressable
+                  key={branch.id}
+                  onPress={() => {
+                    setSelectedBranchId(branch.id);
+                    setSearch('');
+                  }}
+                  style={{
+                    padding: 14,
+                    backgroundColor: '#FFFFFF',
+                    borderWidth: 1,
+                    borderColor: '#E2E8F0',
+                    borderRadius: 10,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <View>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>{branch.name}</Text>
+                    <Text style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>{selectedRegion?.name}</Text>
+                  </View>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#0284C7' }}>Chọn</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={{ marginTop: 24 }}>
+              <Pressable
+                disabled={true}
+                style={{
+                  backgroundColor: '#9BA7B6',
+                  height: 50,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Tiếp tục</Text>
+              </Pressable>
+              <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginTop: 8 }}>
+                Chọn chi nhánh để tiếp tục.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* SUB-STAGE 3: CHỌN PHÒNG BAN */}
+        {selectedBranchId && (
+          <View>
+            <StepBar currentStep={3} />
+
+            <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center', marginTop: 4 }}>
+              Bước 3 / 4
+            </Text>
+            <Text style={{ fontSize: 28, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginTop: 4, marginBottom: 14 }}>
+              Chọn phòng ban
+            </Text>
+
+            {/* Selected Summary Card */}
+            <View style={{ borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF', padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <View>
+                <Text style={{ fontSize: 12, color: '#64748B' }}>{selectedRegion?.name}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', marginTop: 2 }}>{selectedBranch?.name}</Text>
+              </View>
+              <Pressable onPress={() => { setSelectedBranchId(null); setSearch(''); }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#0284C7' }}>Đổi</Text>
+              </Pressable>
+            </View>
+
+            {/* Search */}
+            <View style={{ height: 48, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center', marginBottom: 14 }}>
+              <TextInput
+                placeholder="Tìm phòng ban..."
+                placeholderTextColor="#94A3B8"
+                value={search}
+                onChangeText={setSearch}
+                style={{ fontSize: 14, color: '#0F172A', paddingVertical: 0 }}
+              />
+            </View>
+
+            {/* Departments Card List */}
+            <View style={{ borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+              {filteredDeptsBySearch.map((dept, idx) => {
+                const isSelected = selectedId === dept.id;
+                return (
+                  <View key={dept.id}>
+                    <Pressable
+                      onPress={() => setValue('requestedDepartmentId', dept.id, { shouldValidate: true })}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingHorizontal: 16,
+                        paddingVertical: 14,
+                        backgroundColor: isSelected ? '#F8FAFC' : '#FFFFFF',
+                      }}
+                    >
+                      <View style={{ flex: 1, marginRight: 12 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>{dept.name}</Text>
+                        <Text style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>{dept.description || dept.name}</Text>
+                      </View>
+                      <Text style={{ fontSize: 14, fontWeight: isSelected ? '700' : '600', color: isSelected ? '#0F2231' : '#0284C7' }}>
+                        {isSelected ? 'Đã chọn' : 'Chọn'}
+                      </Text>
+                    </Pressable>
+                    {idx < filteredDeptsBySearch.length - 1 && (
+                      <View style={{ width: '100%', height: 1, backgroundColor: '#F1F5F9' }} />
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+
+            {errors.requestedDepartmentId ? (
+              <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 6, marginLeft: 4 }}>
+                {errors.requestedDepartmentId.message}
+              </Text>
+            ) : null}
+
+            {/* Button */}
+            <View style={{ marginTop: 24 }}>
+              <Pressable
+                disabled={!selectedId}
+                onPress={() => void submit()}
+                style={{
+                  backgroundColor: selectedId ? '#0F2231' : '#9BA7B6',
+                  height: 50,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Tiếp tục</Text>
+              </Pressable>
+              <Text style={{ fontSize: 13, color: '#64748B', textAlign: 'center', marginTop: 8 }}>
+                Chọn phòng ban để tiếp tục.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Footer */}
+        <Text style={{ marginTop: 36, marginBottom: 16, fontSize: 11, fontWeight: '600', color: '#94A3B8', letterSpacing: 1.5, textAlign: 'center' }}>
+          MOVIE LEGEND  ·  ML GROUP
+        </Text>
+      </ScrollView>
     </Screen>
   );
 }
@@ -1118,72 +1415,123 @@ export function RegistrationReviewScreen() {
     }
   }
   return (
-    <Screen>
-      <View style={{ flex: 1, backgroundColor: '#FAFBFC' }}>
-        <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View style={{ marginBottom: 24, paddingTop: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Pressable onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
-                <Ionicons name="arrow-back" size={24} color="#102739" />
-              </Pressable>
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#102739' }}>Kiểm tra & Gửi</Text>
+    <Screen backgroundColor="#F8FAFC" withBottomInset={true}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingTop: 12,
+          paddingBottom: 28,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header Branding */}
+        <View style={{ alignItems: 'center', width: '100%', marginBottom: 12 }}>
+          <Image
+            source={require('../../../assets/ml-logo-only.png')}
+            style={{ width: 92, height: 40, marginBottom: 8 }}
+            resizeMode="contain"
+          />
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A', letterSpacing: 2, textAlign: 'center' }}>
+            MOVIE LEGEND
+          </Text>
+          <View style={{ width: '100%', height: 1, backgroundColor: '#E2E8F0', marginTop: 22 }} />
+        </View>
+
+        {/* Back button */}
+        <Pressable onPress={() => router.back()} hitSlop={10} style={{ alignSelf: 'flex-start', marginVertical: 12 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#0F172A' }}>Quay lại</Text>
+        </Pressable>
+
+        {/* Title & Step */}
+        <Text style={{ fontSize: 28, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginTop: 4 }}>
+          Kiểm tra và gửi
+        </Text>
+        <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center', marginTop: 4, marginBottom: 4 }}>
+          Bước 4 / 4
+        </Text>
+
+        <StepBar currentStep={4} />
+
+        {/* Info Cards */}
+        <View style={{ gap: 14 }}>
+          <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, padding: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <Ionicons name="person-outline" size={18} color="#0F172A" />
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>Tài khoản</Text>
             </View>
-            <StepBar currentStep={4} />
+            <Text style={{ fontSize: 14, color: '#475569', marginBottom: 6 }}><Text style={{ fontWeight: '600', color: '#0F172A' }}>Họ tên:</Text> {values.fullName}</Text>
+            <Text style={{ fontSize: 14, color: '#475569', marginBottom: 6 }}><Text style={{ fontWeight: '600', color: '#0F172A' }}>SĐT:</Text> {values.phone}</Text>
+            <Text style={{ fontSize: 14, color: '#475569' }}><Text style={{ fontWeight: '600', color: '#0F172A' }}>Email:</Text> {values.email || 'Không có email'}</Text>
           </View>
 
-          <View style={{ borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <Ionicons name="person-outline" size={20} color="#102739" />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#102739' }}>Tài khoản</Text>
+          <View style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, padding: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <Ionicons name="document-text-outline" size={18} color="#0F172A" />
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>Hồ sơ</Text>
             </View>
-            <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}><Text style={{ fontWeight: '600' }}>Họ tên:</Text> {values.fullName}</Text>
-            <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}><Text style={{ fontWeight: '600' }}>SĐT:</Text> {values.phone}</Text>
-            <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Email:</Text> {values.email || 'Không có email'}</Text>
-          </View>
-          
-          <View style={{ borderWidth: 1, borderColor: '#ECEEF3', borderRadius: 12, padding: 20, marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <Ionicons name="document-text-outline" size={20} color="#102739" />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: '#102739' }}>Hồ sơ</Text>
-            </View>
-            <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}><Text style={{ fontWeight: '600' }}>CCCD:</Text> ********{values.idCardNumber.slice(-4)}</Text>
+            <Text style={{ fontSize: 14, color: '#475569', marginBottom: 6 }}><Text style={{ fontWeight: '600', color: '#0F172A' }}>CCCD:</Text> ********{values.idCardNumber.slice(-4)}</Text>
             {values.dateOfBirth ? (
-              <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
-                <Text style={{ fontWeight: '600' }}>Ngày sinh:</Text> {(() => {
+              <Text style={{ fontSize: 14, color: '#475569', marginBottom: 6 }}>
+                <Text style={{ fontWeight: '600', color: '#0F172A' }}>Ngày sinh:</Text> {(() => {
                   const parts = values.dateOfBirth.split('-');
                   return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : values.dateOfBirth;
                 })()}
               </Text>
             ) : null}
             {values.gender ? (
-              <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
-                <Text style={{ fontWeight: '600' }}>Giới tính:</Text> {values.gender === 'MALE' ? 'Nam' : values.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
+              <Text style={{ fontSize: 14, color: '#475569', marginBottom: 6 }}>
+                <Text style={{ fontWeight: '600', color: '#0F172A' }}>Giới tính:</Text> {values.gender === 'MALE' ? 'Nam' : values.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
               </Text>
             ) : null}
-            <Text style={{ fontSize: 14, color: '#374151', marginBottom: 8 }}>
-              <Text style={{ fontWeight: '600' }}>Ngày vào làm:</Text>{' '}
+            <Text style={{ fontSize: 14, color: '#475569', marginBottom: 6 }}>
+              <Text style={{ fontWeight: '600', color: '#0F172A' }}>Ngày vào làm:</Text>{' '}
               {values.joinDate ? (() => {
                 const parts = values.joinDate.split('-');
                 return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : values.joinDate;
               })() : 'Tự động tính từ ngày duyệt tài khoản'}
             </Text>
-            <Text style={{ fontSize: 14, color: '#374151' }}><Text style={{ fontWeight: '600' }}>Phòng ban ứng tuyển:</Text> {selectedDept?.name || values.requestedDepartmentId || 'Chưa chọn'}</Text>
+            <Text style={{ fontSize: 14, color: '#475569' }}>
+              <Text style={{ fontWeight: '600', color: '#0F172A' }}>Phòng ban:</Text> {selectedDept?.name || values.requestedDepartmentId || 'Chưa chọn'}
+            </Text>
           </View>
-          
+
           {mutation.error ? (
-             <View style={{ backgroundColor: '#FEF2F2', padding: 12, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="alert-circle" size={20} color="#EF4444" />
-                <Text style={{ color: '#EF4444', fontSize: 13, flex: 1 }}>{registrationErrorMessage(mutation.error)}</Text>
-              </View>
+            <View style={{ backgroundColor: '#FEF2F2', padding: 12, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#FEE2E2' }}>
+              <Ionicons name="alert-circle" size={18} color="#EF4444" />
+              <Text style={{ color: '#EF4444', fontSize: 13, flex: 1, fontWeight: '500' }}>
+                {registrationErrorMessage(mutation.error)}
+              </Text>
+            </View>
           ) : null}
-        </ScrollView>
-        
-        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
-           <Pressable disabled={!canSubmit || mutation.isPending} onPress={() => void submit()} style={{ backgroundColor: (!canSubmit || mutation.isPending) ? '#9CA3AF' : '#102739', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '700' }}>{mutation.isPending ? 'ĐANG GỬI...' : 'GỬI ĐĂNG KÝ'}</Text>
-            </Pressable>
+
+          {/* Button */}
+          <Pressable
+            disabled={!canSubmit || mutation.isPending}
+            onPress={() => void submit()}
+            style={{
+              backgroundColor: (!canSubmit || mutation.isPending) ? '#9BA7B6' : '#0F2231',
+              height: 50,
+              borderRadius: 10,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: 10,
+            }}
+          >
+            {mutation.isPending ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>Gửi đăng ký</Text>
+            )}
+          </Pressable>
         </View>
-      </View>
+
+        {/* Footer */}
+        <Text style={{ marginTop: 36, marginBottom: 16, fontSize: 11, fontWeight: '600', color: '#94A3B8', letterSpacing: 1.5, textAlign: 'center' }}>
+          MOVIE LEGEND  ·  ML GROUP
+        </Text>
+      </ScrollView>
     </Screen>
   );
 }
@@ -1258,11 +1606,10 @@ function uploadErrorMessage(error: unknown): string {
 
 function StepBar({ currentStep, totalSteps = 4 }: { currentStep: number; totalSteps?: number }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6, width: '100%' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 14, gap: 8, width: '100%' }}>
       {Array.from({ length: totalSteps }).map((_, index) => {
         const step = index + 1;
-        const isActive = step === currentStep;
-        const isCompleted = step < currentStep;
+        const isActive = step <= currentStep;
         return (
           <View 
             key={step} 
@@ -1270,7 +1617,7 @@ function StepBar({ currentStep, totalSteps = 4 }: { currentStep: number; totalSt
               flex: 1, 
               height: 4, 
               borderRadius: 2, 
-              backgroundColor: isActive || isCompleted ? '#102739' : '#E5E7EB' 
+              backgroundColor: isActive ? '#0F2231' : '#E2E8F0' 
             }} 
           />
         );
