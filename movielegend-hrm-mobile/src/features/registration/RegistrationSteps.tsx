@@ -74,122 +74,115 @@ export function RegistrationIntroScreen() {
   ];
 
   return (
-    <Screen unsafe={true}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFBFC' }} edges={['top', 'bottom', 'left', 'right']}>
-        <ScrollView
-          contentContainerStyle={{
-            flexGrow: 1,
-            paddingHorizontal: 24,
-            paddingTop: 16,
-            paddingBottom: 32,
-            alignItems: 'center',
+    <Screen backgroundColor="#F8FAFC" withBottomInset={true}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingTop: 12,
+          paddingBottom: 28,
+          alignItems: 'center',
+        }}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* Header Branding */}
+        <View style={{ alignItems: 'center', width: '100%', marginBottom: 20 }}>
+          <Image
+            source={require('../../../assets/ml-logo-only.png')}
+            style={{ width: 92, height: 40, marginBottom: 8 }}
+            resizeMode="contain"
+          />
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A', letterSpacing: 2, textAlign: 'center' }}>
+            MOVIE LEGEND
+          </Text>
+          <View style={{ width: '100%', height: 1, backgroundColor: '#E2E8F0', marginTop: 22, marginBottom: 8 }} />
+        </View>
+
+        {/* Pill Badge */}
+        <View style={{ backgroundColor: '#E8EFF5', paddingHorizontal: 16, paddingVertical: 5, borderRadius: 20, marginBottom: 14 }}>
+          <Text style={{ fontSize: 13, fontWeight: '500', color: '#25507B' }}>
+            Dành cho thành viên mới
+          </Text>
+        </View>
+
+        {/* Heading */}
+        <Text style={{ fontSize: 32, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 8 }}>
+          Tạo tài khoản
+        </Text>
+        <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
+          Hoàn tất đăng ký qua 4 bước đơn giản.
+        </Text>
+
+        {/* Steps Card */}
+        <View
+          style={{
+            width: '100%',
+            backgroundColor: '#FFFFFF',
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: '#E2E8F0',
+            paddingHorizontal: 20,
+            paddingVertical: 4,
           }}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
         >
-          {/* Header Branding */}
-          <View style={{ alignItems: 'center', width: '100%', marginBottom: 16 }}>
-            <Image
-              source={require('../../../assets/ml-logo-only.png')}
-              style={{ width: 110, height: 48, marginBottom: 6 }}
-              resizeMode="contain"
-            />
-            <Text style={{ fontSize: 18, fontWeight: '900', color: '#0F172A', letterSpacing: 2, textAlign: 'center' }}>
-              MOVIE LEGEND
-            </Text>
-            <View style={{ width: '100%', height: 1, backgroundColor: '#E2E8F0', marginTop: 18 }} />
-          </View>
-
-          {/* Pill Badge */}
-          <View style={{ backgroundColor: '#E0EDF8', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, marginBottom: 12 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1E40AF' }}>
-              Dành cho thành viên mới
-            </Text>
-          </View>
-
-          {/* Heading */}
-          <Text style={{ fontSize: 32, fontWeight: '900', color: '#0F172A', textAlign: 'center', marginBottom: 6 }}>
-            Tạo tài khoản
-          </Text>
-          <Text style={{ fontSize: 14, color: '#64748B', textAlign: 'center', marginBottom: 24, fontWeight: '400' }}>
-            Hoàn tất đăng ký qua 4 bước đơn giản.
-          </Text>
-
-          {/* Steps Card */}
-          <View
-            style={{
-              width: '100%',
-              backgroundColor: '#FFFFFF',
-              borderRadius: 16,
-              borderWidth: 1,
-              borderColor: '#F1F5F9',
-              paddingHorizontal: 20,
-              paddingVertical: 18,
-              marginBottom: 24,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.04,
-              shadowRadius: 8,
-              elevation: 2,
-            }}
-          >
-            {steps.map((s, idx) => (
-              <View key={s.num}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#0F172A', width: 36, marginTop: 1 }}>
-                    {s.num}
+          {steps.map((s, idx) => (
+            <View key={s.num}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 14 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A', width: 34, marginTop: 1 }}>
+                  {s.num}
+                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#0F172A' }}>
+                    {s.title}
                   </Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#0F172A' }}>
-                      {s.title}
-                    </Text>
-                    <Text style={{ fontSize: 13, color: '#64748B', marginTop: 3 }}>
-                      {s.desc}
-                    </Text>
-                  </View>
+                  <Text style={{ fontSize: 13, color: '#64748B', marginTop: 3 }}>
+                    {s.desc}
+                  </Text>
                 </View>
-                {idx < steps.length - 1 && (
-                  <View style={{ width: '100%', height: 1, backgroundColor: '#F1F5F9' }} />
-                )}
               </View>
-            ))}
-          </View>
+              {idx < steps.length - 1 && (
+                <View style={{ width: '100%', height: 1, backgroundColor: '#F1F5F9' }} />
+              )}
+            </View>
+          ))}
+        </View>
 
-          {/* Primary Button */}
-          <Pressable
-            onPress={() => router.push('/register/account')}
-            style={{
-              width: '100%',
-              backgroundColor: '#0F172A',
-              height: 52,
-              borderRadius: 12,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
-              Bắt đầu đăng ký
+        {/* Primary Button */}
+        <Pressable
+          onPress={() => router.push('/register/account')}
+          style={{
+            width: '100%',
+            backgroundColor: '#0F2231',
+            height: 50,
+            borderRadius: 10,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 24,
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>
+            Bắt đầu đăng ký
+          </Text>
+        </Pressable>
+
+        {/* Has account link */}
+        <View style={{ flexDirection: 'row', marginTop: 20, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 14, color: '#64748B', fontWeight: '400' }}>
+            Đã có tài khoản?{' '}
+          </Text>
+          <Pressable onPress={() => router.replace('/login')} hitSlop={8}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F2231' }}>
+              Đăng nhập.
             </Text>
           </Pressable>
+        </View>
 
-          {/* Has account link */}
-          <View style={{ flexDirection: 'row', marginTop: 20, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontSize: 14, color: '#64748B', fontWeight: '400' }}>
-              Đã có tài khoản?{' '}
-            </Text>
-            <Pressable onPress={() => router.replace('/login')} hitSlop={8}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>
-                Đăng nhập.
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Footer */}
-          <Text style={{ marginTop: 36, marginBottom: 8, fontSize: 11, fontWeight: '600', color: '#94A3B8', letterSpacing: 2, textAlign: 'center' }}>
-            MOVIE LEGEND  ·  ML GROUP
-          </Text>
-        </ScrollView>
-      </SafeAreaView>
+        {/* Footer */}
+        <Text style={{ marginTop: 36, marginBottom: 16, fontSize: 11, fontWeight: '600', color: '#94A3B8', letterSpacing: 1.5, textAlign: 'center' }}>
+          MOVIE LEGEND  ·  ML GROUP
+        </Text>
+      </ScrollView>
     </Screen>
   );
 }
@@ -410,7 +403,7 @@ export function RegistrationAccountScreen() {
               />
               
               <Pressable
-                onPress={submit}
+                onPress={() => void submit()}
                 disabled={checking}
                 style={{
                   backgroundColor: checking ? '#475569' : '#0F172A',
@@ -715,7 +708,7 @@ export function RegistrationPersonalScreen() {
               />
               
               <Pressable
-                onPress={submit}
+                onPress={() => void submit()}
                 disabled={checking}
                 style={{
                   backgroundColor: checking ? '#475569' : '#102739',
@@ -874,7 +867,7 @@ export function RegistrationDepartmentScreen() {
         
         <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', padding: 24, borderTopWidth: 1, borderTopColor: '#ECEEF3' }}>
            <Pressable 
-             onPress={submit} 
+             onPress={() => void submit()} 
              disabled={!selectedId}
              style={{ backgroundColor: !selectedId ? '#9CA3AF' : '#102739', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
             >
