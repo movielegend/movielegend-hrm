@@ -253,6 +253,18 @@ export function HRProfileScreen() {
                 <Text style={styles.utilityTitle}>Chấm công</Text>
                 <Text style={styles.utilitySubtitle}>Lịch sử</Text>
               </Pressable>
+
+              {/* Đơn của tôi */}
+              <Pressable
+                style={styles.utilityCard}
+                onPress={() => router.push('/employee/requests' as any)}
+              >
+                <View style={styles.utilityIconWrap}>
+                  <Ionicons name="document-text-outline" size={24} color="#0F172A" />
+                </View>
+                <Text style={styles.utilityTitle}>Đơn từ</Text>
+                <Text style={styles.utilitySubtitle}>Cá nhân</Text>
+              </Pressable>
             </View>
           </View>
 

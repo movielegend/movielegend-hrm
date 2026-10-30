@@ -55,6 +55,7 @@ export function ApprovalMenuScreen() {
     Boolean((user as any)?.isDepartmentLeader);
 
   const isFinancialReviewer = isAccountantOrAdmin || isHr || isLeader;
+  const isAccountantOnly = isAccountantOrAdmin && !isAdmin && !isHr;
 
   // 1. Pending Employee Requests
   const { data: pendingRequests = [] } = useQuery({
@@ -117,9 +118,9 @@ export function ApprovalMenuScreen() {
 
   // Total
   const totalPendingAll =
-    pendingGeneralRequestsCount +
-    pendingAccountsCount +
-    pendingCrossDeptCount +
+    (isAccountantOnly ? 0 : pendingGeneralRequestsCount) +
+    (isAccountantOnly ? 0 : pendingAccountsCount) +
+    (isAccountantOnly ? 0 : pendingCrossDeptCount) +
     (isFinancialReviewer ? pendingFinancialCount : 0) +
     (canReviewOt ? pendingOtCount : 0);
 
@@ -138,7 +139,7 @@ export function ApprovalMenuScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#102739" translucent={false} />
+      <StatusBar barStyle="light-content" />
 
       {/* 1. Header (Dark Navy #102739 with subtle wave in top-right) */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 4 }]}>
@@ -221,99 +222,105 @@ export function ApprovalMenuScreen() {
           {/* Navigation Cards List */}
           <View style={styles.menuList}>
             {/* Item 1: Duyệt yêu cầu */}
-            <Pressable
-              style={styles.menuCard}
-              onPress={() => router.push(`${roleBase(user)}/employee-requests` as any)}
-              android_ripple={{ color: '#F1F5F9' }}
-            >
-              <View style={styles.iconCircle}>
-                <MaterialCommunityIcons
-                  name="file-document-outline"
-                  size={24}
-                  color="#102739"
-                />
-              </View>
-              <View style={styles.menuCardInfo}>
-                <Text style={styles.menuCardTitle}>Duyệt yêu cầu</Text>
-                <Text style={styles.menuCardSubtitle}>
-                  Nghỉ phép, giải trình công, đi muộn về sớm
-                </Text>
-              </View>
-              <View style={styles.menuCardRight}>
-                {pendingGeneralRequestsCount > 0 && (
-                  <View style={styles.countBadge}>
-                    <Text style={styles.countBadgeText}>
-                      {pendingGeneralRequestsCount > 99 ? '99+' : pendingGeneralRequestsCount}
-                    </Text>
-                  </View>
-                )}
-                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-              </View>
-            </Pressable>
+            {!isAccountantOnly && (
+              <Pressable
+                style={styles.menuCard}
+                onPress={() => router.push(`${roleBase(user)}/employee-requests` as any)}
+                android_ripple={{ color: '#F1F5F9' }}
+              >
+                <View style={styles.iconCircle}>
+                  <MaterialCommunityIcons
+                    name="file-document-outline"
+                    size={24}
+                    color="#102739"
+                  />
+                </View>
+                <View style={styles.menuCardInfo}>
+                  <Text style={styles.menuCardTitle}>Duyệt yêu cầu</Text>
+                  <Text style={styles.menuCardSubtitle}>
+                    Nghỉ phép, giải trình công, đi muộn về sớm
+                  </Text>
+                </View>
+                <View style={styles.menuCardRight}>
+                  {pendingGeneralRequestsCount > 0 && (
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>
+                        {pendingGeneralRequestsCount > 99 ? '99+' : pendingGeneralRequestsCount}
+                      </Text>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                </View>
+              </Pressable>
+            )}
 
             {/* Item 2: Duyệt tài khoản */}
-            <Pressable
-              style={styles.menuCard}
-              onPress={() =>
-                router.push(`${roleBase(user)}/approvals/account` as any)
-              }
-              android_ripple={{ color: '#F1F5F9' }}
-            >
-              <View style={styles.iconCircle}>
-                <MaterialCommunityIcons
-                  name="account-group-outline"
-                  size={24}
-                  color="#102739"
-                />
-              </View>
-              <View style={styles.menuCardInfo}>
-                <Text style={styles.menuCardTitle}>Duyệt tài khoản</Text>
-                <Text style={styles.menuCardSubtitle}>
-                  Xét duyệt đăng ký nhân viên mới
-                </Text>
-              </View>
-              <View style={styles.menuCardRight}>
-                {pendingAccountsCount > 0 && (
-                  <View style={styles.countBadge}>
-                    <Text style={styles.countBadgeText}>
-                      {pendingAccountsCount > 99 ? '99+' : pendingAccountsCount}
-                    </Text>
-                  </View>
-                )}
-                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-              </View>
-            </Pressable>
+            {!isAccountantOnly && (
+              <Pressable
+                style={styles.menuCard}
+                onPress={() =>
+                  router.push(`${roleBase(user)}/approvals/account` as any)
+                }
+                android_ripple={{ color: '#F1F5F9' }}
+              >
+                <View style={styles.iconCircle}>
+                  <MaterialCommunityIcons
+                    name="account-group-outline"
+                    size={24}
+                    color="#102739"
+                  />
+                </View>
+                <View style={styles.menuCardInfo}>
+                  <Text style={styles.menuCardTitle}>Duyệt tài khoản</Text>
+                  <Text style={styles.menuCardSubtitle}>
+                    Xét duyệt đăng ký nhân viên mới
+                  </Text>
+                </View>
+                <View style={styles.menuCardRight}>
+                  {pendingAccountsCount > 0 && (
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>
+                        {pendingAccountsCount > 99 ? '99+' : pendingAccountsCount}
+                      </Text>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                </View>
+              </Pressable>
+            )}
 
             {/* Item 3: Liên phòng ban */}
-            <Pressable
-              style={styles.menuCard}
-              onPress={() => router.push(`${roleBase(user)}/cross-department` as any)}
-              android_ripple={{ color: '#F1F5F9' }}
-            >
-              <View style={styles.iconCircle}>
-                <MaterialCommunityIcons
-                  name="share-variant-outline"
-                  size={24}
-                  color="#102739"
-                />
-              </View>
-              <View style={styles.menuCardInfo}>
-                <Text style={styles.menuCardTitle}>Liên phòng ban</Text>
-                <Text style={styles.menuCardSubtitle}>
-                  Theo dõi luân chuyển và phối hợp
-                </Text>
-              </View>
-              <View style={styles.menuCardRight}>
-                {pendingCrossDeptCount > 0 && (
-                  <View style={styles.countBadge}>
-                    <Text style={styles.countBadgeText}>
-                      {pendingCrossDeptCount > 99 ? '99+' : pendingCrossDeptCount}
-                    </Text>
-                  </View>
-                )}
-                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-              </View>
-            </Pressable>
+            {!isAccountantOnly && (
+              <Pressable
+                style={styles.menuCard}
+                onPress={() => router.push(`${roleBase(user)}/cross-department` as any)}
+                android_ripple={{ color: '#F1F5F9' }}
+              >
+                <View style={styles.iconCircle}>
+                  <MaterialCommunityIcons
+                    name="share-variant-outline"
+                    size={24}
+                    color="#102739"
+                  />
+                </View>
+                <View style={styles.menuCardInfo}>
+                  <Text style={styles.menuCardTitle}>Liên phòng ban</Text>
+                  <Text style={styles.menuCardSubtitle}>
+                    Theo dõi luân chuyển và phối hợp
+                  </Text>
+                </View>
+                <View style={styles.menuCardRight}>
+                  {pendingCrossDeptCount > 0 && (
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>
+                        {pendingCrossDeptCount > 99 ? '99+' : pendingCrossDeptCount}
+                      </Text>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                </View>
+              </Pressable>
+            )}
 
             {/* Item 4: Duyệt tài chính & Mua sắm (Accountant, Admin, HR) */}
             {isFinancialReviewer && (

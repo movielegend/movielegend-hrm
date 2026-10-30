@@ -18,7 +18,7 @@ export default function HREmployeeRequestListRoute() {
     Boolean(user?.department?.name?.toLowerCase().includes('kế toán'));
 
   if (isAcct && !isAdmin && !isHr) {
-    return <Redirect href="/hr/financial-requests" />;
+    return <Redirect href="/employee/requests" />;
   }
 
   return <LeaderRequestsScreen />;

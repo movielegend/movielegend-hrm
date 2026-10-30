@@ -581,7 +581,30 @@ export function isAppAllowedForRole(
   return false;
 }
 
-export function getAppRoute(item: AppRegistryItem, role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN'): string | null {
+export function getAppRoute(
+  item: AppRegistryItem,
+  role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN',
+  user?: any,
+): string | null {
+  // Đối với Kế toán viên: dịch vụ "Đơn từ" (requests) luôn mở màn hình cá nhân "Đơn của tôi" (/employee/requests) để tạo đơn và theo dõi đơn cá nhân
+  if (item.key === 'requests' && role === 'HR' && user) {
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    const roles = roleList.map((r: any) =>
+      String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+    );
+    const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+    const isHr = roles.includes('HR') || roles.includes('HUMAN_RESOURCE');
+    const isAcct =
+      roles.includes('ACCOUNTANT') ||
+      roles.some((r: any) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('KT') || r.includes('KETOAN')) ||
+      Boolean(user?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean(user?.department?.name?.toLowerCase().includes('kế toán'));
+    if (isAcct && !isAdmin && !isHr) {
+      return '/employee/requests';
+    }
+  }
+
   if (role === 'HR') return item.hrRoute || (item.employeeRoute ? item.employeeRoute : null);
   if (role === 'LEADER') return item.leaderRoute || (item.employeeRoute ? item.employeeRoute : null);
   if (role === 'EMPLOYEE') return item.employeeRoute || null;
@@ -593,6 +616,23 @@ export function getAppTitle(
   role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN',
   user?: any
 ): string {
+  if (item.key === 'requests' && role === 'HR' && user) {
+    const rawRoles = user?.roles || [];
+    const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+    const roles = roleList.map((r: any) =>
+      String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase()
+    );
+    const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+    const isHr = roles.includes('HR') || roles.includes('HUMAN_RESOURCE');
+    const isAcct =
+      roles.includes('ACCOUNTANT') ||
+      roles.some((r: any) => r.startsWith('ACCOUNTANT') || r.includes('ACCOUNTANT') || r.includes('KT') || r.includes('KETOAN')) ||
+      Boolean(user?.position?.name?.toLowerCase().includes('kế toán')) ||
+      Boolean(user?.department?.name?.toLowerCase().includes('kế toán'));
+    if (isAcct && !isAdmin && !isHr) {
+      return 'Đơn từ';
+    }
+  }
   if (item.key === 'tasks' && role === 'HR' && user) {
     const isChiefAccountant = isAccountingLeader(user);
     const isAcct =
