@@ -38,7 +38,6 @@ import {
   Plus,
   Crown,
   Coins,
-  FileSpreadsheet,
 } from 'lucide-react-native';
 
 import { levelingApi } from '../../api/leveling.api';
@@ -185,9 +184,10 @@ export function AccountantDashboard() {
     staleTime: 1000 * 60 * 5,
   });
 
+  const isVaultEnabled = Boolean(myVault?.isVaultEnabled || (user as any)?.isRewardVaultEnabled);
   const rawUnlocked = myVault?.stats?.unlockedPoints || 0;
   const rate = myVault?.stats?.cashValuePerPoint || 1000;
-  const currentAvailablePoints = rawUnlocked > 100000 ? rawUnlocked : rawUnlocked * rate;
+  const unlockedVaultPoints = rawUnlocked > 100000 ? rawUnlocked : rawUnlocked * rate;
   const rawGranted = myVault?.stats?.totalGrantedPoints || 0;
   const totalGrantedPoints = rawGranted > 100000 ? rawGranted : rawGranted * rate;
 
@@ -275,14 +275,14 @@ export function AccountantDashboard() {
         {/* Top overscroll fill */}
         <View pointerEvents="none" style={styles.topOverscrollFill} />
 
-        {/* ================= 1. HEADER (#102739) ================= */}
+        {/* ================= 1. HEADER (#102739 - Matching HR & People Exactly) ================= */}
         <View style={[styles.glossyHeader, { paddingTop: Math.max(insets.top, 16) + 6 }]}>
           <View style={styles.decorativeCurve} />
 
           {/* Brand Identity: movielegend PEOPLE */}
           <View style={styles.brandRow}>
             <Text style={styles.brandTitle}>movielegend</Text>
-            <Text style={styles.brandSubtitle}>FINANCE &amp; ACCOUNTING</Text>
+            <Text style={styles.brandSubtitle}>PEOPLE</Text>
           </View>
 
           {/* User Bar */}
@@ -290,7 +290,7 @@ export function AccountantDashboard() {
             <View style={styles.userInfoLeft}>
               <Pressable
                 style={styles.avatarContainer}
-                onPress={() => router.push('/hr/leveling' as any)}
+                onPress={() => router.push('/accountant/leveling' as any)}
               >
                 {user?.avatarUrl ? (
                   <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
@@ -314,7 +314,7 @@ export function AccountantDashboard() {
             <View style={styles.headerRightActions}>
               <Pressable
                 style={styles.aiHeaderButton}
-                onPress={() => router.push('/hr/ai-chat' as any)}
+                onPress={() => router.push('/accountant/ai-chat' as any)}
                 accessibilityLabel="Trợ lý AI"
               >
                 <MaterialCommunityIcons name="creation-outline" size={24} color="#FFFFFF" />
@@ -322,7 +322,7 @@ export function AccountantDashboard() {
 
               <Pressable
                 style={styles.bellButton}
-                onPress={() => router.push('/hr/notifications' as any)}
+                onPress={() => router.push('/accountant/notifications' as any)}
                 accessibilityLabel="Thông báo"
               >
                 <MaterialCommunityIcons name="bell-outline" size={24} color="#FFFFFF" />
@@ -338,7 +338,7 @@ export function AccountantDashboard() {
           </View>
         </View>
 
-        {/* ================= 2. HERO CARD (OVERVIEW WHITE CARD EMERALD) ================= */}
+        {/* ================= 2. HERO CARD (OVERVIEW WHITE CARD) ================= */}
         <View style={styles.heroCardWrapper}>
           <View style={styles.heroCard}>
             <View pointerEvents="none" style={styles.heroTopographicWrapper}>
@@ -354,7 +354,7 @@ export function AccountantDashboard() {
               <View style={styles.cardHeaderLeftGroup}>
                 <Pressable
                   style={[styles.adminRoleTag, { backgroundColor: '#ECFDF5' }]}
-                  onPress={() => router.push('/hr/leveling' as any)}
+                  onPress={() => router.push('/accountant/leveling' as any)}
                   accessibilityRole="button"
                   accessibilityLabel="Xem cấp bậc"
                 >
@@ -410,7 +410,7 @@ export function AccountantDashboard() {
               {/* Col 2: Đơn tài chính */}
               <Pressable
                 style={styles.metricColStatRight}
-                onPress={() => router.push('/hr/financial-requests' as any)}
+                onPress={() => router.push('/accountant/financial-requests' as any)}
               >
                 <Text style={styles.metricLabelCaps} numberOfLines={1}>
                   ĐƠN TÀI CHÍNH
@@ -435,19 +435,24 @@ export function AccountantDashboard() {
               {/* Cấp bậc */}
               <Pressable
                 style={styles.hubSegment}
-                onPress={() => router.push('/hr/leveling' as any)}
+                onPress={() => router.push('/accountant/leveling' as any)}
                 accessibilityRole="button"
                 accessibilityLabel="Xem chi tiết cấp bậc"
               >
                 <View style={styles.hubRow}>
-                  <View style={[styles.hubIconCircle, { backgroundColor: '#ECFDF5' }]}>
-                    <Crown size={20} color="#059669" />
+                  <View style={[styles.hubIconCircle, { backgroundColor: `${levelColor}15` }]}>
+                    <Crown size={20} color={levelColor} />
                   </View>
-                  <View style={styles.hubTextGroup}>
-                    <Text style={styles.hubMainLabel}>
-                      {levelTitle} (Cấp {currentLevelNumber})
-                    </Text>
-                    <Text style={styles.hubSubHint}>
+                  <View style={styles.hubInfoBlock}>
+                    <View style={styles.hubTitleRow}>
+                      <Text style={styles.hubTitle} numberOfLines={1}>
+                        Level {currentLevelNumber}: {levelTitle}
+                      </Text>
+                      <View style={[styles.hubTag, { backgroundColor: `${levelColor}15` }]}>
+                        <Text style={[styles.hubTagText, { color: levelColor }]}>Lv.{currentLevelNumber}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.hubSubtitle}>
                       {levelProgress?.nextLevel
                         ? `Tiến độ lên Lv.${levelProgress.nextLevel.levelNumber}: ${levelProgress?.overallProgressPercent || 0}%`
                         : 'Cấp bậc danh dự tối cao'}
@@ -455,28 +460,46 @@ export function AccountantDashboard() {
                   </View>
                   <ChevronRight size={18} color="#94A3B8" />
                 </View>
+
+                {/* Progress Bar */}
+                <View style={styles.hubProgressTrack}>
+                  <View
+                    style={[
+                      styles.hubProgressFill,
+                      {
+                        width: `${Math.min(100, Math.max(4, levelProgress?.overallProgressPercent || 0))}%`,
+                        backgroundColor: levelColor,
+                      },
+                    ]}
+                  />
+                </View>
               </Pressable>
 
+              {/* Ví Thưởng Tích Lũy */}
               <View style={styles.hubDivider} />
-
-              {/* Quỹ thưởng Vault */}
               <Pressable
                 style={styles.hubSegment}
-                onPress={() => router.push('/hr/vault' as any)}
+                onPress={() => router.push('/accountant/vault' as any)}
                 accessibilityRole="button"
-                accessibilityLabel="Xem quỹ thưởng"
+                accessibilityLabel="Xem ví thưởng tích lũy"
               >
                 <View style={styles.hubRow}>
-                  <View style={[styles.hubIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                    <Coins size={20} color="#D97706" />
+                  <View style={[styles.hubIconCircle, { backgroundColor: '#E7F0F7' }]}>
+                    <Coins size={20} color="#102739" />
                   </View>
-                  <View style={styles.hubTextGroup}>
-                    <Text style={styles.hubMainLabel}>Ví thưởng tích lũy</Text>
-                    <Text style={styles.hubSubHint}>
-                      {currentAvailablePoints > 0 ? (
+                  <View style={styles.hubInfoBlock}>
+                    <View style={styles.hubTitleRow}>
+                      <Text style={styles.hubTitle} numberOfLines={1}>Ví Thưởng Tích Lũy</Text>
+                      <View style={styles.vaultBadge}>
+                        <Text style={styles.vaultBadgeText}>Đặc quyền</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.hubSubtitle}>
+                      {isVaultEnabled ? (
                         <>
-                          <Text style={{ fontWeight: '700', color: '#D97706' }}>
-                            {currentAvailablePoints.toLocaleString('vi-VN')} đ
+                          Khả dụng:{' '}
+                          <Text style={styles.hubSubtitleGreen}>
+                            {unlockedVaultPoints.toLocaleString('vi-VN')} đ
                           </Text>
                           {totalGrantedPoints > 0 ? ` • Quỹ: ${totalGrantedPoints.toLocaleString('vi-VN')} đ` : ''}
                         </>
@@ -494,13 +517,13 @@ export function AccountantDashboard() {
           {/* ================= 3. CẦN BẠN XỬ LÝ (NGHIỆP VỤ TÀI CHÍNH) ================= */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionMainTitle}>Nghiệp vụ tài chính cần xử lý</Text>
+              <Text style={styles.sectionMainTitle}>Cần bạn xử lý</Text>
             </View>
 
             {/* Item 1: Duyệt chi & Đơn tài chính */}
             <Pressable
               style={styles.actionCard}
-              onPress={() => router.push('/hr/financial-requests' as any)}
+              onPress={() => router.push('/accountant/financial-requests' as any)}
             >
               <View style={styles.actionCardLeft}>
                 <View style={[styles.actionIconBox, { backgroundColor: '#ECFDF5' }]}>
@@ -522,32 +545,10 @@ export function AccountantDashboard() {
               </View>
             </Pressable>
 
-            {/* Item 2: Bảng kê 13 cột & Xuất Excel (Kế toán trưởng / Quản lý tài chính) */}
-            {isChiefAccountant && (
-              <Pressable
-                style={[styles.actionCard, { marginTop: 10 }]}
-                onPress={() => router.push('/hr/financial-requests' as any)}
-              >
-                <View style={styles.actionCardLeft}>
-                  <View style={[styles.actionIconBox, { backgroundColor: '#F0FDF4' }]}>
-                    <FileSpreadsheet size={22} color="#16A34A" strokeWidth={1.5} />
-                  </View>
-                  <View style={styles.actionCardTexts}>
-                    <Text style={styles.actionCardTitle}>Xuất bảng kê 13 cột (Excel)</Text>
-                    <Text style={styles.actionCardDesc}>Bảng kê thu chi chuẩn Bộ Tài chính</Text>
-                  </View>
-                </View>
-
-                <View style={styles.actionCardRight}>
-                  <ChevronRight size={18} color="#94A3B8" strokeWidth={1.4} />
-                </View>
-              </Pressable>
-            )}
-
-            {/* Item 3: Công việc đến hạn */}
+            {/* Item 2: Công việc đến hạn */}
             <Pressable
               style={[styles.actionCard, { marginTop: 10 }]}
-              onPress={() => router.push('/hr/my-tasks' as any)}
+              onPress={() => router.push('/accountant/my-tasks' as any)}
             >
               <View style={styles.actionCardLeft}>
                 <View style={[styles.actionIconBox, { backgroundColor: '#E7F0F7' }]}>
@@ -612,7 +613,26 @@ export function AccountantDashboard() {
               </View>
 
               {/* Row 2: các app phụ */}
-              {extraPinnedApps.length > 0 && !isQuickExpanded && (
+              {isQuickExpanded && (
+                <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
+                  {extraPinnedApps.map((item) => {
+                    const route = getAppRoute(item, dashboardRole, user);
+                    return (
+                      <QuickGrid8Item
+                        key={item.key}
+                        title={getAppTitle(item, dashboardRole, user)}
+                        icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
+                        bgColor={item.bgColor}
+                        onPress={() => {
+                          if (route) router.push(route as any);
+                        }}
+                      />
+                    );
+                  })}
+                </View>
+              )}
+
+              {extraPinnedApps.length > 0 && (
                 <View style={styles.expandDropdownTrigger}>
                   <Pressable
                     style={styles.expandDropdownButton}
@@ -620,42 +640,15 @@ export function AccountantDashboard() {
                     android_ripple={{ color: 'rgba(0,0,0,0.05)', borderless: false }}
                   >
                     <Text style={styles.expandDropdownText}>
-                      Xem thêm {extraPinnedApps.length} ứng dụng
+                      {isQuickExpanded ? 'Thu gọn' : `Xem thêm ${extraPinnedApps.length} ứng dụng`}
                     </Text>
-                    <ChevronDown size={16} color="#64748B" strokeWidth={2} />
+                    {isQuickExpanded ? (
+                      <ChevronUp size={16} color="#64748B" strokeWidth={2} />
+                    ) : (
+                      <ChevronDown size={16} color="#64748B" strokeWidth={2} />
+                    )}
                   </Pressable>
                 </View>
-              )}
-
-              {isQuickExpanded && (
-                <>
-                  <View style={[styles.quickGrid4Row, { marginTop: 14 }]}>
-                    {extraPinnedApps.slice(0, 4).map((item) => {
-                      const route = getAppRoute(item, dashboardRole, user);
-                      return (
-                        <QuickGrid8Item
-                          key={item.key}
-                          title={getAppTitle(item, dashboardRole, user)}
-                          icon={renderAppIcon(item.icon, item.color, 24, 1.4)}
-                          bgColor={item.bgColor}
-                          onPress={() => {
-                            if (route) router.push(route as any);
-                          }}
-                        />
-                      );
-                    })}
-                  </View>
-
-                  <View style={styles.expandDropdownTrigger}>
-                    <Pressable
-                      style={styles.expandDropdownButton}
-                      onPress={handleToggleQuickExpanded}
-                    >
-                      <Text style={styles.expandDropdownText}>Thu gọn</Text>
-                      <ChevronUp size={16} color="#64748B" strokeWidth={2} />
-                    </Pressable>
-                  </View>
-                </>
               )}
 
               {/* Nút Tất cả dịch vụ */}
@@ -667,9 +660,9 @@ export function AccountantDashboard() {
                     setShowAllServicesModal(true);
                   }}
                 >
-                  <LayoutGrid size={16} color="#059669" />
+                  <LayoutGrid size={16} color="#102739" />
                   <Text style={styles.allServicesButtonText}>Tất cả tiện ích &amp; dịch vụ</Text>
-                  <ChevronRight size={16} color="#059669" />
+                  <ChevronRight size={16} color="#102739" />
                 </Pressable>
               </View>
             </View>
@@ -679,7 +672,7 @@ export function AccountantDashboard() {
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionMainTitle}>Hòm thư góp ý</Text>
-              <Pressable onPress={() => router.push('/hr/feedbacks' as any)}>
+              <Pressable onPress={() => router.push('/accountant/feedbacks' as any)}>
                 <Text style={styles.customizeLink}>Xem tất cả &gt;</Text>
               </Pressable>
             </View>
@@ -687,7 +680,7 @@ export function AccountantDashboard() {
             {latestFeedback ? (
               <Pressable
                 style={styles.feedbackCard}
-                onPress={() => router.push(`/hr/feedbacks/${latestFeedback.id}` as any)}
+                onPress={() => router.push(`/accountant/feedbacks/${latestFeedback.id}` as any)}
               >
                 <View style={styles.feedbackCardHeader}>
                   <View style={styles.feedbackLeftHeader}>
@@ -735,7 +728,7 @@ export function AccountantDashboard() {
           <DashboardNewsCarousel
             posts={newsPosts}
             role="HR"
-            newsfeedRoute="/hr/newsfeed"
+            newsfeedRoute="/accountant/newsfeed"
           />
         </View>
       </ScrollView>
@@ -849,9 +842,10 @@ const styles = StyleSheet.create({
   },
   brandSubtitle: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#059669',
-    letterSpacing: 1.2,
+    fontWeight: '800',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginLeft: 6,
+    letterSpacing: 2.2,
   },
   userRow: {
     flexDirection: 'row',
@@ -1126,18 +1120,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hubTextGroup: {
+  hubInfoBlock: {
     flex: 1,
   },
-  hubMainLabel: {
+  hubTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  hubTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
+    flex: 1,
   },
-  hubSubHint: {
+  hubTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  hubTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  hubSubtitle: {
     fontSize: 11,
     color: '#64748B',
     marginTop: 2,
+  },
+  hubSubtitleGreen: {
+    fontWeight: '700',
+    color: '#059669',
+  },
+  vaultBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  vaultBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  hubProgressTrack: {
+    height: 4,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 2,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  hubProgressFill: {
+    height: '100%',
+    borderRadius: 2,
   },
   hubDivider: {
     height: 1,
@@ -1298,7 +1335,7 @@ const styles = StyleSheet.create({
   allServicesButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#059669',
+    color: '#102739',
   },
   feedbackCard: {
     backgroundColor: '#FFFFFF',

@@ -7,17 +7,19 @@ export function stringMeta(metadata: Record<string, unknown> | null | undefined,
   return typeof value === 'string' ? value : null;
 }
 
-export function roleBase(user: AuthUser | null): '/admin' | '/hr' | '/leader' | '/employee' | '/warehouse-manager' {
+export function roleBase(user: AuthUser | null): '/admin' | '/hr' | '/accountant' | '/leader' | '/employee' | '/warehouse-manager' {
   if (user?.roles.includes('ADMIN')) return '/admin';
-  if (user?.roles.includes('HR')) return '/hr';
   if (
-    user?.roles.includes('ACCOUNTANT') ||
+    (user?.roles.includes('ACCOUNTANT') ||
     user?.roles.some((r: any) => String(typeof r === 'string' ? r : r?.code || '').startsWith('ACCOUNTANT')) ||
     user?.position?.name?.toLowerCase().includes('kế toán') ||
-    user?.department?.name?.toLowerCase().includes('kế toán')
+    user?.department?.name?.toLowerCase().includes('kế toán')) &&
+    !user?.roles.includes('HR') &&
+    !user?.roles.includes('ADMIN')
   ) {
-    return '/hr';
+    return '/accountant';
   }
+  if (user?.roles.includes('HR')) return '/hr';
   if (user?.roles.includes('WAREHOUSE_MANAGER')) return '/warehouse-manager';
   if (user?.roles.includes('LEADER')) return '/leader';
   return '/employee';

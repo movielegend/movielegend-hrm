@@ -586,8 +586,7 @@ export function getAppRoute(
   role: 'ADMIN' | 'LEADER' | 'EMPLOYEE' | 'HR' = 'ADMIN',
   user?: any,
 ): string | null {
-  // Đối với Kế toán viên: dịch vụ "Đơn từ" (requests) luôn mở màn hình cá nhân "Đơn của tôi" (/employee/requests) để tạo đơn và theo dõi đơn cá nhân
-  if (item.key === 'requests' && role === 'HR' && user) {
+  if (role === 'HR' && user) {
     const rawRoles = user?.roles || [];
     const roleList = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
     const roles = roleList.map((r: any) =>
@@ -601,7 +600,12 @@ export function getAppRoute(
       Boolean(user?.position?.name?.toLowerCase().includes('kế toán')) ||
       Boolean(user?.department?.name?.toLowerCase().includes('kế toán'));
     if (isAcct && !isAdmin && !isHr) {
-      return '/employee/requests';
+      if (item.key === 'requests') {
+        return '/employee/requests';
+      }
+      if (item.hrRoute) {
+        return item.hrRoute.replace('/hr/', '/accountant/');
+      }
     }
   }
 
