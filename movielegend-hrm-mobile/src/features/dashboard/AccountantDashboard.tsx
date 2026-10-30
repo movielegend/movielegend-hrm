@@ -146,6 +146,14 @@ export function AccountantDashboard() {
     ).length;
   }, [allFinancialRequests]);
 
+  const pendingRequestsCount = useMemo(() => {
+    return (allFinancialRequests || []).filter(
+      (r: any) =>
+        !['EXPENSE', 'PURCHASE', 'ADVANCE'].includes(r.type) &&
+        r.status === 'PENDING'
+    ).length;
+  }, [allFinancialRequests]);
+
   // Due Tasks (Công việc của tôi)
   const { data: myTasks } = useMyTasks({ limit: 50 });
   const dueTasksCount = useMemo(() => {
@@ -596,6 +604,8 @@ export function AccountantDashboard() {
                       ? (dueTaskCount > 0 ? dueTaskCount : undefined)
                       : item.badgeKey === 'pendingFinancial'
                       ? (pendingFinancialCount > 0 ? pendingFinancialCount : undefined)
+                      : item.badgeKey === 'pendingRequests' && isChiefAccountant
+                      ? (pendingRequestsCount > 0 ? pendingRequestsCount : undefined)
                       : undefined;
 
                   return (
@@ -817,6 +827,7 @@ export function AccountantDashboard() {
         pendingCounts={{
           dueTasks: dueTaskCount,
           pendingFinancial: pendingFinancialCount,
+          pendingRequests: isChiefAccountant ? pendingRequestsCount : undefined,
         }}
       />
 

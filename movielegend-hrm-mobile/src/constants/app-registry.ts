@@ -602,6 +602,10 @@ export function getAppRoute(
       Boolean(user?.department?.name?.toLowerCase().includes('kế toán'));
     if (isAcct && !isAdmin && !isHr) {
       if (item.key === 'requests') {
+        const isChiefAccountant = isAccountingLeader(user);
+        if (isChiefAccountant) {
+          return '/accountant/employee-requests';
+        }
         return '/employee/requests';
       }
       if (item.key === 'shift_swaps') {
@@ -644,6 +648,10 @@ export function getAppTitle(
       Boolean(user?.position?.name?.toLowerCase().includes('kế toán')) ||
       Boolean(user?.department?.name?.toLowerCase().includes('kế toán'));
     if (isAcct && !isAdmin && !isHr) {
+      const isChiefAccountant = isAccountingLeader(user);
+      if (isChiefAccountant) {
+        return 'Duyệt đơn từ';
+      }
       return 'Đơn từ';
     }
   }

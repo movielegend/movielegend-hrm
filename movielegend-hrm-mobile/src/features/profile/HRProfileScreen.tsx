@@ -20,7 +20,7 @@ import { DeleteAccountModal } from '../../components/DeleteAccountModal';
 import { AvatarPicker } from '../employees/components/AvatarPicker';
 import { formatSeniority } from '../../utils/seniority';
 import { useTabBarScroll } from '../../components/navigation/tabBarVisibility';
-import { hasUserRole } from '../../utils/role-routing';
+import { hasUserRole, isAccountingLeader } from '../../utils/role-routing';
 
 export function HRProfileScreen() {
   const router = useRouter();
@@ -72,7 +72,9 @@ export function HRProfileScreen() {
     const code = String(typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
     return code === 'ADMIN' || code === 'SUPER_ADMIN';
   }));
+  const isChiefAccountant = isAccountingLeader(user);
   const isOnlyAccountant = isAccountant && !isHr && !isAdmin;
+  const isOnlyAccountantStaff = isOnlyAccountant && !isChiefAccountant;
 
   const getInitials = (name?: string) => {
     if (!name) return isAccountant ? 'KT' : 'HR';
@@ -298,12 +300,12 @@ export function HRProfileScreen() {
                   <View style={styles.subGroupSection}>
                     <Text style={styles.subGroupTitle}>Phê duyệt & Điều phối</Text>
                     <View style={styles.featureGrid}>
-                      {!isOnlyAccountant && (
+                      {!isOnlyAccountantStaff && (
                         <FeatureItem
                           icon="clipboard-check-outline"
                           iconType="mci"
                           title="Duyệt đơn từ"
-                          onPress={() => router.push('/hr/employee-requests' as any)}
+                          onPress={() => router.push((isAccountant ? '/accountant/employee-requests' : '/hr/employee-requests') as any)}
                         />
                       )}
                       {(hasUserRole(user, 'ACCOUNTANT') || isAccountant) && (
@@ -363,12 +365,12 @@ export function HRProfileScreen() {
                         title="Bảng lương"
                         onPress={() => router.push((isOnlyAccountant ? '/accountant/payslip' : '/hr/payslip') as any)}
                       />
-                      {!isOnlyAccountant && (
+                      {!isOnlyAccountantStaff && (
                         <FeatureItem
                           icon="calendar-check"
                           iconType="mci"
                           title="Phân ca làm"
-                          onPress={() => router.push('/hr/shift-management' as any)}
+                          onPress={() => router.push((isAccountant ? '/accountant/shift-management' : '/hr/shift-management') as any)}
                         />
                       )}
                       <FeatureItem
