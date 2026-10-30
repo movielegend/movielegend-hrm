@@ -1,6 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 
 interface VietnameseDatePickerModalProps {
   visible: boolean;
@@ -23,71 +32,74 @@ export function VietnameseDatePickerModal({
 }: VietnameseDatePickerModalProps) {
   const currentYear = new Date().getFullYear();
 
-  // Parse initial date or default to 2000-01-01
-  const parseDate = (d?: string): { year: number; month: number; day: number } => {
+  const parseDate = (d?: string): Date => {
     if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
       const parts = d.split('-').map(Number);
       const y = parts[0];
       const m = parts[1];
       const day = parts[2];
       if (y !== undefined && m !== undefined && day !== undefined && !isNaN(y) && !isNaN(m) && !isNaN(day)) {
-        return { year: y, month: m, day };
+        return new Date(y, m - 1, day);
       }
     }
-    return { year: 2000, month: 1, day: 1 };
+    return new Date(2000, 0, 1);
   };
 
-  const initial = parseDate(initialDate);
-  const [selectedYear, setSelectedYear] = useState<number>(initial.year);
-  const [selectedMonth, setSelectedMonth] = useState<number>(initial.month);
-  const [selectedDay, setSelectedDay] = useState<number>(initial.day);
-
-  const dayScrollRef = useRef<ScrollView>(null);
-  const monthScrollRef = useRef<ScrollView>(null);
-  const yearScrollRef = useRef<ScrollView>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => parseDate(initialDate));
 
   useEffect(() => {
     if (visible) {
       const parsed = parseDate(initialDate);
-      setSelectedYear(parsed.year);
-      setSelectedMonth(parsed.month);
-      setSelectedDay(parsed.day);
+      setSelectedDate(parsed);
 
-      // Timeout for smooth auto-scroll to selected index
-      setTimeout(() => {
-        const itemHeight = 44;
-        dayScrollRef.current?.scrollTo({ y: (parsed.day - 1) * itemHeight, animated: false });
-        monthScrollRef.current?.scrollTo({ y: (parsed.month - 1) * itemHeight, animated: false });
-        const yearIndex = maxYear - parsed.year;
-        yearScrollRef.current?.scrollTo({ y: Math.max(0, yearIndex * itemHeight), animated: false });
-      }, 100);
+      // On Android: Open native dialog immediately
+      if (Platform.OS === 'android') {
+        try {
+          DateTimePickerAndroid.open({
+            value: parsed,
+            mode: 'date',
+            display: 'default',
+            maximumDate: new Date(),
+            minimumDate: new Date(minYear, 0, 1),
+            onChange: (event, date) => {
+              onClose();
+              if (event.type === 'set' && date) {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                onSelect(`${y}-${m}-${d}`);
+              }
+            },
+          });
+        } catch (err) {
+          console.warn('Native Android DateTimePicker error:', err);
+        }
+      }
     }
   }, [visible, initialDate]);
 
-  // Days in selected month/year
-  const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+  if (Platform.OS === 'android') {
+    return null;
+  }
 
-  // Clamp day if days in month changed (e.g. Feb 31 -> Feb 28/29)
-  useEffect(() => {
-    if (selectedDay > daysInMonth) {
-      setSelectedDay(daysInMonth);
-    }
-  }, [selectedMonth, selectedYear, daysInMonth, selectedDay]);
-
-  const daysList = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  const monthsList = Array.from({ length: 12 }, (_, i) => i + 1);
-  const yearsList = Array.from({ length: maxYear - minYear + 1 }, (_, i) => maxYear - i);
-
-  const age = currentYear - selectedYear;
+  const age = currentYear - selectedDate.getFullYear();
+  const dayStr = String(selectedDate.getDate()).padStart(2, '0');
+  const monthStr = String(selectedDate.getMonth() + 1).padStart(2, '0');
+  const formattedDisplay = `${dayStr}/${monthStr}/${selectedDate.getFullYear()}`;
 
   const handleConfirm = () => {
-    const formattedMonth = String(selectedMonth).padStart(2, '0');
-    const formattedDay = String(selectedDay).padStart(2, '0');
-    onSelect(`${selectedYear}-${formattedMonth}-${formattedDay}`);
+    const y = selectedDate.getFullYear();
+    const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const d = String(selectedDate.getDate()).padStart(2, '0');
+    onSelect(`${y}-${m}-${d}`);
     onClose();
   };
 
-  const formattedDisplay = `${String(selectedDay).padStart(2, '0')}/${String(selectedMonth).padStart(2, '0')}/${selectedYear}`;
+  const handleQuickYear = (yr: number) => {
+    const next = new Date(selectedDate);
+    next.setFullYear(yr);
+    setSelectedDate(next);
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -119,92 +131,22 @@ export function VietnameseDatePickerModal({
             ) : null}
           </View>
 
-          {/* Column Titles */}
-          <View style={styles.columnHeaders}>
-            <View style={styles.columnHeaderCell}>
-              <Text style={styles.columnHeaderText}>NGÀY</Text>
-            </View>
-            <View style={styles.columnHeaderCell}>
-              <Text style={styles.columnHeaderText}>THÁNG</Text>
-            </View>
-            <View style={styles.columnHeaderCell}>
-              <Text style={styles.columnHeaderText}>NĂM</Text>
-            </View>
-          </View>
-
-          {/* 3 Columns Picker */}
-          <View style={styles.pickerBody}>
-            {/* Days Column */}
-            <View style={styles.columnWrapper}>
-              <ScrollView
-                ref={dayScrollRef}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-              >
-                {daysList.map((day) => {
-                  const isSelected = day === selectedDay;
-                  return (
-                    <Pressable
-                      key={`day-${day}`}
-                      onPress={() => setSelectedDay(day)}
-                      style={[styles.itemRow, isSelected && styles.selectedItemRow]}
-                    >
-                      <Text style={[styles.itemText, isSelected && styles.selectedItemText]}>
-                        Ngày {day}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-
-            {/* Months Column */}
-            <View style={styles.columnWrapper}>
-              <ScrollView
-                ref={monthScrollRef}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-              >
-                {monthsList.map((month) => {
-                  const isSelected = month === selectedMonth;
-                  return (
-                    <Pressable
-                      key={`month-${month}`}
-                      onPress={() => setSelectedMonth(month)}
-                      style={[styles.itemRow, isSelected && styles.selectedItemRow]}
-                    >
-                      <Text style={[styles.itemText, isSelected && styles.selectedItemText]}>
-                        Tháng {month}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-
-            {/* Years Column */}
-            <View style={styles.columnWrapper}>
-              <ScrollView
-                ref={yearScrollRef}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-              >
-                {yearsList.map((year) => {
-                  const isSelected = year === selectedYear;
-                  return (
-                    <Pressable
-                      key={`year-${year}`}
-                      onPress={() => setSelectedYear(year)}
-                      style={[styles.itemRow, isSelected && styles.selectedItemRow]}
-                    >
-                      <Text style={[styles.itemText, isSelected && styles.selectedItemText]}>
-                        {year}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
+          {/* Native Cupertino Wheel Picker for iOS */}
+          <View style={styles.pickerWrapper}>
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display="spinner"
+              themeVariant="light"
+              textColor="#0F172A"
+              locale="vi-VN"
+              maximumDate={new Date()}
+              minimumDate={new Date(minYear, 0, 1)}
+              onChange={(_, date) => {
+                if (date) setSelectedDate(date);
+              }}
+              style={styles.datePicker}
+            />
           </View>
 
           {/* Quick Year Shortcuts */}
@@ -214,20 +156,16 @@ export function VietnameseDatePickerModal({
               {[2006, 2004, 2002, 2000, 1998, 1995, 1990].map((yr) => (
                 <Pressable
                   key={`quick-${yr}`}
-                  onPress={() => {
-                    setSelectedYear(yr);
-                    const yearIndex = maxYear - yr;
-                    yearScrollRef.current?.scrollTo({ y: Math.max(0, yearIndex * 44), animated: true });
-                  }}
+                  onPress={() => handleQuickYear(yr)}
                   style={[
                     styles.shortcutPill,
-                    selectedYear === yr && styles.shortcutPillActive,
+                    selectedDate.getFullYear() === yr && styles.shortcutPillActive,
                   ]}
                 >
                   <Text
                     style={[
                       styles.shortcutPillText,
-                      selectedYear === yr && styles.shortcutPillTextActive,
+                      selectedDate.getFullYear() === yr && styles.shortcutPillTextActive,
                     ]}
                   >
                     {yr}
@@ -337,66 +275,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#4338CA',
   },
-  columnHeaders: {
-    flexDirection: 'row',
-    marginTop: 6,
-    marginBottom: 6,
-    paddingHorizontal: 4,
-  },
-  columnHeaderCell: {
-    flex: 1,
+  pickerWrapper: {
     alignItems: 'center',
-  },
-  columnHeaderText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#94A3B8',
-    letterSpacing: 1,
-  },
-  pickerBody: {
-    flexDirection: 'row',
-    height: 220,
-    gap: 8,
+    justifyContent: 'center',
     backgroundColor: '#F8FAFC',
     borderRadius: 18,
-    padding: 6,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-  },
-  columnWrapper: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     overflow: 'hidden',
+    paddingVertical: 6,
   },
-  scrollContent: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  itemRow: {
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 10,
-    marginVertical: 2,
-  },
-  selectedItemRow: {
-    backgroundColor: '#0F172A',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  itemText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#475569',
-  },
-  selectedItemText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
+  datePicker: {
+    height: 190,
+    width: '100%',
   },
   quickShortcuts: {
     flexDirection: 'row',
