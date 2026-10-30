@@ -13,7 +13,8 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View} from 'react-native';
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { Screen } from '../../components/Screen';
@@ -99,290 +100,339 @@ export function LoginScreen() {
   });
 
   return (
-    <Screen unsafe={true}>
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-            keyboardDismissMode="on-drag"
-          >
-            <View style={styles.innerContent}>
+    <Screen backgroundColor="#F8FAFC" withBottomInset={true}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+        keyboardDismissMode="on-drag"
+      >
+        <View style={styles.innerContent}>
+          {/* Header Branding */}
+          <View style={styles.header}>
+            <Image
+              source={require('../../../assets/ml-logo-only.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.brandTitleText}>MOVIE LEGEND</Text>
+            <View style={styles.headerDivider} />
+          </View>
 
-            {/* Header Branding */}
-            <View style={styles.header}>
-              <Image
-                source={require('../../../assets/ml-logo-only.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.brandTitleText}>MOVIE LEGEND</Text>
-              <Text style={styles.subtitleText}>Đăng nhập để tiếp tục vào hệ thống</Text>
-            </View>
+          {/* Pill Badge */}
+          <View style={styles.pillBadge}>
+            <Text style={styles.pillBadgeText}>Chào mừng trở lại</Text>
+          </View>
 
-            {/* Login Form */}
-            <View style={styles.formContainer}>
-              {/* Phone/Email Field */}
-              <View style={[styles.inputWrapper, errors.phone && styles.inputError, { zIndex: 10 }]}>
-                <Text style={styles.inputLabel}>Số điện thoại</Text>
-                <Controller
-                  control={control}
-                  name="phone"
-                  render={({ field: { onBlur, onChange, value } }) => (
-                    <TextInput
-                      autoCapitalize="none"
-                      maxLength={10}
-                      onBlur={() => {
-                        onBlur();
-                        setTimeout(() => setShowAccountSuggestions(false), 200);
-                      }}
-                      onFocus={() => setShowAccountSuggestions(true)}
-                      onChangeText={(val) => {
-                        const cleanVal = val.replace(/\D/g, '').slice(0, 10);
-                        onChange(cleanVal);
-                        setShowAccountSuggestions(true);
-                      }}
-                      placeholder="0987654321"
-                      placeholderTextColor="#9CA3AF"
-                      keyboardType="phone-pad"
-                      style={styles.inputText}
-                      value={value}
-                      underlineColorAndroid="transparent"
-                    />
-                  )}
-                />
+          {/* Title & Subtitle */}
+          <Text style={styles.mainTitle}>Đăng nhập</Text>
+          <Text style={styles.subtitleText}>Truy cập tài khoản để bắt đầu công việc.</Text>
 
-                {showAccountSuggestions && filteredAccounts.length > 0 && (
-                  <View style={styles.suggestionsDropdown}>
-                    {filteredAccounts.map((account) => (
-                      <View key={account.phone} style={styles.suggestionItem}>
-                        <Pressable
-                          style={styles.suggestionPhoneBtn}
-                          onPress={() => handleSelectAccount(account)}
-                        >
-                          <Text style={styles.suggestionPhoneText}>{account.phone}</Text>
-                        </Pressable>
-                        <Pressable
-                          style={styles.suggestionRemoveBtn}
-                          onPress={() => handleRemoveAccount(account.phone)}
-                        >
-                          <Ionicons name="close" size={18} color="#9CA3AF" />
-                        </Pressable>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-              {errors.phone ? <Text style={styles.errorText}>{errors.phone.message}</Text> : null}
-
-              {/* Password Field */}
-              <View style={[styles.inputWrapper, errors.password && styles.inputError]}>
-                <Text style={styles.inputLabel}>Mật khẩu</Text>
-                <View style={styles.passwordRow}>
-                  <Controller
-                    control={control}
-                    name="password"
-                    render={({ field: { onBlur, onChange, value } }) => (
-                      <TextInput
-                        autoCapitalize="none"
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="••••••••"
-                        placeholderTextColor="#9CA3AF"
-                        secureTextEntry={secureText}
-                        style={[styles.inputText, { flex: 1 }]}
-                        value={value}
-                        underlineColorAndroid="transparent"
-                      />
-                    )}
+          {/* Form */}
+          <View style={styles.formContainer}>
+            {/* Phone Field */}
+            <Text style={styles.inputLabel}>Số điện thoại</Text>
+            <View style={[styles.inputBox, errors.phone && styles.inputBoxError, { zIndex: 10 }]}>
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field: { onBlur, onChange, value } }) => (
+                  <TextInput
+                    autoCapitalize="none"
+                    maxLength={10}
+                    onBlur={() => {
+                      onBlur();
+                      setTimeout(() => setShowAccountSuggestions(false), 200);
+                    }}
+                    onFocus={() => setShowAccountSuggestions(true)}
+                    onChangeText={(val) => {
+                      const cleanVal = val.replace(/\D/g, '').slice(0, 10);
+                      onChange(cleanVal);
+                      setShowAccountSuggestions(true);
+                    }}
+                    placeholder="Nhập số điện thoại"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="phone-pad"
+                    style={styles.inputText}
+                    value={value}
+                    underlineColorAndroid="transparent"
                   />
-                  <Pressable onPress={() => setSecureText(!secureText)} style={styles.eyeBtn}>
-                    <Ionicons name={secureText ? 'eye-outline' : 'eye-off-outline'} size={20} color="#6B7280" />
-                  </Pressable>
-                </View>
-              </View>
-              {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
+                )}
+              />
 
-              <Pressable style={styles.forgotPassword} onPress={() => router.push('/forgot-password')}>
+              {showAccountSuggestions && filteredAccounts.length > 0 && (
+                <View style={styles.suggestionsDropdown}>
+                  {filteredAccounts.map((account) => (
+                    <View key={account.phone} style={styles.suggestionItem}>
+                      <Pressable
+                        style={styles.suggestionPhoneBtn}
+                        onPress={() => handleSelectAccount(account)}
+                      >
+                        <Text style={styles.suggestionPhoneText}>{account.phone}</Text>
+                      </Pressable>
+                      <Pressable
+                        style={styles.suggestionRemoveBtn}
+                        onPress={() => handleRemoveAccount(account.phone)}
+                      >
+                        <Ionicons name="close" size={18} color="#94A3B8" />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+            {errors.phone ? <Text style={styles.errorText}>{errors.phone.message}</Text> : null}
+
+            {/* Password Field */}
+            <Text style={[styles.inputLabel, { marginTop: 18 }]}>Mật khẩu</Text>
+            <View style={[styles.inputBox, errors.password && styles.inputBoxError]}>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onBlur, onChange, value } }) => (
+                  <TextInput
+                    autoCapitalize="none"
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="••••••••"
+                    placeholderTextColor="#94A3B8"
+                    secureTextEntry={secureText}
+                    style={styles.inputText}
+                    value={value}
+                    underlineColorAndroid="transparent"
+                  />
+                )}
+              />
+              <Pressable onPress={() => setSecureText(!secureText)} hitSlop={10} style={styles.togglePasswordBtn}>
+                <Text style={styles.togglePasswordText}>{secureText ? 'Hiện' : 'Ẩn'}</Text>
+              </Pressable>
+            </View>
+            {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
+
+            {/* Remember Me & Forgot Password Row */}
+            <View style={styles.optionsRow}>
+              <Pressable onPress={() => setRememberMe(!rememberMe)} style={styles.rememberPressable} hitSlop={6}>
+                <View style={[styles.checkboxSquare, rememberMe && styles.checkboxSquareChecked]}>
+                  {rememberMe && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
+                </View>
+                <Text style={styles.rememberText}>Ghi nhớ đăng nhập</Text>
+              </Pressable>
+
+              <Pressable onPress={() => router.push('/forgot-password')} hitSlop={6}>
                 <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
               </Pressable>
+            </View>
 
-              <View style={styles.rememberMeRow}>
-                <Pressable onPress={() => setRememberMe(!rememberMe)} style={styles.checkboxPressable}>
-                  <Ionicons name={rememberMe ? 'checkbox' : 'square-outline'} size={20} color={rememberMe ? '#102739' : '#9CA3AF'} />
-                  <Text style={styles.rememberMeText}>Ghi nhớ tài khoản và mật khẩu</Text>
-                </Pressable>
+            {formError ? (
+              <View style={styles.formErrorBox}>
+                <Ionicons name="alert-circle" size={18} color="#EF4444" />
+                <Text style={styles.formErrorText}>{formError}</Text>
               </View>
+            ) : null}
 
-              {formError ? (
-                <View style={styles.formErrorBox}>
-                  <Ionicons name="alert-circle" size={20} color="#EF4444" />
-                  <Text style={styles.formErrorText}>{formError}</Text>
-                </View>
-              ) : null}
+            {/* Submit Button */}
+            <Pressable
+              disabled={isSubmitting}
+              onPress={() => void onSubmit()}
+              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>Đăng nhập</Text>
+              )}
+            </Pressable>
 
-              <Pressable
-                disabled={isSubmitting}
-                onPress={onSubmit}
-                style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.submitButtonText}>Đăng nhập</Text>
-                )}
-              </Pressable>
+            {/* Divider */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>Chưa có tài khoản?</Text>
+              <View style={styles.dividerLine} />
             </View>
 
-            <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Chưa có tài khoản? </Text>
-              <Pressable onPress={() => router.push('/register')}>
-                <Text style={styles.footerLink}>Đăng ký ngay</Text>
-              </Pressable>
-            </View>
+            {/* Secondary Button */}
+            <Pressable
+              onPress={() => router.push('/register')}
+              style={styles.createAccountButton}
+            >
+              <Text style={styles.createAccountButtonText}>Tạo tài khoản mới</Text>
+            </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  </Screen>
-);
+
+          {/* Footer */}
+          <Text style={styles.footerBrandText}>MOVIE LEGEND  ·  ML GROUP</Text>
+        </View>
+      </ScrollView>
+    </Screen>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFBFC',
-  },
-  backgroundWatermarkWrapper: {
-    position: 'absolute',
-    top: 205,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 0,
-  },
-  backgroundWatermarkImage: {
-    width: 380,
-    height: 240,
-    opacity: 0.15,
-  },
   scrollContent: {
     flexGrow: 1,
-    zIndex: 1,
   },
   innerContent: {
     width: '100%',
     paddingHorizontal: 24,
-    paddingTop: 36,
-    paddingBottom: 40,
+    paddingTop: 12,
+    paddingBottom: 28,
     alignItems: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 28,
     width: '100%',
+    marginBottom: 20,
   },
   logoImage: {
-    width: 140,
-    height: 70,
+    width: 92,
+    height: 40,
     marginBottom: 8,
   },
   brandTitleText: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#000000',
-    letterSpacing: 1.5,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 2,
+    textAlign: 'center',
+  },
+  headerDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginTop: 22,
+    marginBottom: 8,
+  },
+  pillBadge: {
+    backgroundColor: '#E8EFF5',
+    paddingHorizontal: 16,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginBottom: 14,
+  },
+  pillBadgeText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#25507B',
+  },
+  mainTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
     marginBottom: 8,
   },
   subtitleText: {
     fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 28,
+    lineHeight: 20,
   },
   formContainer: {
     width: '100%',
   },
-  inputWrapper: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    marginBottom: 16,
-  },
-  inputError: {
-    borderColor: '#EF4444',
-  },
   inputLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 8,
   },
-  inputText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#102739',
-    height: 28,
-    padding: 0,
-    backgroundColor: 'transparent',
-  },
-  passwordRow: {
+  inputBox: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    height: 50,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  eyeBtn: {
-    paddingLeft: 12,
+  inputBoxError: {
+    borderColor: '#EF4444',
+  },
+  inputText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '400',
+    color: '#0F172A',
+    paddingVertical: 0,
+    backgroundColor: 'transparent',
+  },
+  togglePasswordBtn: {
+    paddingLeft: 10,
+    paddingVertical: 4,
+  },
+  togglePasswordText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#0284C7',
   },
   errorText: {
     color: '#EF4444',
     fontSize: 12,
-    marginTop: -8,
-    marginBottom: 16,
+    marginTop: 4,
     marginLeft: 4,
   },
-  forgotPassword: {
-    alignSelf: 'flex-start',
-    marginBottom: 20,
+  optionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  rememberPressable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkboxSquare: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSquareChecked: {
+    backgroundColor: '#0F2231',
+    borderColor: '#0F2231',
+  },
+  rememberText: {
+    fontSize: 14,
+    color: '#334155',
+    marginLeft: 8,
+    fontWeight: '400',
   },
   forgotPasswordText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: '#0284C7',
   },
   formErrorBox: {
     backgroundColor: '#FEF2F2',
     padding: 12,
-    borderRadius: 16,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
   },
   formErrorText: {
     color: '#EF4444',
     fontSize: 13,
     flex: 1,
+    fontWeight: '500',
   },
   submitButton: {
-    backgroundColor: '#0F172A',
-    borderRadius: 14,
-    height: 56,
+    backgroundColor: '#0F2231',
+    borderRadius: 10,
+    height: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
   },
   submitButtonDisabled: {
     opacity: 0.7,
@@ -390,82 +440,80 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
-  },
-
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  footerLink: {
-    fontSize: 14,
     fontWeight: '700',
-    color: '#102739',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '400',
+  },
+  createAccountButton: {
+    height: 50,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#0F2231',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createAccountButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F2231',
+  },
+  footerBrandText: {
+    marginTop: 36,
+    marginBottom: 16,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+    letterSpacing: 1.5,
+    textAlign: 'center',
   },
   suggestionsDropdown: {
     position: 'absolute',
-    top: 64,
+    top: 52,
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#ECEEF3',
-    borderRadius: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingVertical: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
     zIndex: 20,
-  },
-  suggestionsTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    marginBottom: 4,
   },
   suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   suggestionPhoneBtn: {
     flex: 1,
   },
   suggestionPhoneText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#102739',
+    color: '#0F172A',
   },
   suggestionRemoveBtn: {
     padding: 4,
-  },
-  rememberMeRow: {
-    marginBottom: 24,
-  },
-  checkboxPressable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-  },
-  rememberMeText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4B5563',
   },
 });

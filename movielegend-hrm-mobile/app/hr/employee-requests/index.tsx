@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
 import LeaderRequestsScreen from '../../leader/employee-requests/index';
 import { useAuth } from '../../../src/providers/AuthProvider';
+import { isAccountingLeader } from '../../../src/utils/role-routing';
 
 export default function HREmployeeRequestListRoute() {
   const { user } = useAuth();
@@ -18,7 +19,10 @@ export default function HREmployeeRequestListRoute() {
     Boolean(user?.department?.name?.toLowerCase().includes('kế toán'));
 
   if (isAcct && !isAdmin && !isHr) {
-    return <Redirect href="/employee/requests" />;
+    const isChiefAccountant = isAccountingLeader(user);
+    if (!isChiefAccountant) {
+      return <Redirect href="/employee/requests" />;
+    }
   }
 
   return <LeaderRequestsScreen />;

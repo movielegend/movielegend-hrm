@@ -49,6 +49,13 @@ export default function LeaderRequestsScreen() {
     (user as any)?.role?.code === 'ADMIN' ||
     user?.phone === '0900000000';
 
+  const isChiefAccountant = isAccountingLeader(user);
+  const isHr =
+    roleCodes.includes('HR') ||
+    roleCodes.includes('HR_MANAGER') ||
+    (user as any)?.role?.code === 'HR';
+  const isOnlyChiefAccountant = isChiefAccountant && !isAdmin && !isHr;
+
   const { data: allRequests = [], isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['leader-employee-requests'],
     queryFn: () => getEmployeeRequests()
@@ -56,6 +63,17 @@ export default function LeaderRequestsScreen() {
 
   // Client-side filtering
   const requests = allRequests.filter((r: any) => {
+    // If Chief Accountant (and not Admin/HR), non-financial requests must be from accounting department
+    if (isOnlyChiefAccountant && !['ADVANCE', 'EXPENSE', 'PURCHASE'].includes(r.type)) {
+      const userDeptId = (user as any)?.department?.id;
+      const deptName = r.user?.department?.name?.toLowerCase() || (user as any)?.department?.name?.toLowerCase() || '';
+      const matchDept =
+        (userDeptId && (r.departmentId === userDeptId || r.user?.departmentId === userDeptId)) ||
+        deptName.includes('kế toán') ||
+        deptName.includes('tài chính');
+      if (!matchDept) return false;
+    }
+
     const isPendingCancel = r.status === 'APPROVED' && r.attachmentMetadata?.cancellationRequested;
     const matchTab = (activeTab === 'PENDING' && (r.status === 'PENDING' || isPendingCancel)) ||
                      (activeTab === 'APPROVED' && r.status === 'APPROVED' && !isPendingCancel) ||
@@ -162,8 +180,12 @@ export default function LeaderRequestsScreen() {
             <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
           </Pressable>
           <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Duyệt yêu cầu</Text>
-            <Text style={styles.headerSubtitle}>Quản lý yêu cầu của nhân sự</Text>
+            <Text style={styles.headerTitle}>
+              {isOnlyChiefAccountant ? 'Duyệt yêu cầu phòng Kế toán' : 'Duyệt yêu cầu'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {isOnlyChiefAccountant ? 'Quản lý yêu cầu nhân sự phòng Kế toán' : 'Quản lý yêu cầu của nhân sự'}
+            </Text>
           </View>
           <View style={styles.headerRightActions}>
             {canExportExcel && (
