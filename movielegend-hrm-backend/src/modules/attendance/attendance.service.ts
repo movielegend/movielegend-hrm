@@ -77,14 +77,6 @@ export class AttendanceService {
 
 
   async checkIn(dto: CheckInDto, actor: AuthenticatedUser, ip: string) {
-    // HARD BLOCK: Require accepting NEW tasks before check-in
-    const unacceptedTasks = await this.prisma.taskAssignment.count({
-      where: { userId: actor.userId, status: 'NEW' },
-    });
-    if (unacceptedTasks > 0) {
-      throw badRequest('UNACCEPTED_TASKS', 'Bạn có công việc chưa nhận. Vui lòng vào mục Nhiệm vụ để "Nhận việc" trước khi chấm công!');
-    }
-
     const now = new Date();
 
     // 0. Xác định phòng ban của nhân sự
