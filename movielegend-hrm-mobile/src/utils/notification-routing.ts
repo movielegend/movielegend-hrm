@@ -40,6 +40,9 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const postId = stringMeta(notification.metadata, 'postId');
   const swapId = stringMeta(notification.metadata, 'swapId');
   const feedbackId = stringMeta(notification.metadata, 'feedbackId');
+  const leaveRequestId = stringMeta(notification.metadata, 'leaveRequestId');
+  const overtimeRequestId = stringMeta(notification.metadata, 'overtimeRequestId');
+  const metaRoute = stringMeta(notification.metadata, 'route');
   
   const base = roleBase(user);
 
@@ -84,9 +87,23 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   }
   
   if (notification.type === 'ACCOUNT_APPROVAL_REQUESTED' && approvalRequestId) return `${base}/approvals/${approvalRequestId}`;
+  if (metaRoute && (base === '/leader' || base === '/hr' || base === '/admin' || base === '/accountant')) {
+    if (metaRoute.startsWith('/')) return metaRoute;
+  }
+  if (leaveRequestId) {
+    if (base === '/leader') return `/leader/leave-approvals`;
+    if (base === '/hr' || base === '/admin') return `${base}/requests`;
+    return `/employee/requests`;
+  }
+  if (overtimeRequestId) {
+    if (base === '/leader') return `/leader/overtime-approvals`;
+    if (base === '/hr' || base === '/admin') return `${base}/requests`;
+    return `/employee/requests`;
+  }
   if (requestId) {
     if (base === '/admin') return `/admin/employee-requests/${requestId}`;
     if (base === '/hr') return `/hr/employee-requests/${requestId}`;
+    if (base === '/accountant') return `/accountant/employee-requests/${requestId}`;
     if (base === '/leader') return `/leader/employee-requests/${requestId}`;
     if (base === '/employee') return `/employee/requests/${requestId}`;
   }

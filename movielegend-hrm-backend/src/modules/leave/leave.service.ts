@@ -72,7 +72,7 @@ export class LeaveService {
     const totalDays = this.businessTime.inclusiveDays(startDate, endDate);
     await this.assertLeaveBalance(actor.userId, dto.leaveTypeId, startDate.getFullYear(), totalDays);
     await this.assertNoLeaveOverlap(actor.userId, startDate, endDate);
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const request = await tx.leaveRequest.create({
         data: {
           userId: actor.userId,
@@ -84,18 +84,48 @@ export class LeaveService {
           reason: dto.reason,
         },
       });
-      await tx.employeeRequest.create({
+      const empRequest = await tx.employeeRequest.create({
         data: {
           userId: actor.userId,
           departmentId,
           type: EmployeeRequestType.LEAVE,
-          title: 'Don nghi phep',
+          title: 'Đơn xin nghỉ phép',
           content: dto.reason,
           referenceId: request.id,
         },
       });
-      return request;
+
+      const approverUserIds = await this.getApproverUserIds(departmentId, actor.userId);
+      let notif = null;
+      if (approverUserIds.length > 0) {
+        const user = await tx.user.findUnique({
+          where: { id: actor.userId },
+          select: { profile: { select: { fullName: true } }, userCode: true },
+        });
+        const submitterName = user?.profile?.fullName || user?.userCode || 'Nhân viên';
+        const startFormatted = this.businessTime.businessDateString(startDate);
+        const endFormatted = this.businessTime.businessDateString(endDate);
+        const dateRangeStr = startFormatted === endFormatted ? startFormatted : `${startFormatted} - ${endFormatted}`;
+        notif = await this.notifications.createForUsers(tx, approverUserIds, {
+          type: NotificationType.SYSTEM,
+          title: 'Đơn xin nghỉ phép mới chờ duyệt',
+          body: `${submitterName} đã gửi đơn xin nghỉ (${leaveType.name}, ${dateRangeStr}) chờ bạn phê duyệt.`,
+          metadata: {
+            leaveRequestId: request.id,
+            requestId: empRequest.id,
+            route: '/leader/leave-approvals',
+          },
+        });
+      }
+
+      return { request, notif };
     });
+
+    if (result.notif) {
+      this.notifications.emitCreated(result.notif);
+    }
+
+    return result.request;
   }
 
   async findLeaveRequests(actor: AuthenticatedUser, query: LeaveRequestQueryDto) {
@@ -288,6 +318,26 @@ export class LeaveService {
     return Array.from(leaderUserIds);
   }
 
+  private async getApproverUserIds(departmentId: string, excludeUserId?: string): Promise<string[]> {
+    const leaderUserIds = await this.getDepartmentLeaderUserIds(departmentId, excludeUserId);
+    if (leaderUserIds.length > 0) {
+      return leaderUserIds;
+    }
+
+    const fallbackUsers = await this.prisma.userRole.findMany({
+      where: {
+        role: { code: { in: ['HR', 'ADMIN'] } },
+        user: { accountStatus: 'ACTIVE' },
+      },
+      select: { userId: true },
+    });
+    const fallbackIds = new Set(fallbackUsers.map((u) => u.userId));
+    if (excludeUserId) {
+      fallbackIds.delete(excludeUserId);
+    }
+    return Array.from(fallbackIds);
+  }
+
   async createOvertimeRequest(dto: CreateOvertimeRequestDto, actor: AuthenticatedUser) {
     const departmentId = await this.scope.getPrimaryDepartmentId(actor.userId);
     const startAt = new Date(dto.startAt);
@@ -336,17 +386,17 @@ export class LeaveService {
         });
       }
 
-      // Gửi thông báo cho Leader của phòng ban
-      const leaderUserIds = await this.getDepartmentLeaderUserIds(departmentId, actor.userId);
+      // Gửi thông báo cho Leader của phòng ban (hoặc fallback HR/Admin)
+      const approverUserIds = await this.getApproverUserIds(departmentId, actor.userId);
       let notif;
-      if (leaderUserIds.length > 0) {
+      if (approverUserIds.length > 0) {
         const submitterName = request.user?.profile?.fullName || request.user?.userCode || 'Nhân viên';
         const workDateFormatted = this.businessTime.businessDateString(request.workDate);
-        notif = await this.notifications.createForUsers(tx, leaderUserIds, {
+        notif = await this.notifications.createForUsers(tx, approverUserIds, {
           type: NotificationType.SYSTEM,
           title: 'Đơn xin tăng ca mới chờ duyệt',
           body: `${submitterName} đã gửi đơn xin tăng ca ngày ${workDateFormatted} chờ bạn phê duyệt.`,
-          metadata: { overtimeRequestId: request.id, route: '/leader/overtime' },
+          metadata: { overtimeRequestId: request.id, route: '/leader/overtime-approvals' },
         });
       }
 

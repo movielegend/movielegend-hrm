@@ -583,6 +583,21 @@ export class EmployeeRequestsService {
     } else if (initialStage === 'PENDING_LEADER') {
       if (leaderId && leaderId !== actor.userId) {
         targetUserIds = [leaderId];
+      } else {
+        // Fallback khi phòng ban chưa có Leader:
+        // Đề xuất mua sắm -> HR; Tạm ứng -> Kế toán; Chi tiêu khác -> Kế toán & Admin
+        if (isPurchase) {
+          targetUserIds = await this.findHrUserIds(this.prisma);
+        } else if (isAdvance) {
+          targetUserIds = await this.findAccountantUserIds(this.prisma);
+        } else {
+          const [accIds, adminIds] = await Promise.all([
+            this.findAccountantUserIds(this.prisma),
+            this.findRelevantAdminUserIds(departmentId, this.prisma),
+          ]);
+          targetUserIds = Array.from(new Set([...accIds, ...adminIds]));
+        }
+        targetUserIds = targetUserIds.filter((id) => id !== actor.userId);
       }
     } else if (initialStage === 'PENDING_ADMIN') {
       targetUserIds = await this.findRelevantAdminUserIds(departmentId, this.prisma);
