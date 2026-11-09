@@ -43,6 +43,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   const leaveRequestId = stringMeta(notification.metadata, 'leaveRequestId');
   const overtimeRequestId = stringMeta(notification.metadata, 'overtimeRequestId');
   const metaRoute = stringMeta(notification.metadata, 'route');
+  const otReportId = stringMeta(notification.metadata, 'otReportId') || (metaRoute?.includes('ot-report') ? 'true' : null);
   
   const base = roleBase(user);
 
@@ -62,7 +63,25 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
     return `${base}/cross-department`;
   }
 
-  // 1. DAILY REPORTS (Báo cáo cuối ngày)
+  // OT REPORTS (Báo cáo OT Ca Live)
+  if (
+    otReportId ||
+    (notification.type as string) === 'OT_REPORT_SUBMITTED' ||
+    (notification.type as string)?.startsWith('OT_REPORT_') ||
+    notifTitle.includes('báo cáo ot') ||
+    notifTitle.includes('ot live') ||
+    notifTitle.includes('ca live') ||
+    notifFullText.includes('báo cáo ot live') ||
+    notifFullText.includes('ot live') ||
+    notifFullText.includes('ca live')
+  ) {
+    if (base === '/leader' || base === '/admin' || base === '/hr') {
+      return '/leader/ot-report-approvals';
+    }
+    return '/employee/ot-report';
+  }
+
+    // 1. DAILY REPORTS (Báo cáo cuối ngày)
   const reportId = stringMeta(notification.metadata, 'reportId');
   const notifCategory = stringMeta(notification.metadata, 'category');
   const notifMetaType = stringMeta(notification.metadata, 'type');
@@ -253,6 +272,7 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
 
 export function getNotificationIcon(type: string, title?: string): any {
   const t = (title || '').toLowerCase();
+  if (t.includes('ot') || t.includes('ca live') || type?.startsWith('OT_REPORT_')) return 'video-outline';
   if (t.includes('báo cáo') || type.startsWith('DAILY_REPORT_')) return 'clipboard-text-clock-outline';
   if (type.startsWith('DOCUMENT_') || type.startsWith('CONTRACT_') || t.includes('tài liệu')) return 'file-document-outline';
   if (t.includes('dự án cấp bậc') || t.includes('cấp bậc') || t.includes('việc con') || t.includes('thăng cấp') || type.startsWith('LEVEL_')) return 'trophy-award';
