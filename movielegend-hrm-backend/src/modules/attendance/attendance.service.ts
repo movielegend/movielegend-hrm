@@ -102,6 +102,25 @@ export class AttendanceService {
       (targetDept?.code && targetDept.code.toLowerCase().includes('live'))
     );
 
+    const isAccountingDepartment = Boolean(
+      memberships.some((m) => {
+        const dName = (m.department?.name || '').toLowerCase();
+        const dCode = (m.department?.code || '').toLowerCase();
+        return (
+          dName.includes('kế toán') ||
+          dName.includes('ke toan') ||
+          dName.includes('accounting') ||
+          dCode.includes('ketoan') ||
+          dCode.includes('accounting') ||
+          dCode.includes('kt')
+        );
+      }) ||
+      actor.roles.some((r) => {
+        const role = (r || '').toLowerCase();
+        return role.includes('accountant') || role.includes('ketoan');
+      })
+    );
+
     // Ngày công xác định theo ngày check-in thực tế (Asia/Ho_Chi_Minh). Qua 0h thuộc ngày hôm sau.
     const todayVnStr = this.businessTime.businessDateString(now);
     const workDate = isLiveDepartment
@@ -122,7 +141,38 @@ export class AttendanceService {
     });
     if (openRecord) {
       const isSameWorkDate = openRecord.workDate.toISOString().slice(0, 10) === workDate.toISOString().slice(0, 10);
-      if (isLiveDepartment || isSameWorkDate) {
+      if (!isSameWorkDate) {
+        // Ca mở của ngày hôm trước bị quên check-out -> Tự động đóng ca cũ thành MISSING (0 công) để nhân viên vào ca hôm nay bình thường
+        await this.prisma.attendanceRecord.updateMany({
+          where: {
+            userId: actor.userId,
+            status: AttendanceStatus.CHECKED_IN,
+            checkOutAt: null,
+            workDate: { lt: workDate },
+          },
+          data: {
+            status: AttendanceStatus.MISSING,
+            notes: 'Tự động đóng ca ngày trước do nhân viên quên check-out khi vào ca mới hôm nay (0 công)',
+          },
+        });
+      } else {
+        // Nhân viên đang có ca mở trong cùng ngày hôm nay:
+        const diffMinutes = Math.floor((now.getTime() - openRecord.checkInAt.getTime()) / 60000);
+        if (diffMinutes < 2) {
+          // Tránh spam/double-click nhiều lần liên tục sát nhau: trả về bản ghi hiện tại
+          return this.prisma.attendanceRecord.findUnique({
+            where: { id: openRecord.id },
+            include: this.attendanceInclude(),
+          });
+        }
+        // RIÊNG ĐỐI VỚI PHÒNG KẾ TOÁN (hoặc vai trò Kế toán):
+        // Do giao diện Mobile AccountantDashboard bị điều hướng nhầm nút "Ra ca" sang màn hình check-in,
+        // Backend tự động chuyển tiếp thành Check-out để kế toán ra ca bình thường mà không cần build lại app mobile.
+        if (isAccountingDepartment) {
+          return this.checkOut(dto as CheckOutDto, actor, ip);
+        }
+
+        // Các phòng ban khác: Giữ nguyên quy tắc chặn và yêu cầu check-out ca trước
         throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước rồi mới được check-in ca mới!');
       }
     }
@@ -257,10 +307,16 @@ export class AttendanceService {
       });
       if (concurrentOpen) {
         const isSameWorkDate = concurrentOpen.workDate.toISOString().slice(0, 10) === workDate.toISOString().slice(0, 10);
-        if (isLiveDepartment || isSameWorkDate) {
+        if (isSameWorkDate) {
+          if (isAccountingDepartment) {
+            return tx.attendanceRecord.findUnique({
+              where: { id: concurrentOpen.id },
+              include: this.attendanceInclude(),
+            });
+          }
           throw conflict('ALREADY_CHECKED_IN', 'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước rồi mới được check-in ca mới!');
         } else {
-          // Đối với phòng ban thường: Ca mở của ngày hôm trước bị quên check-out -> Tự động đóng ca cũ thành MISSING (Thiếu check-out) để nhân viên vào ca hôm nay bình thường
+          // Ca mở của ngày hôm trước bị quên check-out -> Tự động đóng ca cũ thành MISSING (Thiếu check-out) để nhân viên vào ca hôm nay bình thường
           await tx.attendanceRecord.updateMany({
             where: {
               userId: actor.userId,

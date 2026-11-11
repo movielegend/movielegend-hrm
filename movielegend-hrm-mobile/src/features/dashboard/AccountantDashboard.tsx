@@ -231,7 +231,11 @@ export function AccountantDashboard() {
 
   // Navigation handlers
   const handleAttendanceAction = () => {
-    router.push('/employee/attendance/check-in' as any);
+    if (currentAttendance?.state === 'CHECKED_IN') {
+      router.push('/employee/attendance/check-out' as any);
+    } else {
+      router.push('/employee/attendance/check-in' as any);
+    }
   };
 
   const getGreeting = () => {
