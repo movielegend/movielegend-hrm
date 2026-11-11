@@ -304,9 +304,17 @@ export function EmployeeScheduleScreen() {
   const shiftsRoute = (rolePrefix === '/admin' ? '/admin/shifts' : '/leader/shifts') as any;
   const { data: currentAttendance } = useCurrentAttendance();
 
-  const attendanceRoute = currentAttendance?.state === 'CHECKED_IN'
-    ? `${rolePrefix}/attendance/check-out`
-    : `${rolePrefix}/attendance/check-in`;
+  const attendanceRoute = useMemo(() => {
+    const isHr = Boolean(user?.roles?.includes('HR'));
+    const isLeader = Boolean(
+      user?.roles?.includes('LEADER') ||
+      (user as any)?.isDepartmentLeader
+    );
+    const prefix = isHr ? '/hr' : isLeader ? '/leader' : '/employee';
+    return currentAttendance?.state === 'CHECKED_IN'
+      ? `${prefix}/attendance/check-out`
+      : `${prefix}/attendance/check-in`;
+  }, [user, currentAttendance?.state]);
 
   const displayList = activeTab === 'upcoming' ? upcomingShifts : pastShifts;
 

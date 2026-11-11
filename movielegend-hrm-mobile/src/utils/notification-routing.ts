@@ -257,8 +257,10 @@ export function notificationRoute(target: NotificationTargetDto, user: AuthUser 
   if (notification.type === 'SYSTEM' && (t.includes('phân ca mới') || t.includes('phân ca làm việc mới'))) {
     return `${base}/schedule`;
   }
-  if (notification.type === 'SYSTEM' && (t.includes('check in') || t.includes('check out') || t.includes('chấm công') || t.includes('giờ làm việc') || t.includes('ca làm việc'))) {
-    return `${base}/attendance/check-in`;
+  if (notification.type === 'SYSTEM' && (t.includes('check in') || t.includes('check out') || t.includes('chấm công') || t.includes('giờ làm việc') || t.includes('ca làm việc') || t.includes('ra ca') || t.includes('vào ca'))) {
+    const isCheckout = t.includes('check out') || t.includes('ra ca') || t.includes('kết thúc ca');
+    const safeBase = (base === '/accountant' || base === '/admin' || base === '/warehouse-manager') ? '/employee' : base;
+    return isCheckout ? `${safeBase}/attendance/check-out` : `${safeBase}/attendance/check-in`;
   }
   if (notification.type === 'SYSTEM' && (t.includes('công việc') || t.includes('nhiệm vụ') || t.includes('task')) && taskId) {
     return `${base}/tasks/${taskId}`;

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import {StyleSheet, Text, View, Pressable, ActivityIndicator, Modal, ScrollView} from 'react-native';
 import { AttendanceCamera } from './AttendanceCamera';
 import * as Location from 'expo-location';
@@ -25,12 +25,22 @@ import Toast from 'react-native-toast-message';
 import { useNetworkQuality } from '../../hooks/useNetworkQuality';
 import { LiveNetworkPingBadge } from './components/LiveNetworkPingBadge';
 import { NetworkQualityWarningModal } from './components/NetworkQualityWarningModal';
+import { useAuth } from '../../providers/AuthProvider';
+import { useCurrentAttendance } from '../../hooks/useAttendance';
 
 export function CheckInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { data: schedule, isLoading: scheduleLoading } = useMySchedule();
+  const { data: currentAttendance } = useCurrentAttendance();
+
+  const checkOutRoute = useMemo(() => {
+    if (user?.roles?.includes('HR')) return '/hr/attendance/check-out';
+    if (user?.roles?.includes('LEADER') || (user as any)?.isDepartmentLeader) return '/leader/attendance/check-out';
+    return '/employee/attendance/check-out';
+  }, [user]);
 
   const { qualityInfo, isChecking: isPingChecking, measurePing, testConnectionBeforeAction } = useNetworkQuality();
   const [isWeakNetworkModalVisible, setWeakNetworkModalVisible] = useState(false);
@@ -113,6 +123,23 @@ export function CheckInScreen() {
   };
 
   const handleConfirm = async () => {
+    if (currentAttendance?.state === 'CHECKED_IN') {
+      CustomAlert.alert(
+        'Đang trong ca làm việc',
+        'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước khi vào ca mới!',
+        [
+          { text: 'Đóng', style: 'cancel' },
+          {
+            text: 'Chuyển sang Ra ca',
+            onPress: () => {
+              router.replace(checkOutRoute as any);
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     if (!location) {
       CustomAlert.alert('Chưa có vị trí', 'Vui lòng đợi ứng dụng lấy tọa độ GPS chính xác.');
       return;
@@ -158,6 +185,30 @@ export function CheckInScreen() {
       await queryClient.invalidateQueries({ queryKey: ['attendance'] });
       await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     } catch (e: any) {
+      const isAlreadyCheckedIn =
+        e?.code === 'ALREADY_CHECKED_IN' ||
+        e?.response?.data?.code === 'ALREADY_CHECKED_IN' ||
+        (typeof e?.message === 'string' && e.message.toLowerCase().includes('chưa check-out')) ||
+        (typeof e?.response?.data?.message === 'string' && e.response.data.message.toLowerCase().includes('chưa check-out'));
+
+      if (isAlreadyCheckedIn) {
+        setCameraVisible(false);
+        CustomAlert.alert(
+          'Đang trong ca làm việc',
+          'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước rồi mới vào ca mới!',
+          [
+            { text: 'Đóng', style: 'cancel' },
+            {
+              text: 'Ra ca ngay',
+              onPress: () => {
+                router.replace(checkOutRoute as any);
+              },
+            },
+          ]
+        );
+        return;
+      }
+
       // If error is timeout, double check if attendance was actually recorded
       const isTimeout = e.code === 'ECONNABORTED' || (e.message && e.message.toLowerCase().includes('timeout'));
       if (isTimeout) {
@@ -194,6 +245,33 @@ export function CheckInScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 + Math.max(insets.bottom, 20) }}
       >
+        {/* Checked In Warning Banner */}
+        {currentAttendance?.state === 'CHECKED_IN' ? (
+          <Pressable
+            style={{
+              backgroundColor: '#EFF6FF',
+              borderColor: '#BFDBFE',
+              borderWidth: 1,
+              borderRadius: 12,
+              padding: 12,
+              marginHorizontal: 16,
+              marginBottom: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+            onPress={() => router.replace(checkOutRoute as any)}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+              <MaterialCommunityIcons name="information" size={20} color="#2563EB" style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 13, color: '#1E40AF', flex: 1, fontWeight: '500' }}>
+                Bạn đang trong ca làm việc chưa check-out. Chạm vào đây để chuyển sang Ra ca.
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#2563EB" />
+          </Pressable>
+        ) : null}
+
         {/* Map View */}
         <View style={styles.mapContainerWrapper}>
           <View style={styles.mapContainer}>
@@ -303,10 +381,12 @@ export function CheckInScreen() {
       {!isCameraVisible ? (
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <Pressable
-            style={styles.confirmBtn}
+            style={[styles.confirmBtn, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#E11D48' }]}
             onPress={() => void handleConfirm()}
           >
-            <Text style={styles.confirmBtnText}>Xác nhận</Text>
+            <Text style={styles.confirmBtnText}>
+              {currentAttendance?.state === 'CHECKED_IN' ? 'Chuyển sang Ra ca' : 'Xác nhận'}
+            </Text>
           </Pressable>
         </View>
       ) : null}
