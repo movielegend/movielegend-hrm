@@ -455,21 +455,42 @@ export class AttendanceService {
       throw badRequest('SHIFT_ALREADY_EXPIRED', 'Ca làm việc đã hết hạn check-out và được tính là quên check-out (0 công). Bạn có thể làm đơn giải trình bổ sung check-out nếu cần!');
     }
 
-    const photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
-    const faceImage = photo?.fileUrl ?? dto.faceImage;
-    if (!faceImage) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Cần ảnh chấm công để ra ca');
+    let photo = dto.photoFileId ? await this.validateAttendancePhoto(dto.photoFileId, actor.userId) : null;
+    let faceImage = photo?.fileUrl ?? dto.faceImage;
+    const rawBase64 = dto.photoBase64 || (dto as any).photoBase64;
+    if (!faceImage && !rawBase64) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Cần ảnh chấm công để ra ca');
 
     const location = await this.findAllowedLocation(record.departmentId, dto.latitude, dto.longitude);
     await this.assertIpAllowed(actor, location, ip, dto.wifiSsid);
     await this.assertWifiAllowed(record.departmentId, dto.wifiSsid, dto.wifiBssid);
 
+    let photoBuffer: Buffer | undefined;
+    if (rawBase64 && !photo) {
+      const cleanBase64 = rawBase64.includes('base64,') ? rawBase64.split('base64,')[1] : rawBase64;
+      photoBuffer = Buffer.from(cleanBase64, 'base64');
+    }
+
     const face = await this.faceVerification.verifyAttendanceFace({
       userId: actor.userId,
       image: faceImage,
       storageKey: photo?.storageKey,
+      imageBuffer: photoBuffer,
     });
     if (!face.matched) {
       throw badRequest('FACE_VERIFICATION_FAILED', face.reason ?? 'Xác minh khuôn mặt không thành công');
+    }
+
+    let finalPhotoId = photo?.id;
+    if (photoBuffer && !photo) {
+      const uploadedFile = await this.uploads.uploadFromBuffer(
+        photoBuffer,
+        'attendance-checkout.jpg',
+        'image/jpeg',
+        UploadPurpose.ATTENDANCE,
+        actor.userId
+      );
+      finalPhotoId = uploadedFile.fileId;
+      photo = await this.prisma.uploadedFile.findUnique({ where: { id: finalPhotoId } });
     }
 
     if (photo) {
@@ -498,7 +519,7 @@ export class AttendanceService {
           checkOutAt: now,
           checkOutLatitude: dto.latitude,
           checkOutLongitude: dto.longitude,
-          checkOutPhotoFileId: photo?.id,
+          checkOutPhotoFileId: finalPhotoId ?? photo?.id,
           checkOutIp: ip,
           status: AttendanceStatus.CHECKED_OUT,
         },
@@ -530,7 +551,7 @@ export class AttendanceService {
           checkOutAt: now,
           checkOutLatitude: dto.latitude,
           checkOutLongitude: dto.longitude,
-          checkOutPhotoFileId: photo?.id,
+          checkOutPhotoFileId: finalPhotoId ?? photo?.id,
           checkOutIp: ip,
           status: AttendanceStatus.CHECKED_OUT,
         },

@@ -280,6 +280,13 @@ export class CheckOutDto {
   @IsUUID()
   photoFileId?: string;
 
+  @ApiPropertyOptional({
+    description: 'Base64 encoded string of the check-out photo.',
+  })
+  @IsOptional()
+  @IsString()
+  photoBase64?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)
