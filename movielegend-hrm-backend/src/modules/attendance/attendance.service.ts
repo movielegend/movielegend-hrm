@@ -3,6 +3,8 @@ import {
   AttendanceAdjustmentStatus,
   AttendanceStatus,
   AttendanceVerificationType,
+  EmployeeRequestStatus,
+  EmployeeRequestType,
   NotificationType,
   Prisma,
   UploadedFileStatus,
@@ -724,8 +726,81 @@ export class AttendanceService {
     });
     if (!record) throw notFound('ATTENDANCE_NOT_FOUND', 'Không tìm thấy bảng công');
     await this.assertAttendanceAccess(actor, record.userId, record.departmentId);
-    const location = await this.locationFromRecord(record);
-    return this.toAttendanceDetail(record, location);
+
+    // Bổ sung kiểm tra đơn công tác đã duyệt
+    const workDateStr = record.workDate.toISOString().slice(0, 10);
+    const trip = await this.prisma.employeeRequest.findFirst({
+      where: {
+        userId: record.userId,
+        type: EmployeeRequestType.BUSINESS_TRIP,
+        status: EmployeeRequestStatus.APPROVED,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let effectiveRecord = record;
+    if (trip) {
+      const meta: any = trip.attachmentMetadata || {};
+      const fromStr = meta.fromDate
+        ? (typeof meta.fromDate === 'string' ? meta.fromDate.slice(0, 10) : new Date(meta.fromDate).toISOString().slice(0, 10))
+        : null;
+      const toStr = meta.toDate
+        ? (typeof meta.toDate === 'string' ? meta.toDate.slice(0, 10) : new Date(meta.toDate).toISOString().slice(0, 10))
+        : fromStr;
+
+      if (fromStr && workDateStr >= fromStr && workDateStr <= (toStr || fromStr)) {
+        const tripMeta: any = trip.attachmentMetadata || {};
+        const parseTripTime = (timeVal: any, fallbackH: number, fallbackM: number) => {
+          if (!timeVal) return { h: fallbackH, m: fallbackM };
+          if (typeof timeVal === 'string') {
+            if (timeVal.includes('T') || timeVal.includes('Z')) {
+              const d = new Date(timeVal);
+              if (!isNaN(d.getTime())) {
+                const vnHours = (d.getUTCHours() + 7) % 24;
+                return { h: vnHours, m: d.getUTCMinutes() };
+              }
+            }
+            if (timeVal.includes(':')) {
+              const parts = timeVal.split(':');
+              const h = parseInt(parts[0], 10);
+              const m = parseInt(parts[1], 10);
+              return { h: isNaN(h) ? fallbackH : h, m: isNaN(m) ? fallbackM : m };
+            }
+          }
+          return { h: fallbackH, m: fallbackM };
+        };
+
+        const startParsed = parseTripTime(tripMeta.startTime, 9, 0);
+        const endParsed = parseTripTime(tripMeta.endTime, 17, 30);
+
+        const checkInAt = new Date(record.workDate);
+        checkInAt.setUTCHours(startParsed.h - 7, startParsed.m, 0, 0);
+
+        const checkOutAt = new Date(record.workDate);
+        if (endParsed.h === 0 && endParsed.m === 0) {
+          checkOutAt.setUTCDate(checkOutAt.getUTCDate() + 1);
+          checkOutAt.setUTCHours(0 - 7, 0, 0, 0);
+        } else {
+          checkOutAt.setUTCHours(endParsed.h - 7, endParsed.m, 0, 0);
+        }
+
+        const location = tripMeta.location || '';
+        const purpose = tripMeta.purpose || trip.content || '';
+        const noteText = `Công tác: ${location || 'Bên ngoài'}${purpose ? ` (${purpose})` : ''}`;
+
+        effectiveRecord = {
+          ...record,
+          checkInAt,
+          checkOutAt,
+          status: AttendanceStatus.ADJUSTED,
+          lateMinutes: 0,
+          notes: record.notes ? (record.notes.includes('Công tác') ? record.notes : `${record.notes} | ${noteText}`) : noteText,
+        };
+      }
+    }
+
+    const location = await this.locationFromRecord(effectiveRecord);
+    return this.toAttendanceDetail(effectiveRecord, location);
   }
 
   async activeLocations(actor: AuthenticatedUser) {
@@ -874,7 +949,90 @@ export class AttendanceService {
       this.prisma.attendanceRecord.count({ where }),
     ]);
 
-    return this.paginate(items, total, query.page, query.limit);
+    // Bổ sung đồng bộ thông tin đơn công tác đã duyệt (BUSINESS_TRIP)
+    const userIds = Array.from(new Set(items.map((i) => i.userId)));
+    let businessTrips: any[] = [];
+    if (userIds.length > 0) {
+      businessTrips = await this.prisma.employeeRequest.findMany({
+        where: {
+          type: EmployeeRequestType.BUSINESS_TRIP,
+          status: EmployeeRequestStatus.APPROVED,
+          userId: { in: userIds },
+        },
+      });
+    }
+
+    const processedItems = items.map((item) => {
+      const workDateStr = item.workDate.toISOString().slice(0, 10);
+      const trip = businessTrips.find((b) => {
+        if (b.userId !== item.userId) return false;
+        const meta: any = b.attachmentMetadata || {};
+        const fromStr = meta.fromDate
+          ? (typeof meta.fromDate === 'string' ? meta.fromDate.slice(0, 10) : new Date(meta.fromDate).toISOString().slice(0, 10))
+          : null;
+        const toStr = meta.toDate
+          ? (typeof meta.toDate === 'string' ? meta.toDate.slice(0, 10) : new Date(meta.toDate).toISOString().slice(0, 10))
+          : fromStr;
+        if (!fromStr) return false;
+        return workDateStr >= fromStr && workDateStr <= (toStr || fromStr);
+      });
+
+      if (trip) {
+        const tripMeta: any = trip.attachmentMetadata || {};
+        const parseTripTime = (timeVal: any, fallbackH: number, fallbackM: number) => {
+          if (!timeVal) return { h: fallbackH, m: fallbackM };
+          if (typeof timeVal === 'string') {
+            if (timeVal.includes('T') || timeVal.includes('Z')) {
+              const d = new Date(timeVal);
+              if (!isNaN(d.getTime())) {
+                const vnHours = (d.getUTCHours() + 7) % 24;
+                return { h: vnHours, m: d.getUTCMinutes() };
+              }
+            }
+            if (timeVal.includes(':')) {
+              const parts = timeVal.split(':');
+              const h = parseInt(parts[0], 10);
+              const m = parseInt(parts[1], 10);
+              return { h: isNaN(h) ? fallbackH : h, m: isNaN(m) ? fallbackM : m };
+            }
+          }
+          return { h: fallbackH, m: fallbackM };
+        };
+
+        const startParsed = parseTripTime(tripMeta.startTime, 9, 0);
+        const endParsed = parseTripTime(tripMeta.endTime, 17, 30);
+
+        const checkInAt = new Date(item.workDate);
+        checkInAt.setUTCHours(startParsed.h - 7, startParsed.m, 0, 0);
+
+        const checkOutAt = new Date(item.workDate);
+        if (endParsed.h === 0 && endParsed.m === 0) {
+          // 00:00 đêm -> Kết thúc ca vào 00:00 sáng hôm sau
+          checkOutAt.setUTCDate(checkOutAt.getUTCDate() + 1);
+          checkOutAt.setUTCHours(0 - 7, 0, 0, 0);
+        } else {
+          checkOutAt.setUTCHours(endParsed.h - 7, endParsed.m, 0, 0);
+        }
+
+        const location = tripMeta.location || '';
+        const purpose = tripMeta.purpose || trip.content || '';
+        const noteText = `Công tác: ${location || 'Bên ngoài'}${purpose ? ` (${purpose})` : ''}`;
+
+        return {
+          ...item,
+          checkInAt,
+          checkOutAt,
+          status: AttendanceStatus.ADJUSTED,
+          lateMinutes: 0,
+          earlyLeaveMinutes: 0,
+          notes: item.notes ? (item.notes.includes('Công tác') ? item.notes : `${item.notes} | ${noteText}`) : noteText,
+        };
+      }
+
+      return item;
+    });
+
+    return this.paginate(processedItems, total, query.page, query.limit);
   }
 
   async getDashboardStats(actor: AuthenticatedUser, query: AttendanceQueryDto) {
@@ -1479,8 +1637,8 @@ export class AttendanceService {
       include: { leaveType: true },
     });
 
-    // Lấy đơn tăng ca đã duyệt trong tháng (cả OvertimeRequest và OtReport phòng Live)
-    const [ots, liveOtReports, approvedAdjustments, approvedAdjustmentRequests] = await Promise.all([
+    // Lấy đơn tăng ca, sửa công và công tác đã duyệt trong tháng
+    const [ots, liveOtReports, approvedAdjustments, approvedAdjustmentRequests, approvedBusinessTrips] = await Promise.all([
       this.prisma.overtimeRequest.findMany({
         where: {
           userId,
@@ -1506,6 +1664,13 @@ export class AttendanceService {
           userId,
           type: 'ATTENDANCE_ADJUSTMENT',
           status: 'APPROVED',
+        },
+      }),
+      this.prisma.employeeRequest.findMany({
+        where: {
+          userId,
+          type: EmployeeRequestType.BUSINESS_TRIP,
+          status: EmployeeRequestStatus.APPROVED,
         },
       }),
     ]);
@@ -1636,6 +1801,69 @@ export class AttendanceService {
           // Hôm nay, ca đang diễn ra
           dayStatus = 'CHECKED_IN';
         }
+      }
+
+      // Kiểm tra xem ngày này có đơn đi công tác được duyệt không
+      const businessTrip = approvedBusinessTrips.find((b) => {
+        const meta: any = b.attachmentMetadata || {};
+        const fromStr = meta.fromDate
+          ? (typeof meta.fromDate === 'string' ? meta.fromDate.slice(0, 10) : new Date(meta.fromDate).toISOString().slice(0, 10))
+          : null;
+        const toStr = meta.toDate
+          ? (typeof meta.toDate === 'string' ? meta.toDate.slice(0, 10) : new Date(meta.toDate).toISOString().slice(0, 10))
+          : fromStr;
+        if (!fromStr) return false;
+        return dStr >= fromStr && dStr <= (toStr || fromStr);
+      });
+
+      if (businessTrip) {
+        const tripMeta: any = businessTrip.attachmentMetadata || {};
+        const parseTripTimeStr = (timeVal: any, fallback: string) => {
+          if (!timeVal) return fallback;
+          if (typeof timeVal === 'string') {
+            if (timeVal.includes('T') || timeVal.includes('Z')) {
+              const d = new Date(timeVal);
+              if (!isNaN(d.getTime())) {
+                const vnHours = (d.getUTCHours() + 7) % 24;
+                return `${String(vnHours).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+              }
+            }
+            if (timeVal.includes(':')) {
+              const parts = timeVal.split(':');
+              return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+            }
+          }
+          return fallback;
+        };
+
+        const tStart = parseTripTimeStr(tripMeta.startTime, '09:00');
+        const tEnd = parseTripTimeStr(tripMeta.endTime, '17:30');
+
+        const [tsh, tsm] = tStart.split(':').map(Number);
+        const [teh, tem] = tEnd.split(':').map(Number);
+
+        const tripInD = new Date(currentD);
+        tripInD.setUTCHours(tsh - 7, tsm, 0, 0);
+
+        const tripOutD = new Date(currentD);
+        if (teh === 0 && tem === 0) {
+          tripOutD.setUTCDate(tripOutD.getUTCDate() + 1);
+          tripOutD.setUTCHours(0 - 7, 0, 0, 0);
+        } else {
+          tripOutD.setUTCHours(teh - 7, tem, 0, 0);
+        }
+
+        checkInIso = tripInD.toISOString();
+        checkOutIso = tripOutD.toISOString();
+
+        if (dayStatus !== 'ADJUSTED' && !hasValidRecordCheckOut) {
+          actualWorkingDays += 1;
+        }
+        dayStatus = 'ADJUSTED';
+        const loc = tripMeta.location || '';
+        const purpose = tripMeta.purpose || businessTrip.content || '';
+        const tripNote = `Công tác: ${loc || 'Bên ngoài'}${purpose ? ` (${purpose})` : ''}`;
+        dayNotes = dayNotes ? (dayNotes.includes('Công tác') ? dayNotes : `${dayNotes} | ${tripNote}`) : tripNote;
       }
 
       let dayWorkedMins = 0;

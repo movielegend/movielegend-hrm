@@ -1080,19 +1080,28 @@ export class EmployeeRequestsService {
               let sm = 0;
               if (startTime && typeof startTime === 'string' && startTime.includes(':')) {
                 const parts = startTime.split(':');
-                sh = parseInt(parts[0], 10) || 8;
-                sm = parseInt(parts[1], 10) || 0;
+                const parsedH = parseInt(parts[0], 10);
+                const parsedM = parseInt(parts[1], 10);
+                sh = isNaN(parsedH) ? 8 : parsedH;
+                sm = isNaN(parsedM) ? 0 : parsedM;
               }
               let eh = 17;
               let em = 30;
               if (endTime && typeof endTime === 'string' && endTime.includes(':')) {
                 const parts = endTime.split(':');
-                eh = parseInt(parts[0], 10) || 17;
-                em = parseInt(parts[1], 10) || 30;
+                const parsedH = parseInt(parts[0], 10);
+                const parsedM = parseInt(parts[1], 10);
+                eh = isNaN(parsedH) ? 17 : parsedH;
+                em = isNaN(parsedM) ? 30 : parsedM;
               }
 
               const checkInAt = moment.tz(`${workDateStr} ${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Ho_Chi_Minh').toDate();
-              const checkOutAt = moment.tz(`${workDateStr} ${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Ho_Chi_Minh').toDate();
+              let checkOutAt: Date;
+              if (eh === 0 && em === 0) {
+                checkOutAt = moment.tz(workDateStr, 'YYYY-MM-DD', 'Asia/Ho_Chi_Minh').add(1, 'day').hour(0).minute(0).second(0).toDate();
+              } else {
+                checkOutAt = moment.tz(`${workDateStr} ${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00`, 'YYYY-MM-DD HH:mm:ss', 'Asia/Ho_Chi_Minh').toDate();
+              }
 
               const existing = await tx.attendanceRecord.findFirst({
                 where: {
@@ -1107,12 +1116,13 @@ export class EmployeeRequestsService {
                 await tx.attendanceRecord.update({
                   where: { id: existing.id },
                   data: {
+                    checkInAt,
+                    checkOutAt,
                     latePenaltyWorkDays: 1,
                     latePenaltyAmount: 0,
                     lateMinutes: 0,
                     status: 'ADJUSTED',
-                    notes: existing.notes ? `${existing.notes} | ${noteText}` : noteText,
-                    ...(existing.checkOutAt ? {} : { checkOutAt }),
+                    notes: existing.notes ? (existing.notes.includes('Đi công tác') ? existing.notes : `${existing.notes} | ${noteText}`) : noteText,
                   },
                 });
               } else {
