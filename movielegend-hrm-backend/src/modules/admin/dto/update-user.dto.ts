@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, EmploymentType } from '@prisma/client';
 import { IsBoolean, IsEmail, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class UpdateUserDto {
@@ -47,4 +47,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   joinDate?: string;
+
+  @ApiPropertyOptional({ enum: EmploymentType })
+  @IsOptional()
+  @IsEnum(EmploymentType)
+  employmentType?: EmploymentType;
 }

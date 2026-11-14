@@ -100,7 +100,7 @@ export class AttendanceReportService {
     });
 
     // Fetch Overtimes from OvertimeRequest table, EmployeeRequest, and OtReport (Live), and AttendanceAdjustments
-    const [overtimesDb, overtimesRaw, leavesDb, lateRequestsRaw, otReportsDb, adjustmentsDb, businessTripsRaw] = await Promise.all([
+    const [overtimesDb, overtimesRaw, leavesDb, lateRequestsRaw, otReportsDb, adjustmentsDb, businessTripsRaw, shiftSwapsDb] = await Promise.all([
       this.prisma.overtimeRequest.findMany({
         where: {
           status: 'APPROVED',
@@ -158,6 +158,15 @@ export class AttendanceReportService {
           type: 'BUSINESS_TRIP',
           status: 'APPROVED',
           userId: { in: userIds },
+        },
+      }).catch(() => []),
+      this.prisma.shiftSwap.findMany({
+        where: {
+          status: 'APPROVED',
+          OR: [
+            { requesterUserId: { in: userIds }, fromDate: { gte: start, lte: end } },
+            { targetUserId: { in: userIds }, toDate: { gte: start, lte: end } },
+          ],
         },
       }).catch(() => []),
     ]);
@@ -621,6 +630,37 @@ export class AttendanceReportService {
           }
         }
 
+        const noteParts: string[] = [];
+
+        // Kiểm tra ca vá ca (isPatched === true hoặc notes có chứa vá ca)
+        const isPatchedShift = Boolean(record?.shiftAssignment?.isPatched || (record?.notes && record.notes.toLowerCase().includes('vá ca')));
+        if (isPatchedShift) {
+          const shiftDuration = (record?.shiftAssignment?.shift?.startTime && record?.shiftAssignment?.shift?.endTime)
+            ? Math.max(0, moment(record.shiftAssignment.shift.endTime, 'HH:mm').diff(moment(record.shiftAssignment.shift.startTime, 'HH:mm'), 'minutes'))
+            : 0;
+          const patchMins = totalMinutes > 0 ? totalMinutes : shiftDuration;
+          if (patchMins > 0) {
+            ot100 += patchMins;
+            const pHours = Math.floor(patchMins / 60);
+            const pMins = patchMins % 60;
+            const timeLabel = pMins > 0 ? `${pHours}h ${pMins}p` : `${pHours}h`;
+            noteParts.push(`Vá ca (100% OT: ${timeLabel})`);
+          }
+        }
+
+        // Kiểm tra đơn đổi ca đã duyệt cho ngày này
+        const hasApprovedSwap = shiftSwapsDb.some((s: any) =>
+          (s.requesterUserId === user.id && moment(s.fromDate).format('YYYY-MM-DD') === dateStr) ||
+          (s.targetUserId === user.id && moment(s.toDate).format('YYYY-MM-DD') === dateStr)
+        ) || Boolean(record?.shiftAssignment?.patchReason?.includes('Đổi ca'));
+
+        if (hasApprovedSwap) {
+          noteParts.push('Đổi ca: được cộng 100% lương');
+          if (user.profile?.employmentType !== 'PART_TIME' && attendance < 1 && (checkIn || totalMinutes > 0)) {
+            attendance = 1;
+          }
+        }
+
         let checkInDisplay = checkIn ? checkIn.format('HH:mm') : '';
         let checkOutDisplay = checkOut ? checkOut.format('HH:mm') : '';
 
@@ -773,7 +813,6 @@ export class AttendanceReportService {
           return '';
         };
 
-        const noteParts: string[] = [];
         if (hasApprovedLateAdj && !isDailyLeave) {
           const lateReq = lateRequestsRaw.find((lr) => {
             if (lr.userId !== user.id || lr.status !== 'APPROVED') return false;
@@ -1082,9 +1121,13 @@ export class AttendanceReportService {
         }
         const rowNotes = noteParts.join(' | ');
 
+        const empTypeLabel = user.profile?.employmentType === 'PART_TIME' ? 'Part-time' : 'Full-time';
+        const baseName = user.profile?.fullName || user.email || user.phone || user.userCode;
+        const displayName = `${baseName} (${empTypeLabel})`;
+
         const row = {
           employeeCode: user.userCode || '',
-          employeeName: user.profile?.fullName || user.email || user.phone || user.userCode,
+          employeeName: displayName,
           department: deptName,
           position: '',
           date: currDate.format('DD/MM/YYYY'),

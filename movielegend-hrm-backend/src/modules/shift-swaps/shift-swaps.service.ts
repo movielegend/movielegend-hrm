@@ -287,11 +287,18 @@ export class ShiftSwapsService {
           });
           await tx.shiftAssignment.update({
             where: { id: targetAssignment.id },
-            data: { userId: swap.requesterUserId }
+            data: { 
+              userId: swap.requesterUserId,
+              patchReason: 'Đổi ca: được cộng 100% lương',
+            }
           });
           await tx.shiftAssignment.update({
             where: { id: sourceAssignment.id },
-            data: { userId: swap.targetUserId, workDate: originalDate }
+            data: { 
+              userId: swap.targetUserId, 
+              workDate: originalDate,
+              patchReason: 'Đổi ca: được cộng 100% lương',
+            }
           });
         }
       }

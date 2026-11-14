@@ -52,6 +52,11 @@ enum EmploymentStatus {
   TERMINATED
 }
 
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+}
+
 enum FacePoseType {
   FRONT
   LEFT
@@ -1129,6 +1134,7 @@ model EmployeeProfile {
   joinDate              DateTime?
   officialDate          DateTime?
   employmentStatus      EmploymentStatus      @default(PROBATION)
+  employmentType        EmploymentType        @default(FULL_TIME)
   currentLevelNumber    Int                   @default(1)
   emergencyContactName  String?
   emergencyContactPhone String?
@@ -1374,6 +1380,8 @@ model ShiftAssignment {
   shiftId           String                @db.Uuid
   workDate          DateTime              @db.Date
   status            ShiftAssignmentStatus @default(ASSIGNED)
+  isPatched         Boolean               @default(false)
+  patchReason       String?
   assignedByUserId  String?               @db.Uuid
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt

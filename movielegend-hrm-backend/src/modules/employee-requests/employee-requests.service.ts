@@ -1025,7 +1025,18 @@ export class EmployeeRequestsService {
 
     // --- STANDARD / NON-FINANCIAL REQUEST APPROVAL ---
     if (!isFinancial) {
-      if (!isAccountDeletion) {
+      if (request.type === EmployeeRequestType.OVERTIME || (request.type as string) === 'OVERTIME') {
+        const otPercent = Number(currentMeta.proposedPercent || currentMeta.percent || currentMeta.rate || 100);
+        if (otPercent <= 100) {
+          if (!canDeptAccess && !isGlobalAdmin) {
+            throw forbidden('LEADER_ONLY_APPROVAL', 'Đơn làm thêm giờ (OT) mức 100% thuộc thẩm quyền phê duyệt của Trưởng bộ phận (Lead).');
+          }
+        } else {
+          if (!isHr && !isGlobalAdmin) {
+            throw forbidden('HR_ADMIN_ONLY_APPROVAL', 'Đơn làm thêm giờ (OT) mức từ 150% trở lên thuộc thẩm quyền phê duyệt của Nhân sự (HR) hoặc Ban Giám Đốc.');
+          }
+        }
+      } else if (!isAccountDeletion) {
         if (!isGlobalAdmin && !isHr && !canDeptAccess) {
           throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền duyệt yêu cầu của phòng ban này');
         }
@@ -1833,10 +1844,27 @@ export class EmployeeRequestsService {
     const isRegionAdmin = this.scope.isRegionAdmin(actor);
     const isGlobalAdmin = (actor.roles.includes('ADMIN') && !isRegionAdmin) || this.scope.isGlobalAdmin(actor);
     const canDeptAccess = request.departmentId ? await this.scope.canAccessDepartmentAsync(actor, request.departmentId) : false;
+    const isAccountDeletion = (request.type as string) === 'ACCOUNT_DELETION' || request.title.includes('[ACCOUNT_DELETION]');
 
     if (!isFinancial) {
-      if (!isGlobalAdmin && !isHr && !canDeptAccess) {
-        throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền từ chối yêu cầu của phòng ban này');
+      if (request.type === EmployeeRequestType.OVERTIME || (request.type as string) === 'OVERTIME') {
+        const meta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
+          ? (request.attachmentMetadata as Record<string, any>)
+          : {};
+        const otPercent = Number(meta.proposedPercent || meta.percent || meta.rate || 100);
+        if (otPercent <= 100) {
+          if (!canDeptAccess && !isGlobalAdmin) {
+            throw forbidden('LEADER_ONLY_APPROVAL', 'Đơn làm thêm giờ (OT) mức 100% thuộc thẩm quyền xử lý của Trưởng bộ phận (Lead).');
+          }
+        } else {
+          if (!isHr && !isGlobalAdmin) {
+            throw forbidden('HR_ADMIN_ONLY_APPROVAL', 'Đơn làm thêm giờ (OT) mức từ 150% trở lên thuộc thẩm quyền xử lý của Nhân sự (HR) hoặc Ban Giám Đốc.');
+          }
+        }
+      } else if (!isAccountDeletion) {
+        if (!isGlobalAdmin && !isHr && !canDeptAccess) {
+          throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền từ chối yêu cầu của phòng ban này');
+        }
       }
     } else {
       const currentMeta = (typeof request.attachmentMetadata === 'object' && request.attachmentMetadata !== null)
