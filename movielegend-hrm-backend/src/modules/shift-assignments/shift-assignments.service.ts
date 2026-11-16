@@ -217,6 +217,8 @@ export class ShiftAssignmentsService {
                     departmentId: dto.departmentId,
                     shiftId: dto.shiftId,
                     assignedByUserId: actor.userId,
+                    isPatched: true,
+                    patchReason: dto.reason || 'Điều chuyển / Vá ca đột xuất',
                   },
                 });
                 createdAssignments.push(updated);
@@ -242,6 +244,7 @@ export class ShiftAssignmentsService {
             continue;
           }
 
+          const isPatchReason = Boolean(dto.reason && (dto.reason.toLowerCase().includes('vá') || dto.reason.toLowerCase().includes('va') || dto.reason.toLowerCase().includes('điều chuyển')));
           const assignment = await tx.shiftAssignment.create({
             data: {
               userId,
@@ -249,6 +252,8 @@ export class ShiftAssignmentsService {
               shiftId: dto.shiftId,
               workDate,
               assignedByUserId: actor.userId,
+              isPatched: isPatchReason,
+              patchReason: dto.reason || (isPatchReason ? 'Điều chuyển / Vá ca đột xuất' : null),
             }
           });
           createdAssignments.push(assignment);

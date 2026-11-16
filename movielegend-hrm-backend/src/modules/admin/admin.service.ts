@@ -929,12 +929,13 @@ export class AdminService {
           accountStatus: dto.accountStatus,
           isActive: dto.isActive,
           isRewardVaultEnabled: dto.isRewardVaultEnabled !== undefined ? dto.isRewardVaultEnabled : undefined,
-          profile: (canEditPersonalInfo && dto.fullName) || dto.positionId || dto.joinDate !== undefined
+          profile: (canEditPersonalInfo && dto.fullName) || dto.positionId || dto.joinDate !== undefined || dto.employmentType !== undefined
             ? {
                 update: {
                   ...(canEditPersonalInfo && dto.fullName ? { fullName: dto.fullName } : {}),
                   ...(dto.positionId !== undefined ? { positionId: dto.positionId } : {}),
                   ...(dto.joinDate !== undefined ? { joinDate: dto.joinDate ? new Date(dto.joinDate) : null } : {}),
+                  ...(dto.employmentType !== undefined ? { employmentType: dto.employmentType } : {}),
                 },
               }
             : undefined,
