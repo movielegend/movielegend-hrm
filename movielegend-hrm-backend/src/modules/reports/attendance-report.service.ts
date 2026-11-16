@@ -349,6 +349,69 @@ export class AttendanceReportService {
           return `${h}:${m.toString().padStart(2, '0')}:00`;
         };
 
+        // Kiểm tra đơn nghỉ phép được duyệt từ bảng LeaveRequest
+        const approvedLeaveDb = leavesDb.find(l => {
+          if (l.userId !== user.id) return false;
+          const s = moment.tz(l.startDate, 'Asia/Ho_Chi_Minh').startOf('day');
+          const e = moment.tz(l.endDate, 'Asia/Ho_Chi_Minh').endOf('day');
+          return currDate.isSameOrAfter(s, 'day') && currDate.isSameOrBefore(e, 'day');
+        });
+
+        // Kiểm tra đơn nghỉ phép được duyệt từ bảng EmployeeRequest (type: LEAVE)
+        const approvedLeaveReq = lateRequestsRaw.find(r => {
+          if (r.userId !== user.id || r.type !== 'LEAVE') return false;
+          const meta: any = r.attachmentMetadata;
+          if (!meta) return false;
+          const from = meta.fromDate ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').startOf('day') : null;
+          const to = meta.toDate ? moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').endOf('day') : from;
+          if (!from) return false;
+          return currDate.isSameOrAfter(from, 'day') && currDate.isSameOrBefore(to, 'day');
+        });
+
+        const isLeaveForDay = Boolean(approvedLeaveDb || approvedLeaveReq);
+        let leaveTypeName = '';
+        let isLeavePaid = false;
+        let isHalfDay = false;
+        let isHourlyLeave = false;
+        let leaveReason = '';
+        let leaveStartTime: any = null;
+        let leaveEndTime: any = null;
+        let leaveStartStr: string | undefined = undefined;
+        let leaveEndStr: string | undefined = undefined;
+
+        if (approvedLeaveDb) {
+          leaveTypeName = approvedLeaveDb.leaveType?.name || 'Nghỉ phép';
+          isLeavePaid = approvedLeaveDb.leaveType?.isPaid ?? true;
+          isHalfDay = Number(approvedLeaveDb.totalDays) === 0.5;
+          leaveReason = approvedLeaveDb.reason || '';
+        } else if (approvedLeaveReq) {
+          const meta: any = approvedLeaveReq.attachmentMetadata || {};
+          leaveTypeName = meta.leaveType || 'Nghỉ phép';
+          const duration = meta.leaveDurationType || 'Trong ngày';
+          isHourlyLeave = duration === 'Theo giờ';
+          isHalfDay = duration === 'Nửa ngày' || duration === '1/2 ngày';
+          leaveReason = approvedLeaveReq.content || '';
+          leaveStartTime = meta.startTime;
+          leaveEndTime = meta.endTime;
+          leaveStartStr = meta.startTimeStr || meta.fromTime;
+          leaveEndStr = meta.endTimeStr || meta.toTime;
+
+          if ((!leaveStartTime || !leaveEndTime) && approvedLeaveReq.title) {
+            const timeMatch = approvedLeaveReq.title.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+            if (timeMatch) {
+              leaveStartStr = timeMatch[1];
+              leaveEndStr = timeMatch[2];
+            }
+          }
+
+          const lowerName = leaveTypeName.toLowerCase();
+          if (lowerName.includes('không lương') || lowerName.includes('ốm') || lowerName.includes('thai sản')) {
+            isLeavePaid = false;
+          } else {
+            isLeavePaid = true;
+          }
+        }
+
         // Kiểm tra xem có đơn sửa công / giải trình bổ sung checkout được duyệt không (áp dụng cho cả Live và Standard)
         const approvedAdj = adjustmentsDb.find(
           (a) => a.userId === user.id && (
@@ -502,6 +565,7 @@ export class AttendanceReportService {
           checkIn = record?.checkInAt ? moment(record.checkInAt).tz('Asia/Ho_Chi_Minh') : null;
           
           const isRecordCorruptedOut = Boolean(
+            record?.status !== 'ADJUSTED' &&
             record?.checkOutAt && (
               moment(record.checkOutAt).diff(moment(record.checkInAt), 'hours') > 16 ||
               moment(record.checkOutAt).tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD') !== dateStr ||
@@ -510,12 +574,15 @@ export class AttendanceReportService {
               record.notes?.toLowerCase().includes('quên check-out')
             )
           );
-          const hasValidRecordOut = Boolean(record?.checkOutAt && !isRecordCorruptedOut);
+          const hasValidRecordOut = Boolean(
+            (record?.checkOutAt && !isRecordCorruptedOut) ||
+            (record?.status === 'ADJUSTED' && record?.checkOutAt)
+          );
 
           if (hasValidRecordOut) {
             checkOut = moment(record.checkOutAt).tz('Asia/Ho_Chi_Minh');
           } else if (isApprovedAdjustment) {
-            checkOut = adjOutTime || null;
+            checkOut = adjOutTime || (record?.checkOutAt ? moment(record.checkOutAt).tz('Asia/Ho_Chi_Minh') : null);
           } else {
             checkOut = null;
           }
@@ -527,11 +594,13 @@ export class AttendanceReportService {
           const shift = record?.shiftAssignment?.shift;
           if (checkIn && checkOut) {
             totalMinutes = checkOut.diff(checkIn, 'minutes');
-            if (shift?.breakMinutes) totalMinutes -= shift.breakMinutes;
+            if (shift?.breakMinutes && totalMinutes > shift.breakMinutes && !isHalfDay) {
+              totalMinutes -= shift.breakMinutes;
+            }
           }
           if (totalMinutes < 0) totalMinutes = 0;
 
-          isMissCheckout = Boolean(checkIn && !hasValidRecordOut && isPastDate && !isApprovedAdjustment);
+          isMissCheckout = Boolean(checkIn && !hasValidRecordOut && isPastDate && !isApprovedAdjustment && record?.status !== 'ADJUSTED');
 
           otMins = 0;
           if (!record && isApprovedAdjustment) {
@@ -590,7 +659,11 @@ export class AttendanceReportService {
                 }
 
                 if (checkOut && checkOut.isBefore(shiftEnd) && !otRequest) {
-                  earlyMins = shiftEnd.diff(checkOut, 'minutes');
+                  if (isHalfDay || isLeaveForDay) {
+                    earlyMins = 0;
+                  } else {
+                    earlyMins = shiftEnd.diff(checkOut, 'minutes');
+                  }
                 }
 
                 if (checkOut && checkOut.isAfter(shiftEnd) && otRequest) {
@@ -663,74 +736,12 @@ export class AttendanceReportService {
           earlyMins = 0;
         }
 
-        // Kiểm tra đơn nghỉ phép được duyệt từ bảng LeaveRequest
-        const approvedLeaveDb = leavesDb.find(l => {
-          if (l.userId !== user.id) return false;
-          const s = moment.tz(l.startDate, 'Asia/Ho_Chi_Minh').startOf('day');
-          const e = moment.tz(l.endDate, 'Asia/Ho_Chi_Minh').endOf('day');
-          return currDate.isSameOrAfter(s, 'day') && currDate.isSameOrBefore(e, 'day');
-        });
+        const isFullDayLeave = Boolean(isLeaveForDay && !isHourlyLeave && !isHalfDay);
+        let isDailyLeave = isFullDayLeave;
 
-        // Kiểm tra đơn nghỉ phép được duyệt từ bảng EmployeeRequest (type: LEAVE)
-        const approvedLeaveReq = lateRequestsRaw.find(r => {
-          if (r.userId !== user.id || r.type !== 'LEAVE') return false;
-          const meta: any = r.attachmentMetadata;
-          if (!meta) return false;
-          const from = meta.fromDate ? moment.tz(meta.fromDate, 'Asia/Ho_Chi_Minh').startOf('day') : null;
-          const to = meta.toDate ? moment.tz(meta.toDate, 'Asia/Ho_Chi_Minh').endOf('day') : from;
-          if (!from) return false;
-          return currDate.isSameOrAfter(from, 'day') && currDate.isSameOrBefore(to, 'day');
-        });
-
-        const isLeaveForDay = Boolean(approvedLeaveDb || approvedLeaveReq);
-        let leaveTypeName = '';
-        let isLeavePaid = false;
-        let isHalfDay = false;
-        let isHourlyLeave = false;
-        let leaveReason = '';
-        let leaveStartTime: any = null;
-        let leaveEndTime: any = null;
-        let leaveStartStr: string | undefined = undefined;
-        let leaveEndStr: string | undefined = undefined;
-
-        if (approvedLeaveDb) {
-          leaveTypeName = approvedLeaveDb.leaveType?.name || 'Nghỉ phép';
-          isLeavePaid = approvedLeaveDb.leaveType?.isPaid ?? true;
-          isHalfDay = Number(approvedLeaveDb.totalDays) === 0.5;
-          leaveReason = approvedLeaveDb.reason || '';
-        } else if (approvedLeaveReq) {
-          const meta: any = approvedLeaveReq.attachmentMetadata || {};
-          leaveTypeName = meta.leaveType || 'Nghỉ phép';
-          const duration = meta.leaveDurationType || 'Trong ngày';
-          isHourlyLeave = duration === 'Theo giờ';
-          isHalfDay = duration === 'Nửa ngày' || duration === '1/2 ngày';
-          leaveReason = approvedLeaveReq.content || '';
-          leaveStartTime = meta.startTime;
-          leaveEndTime = meta.endTime;
-          leaveStartStr = meta.startTimeStr || meta.fromTime;
-          leaveEndStr = meta.endTimeStr || meta.toTime;
-
-          if ((!leaveStartTime || !leaveEndTime) && approvedLeaveReq.title) {
-            const timeMatch = approvedLeaveReq.title.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
-            if (timeMatch) {
-              leaveStartStr = timeMatch[1];
-              leaveEndStr = timeMatch[2];
-            }
-          }
-
-          const lowerName = leaveTypeName.toLowerCase();
-          if (lowerName.includes('không lương') || lowerName.includes('ốm') || lowerName.includes('thai sản')) {
-            isLeavePaid = false;
-          } else {
-            isLeavePaid = true;
-          }
-        }
-
-        let isDailyLeave = isLeaveForDay && !isHourlyLeave;
-
-        if (isDailyLeave) {
-          // Nghỉ theo ngày (Cả ngày / Nửa ngày / Nhiều ngày) đã được duyệt:
-          // 1. Giờ check-in và check-out KHÔNG có giờ (để trống)
+        if (isFullDayLeave) {
+          // Nghỉ cả ngày đã được duyệt:
+          // 1. Giờ check-in và check-out để trống
           checkInDisplay = '';
           checkOutDisplay = '';
 
@@ -741,15 +752,50 @@ export class AttendanceReportService {
           lateDeduction = 0;
 
           // 3. Tính công theo chế độ có lương hay không
-          attendance = isLeavePaid ? (isHalfDay ? 0.5 : 1) : 0;
+          attendance = isLeavePaid ? 1 : 0;
+        } else if (isHalfDay) {
+          // Nghỉ nửa ngày (buổi sáng hoặc buổi chiều):
+          const leaveAttendance = isLeavePaid ? 0.5 : 0;
+          
+          // Kiểm tra buổi đi làm còn lại
+          const hasWorkedHalf = Boolean(
+            checkIn && (checkOut || isApprovedAdjustment || record?.status === 'ADJUSTED' || isLiveDepartment)
+          );
+
+          if (hasWorkedHalf) {
+            // Có đi làm buổi còn lại và hoàn thành (hoặc có giải trình được duyệt)
+            attendance = 0.5 + leaveAttendance;
+            if (checkIn && !checkInDisplay) checkInDisplay = checkIn.format('HH:mm');
+            if (checkOut && !checkOutDisplay) checkOutDisplay = checkOut.format('HH:mm');
+            if (totalMinutes === 0 && checkIn && checkOut) {
+              totalMinutes = Math.max(0, checkOut.diff(checkIn, 'minutes'));
+            }
+            if (totalMinutes === 0) totalMinutes = 240; // Tối thiểu 4 tiếng cho nửa ngày làm việc
+          } else if (checkIn && !checkOut && isPastDate && !isApprovedAdjustment && record?.status !== 'ADJUSTED') {
+            // Có check-in nhưng quên checkout và không có giải trình
+            isMissCheckout = true;
+            checkOutDisplay = 'Miss checkout';
+            attendance = leaveAttendance;
+            totalMinutes = 0;
+          } else {
+            // Không đi làm buổi còn lại (vắng mặt)
+            attendance = leaveAttendance;
+            checkInDisplay = '';
+            checkOutDisplay = '';
+            totalMinutes = 0;
+          }
+          lateDeduction = 0;
         }
 
-        if (!businessTrip && !isDailyLeave && !isApprovedAdjustment && checkIn && !checkOut && isPastDate) {
+        if (!businessTrip && !isDailyLeave && !isHalfDay && !isApprovedAdjustment && checkIn && !checkOut && isPastDate && record?.status !== 'ADJUSTED') {
           isMissCheckout = true;
+        }
+        if (isApprovedAdjustment || record?.status === 'ADJUSTED') {
+          isMissCheckout = false;
         }
         if (isMissCheckout) {
           checkOutDisplay = 'Miss checkout';
-          attendance = 0;
+          attendance = isHalfDay ? (isLeavePaid ? 0.5 : 0) : 0;
           totalMinutes = 0;
         } else if (checkOut && !checkOutDisplay) {
           checkOutDisplay = checkOut.format('HH:mm');
@@ -999,14 +1045,40 @@ export class AttendanceReportService {
           }
 
           const finalRate = Math.min(targetExpectedRate, Math.round(totalEarnedRate * 100) / 100);
-          attendance = finalRate;
-          isDailyLeave = true;
-          checkInDisplay = '';
-          checkOutDisplay = '';
-          totalMinutes = 0;
-          lateDeduction = 0;
-          lateMins = 0;
-          earlyMins = 0;
+
+          if (targetExpectedRate >= 1.0) {
+            attendance = finalRate;
+            isDailyLeave = true;
+            checkInDisplay = '';
+            checkOutDisplay = '';
+            totalMinutes = 0;
+            lateDeduction = 0;
+            lateMins = 0;
+            earlyMins = 0;
+          } else {
+            // Làm bù cho nghỉ nửa ngày (targetExpectedRate < 1.0, ví dụ 0.5 công):
+            const hasWorkedHalf = Boolean(
+              checkIn && (checkOut || isApprovedAdjustment || record?.status === 'ADJUSTED' || isLiveDepartment)
+            );
+            if (hasWorkedHalf) {
+              // 0.5 công đi làm thực tế + công bù (finalRate) = tối đa 1.0 công
+              attendance = Math.min(1.0, 0.5 + finalRate);
+              // Bảo toàn giờ vào, giờ ra và giờ làm thực tế của buổi đi làm
+              if (checkIn && !checkInDisplay) checkInDisplay = checkIn.format('HH:mm');
+              if (checkOut && !checkOutDisplay) checkOutDisplay = checkOut.format('HH:mm');
+              if (totalMinutes === 0 && checkIn && checkOut) {
+                totalMinutes = Math.max(0, checkOut.diff(checkIn, 'minutes'));
+              }
+              if (totalMinutes === 0) totalMinutes = 240;
+            } else {
+              attendance = finalRate;
+              checkInDisplay = '';
+              checkOutDisplay = '';
+              totalMinutes = 0;
+            }
+            lateDeduction = 0;
+            earlyMins = 0;
+          }
 
           if (finalRate >= targetExpectedRate) {
             noteParts.push(`Nghỉ làm bù (Đã bù đủ ${finalRate} công: ${completedNotes.join('; ')})`);

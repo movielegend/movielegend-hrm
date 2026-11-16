@@ -74,12 +74,15 @@ export class JobsService {
     for (const contract of contracts) {
       const created = await this.notifications.createForUsers(tx, [contract.userId], {
         type: NotificationType.CONTRACT_EXPIRING,
-        title: 'Contract expiring',
+        title: 'Hợp đồng sắp hết hạn',
         body: contract.title,
         dedupKey: `contract-expiry:${contract.id}:${today}`,
         metadata: { contractId: contract.id },
       }).catch(() => null);
-      if (created) successCount += 1;
+      if (created) {
+        successCount += 1;
+        this.notifications.emitCreated(created);
+      }
     }
     return { processedCount: contracts.length, successCount, failureCount: contracts.length - successCount };
   }
@@ -93,12 +96,15 @@ export class JobsService {
       if (!document.userId) continue;
       const created = await this.notifications.createForUsers(tx, [document.userId], {
         type: NotificationType.DOCUMENT_EXPIRING,
-        title: 'Document expiring',
+        title: 'Giấy tờ sắp hết hạn',
         body: document.title ?? document.fileName,
         dedupKey: `document-expiry:${document.id}:${today}`,
         metadata: { documentId: document.id },
       }).catch(() => null);
-      if (created) successCount += 1;
+      if (created) {
+        successCount += 1;
+        this.notifications.emitCreated(created);
+      }
     }
     return { processedCount: documents.length, successCount, failureCount: documents.length - successCount };
   }

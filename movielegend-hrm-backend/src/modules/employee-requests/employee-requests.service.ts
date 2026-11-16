@@ -1039,16 +1039,40 @@ export class EmployeeRequestsService {
 
         if (request.type === EmployeeRequestType.ATTENDANCE_ADJUSTMENT) {
           const meta: any = request.attachmentMetadata;
-          const targetRecordId = meta?.attendanceRecordId || request.referenceId;
+          let targetRecordId = meta?.attendanceRecordId || request.referenceId;
           const reqCheckIn = meta?.requestedCheckInAt ? new Date(meta.requestedCheckInAt) : null;
           const reqCheckOut = meta?.requestedCheckOutAt ? new Date(meta.requestedCheckOutAt) : null;
 
+          if (!targetRecordId) {
+            const rawDate = meta?.fromDate || meta?.requestedCheckOutAt || meta?.requestedCheckInAt;
+            if (rawDate) {
+              const startDay = moment.tz(rawDate, 'Asia/Ho_Chi_Minh').startOf('day').toDate();
+              const endDay = moment.tz(rawDate, 'Asia/Ho_Chi_Minh').endOf('day').toDate();
+              const foundRecord = await tx.attendanceRecord.findFirst({
+                where: {
+                  userId: request.userId,
+                  workDate: { gte: startDay, lte: endDay },
+                },
+                orderBy: { createdAt: 'desc' },
+              });
+              if (foundRecord) {
+                targetRecordId = foundRecord.id;
+              }
+            }
+          }
+
           if (targetRecordId) {
+            const existingRec = await tx.attendanceRecord.findUnique({ where: { id: targetRecordId } });
+            let cleanNotes = existingRec?.notes || null;
+            if (cleanNotes && (cleanNotes.includes('quên check-out') || cleanNotes.includes('đóng ca'))) {
+              cleanNotes = null;
+            }
             await tx.attendanceRecord.update({
               where: { id: targetRecordId },
               data: {
                 ...(reqCheckIn ? { checkInAt: reqCheckIn } : {}),
                 ...(reqCheckOut ? { checkOutAt: reqCheckOut } : {}),
+                notes: cleanNotes,
                 status: 'ADJUSTED',
               },
             }).catch(() => null);

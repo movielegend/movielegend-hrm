@@ -870,7 +870,7 @@ export class AttendanceService {
         throw badRequest('ATTENDANCE_ADJUSTMENT_OWNER_ONLY', 'Chỉ được tạo yêu cầu sửa công của chính mình');
       }
     }
-    return this.prisma.attendanceAdjustment.create({
+    const created = await this.prisma.attendanceAdjustment.create({
       data: {
         userId: actor.userId,
         departmentId,
@@ -879,11 +879,30 @@ export class AttendanceService {
         requestedCheckOutAt: dto.requestedCheckOutAt ? new Date(dto.requestedCheckOutAt) : undefined,
         reason: dto.reason,
       },
+      include: {
+        user: { select: { profile: { select: { fullName: true } } } },
+        department: { select: { leaderUserId: true } },
+      },
     });
+
+    const leaderId = created.department?.leaderUserId;
+    if (leaderId && leaderId !== actor.userId) {
+      const actorName = created.user?.profile?.fullName || 'Nhân viên';
+      this.notifications.createForUsers(this.prisma, [leaderId], {
+        type: 'ATTENDANCE_ADJUSTMENT' as any,
+        title: 'Yêu cầu sửa công mới',
+        body: `${actorName} vừa gửi yêu cầu sửa công`,
+        metadata: { adjustmentId: created.id },
+      }).then((notif) => {
+        this.notifications.emitCreated(notif);
+      }).catch(() => null);
+    }
+
+    return created;
   }
 
-  approveAdjustment(id: string, actor: AuthenticatedUser) {
-    return this.prisma.$transaction(async (tx) => {
+  async approveAdjustment(id: string, actor: AuthenticatedUser) {
+    const approved = await this.prisma.$transaction(async (tx) => {
       const adjustment = await tx.attendanceAdjustment.findUnique({
         where: { id },
         include: { attendanceRecord: true },
@@ -908,7 +927,7 @@ export class AttendanceService {
           },
         });
       }
-      const approved = await tx.attendanceAdjustment.update({
+      const result = await tx.attendanceAdjustment.update({
         where: { id },
         data: {
           status: AttendanceAdjustmentStatus.APPROVED,
@@ -932,8 +951,21 @@ export class AttendanceService {
           },
         },
       });
-      return approved;
+      return { result, adjustmentUserId: adjustment.userId };
     });
+
+    if (approved.adjustmentUserId) {
+      this.notifications.createForUsers(this.prisma, [approved.adjustmentUserId], {
+        type: 'ATTENDANCE_ADJUSTMENT' as any,
+        title: 'Yêu cầu sửa công đã được duyệt',
+        body: 'Yêu cầu sửa công của bạn đã được phê duyệt thành công.',
+        metadata: { adjustmentId: id },
+      }).then((notif) => {
+        this.notifications.emitCreated(notif);
+      }).catch(() => null);
+    }
+
+    return approved.result;
   }
 
   async findAll(actor: AuthenticatedUser, query: AttendanceQueryDto) {
