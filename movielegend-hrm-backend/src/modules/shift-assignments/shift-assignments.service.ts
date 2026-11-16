@@ -206,19 +206,20 @@ export class ShiftAssignmentsService {
             where: { userId_workDate: { userId, workDate } }
           });
           if (existing) {
-            if (dto.allowOverwrite && (existing.shiftId !== dto.shiftId || existing.departmentId !== dto.departmentId)) {
+            if (existing.shiftId !== dto.shiftId || existing.departmentId !== dto.departmentId) {
               const checkedIn = await tx.attendanceRecord.findFirst({
                 where: { userId, workDate },
               });
               if (!checkedIn) {
+                const isPatch = Boolean(dto.allowOverwrite || (dto.reason && (dto.reason.toLowerCase().includes('vá') || dto.reason.toLowerCase().includes('va') || dto.reason.toLowerCase().includes('điều chuyển'))));
                 const updated = await tx.shiftAssignment.update({
                   where: { id: existing.id },
                   data: {
                     departmentId: dto.departmentId,
                     shiftId: dto.shiftId,
                     assignedByUserId: actor.userId,
-                    isPatched: true,
-                    patchReason: dto.reason || 'Điều chuyển / Vá ca đột xuất',
+                    isPatched: isPatch ? true : existing.isPatched,
+                    patchReason: dto.reason || (dto.allowOverwrite ? 'Điều chuyển / Vá ca đột xuất' : existing.patchReason),
                   },
                 });
                 createdAssignments.push(updated);
@@ -235,11 +236,13 @@ export class ShiftAssignmentsService {
                       shiftId: dto.shiftId,
                       oldShiftId: existing.shiftId,
                       workDate: dateStr,
-                      reason: dto.reason || 'Điều chuyển/Vá ca',
+                      reason: dto.reason || (dto.allowOverwrite ? 'Điều chuyển/Vá ca' : 'Phân ca lại'),
                     },
                   },
                 });
               }
+            } else {
+              createdAssignments.push(existing);
             }
             continue;
           }
