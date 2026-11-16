@@ -1028,8 +1028,8 @@ export class EmployeeRequestsService {
       if (request.type === EmployeeRequestType.OVERTIME || (request.type as string) === 'OVERTIME') {
         const otPercent = Number(currentMeta.proposedPercent || currentMeta.percent || currentMeta.rate || 100);
         if (otPercent <= 100) {
-          if (!canDeptAccess && !isGlobalAdmin) {
-            throw forbidden('LEADER_ONLY_APPROVAL', 'Đơn làm thêm giờ (OT) mức 100% thuộc thẩm quyền phê duyệt của Trưởng bộ phận (Lead).');
+          if (!canDeptAccess && !isHr && !isGlobalAdmin) {
+            throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền duyệt yêu cầu làm thêm giờ của phòng ban này.');
           }
         } else {
           if (!isHr && !isGlobalAdmin) {
@@ -1877,8 +1877,8 @@ export class EmployeeRequestsService {
           : {};
         const otPercent = Number(meta.proposedPercent || meta.percent || meta.rate || 100);
         if (otPercent <= 100) {
-          if (!canDeptAccess && !isGlobalAdmin) {
-            throw forbidden('LEADER_ONLY_APPROVAL', 'Đơn làm thêm giờ (OT) mức 100% thuộc thẩm quyền xử lý của Trưởng bộ phận (Lead).');
+          if (!canDeptAccess && !isHr && !isGlobalAdmin) {
+            throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền từ chối yêu cầu làm thêm giờ của phòng ban này.');
           }
         } else {
           if (!isHr && !isGlobalAdmin) {
