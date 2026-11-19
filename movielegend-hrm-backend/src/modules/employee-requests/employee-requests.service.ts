@@ -606,7 +606,18 @@ export class EmployeeRequestsService {
     } else if (initialStage === 'PENDING_HR') {
       targetUserIds = await this.findHrUserIds(this.prisma);
     } else if (initialStage === 'PENDING') {
-      if (leaderId && leaderId !== actor.userId) {
+      const isOt150Plus =
+        (dto.type === EmployeeRequestType.OVERTIME || (dto.type as string) === 'OVERTIME') &&
+        Number((dto.attachmentMetadata as any)?.proposedPercent || (dto.attachmentMetadata as any)?.percent || (dto.attachmentMetadata as any)?.rate || 100) >= 150;
+
+      if (isOt150Plus) {
+        // Đơn OT >= 150%: thuộc thẩm quyền HR, Admin miền phụ trách và Ban Giám Đốc
+        const [hrIds, adminIds] = await Promise.all([
+          this.findHrUserIds(this.prisma),
+          this.findRelevantAdminUserIds(departmentId, this.prisma),
+        ]);
+        targetUserIds = Array.from(new Set([...hrIds, ...adminIds])).filter((id) => id !== actor.userId);
+      } else if (leaderId && leaderId !== actor.userId) {
         targetUserIds = [leaderId];
       } else {
         const [hrIds, adminIds] = await Promise.all([
@@ -903,8 +914,11 @@ export class EmployeeRequestsService {
       canView = true;
     } else if (isFinancial && isAccountant) {
       canView = true;
-    } else if (request.departmentId && (await this.scope.canAccessDepartmentAsync(actor, request.departmentId))) {
-      canView = true;
+    } else {
+      const targetDeptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId).catch(() => null));
+      if (targetDeptId && (await this.scope.canAccessDepartmentAsync(actor, targetDeptId))) {
+        canView = true;
+      }
     }
 
     if (!canView) {
@@ -1008,7 +1022,8 @@ export class EmployeeRequestsService {
     const isHr = await this.isHrActor(actor);
     const isRegionAdmin = this.scope.isRegionAdmin(actor);
     const isGlobalAdmin = (actor.roles.includes('ADMIN') && !isRegionAdmin) || this.scope.isGlobalAdmin(actor);
-    const canDeptAccess = request.departmentId ? await this.scope.canAccessDepartmentAsync(actor, request.departmentId) : false;
+    const targetDeptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId).catch(() => null));
+    const canDeptAccess = targetDeptId ? await this.scope.canAccessDepartmentAsync(actor, targetDeptId) : false;
 
     const actorProfile = await this.prisma.employeeProfile.findUnique({
       where: { userId: actor.userId },
@@ -1020,7 +1035,7 @@ export class EmployeeRequestsService {
       },
     });
     const primaryBank = actorProfile?.bankAccounts?.[0];
-    const actorName = actorProfile?.fullName || (actor.roles.includes('ADMIN') ? 'Ban Giám Đốc' : isHr ? 'Trưởng phòng HR' : isAccountant ? 'Kế toán' : 'Trưởng bộ phận');
+    const actorName = actorProfile?.fullName || (actor.roles.includes('ADMIN') ? (isRegionAdmin ? 'Admin miền' : 'Ban Giám Đốc') : isHr ? 'Trưởng phòng HR' : isAccountant ? 'Kế toán' : 'Trưởng bộ phận');
     const existingSteps = Array.isArray(currentMeta.approvalSteps) ? currentMeta.approvalSteps : [];
 
     // --- STANDARD / NON-FINANCIAL REQUEST APPROVAL ---
@@ -1032,8 +1047,12 @@ export class EmployeeRequestsService {
             throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền duyệt yêu cầu làm thêm giờ của phòng ban này.');
           }
         } else {
-          if (!isHr && !isGlobalAdmin) {
-            throw forbidden('HR_ADMIN_ONLY_APPROVAL', 'Đơn làm thêm giờ (OT) mức từ 150% trở lên thuộc thẩm quyền phê duyệt của Nhân sự (HR) hoặc Ban Giám Đốc.');
+          const canRegionAdminApprove = isRegionAdmin && canDeptAccess;
+          if (!isHr && !isGlobalAdmin && !canRegionAdminApprove) {
+            if (isRegionAdmin && !canDeptAccess) {
+              throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Admin miền chỉ có quyền phê duyệt đơn làm thêm giờ thuộc miền mình quản lý.');
+            }
+            throw forbidden('HR_ADMIN_ONLY_APPROVAL', 'Đơn làm thêm giờ (OT) mức từ 150% trở lên thuộc thẩm quyền phê duyệt của Nhân sự (HR), Ban Giám Đốc hoặc Admin miền phụ trách.');
           }
         }
       } else if (!isAccountDeletion) {
@@ -1867,7 +1886,8 @@ export class EmployeeRequestsService {
     const isHr = await this.isHrActor(actor);
     const isRegionAdmin = this.scope.isRegionAdmin(actor);
     const isGlobalAdmin = (actor.roles.includes('ADMIN') && !isRegionAdmin) || this.scope.isGlobalAdmin(actor);
-    const canDeptAccess = request.departmentId ? await this.scope.canAccessDepartmentAsync(actor, request.departmentId) : false;
+    const targetDeptId = request.departmentId || (await this.scope.getPrimaryDepartmentId(request.userId).catch(() => null));
+    const canDeptAccess = targetDeptId ? await this.scope.canAccessDepartmentAsync(actor, targetDeptId) : false;
     const isAccountDeletion = (request.type as string) === 'ACCOUNT_DELETION' || request.title.includes('[ACCOUNT_DELETION]');
 
     if (!isFinancial) {
@@ -1881,8 +1901,12 @@ export class EmployeeRequestsService {
             throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Bạn không có quyền từ chối yêu cầu làm thêm giờ của phòng ban này.');
           }
         } else {
-          if (!isHr && !isGlobalAdmin) {
-            throw forbidden('HR_ADMIN_ONLY_APPROVAL', 'Đơn làm thêm giờ (OT) mức từ 150% trở lên thuộc thẩm quyền xử lý của Nhân sự (HR) hoặc Ban Giám Đốc.');
+          const canRegionAdminReject = isRegionAdmin && canDeptAccess;
+          if (!isHr && !isGlobalAdmin && !canRegionAdminReject) {
+            if (isRegionAdmin && !canDeptAccess) {
+              throw forbidden('FORBIDDEN_DEPARTMENT_SCOPE', 'Admin miền chỉ có quyền xử lý đơn làm thêm giờ thuộc miền mình quản lý.');
+            }
+            throw forbidden('HR_ADMIN_ONLY_APPROVAL', 'Đơn làm thêm giờ (OT) mức từ 150% trở lên thuộc thẩm quyền xử lý của Nhân sự (HR), Ban Giám Đốc hoặc Admin miền phụ trách.');
           }
         }
       } else if (!isAccountDeletion) {
