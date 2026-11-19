@@ -230,7 +230,11 @@ export function CheckOutScreen() {
           />
           <View style={styles.wifiBox}>
             <View style={styles.wifiIconBox}>
-              <MaterialCommunityIcons name="wifi" size={24} color="#102739" />
+              <MaterialCommunityIcons
+                name={qualityInfo.connectionType.includes('Di động') ? 'signal-cellular-3' : qualityInfo.level === 'OFFLINE' ? 'wifi-off' : 'wifi'}
+                size={24}
+                color="#102739"
+              />
             </View>
             <View style={styles.wifiInfoBox}>
               <Text style={styles.wifiName}>Kết nối: {qualityInfo.connectionType}</Text>

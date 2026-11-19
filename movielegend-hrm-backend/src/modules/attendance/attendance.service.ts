@@ -265,9 +265,9 @@ export class AttendanceService {
 
     const location = await this.findAllowedLocation(targetDepartmentId, dto.latitude, dto.longitude);
 
-    // Check IP
-    await this.assertIpAllowed(actor, location, ip, dto.wifiSsid);
-    await this.assertWifiAllowed(targetDepartmentId, dto.wifiSsid, dto.wifiBssid);
+    // Bỏ qua kiểm tra Wi-Fi / IP, giữ nguyên kiểm tra vị trí địa lý (GPS) và nhận diện khuôn mặt
+    // await this.assertIpAllowed(actor, location, ip, dto.wifiSsid);
+    // await this.assertWifiAllowed(targetDepartmentId, dto.wifiSsid, dto.wifiBssid);
 
     let photoBuffer: Buffer | undefined;
     if (dto.photoBase64 && !photo) {
@@ -461,8 +461,9 @@ export class AttendanceService {
     if (!faceImage && !rawBase64) throw badRequest('ATTENDANCE_PHOTO_REQUIRED', 'Cần ảnh chấm công để ra ca');
 
     const location = await this.findAllowedLocation(record.departmentId, dto.latitude, dto.longitude);
-    await this.assertIpAllowed(actor, location, ip, dto.wifiSsid);
-    await this.assertWifiAllowed(record.departmentId, dto.wifiSsid, dto.wifiBssid);
+    // Bỏ qua kiểm tra Wi-Fi / IP, giữ nguyên kiểm tra vị trí địa lý (GPS) và nhận diện khuôn mặt
+    // await this.assertIpAllowed(actor, location, ip, dto.wifiSsid);
+    // await this.assertWifiAllowed(record.departmentId, dto.wifiSsid, dto.wifiBssid);
 
     let photoBuffer: Buffer | undefined;
     if (rawBase64 && !photo) {
@@ -1259,51 +1260,15 @@ export class AttendanceService {
   }
 
   private async assertIpAllowed(actor: AuthenticatedUser, location: any, rawIp: string, wifiSsid?: string): Promise<void> {
-    if (actor.roles.includes('ADMIN')) return;
-
-    // Clean IPv4 prefix if present (e.g. ::ffff:192.168.1.55 -> 192.168.1.55)
-    const ip = rawIp.replace(/^::ffff:/, '');
-
-    // Re-enabled localhost bypass for local testing
-    if (ip === '127.0.0.1' || ip === '::1') return;
-
-    if (!location) return;
-
-    const allowedIps = (location as any).allowedIps || [];
-
-    if (allowedIps.length === 0) return; // No IP restriction configured
-
-    let isAllowed = false;
-    // Allow prefix match (e.g., if Admin configures "192.168.1", it matches "192.168.1.55")
-    if (allowedIps.some((allowed: string) => ip.startsWith(allowed))) {
-      isAllowed = true;
-    }
-
-    // Also allow if the configured IP matches the wifiSSID
-    if (wifiSsid && allowedIps.includes(wifiSsid)) {
-      isAllowed = true;
-    }
-
-    if (!isAllowed) {
-      throw badRequest('INVALID_NETWORK', `Vui lòng kết nối vào mạng Wi-Fi của công ty để chấm công. (IP thiết bị của bạn: ${ip})`);
-    }
+    // Đã loại bỏ ràng buộc mạng Wi-Fi / IP khi chấm công theo chính sách mới.
+    // Hệ thống dựa vào GPS Location (bán kính văn phòng) và ảnh chụp khuôn mặt thực tế để bảo đảm bảo mật.
+    return;
   }
 
   private async assertWifiAllowed(departmentId: string, ssid?: string, bssid?: string): Promise<void> {
-    const configs = await this.prisma.wifiConfig.findMany({
-      where: {
-        isActive: true,
-        deletedAt: null,
-        OR: [{ departmentId }, { departmentId: null }],
-      },
-    });
-    if (!configs.length) return;
-    if (!ssid) throw badRequest('INVALID_WIFI', 'Thiếu thông tin WiFi');
-    const matched = configs.some((config) => {
-      if (config.ssid !== ssid) return false;
-      return config.bssid ? config.bssid === bssid : true;
-    });
-    if (!matched) throw badRequest('INVALID_WIFI', 'Sai mạng Wi-Fi, vui lòng kết nối đúng Wi-Fi công ty.');
+    // Đã loại bỏ ràng buộc mạng Wi-Fi / BSSID khi chấm công theo chính sách mới.
+    // Hệ thống dựa vào GPS Location (bán kính văn phòng) và ảnh chụp khuôn mặt thực tế để bảo đảm bảo mật.
+    return;
   }
 
   private isWithinCheckInWindow(workDate: Date, startTime: string, earlyMinutes: number, lateMinutes: number): boolean {
