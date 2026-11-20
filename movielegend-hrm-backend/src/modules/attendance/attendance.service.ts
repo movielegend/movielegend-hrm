@@ -138,7 +138,11 @@ export class AttendanceService {
 
     // 1. Kiểm tra xem có ca/lượt nào đang mở (chưa checkout) không
     const openRecord = await this.prisma.attendanceRecord.findFirst({
-      where: { userId: actor.userId, status: AttendanceStatus.CHECKED_IN, checkOutAt: null },
+      where: {
+        userId: actor.userId,
+        status: { in: [AttendanceStatus.CHECKED_IN, AttendanceStatus.ADJUSTED] },
+        checkOutAt: null,
+      },
       orderBy: { checkInAt: 'desc' }
     });
     if (openRecord) {
@@ -148,7 +152,7 @@ export class AttendanceService {
         await this.prisma.attendanceRecord.updateMany({
           where: {
             userId: actor.userId,
-            status: AttendanceStatus.CHECKED_IN,
+            status: { in: [AttendanceStatus.CHECKED_IN, AttendanceStatus.ADJUSTED] },
             checkOutAt: null,
             workDate: { lt: workDate },
           },
@@ -409,7 +413,11 @@ export class AttendanceService {
 
     // 1. Tìm bản ghi check-in ĐANG MỞ (chưa checkout)
     const record = await this.prisma.attendanceRecord.findFirst({
-      where: { userId: actor.userId, status: AttendanceStatus.CHECKED_IN, checkOutAt: null },
+      where: {
+        userId: actor.userId,
+        status: { in: [AttendanceStatus.CHECKED_IN, AttendanceStatus.ADJUSTED] },
+        checkOutAt: null,
+      },
       include: { shiftAssignment: { include: { shift: true } }, department: true },
       orderBy: { checkInAt: 'desc' },
     });

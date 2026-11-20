@@ -1091,13 +1091,14 @@ export class EmployeeRequestsService {
             if (cleanNotes && (cleanNotes.includes('quên check-out') || cleanNotes.includes('đóng ca'))) {
               cleanNotes = null;
             }
+            const willHaveCheckOut = Boolean(reqCheckOut || existingRec?.checkOutAt);
             await tx.attendanceRecord.update({
               where: { id: targetRecordId },
               data: {
                 ...(reqCheckIn ? { checkInAt: reqCheckIn } : {}),
                 ...(reqCheckOut ? { checkOutAt: reqCheckOut } : {}),
                 notes: cleanNotes,
-                status: 'ADJUSTED',
+                status: willHaveCheckOut ? 'ADJUSTED' : 'CHECKED_IN',
               },
             }).catch(() => null);
           }
