@@ -380,13 +380,25 @@ export function AccountantDashboard() {
                   onPress={handleAttendanceAction}
                   style={({ pressed }) => [
                     styles.attendanceHeaderTag,
+                    currentAttendance?.state === 'CHECKED_IN' && {
+                      backgroundColor: '#DC2626',
+                    },
                     pressed && { opacity: 0.6 },
                   ]}
                   accessibilityRole="button"
                   accessibilityLabel="Chấm công"
                 >
-                  <Clock size={11} color="#000000" strokeWidth={2.2} />
-                  <Text style={styles.attendanceHeaderTagText}>
+                  <Clock
+                    size={11}
+                    color={currentAttendance?.state === 'CHECKED_IN' ? '#FFFFFF' : '#000000'}
+                    strokeWidth={2.2}
+                  />
+                  <Text
+                    style={[
+                      styles.attendanceHeaderTagText,
+                      currentAttendance?.state === 'CHECKED_IN' && { color: '#FFFFFF', fontWeight: '700' },
+                    ]}
+                  >
                     {currentAttendance?.state === 'CHECKED_IN'
                       ? 'Ra ca'
                       : currentAttendance?.state === 'CHECKED_OUT'
@@ -437,6 +449,35 @@ export function AccountantDashboard() {
 
         {/* Content Body */}
         <View style={styles.contentBody}>
+          {/* Banner nhắc Ra ca nếu Kế toán đang trong ca */}
+          {currentAttendance?.state === 'CHECKED_IN' ? (
+            <Pressable
+              style={{
+                backgroundColor: '#FEF2F2',
+                borderColor: '#FECACA',
+                borderWidth: 1,
+                borderRadius: 14,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                marginBottom: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+              onPress={handleAttendanceAction}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
+                <MaterialCommunityIcons name="clock-alert-outline" size={20} color="#DC2626" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 13, color: '#991B1B', flex: 1, fontWeight: '600' }}>
+                  Bạn đang trong ca làm việc. Đừng quên bấm Ra ca khi kết thúc!
+                </Text>
+              </View>
+              <View style={{ backgroundColor: '#DC2626', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>Ra ca ngay</Text>
+              </View>
+            </Pressable>
+          ) : null}
+
           {/* ================= HÀNH TRÌNH & QUỸ THƯỞNG ================= */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeaderRow}>

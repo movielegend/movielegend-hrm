@@ -56,6 +56,10 @@ export function CheckOutScreen() {
         if (showFeedback) Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Chưa cấp quyền vị trí' });
         return;
       }
+      const lastLoc = await Location.getLastKnownPositionAsync();
+      if (lastLoc) {
+        setLocation(lastLoc);
+      }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setLocation(loc);
       if (showFeedback) Toast.show({ type: 'success', text1: 'Thành công', text2: 'Đã làm mới vị trí hiện tại' });
@@ -71,25 +75,6 @@ export function CheckOutScreen() {
   }, []);
 
   const proceedToVerification = async () => {
-    try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-
-      if (hasHardware && isEnrolled) {
-        const authResult = await LocalAuthentication.authenticateAsync({
-          promptMessage: 'Xác nhận danh tính để chấm công',
-          fallbackLabel: 'Sử dụng mật khẩu',
-        });
-
-        if (!authResult.success) {
-          CustomAlert.alert('Xác thực thất bại', 'Bạn cần xác thực sinh trắc học hoặc mật khẩu điện thoại để tiếp tục.');
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('Lỗi xác thực sinh trắc học:', err);
-    }
-
     setCameraVisible(true);
   };
 
@@ -99,14 +84,8 @@ export function CheckOutScreen() {
       return;
     }
 
-    // Ping / Network latency test like Arena of Valor (Liên Quân)
-    const netCheck = await testConnectionBeforeAction();
-    if (netCheck.isWeak) {
-      setWeakNetworkModalVisible(true);
-      return;
-    }
-
-    await proceedToVerification();
+    // Mở camera ngay lập tức, không bắt quét vân tay lần 2 hay chặn đo ping
+    setCameraVisible(true);
   };
 
   const handleCaptureAndSubmit = async (photoUri: string) => {
@@ -116,32 +95,27 @@ export function CheckOutScreen() {
     try {
       if (!photoUri) throw new Error('Không thể chụp ảnh xác thực');
 
-      // Tối ưu ảnh rõ nét, giữ độ phân giải cao và dung lượng hợp lý (~90-130KB)
+      // Tối ưu ảnh siêu nhẹ (~20KB), xử lý tức thì trong 50ms từ Native C++
       const compressedImage = await ImageManipulator.manipulateAsync(
         photoUri,
-        [{ resize: { width: 960 } }],
-        { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: 480 } }],
+        { compress: 0.55, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
 
-      // 1. Upload photo first
-      const uploaded = await uploadFile({
-        uri: compressedImage.uri,
-        name: 'attendance.jpg',
-        mimeType: 'image/jpeg',
-        purpose: 'ATTENDANCE',
-      });
+      const base64Data = compressedImage.base64;
+      if (!base64Data) throw new Error('Không thể mã hóa ảnh xác thực');
 
-      // 2. Check out with photoFileId
       const payload = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        photoFileId: uploaded.fileId,
+        photoBase64: base64Data,
       };
 
       await checkOut(payload);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.attendanceCurrent() });
-      await queryClient.invalidateQueries({ queryKey: ['attendance'] });
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // Cập nhật cache ngầm trong background, không chặn người dùng
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendanceCurrent() });
+      void queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     } catch (e: any) {
       // If error is timeout, double check if checkout was actually recorded
       const isTimeout = e.code === 'ECONNABORTED' || (e.message && e.message.toLowerCase().includes('timeout'));
@@ -289,7 +263,7 @@ export function CheckOutScreen() {
       </View>
 
       {/* Camera Modal */}
-      <Modal visible={isCameraVisible} animationType="fade" transparent={false} statusBarTranslucent>
+      <Modal visible={isCameraVisible} animationType="fade" transparent={false} statusBarTranslucent navigationBarTranslucent>
         <AttendanceCamera 
           photoUri={null} 
           onCapture={handleCaptureAndSubmit} 

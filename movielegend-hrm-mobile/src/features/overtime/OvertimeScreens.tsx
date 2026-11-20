@@ -42,6 +42,7 @@ import { spacing } from '../../theme/spacing';
 import type { OvertimeRequest } from '../../types/overtime.types';
 import { businessDateToday, formatDate, formatDateTime } from '../../utils/date-time';
 import { normalizeApiError } from '../../utils/api-error';
+import { useAuth } from '../../providers/AuthProvider';
 
 export function OvertimeHomeScreen() {
   const router = useRouter();
@@ -466,6 +467,16 @@ export function CreateOvertimeRequestScreen() {
 }
 
 export function LeaderOvertimeApprovalsScreen() {
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.some((r: any) => {
+    const code = (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+    return code.includes('ADMIN');
+  });
+  const isHr = user?.roles?.some((r: any) => {
+    const code = (typeof r === 'string' ? r : r?.code || r?.name || '').toUpperCase();
+    return code.includes('HR');
+  }) || (user?.department?.name || '').toLowerCase().includes('nhân sự');
+
   const pending = usePendingOvertimeRequests({ page: 1, limit: 20, status: 'PENDING' });
   const approve = useApproveOvertimeRequest();
   const reject = useRejectOvertimeRequest();
@@ -521,29 +532,47 @@ export function LeaderOvertimeApprovalsScreen() {
           value={rejectReason}
           onChangeText={setRejectReason}
         />
-        {(pending.data?.items ?? []).map((request) => (
-          <SectionCard key={request.id}>
-            <OvertimeCard request={request} isLeaderView />
-            <View style={styles.actionRow}>
-              <View style={styles.flex}>
-                <PrimaryButton
-                  loading={approve.isPending}
-                  onPress={() => void approveRequest(request.id)}
-                >
-                  Phê duyệt
-                </PrimaryButton>
-              </View>
-              <View style={styles.flex}>
-                <SecondaryButton
-                  loading={reject.isPending}
-                  onPress={() => void rejectRequest(request.id)}
-                >
-                  Từ chối
-                </SecondaryButton>
-              </View>
-            </View>
-          </SectionCard>
-        ))}
+        {(pending.data?.items ?? []).map((request) => {
+          const percent = Number(
+            (request as any)?.percent ||
+            (request as any)?.attachmentMetadata?.proposedPercent ||
+            (request as any)?.attachmentMetadata?.percent ||
+            ((request as any)?.rate ? (request as any).rate * 100 : 100)
+          );
+          const canApprove = percent >= 150 ? (isAdmin || isHr) : true;
+
+          return (
+            <SectionCard key={request.id}>
+              <OvertimeCard request={request} isLeaderView />
+              {canApprove ? (
+                <View style={styles.actionRow}>
+                  <View style={styles.flex}>
+                    <PrimaryButton
+                      loading={approve.isPending}
+                      onPress={() => void approveRequest(request.id)}
+                    >
+                      Phê duyệt
+                    </PrimaryButton>
+                  </View>
+                  <View style={styles.flex}>
+                    <SecondaryButton
+                      loading={reject.isPending}
+                      onPress={() => void rejectRequest(request.id)}
+                    >
+                      Từ chối
+                    </SecondaryButton>
+                  </View>
+                </View>
+              ) : (
+                <View style={{ backgroundColor: '#FEF3C7', padding: 10, borderRadius: 8, marginTop: 8 }}>
+                  <Text style={{ fontSize: 12, color: '#92400E' }}>
+                    Đơn OT {percent}% thuộc thẩm quyền phê duyệt của Nhân sự (HR) hoặc Ban Giám Đốc/Admin miền.
+                  </Text>
+                </View>
+              )}
+            </SectionCard>
+          );
+        })}
         {!pending.data?.items?.length ? <EmptyState title="Không có đơn tăng ca nào chờ duyệt" /> : null}
       </ScrollView>
     </Screen>

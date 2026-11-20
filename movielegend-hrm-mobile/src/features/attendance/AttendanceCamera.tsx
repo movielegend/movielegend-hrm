@@ -50,44 +50,23 @@ export function AttendanceCamera({
   const cameraRef = useRef<CameraView>(null);
 
   const [cameraReady, setCameraReady] = useState(false);
-  const [progressPercent, setProgressPercent] = useState(0);
   const [capturing, setCapturing] = useState(false);
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Animated values
-  const progressAnim = useRef(new Animated.Value(0)).current;
   const successScale = useRef(new Animated.Value(0.7)).current;
-  const scanTimerRef = useRef<any>(null);
 
-  // Sync animated progress value to state for SVG strokeDashoffset and percentage text
-  useEffect(() => {
-    const listenerId = progressAnim.addListener(({ value }) => {
-      setProgressPercent(Math.min(100, Math.max(0, Math.round(value))));
-    });
-
-    return () => {
-      progressAnim.removeListener(listenerId);
-    };
-  }, []);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
-    };
-  }, []);
-
-  // Automated capture & submit flow
-  const handleAutoCapture = useCallback(async () => {
+  // Manual capture & submit flow (Người dùng tự bấm chụp theo ý muốn)
+  const handleCapture = useCallback(async () => {
     if (capturing || verifiedSuccess || !cameraRef.current) return;
     setCapturing(true);
     setError(null);
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.85,
-        skipProcessing: false,
+        quality: 0.6,
+        skipProcessing: true,
       });
 
       if (!photo?.uri) throw new Error('Không thể chụp được ảnh từ camera');
@@ -96,10 +75,10 @@ export function AttendanceCamera({
         Vibration.vibrate(40);
       } catch {}
 
-      // Hand over to parent onCapture (compress, upload, verify on backend)
+      // Gửi sang hàm xử lý chấm công (nén ảnh và gọi API)
       await onCapture(photo.uri);
 
-      // Backend confirmed success!
+      // Backend xác nhận thành công!
       setVerifiedSuccess(true);
       try {
         Vibration.vibrate([0, 60, 40, 60]);
@@ -118,7 +97,7 @@ export function AttendanceCamera({
         } else {
           onClose?.();
         }
-      }, 1200);
+      }, 100);
     } catch (e: any) {
       const errorMsg =
         e?.response?.data?.message ||
@@ -132,41 +111,11 @@ export function AttendanceCamera({
       try {
         Vibration.vibrate([0, 80, 40, 80]);
       } catch {}
-
-      // Auto-restart scanning after 2.5s so user can re-align without touching the screen
-      scanTimerRef.current = setTimeout(() => {
-        startScanSequence();
-      }, 2500);
     }
-  }, [capturing, verifiedSuccess, onCapture, onClose]);
+  }, [capturing, verifiedSuccess, onCapture, onSuccess, onClose]);
 
-  // Start the progress sequence (0% -> 100% over 1.8s)
-  const startScanSequence = useCallback(() => {
-    if (capturing || verifiedSuccess) return;
-    if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
-
-    setError(null);
-    progressAnim.setValue(0);
-    setProgressPercent(0);
-
-    Animated.timing(progressAnim, {
-      toValue: 100,
-      duration: 1800,
-      useNativeDriver: false,
-    }).start(({ finished }) => {
-      if (finished) {
-        void handleAutoCapture();
-      }
-    });
-  }, [capturing, verifiedSuccess, handleAutoCapture]);
-
-  // Trigger scanning sequence once camera is ready
   const handleCameraReady = () => {
     setCameraReady(true);
-    // Give camera 400ms to stabilize auto-exposure/focus before starting scan
-    scanTimerRef.current = setTimeout(() => {
-      startScanSequence();
-    }, 400);
   };
 
   if (!permission) {
@@ -199,11 +148,9 @@ export function AttendanceCamera({
     );
   }
 
-  const strokeDashoffset = OVAL_PERIMETER * (1 - progressPercent / 100);
-
-  // Vertical placement: eye-level center (44% of available safe screen height)
+  // Vertical placement: eye-level center (42% of available safe screen height)
   const availableHeight = SCREEN_HEIGHT - insets.top - insets.bottom;
-  const ovalCenterY = insets.top + availableHeight * 0.44;
+  const ovalCenterY = insets.top + availableHeight * 0.42;
   const ovalTop = Math.round(ovalCenterY - OVAL_HEIGHT / 2);
   const ovalLeft = Math.round((SCREEN_WIDTH - OVAL_WIDTH) / 2);
 
@@ -249,51 +196,7 @@ export function AttendanceCamera({
         />
       </Svg>
 
-      {/* 3. Outer Smooth SVG Progress Ring (Face ID Style) */}
-      <View
-        style={[
-          styles.svgRingWrapper,
-          {
-            left: ovalLeft - 5,
-            top: ovalTop - 5,
-            width: OVAL_WIDTH + 10,
-            height: OVAL_HEIGHT + 10,
-          },
-        ]}
-        pointerEvents="none"
-      >
-        <Svg width={OVAL_WIDTH + 10} height={OVAL_HEIGHT + 10}>
-          {/* Subtle dashed/faint background track */}
-          <Rect
-            x={5}
-            y={5}
-            width={OVAL_WIDTH}
-            height={OVAL_HEIGHT}
-            rx={OVAL_RADIUS}
-            ry={OVAL_RADIUS}
-            stroke="rgba(255, 255, 255, 0.2)"
-            strokeWidth={2.5}
-            fill="none"
-          />
-          {/* Active Progress Ring */}
-          <Rect
-            x={5}
-            y={5}
-            width={OVAL_WIDTH}
-            height={OVAL_HEIGHT}
-            rx={OVAL_RADIUS}
-            ry={OVAL_RADIUS}
-            stroke={ringColor}
-            strokeWidth={4}
-            strokeDasharray={`${OVAL_PERIMETER} ${OVAL_PERIMETER}`}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            fill="none"
-          />
-        </Svg>
-      </View>
-
-      {/* 4. Minimalist Oval Guide with Soft Rounded Face ID Corners */}
+      {/* 3. Minimalist Oval Guide with Soft Rounded Face ID Corners */}
       <View
         style={[
           styles.ovalFrame,
@@ -319,7 +222,7 @@ export function AttendanceCamera({
         <View style={[styles.cornerBracket, styles.bracketBR, { borderColor: ringColor }]} />
       </View>
 
-      {/* 5. Top Header with Scrim Gradient (Anti-glare on ceiling lights) */}
+      {/* 4. Top Header with Scrim Gradient */}
       <LinearGradient
         colors={['rgba(0, 0, 0, 0.85)', 'rgba(0, 0, 0, 0.45)', 'transparent']}
         style={[styles.topScrim, { paddingTop: insets.top + (Platform.OS === 'ios' ? 12 : 16) }]}
@@ -348,12 +251,11 @@ export function AttendanceCamera({
         </View>
       </LinearGradient>
 
-      {/* 6. Bottom Status Guidance Card (Frosted Glassmorphism, Human Language) */}
+      {/* 5. Bottom Controls (Nút chụp thủ công chủ động) */}
       <View
         style={[
-          styles.bottomStatusWrap,
+          styles.bottomControlsWrap,
           {
-            top: ovalTop + OVAL_HEIGHT + 28,
             paddingBottom: Math.max(insets.bottom, 24),
           },
         ]}
@@ -363,35 +265,33 @@ export function AttendanceCamera({
             <MaterialCommunityIcons name="check-circle" size={22} color="#22C55E" style={{ marginRight: 8 }} />
             <Text style={styles.statusPillSuccessText}>Nhận diện thành công!</Text>
           </View>
-        ) : capturing ? (
-          <View style={styles.statusPillCapturing}>
-            <ActivityIndicator size="small" color="#22C55E" style={{ marginRight: 10 }} />
-            <View>
-              <Text style={styles.statusPillTitle}>Đang đối soát dữ liệu...</Text>
-              <Text style={styles.statusPillSubtitle}>Vui lòng giữ yên điện thoại</Text>
-            </View>
-          </View>
         ) : error ? (
-          <View style={styles.errorContainer}>
-            <View style={styles.statusPillError}>
-              <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#F87171" style={{ marginRight: 8 }} />
-              <Text style={styles.statusPillErrorText} numberOfLines={2}>
-                {error}
-              </Text>
-            </View>
-            <Pressable style={styles.retryBtn} onPress={startScanSequence}>
-              <MaterialCommunityIcons name="reload" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.retryBtnText}>Thử lại ngay</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.statusPillDefault}>
-            <MaterialCommunityIcons name="face-recognition" size={20} color="rgba(255, 255, 255, 0.85)" style={{ marginRight: 8 }} />
-            <Text style={styles.statusPillDefaultText}>
-              Giữ yên khuôn mặt... {progressPercent}%
+          <View style={styles.statusPillError}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#F87171" style={{ marginRight: 8 }} />
+            <Text style={styles.statusPillErrorText} numberOfLines={2}>
+              {error}
             </Text>
           </View>
+        ) : (
+          <Text style={styles.bottomInstructionText}>
+            {capturing ? 'Đang phân tích khuôn mặt...' : 'Căn mặt ngay ngắn rồi chạm nút chụp'}
+          </Text>
         )}
+
+        {/* Nút bấm chụp ảnh thủ công */}
+        <Pressable
+          style={[styles.shutterBtn, (capturing || verifiedSuccess) && styles.shutterBtnDisabled]}
+          onPress={handleCapture}
+          disabled={capturing || verifiedSuccess}
+        >
+          {capturing ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <View style={styles.shutterInnerCircle}>
+              <MaterialCommunityIcons name="camera" size={30} color="#FFFFFF" />
+            </View>
+          )}
+        </Pressable>
       </View>
 
       {/* 7. Success Dialog Modal (Clean Apple / Banking standard) */}
@@ -572,61 +472,51 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
   },
 
-  // Bottom Status Pills
-  bottomStatusWrap: {
+  // Bottom Controls & Shutter
+  bottomControlsWrap: {
     position: 'absolute',
+    bottom: 0,
     left: 20,
     right: 20,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 20,
   },
-  statusPillDefault: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.82)',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statusPillDefaultText: {
-    color: '#FFFFFF',
+  bottomInstructionText: {
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 14,
     fontWeight: '600',
-    letterSpacing: 0.2,
+    marginBottom: 16,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  statusPillCapturing: {
-    flexDirection: 'row',
+  shutterBtn: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 6,
   },
-  statusPillTitle: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+  shutterBtnDisabled: {
+    opacity: 0.6,
   },
-  statusPillSubtitle: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 2,
+  shutterInnerCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primary || '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statusPillSuccess: {
     flexDirection: 'row',

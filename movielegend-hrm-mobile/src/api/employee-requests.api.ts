@@ -49,6 +49,10 @@ export async function approveEmployeeRequest(
     bankName?: string;
     accountHolder?: string;
     adjustedAmount?: number;
+    amount?: number;
+    hasVat?: boolean;
+    quoteUrls?: string[];
+    images?: string[];
   }
 ): Promise<EmployeeRequest> {
   const response = await apiClient.post<ApiResponse<EmployeeRequest>>(`/employee-requests/${id}/approve`, payload);

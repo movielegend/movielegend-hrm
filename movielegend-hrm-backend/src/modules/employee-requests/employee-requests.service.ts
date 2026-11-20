@@ -537,18 +537,11 @@ export class EmployeeRequestsService {
         // Tạm ứng lương: Nhân viên -> Leader duyệt -> Kế toán trưởng duyệt & đi lương
         // Nếu chính Leader đề xuất -> Chuyển thẳng Kế toán trưởng
         initialStage = isCreatorLeader ? 'PENDING_ACCOUNTANT' : 'PENDING_LEADER';
-      } else if (isPurchase) {
-        // Đề xuất mua sắm: Nhân viên -> Leader duyệt -> HR đối chứng & cấp STK -> Kế toán/Admin chi tiền -> HR mua hàng
-        // Nếu chính Leader đề xuất -> Chuyển thẳng HR tiếp nhận & cấp STK
+      } else if (isPurchase || requestType === EmployeeRequestType.EXPENSE) {
+        // Đơn Giải ngân (Mua sắm & Thanh toán):
+        // Nếu chính Leader đề xuất -> Chuyển thẳng HR tiếp nhận & đối chứng (PENDING_HR)
+        // Nếu Nhân viên đề xuất -> Leader duyệt bước 1 (PENDING_LEADER)
         initialStage = isCreatorLeader ? 'PENDING_HR' : 'PENDING_LEADER';
-      } else if (isCreatorLeader) {
-        if (hasVat) {
-          initialStage = 'PENDING_ACCOUNTANT';
-        } else if (amountVal > NON_VAT_ADMIN_THRESHOLD) {
-          initialStage = 'PENDING_ADMIN';
-        } else {
-          initialStage = 'PENDING_ACCOUNTANT';
-        }
       } else {
         initialStage = 'PENDING_LEADER';
       }
@@ -556,6 +549,7 @@ export class EmployeeRequestsService {
 
     const attachmentMetadata = {
       ...(typeof dto.attachmentMetadata === 'object' && dto.attachmentMetadata !== null ? dto.attachmentMetadata : {}),
+      ...(Array.isArray(dto.images) && dto.images.length > 0 ? { images: dto.images } : {}),
       ...(isCompensatoryWork ? { requestType: 'COMPENSATORY_WORK' } : {}),
       ...(isFinancial ? { stage: initialStage, approvalSteps: [] } : {}),
     };
@@ -1396,10 +1390,13 @@ export class EmployeeRequestsService {
           throw forbidden('FORBIDDEN', 'Chỉ Trưởng bộ phận hoặc Quản trị viên quản lý phòng ban mới có quyền duyệt bước này.');
         }
 
-        const nextStage = isPurchase ? 'PENDING_HR' : 'PENDING_ACCOUNTANT';
+        const isExpense = request.type === EmployeeRequestType.EXPENSE;
+        const nextStage = (isPurchase || isExpense) ? 'PENDING_HR' : 'PENDING_ACCOUNTANT';
         const defaultNote = isPurchase
-          ? 'Leader đã duyệt đề xuất mua hàng, chuyển HR đối chứng & xác nhận'
-          : 'Leader đã duyệt - Chuyển Kế toán xem xét xử lý';
+          ? 'Leader đã duyệt nhu cầu mua sắm, chuyển HR tìm báo giá & xác nhận'
+          : isExpense
+            ? 'Leader đã duyệt đơn thanh toán, chuyển HR đối chứng hồ sơ'
+            : 'Leader đã duyệt - Chuyển Kế toán xem xét xử lý';
 
         const newStep = {
           stage: 'PENDING_LEADER',
@@ -1429,8 +1426,20 @@ export class EmployeeRequestsService {
           if (hrUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, hrUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Đề xuất mua sắm cần HR xử lý',
-              body: `Leader đã duyệt đề xuất "${request.title}" của ${request.user?.profile?.fullName || 'nhân viên'}. Chuyển HR đối chứng và cung cấp STK nhận tiền mua sắm.`,
+              title: 'Đề xuất mua sắm cần HR xử lý báo giá',
+              body: `Leader đã duyệt đề xuất "${request.title}" của ${request.user?.profile?.fullName || 'nhân viên'}. Chuyển HR tìm báo giá và cung cấp STK nhận tiền mua sắm.`,
+              metadata: { requestId: id },
+            });
+            this.notifications.emitCreated(notif);
+          }
+        } else if (isExpense) {
+          // Thông báo đến toàn bộ HR đối chứng
+          const hrUserIds = await this.findHrUserIds(tx);
+          if (hrUserIds.length > 0) {
+            const notif = await this.notifications.createForUsers(tx, hrUserIds, {
+              type: NotificationType.SYSTEM,
+              title: 'Đơn thanh toán cần HR đối chứng',
+              body: `Leader đã duyệt đơn thanh toán "${request.title}" của ${request.user?.profile?.fullName || 'nhân viên'}. Chuyển HR đối chứng hóa đơn trước khi lên Kế toán.`,
               metadata: { requestId: id },
             });
             this.notifications.emitCreated(notif);
@@ -1442,7 +1451,7 @@ export class EmployeeRequestsService {
           if (accountantUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
               type: NotificationType.SYSTEM,
-              title: isAdvance ? 'Đơn tạm ứng chuyển Kế toán' : 'Đơn thanh toán chuyển Kế toán',
+              title: 'Đơn tạm ứng chuyển Kế toán',
               body: `Leader đã duyệt đơn "${request.title}". Chuyển Kế toán xem xét xử lý.`,
               metadata: { requestId: id },
             });
@@ -1453,13 +1462,36 @@ export class EmployeeRequestsService {
         return updated;
       }
 
-      // 2. Backward compatibility & Purchase HR Review: PENDING_HR
+      // 2. Backward compatibility & Purchase/Expense HR Review: PENDING_HR
       if (currentStage === 'PENDING_HR') {
         if (!isHr && !actor.roles.includes('ADMIN')) {
           throw forbidden('FORBIDDEN', 'Chỉ Leader HR hoặc Quản trị viên mới có quyền đối chứng và duyệt bước này.');
         }
 
         if (isPurchase) {
+          const newAmount = (payload?.adjustedAmount && Number(payload.adjustedAmount) > 0)
+            ? Number(payload.adjustedAmount)
+            : (payload?.amount && Number(payload.amount) > 0 ? Number(payload.amount) : amount);
+
+          if (!newAmount || newAmount <= 0) {
+            throw badRequest('QUOTE_AMOUNT_REQUIRED', 'Bắt buộc phải nhập số tiền báo giá hợp lệ (> 0 VNĐ) để đề xuất mua hàng.');
+          }
+
+          const quoteList = (payload?.quoteUrls && Array.isArray(payload.quoteUrls) && payload.quoteUrls.length > 0)
+            ? payload.quoteUrls
+            : (payload?.images && Array.isArray(payload.images) && payload.images.length > 0)
+              ? payload.images
+              : (payload?.disbursementProofUrl ? [payload.disbursementProofUrl] : undefined);
+
+          if (!quoteList || !Array.isArray(quoteList) || quoteList.length === 0) {
+            throw badRequest('QUOTE_IMAGE_REQUIRED', 'Bắt buộc phải tải lên ít nhất 1 hình ảnh bảng báo giá / hóa đơn chào giá.');
+          }
+
+          const quoteNote = payload?.note?.trim() || '';
+          if (!quoteNote || quoteNote.length < 3) {
+            throw badRequest('QUOTE_NOTE_REQUIRED', 'Bắt buộc phải nhập ghi chú báo giá / nơi mua hàng (tối thiểu 3 ký tự).');
+          }
+
           const bankAccount = payload?.bankAccount?.trim() || primaryBank?.accountNumber?.trim();
           const bankName = payload?.bankName?.trim() || primaryBank?.bankName?.trim();
           const accountHolder = payload?.accountHolder?.trim() || primaryBank?.accountName?.trim() || actorProfile?.fullName?.trim();
@@ -1474,61 +1506,71 @@ export class EmployeeRequestsService {
             accountHolder: accountHolder || 'HR Phụ trách mua sắm',
           };
 
-          const newAmount = (payload?.adjustedAmount && Number(payload.adjustedAmount) > 0)
-            ? Number(payload.adjustedAmount)
-            : amount;
-
-          const quoteList = (payload?.quoteUrls && Array.isArray(payload.quoteUrls) && payload.quoteUrls.length > 0)
-            ? payload.quoteUrls
-            : (payload?.images && Array.isArray(payload.images) && payload.images.length > 0)
-              ? payload.images
-              : (payload?.disbursementProofUrl ? [payload.disbursementProofUrl] : undefined);
-
-          const nextStage = 'PENDING_ACCOUNTANT';
+          const isPurchaseHasVat = Boolean(payload?.hasVat ?? currentMeta.hasVat);
+          // Điều kiện tài chính: < 2tr ko VAT hoặc có VAT -> PENDING_ACCOUNTANT; > 2tr ko VAT -> PENDING_ADMIN
+          const nextStage = (isPurchaseHasVat || newAmount <= NON_VAT_ADMIN_THRESHOLD) ? 'PENDING_ACCOUNTANT' : 'PENDING_ADMIN';
           const newStep = {
             stage: 'PENDING_HR',
             action: 'APPROVED',
             actorId: actor.userId,
             actorName,
-            note: payload?.note || 'HR đã đối chứng báo giá và xác nhận thông tin tài khoản nhận tiền',
+            note: quoteNote,
             hrBank,
-            adjustedAmount: (payload?.adjustedAmount && Number(payload.adjustedAmount) > 0) ? newAmount : undefined,
-            ...(quoteList && Array.isArray(quoteList) && quoteList.length > 0 ? { quoteUrls: quoteList } : {}),
+            adjustedAmount: newAmount,
+            quoteUrls: quoteList,
+            hasVat: isPurchaseHasVat,
             at: new Date().toISOString(),
           };
 
           const updatedMeta = {
             ...currentMeta,
             hrBank,
+            hasVat: isPurchaseHasVat,
             stage: nextStage,
             hrApprovedAt: new Date().toISOString(),
             hrApprovedBy: actor.userId,
-            ...(quoteList && Array.isArray(quoteList) && quoteList.length > 0 ? { quoteUrls: quoteList, images: quoteList } : {}),
+            quoteUrls: quoteList,
+            images: quoteList,
             approvalSteps: [...existingSteps, newStep],
           };
 
           const updated = await tx.employeeRequest.update({
             where: { id },
             data: {
-              ...(newAmount !== amount ? { amount: newAmount } : {}),
+              amount: newAmount,
               attachmentMetadata: updatedMeta as Prisma.InputJsonValue,
             },
           });
 
-          const accountantUserIds = await this.findAccountantUserIds(tx);
-          if (accountantUserIds.length > 0) {
-            const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
-              type: NotificationType.SYSTEM,
-              title: 'Đề xuất mua sắm chờ Kế toán chuyển tiền',
-              body: `HR đã duyệt đề xuất "${request.title}" (${newAmount.toLocaleString('vi-VN')} VNĐ) và cung cấp STK nhận tiền. Chuyển Kế toán giải ngân.`,
-              metadata: { requestId: id },
-            });
-            this.notifications.emitCreated(notif);
+          if (nextStage === 'PENDING_ADMIN') {
+            const adminUserIds = await this.findRelevantAdminUserIds(request.departmentId, tx);
+            if (adminUserIds.length > 0) {
+              const notif = await this.notifications.createForUsers(tx, adminUserIds, {
+                type: NotificationType.SYSTEM,
+                title: 'Đề xuất mua sắm không VAT trên 2 triệu chờ duyệt',
+                body: `HR đã cập nhật báo giá cho đề xuất "${request.title}" (${newAmount.toLocaleString('vi-VN')} VNĐ - Không VAT). Đang chờ Ban Giám Đốc phê duyệt.`,
+                metadata: { requestId: id },
+              });
+              this.notifications.emitCreated(notif);
+            }
+          } else {
+            const accountantUserIds = await this.findAccountantUserIds(tx);
+            if (accountantUserIds.length > 0) {
+              const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
+                type: NotificationType.SYSTEM,
+                title: 'Đề xuất mua sắm chờ Kế toán chuyển tiền',
+                body: `HR đã duyệt đề xuất "${request.title}" (${newAmount.toLocaleString('vi-VN')} VNĐ) và cung cấp báo giá + STK nhận tiền. Chuyển Kế toán giải ngân.`,
+                metadata: { requestId: id },
+              });
+              this.notifications.emitCreated(notif);
+            }
           }
 
           return updated;
         }
 
+        // Đơn Thanh toán (EXPENSE) hoặc Non-Purchase:
+        // Điều kiện tài chính: < 2tr ko VAT hoặc có VAT -> PENDING_ACCOUNTANT; > 2tr ko VAT -> PENDING_ADMIN
         const nextStage = (hasVat || amount <= NON_VAT_ADMIN_THRESHOLD) ? 'PENDING_ACCOUNTANT' : 'PENDING_ADMIN';
         const action = 'APPROVED';
 
@@ -1537,13 +1579,15 @@ export class EmployeeRequestsService {
           action,
           actorId: actor.userId,
           actorName,
-          note: payload?.note || 'HR đã đối chứng hồ sơ hợp lệ',
+          note: payload?.note || 'HR đã đối chứng hồ sơ hợp lệ (HR Firm)',
           at: new Date().toISOString(),
         };
 
         const updatedMeta = {
           ...currentMeta,
           stage: nextStage,
+          hrFirmApprovedAt: new Date().toISOString(),
+          hrFirmApprovedBy: actor.userId,
           approvalSteps: [...existingSteps, newStep],
         };
 
@@ -1557,8 +1601,8 @@ export class EmployeeRequestsService {
           if (adminUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, adminUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Đơn không VAT cần Ban Giám Đốc duyệt',
-              body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) chuyển Ban Giám Đốc phê duyệt.`,
+              title: 'Đơn thanh toán không VAT trên 2 triệu cần Ban Giám Đốc duyệt',
+              body: `HR đã đối chứng đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ - Không VAT). Chuyển Ban Giám Đốc phê duyệt.`,
               metadata: { requestId: id },
             });
             this.notifications.emitCreated(notif);
@@ -1568,8 +1612,8 @@ export class EmployeeRequestsService {
           if (accountantUserIds.length > 0) {
             const notif = await this.notifications.createForUsers(tx, accountantUserIds, {
               type: NotificationType.SYSTEM,
-              title: 'Đơn chờ Kế toán thanh toán',
-              body: `Đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ) đã được xác nhận, chuyển Kế toán.`,
+              title: 'Đơn thanh toán chờ Kế toán chi tiền',
+              body: `HR đã đối chứng đơn "${request.title}" (${amount.toLocaleString('vi-VN')} VNĐ). Chuyển Kế toán thanh toán.`,
               metadata: { requestId: id },
             });
             this.notifications.emitCreated(notif);

@@ -1,4 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
+import { ApprovalProgressLine } from './components/ApprovalProgressLine';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { useAppAlert } from '../../contexts/AlertContext';
 import { StyleSheet, Text, View, Pressable, ScrollView, TextInput, KeyboardAvoidingView, Platform, Image, TouchableOpacity, RefreshControl, Modal, StatusBar } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -61,6 +62,8 @@ export function LeaderApprovalScreen() {
   const [hrAccHolder, setHrAccHolder] = useState('');
   const [hrAdjustedAmount, setHrAdjustedAmount] = useState('');
   const [hrApprovalNote, setHrApprovalNote] = useState('');
+  const [hrQuoteUris, setHrQuoteUris] = useState<string[]>([]);
+  const [isUploadingHrQuote, setIsUploadingHrQuote] = useState(false);
 
   // Purchase HR resubmit state
   const [isHrResubmitModalOpen, setIsHrResubmitModalOpen] = useState(false);
@@ -232,6 +235,35 @@ export function LeaderApprovalScreen() {
     });
   };
 
+  const handlePickHrQuoteImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setHrQuoteUris(prev => [...prev, ...result.assets.map(a => a.uri)]);
+    }
+  };
+
+  const handleTakePhotoHrQuote = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      showAlert('Quyền truy cập', 'Vui lòng cấp quyền máy ảnh để chụp ảnh bảng báo giá.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setHrQuoteUris(prev => [...prev, result.assets[0].uri]);
+    }
+  };
+
+  const handleRemoveHrQuoteUri = (index: number) => {
+    setHrQuoteUris(prev => prev.filter((_, idx) => idx !== index));
+  };
+
   const openHrApprovalModal = () => {
     setHrAdjustedAmount(request?.amount ? String(request.amount) : '');
     const m = (typeof request?.attachmentMetadata === 'object' && request?.attachmentMetadata !== null) ? (request.attachmentMetadata as any) : {};
@@ -239,6 +271,7 @@ export function LeaderApprovalScreen() {
     setHrBankName(m.hrBank?.bankName || (currentUser as any)?.bankName || '');
     setHrAccHolder(m.hrBank?.accountHolder || (currentUser as any)?.profile?.fullName || (currentUser as any)?.name || '');
     setHrApprovalNote(comment.trim());
+    setHrQuoteUris([]);
     setIsHrApprovalModalOpen(true);
   };
 
@@ -304,24 +337,74 @@ export function LeaderApprovalScreen() {
     }
   };
 
-  const handleConfirmHrPurchaseApproval = () => {
+  const handleConfirmHrPurchaseApproval = async () => {
+    const finalAmount = hrAdjustedAmount ? Number(hrAdjustedAmount) : Number(request?.amount || 0);
+    if (!finalAmount || finalAmount <= 0) {
+      showAlert('Thiếu thông tin', 'Vui lòng nhập số tiền báo giá hợp lệ (> 0 VNĐ).');
+      return;
+    }
     if (!hrBankAcc.trim() || !hrBankName.trim()) {
       showAlert('Thiếu thông tin', 'Vui lòng nhập Số tài khoản và Tên ngân hàng nhận tiền của HR.');
       return;
     }
+    if (!hrApprovalNote.trim() || hrApprovalNote.trim().length < 3) {
+      showAlert('Thiếu thông tin', 'Vui lòng nhập ghi chú nơi mua / thông tin báo giá (tối thiểu 3 ký tự).');
+      return;
+    }
+
+    const meta = request?.attachmentMetadata || (request as any)?.metadata || {};
+    const existingQuotes = meta.quoteUrls || meta.images || [];
+
+    if (hrQuoteUris.length === 0 && existingQuotes.length === 0) {
+      showAlert('Thiếu ảnh báo giá', 'Bắt buộc phải tải lên ít nhất 1 hình ảnh bảng báo giá / hóa đơn chào giá.');
+      return;
+    }
+
+    let uploadedUrls: string[] = [];
+    if (hrQuoteUris.length > 0) {
+      setIsUploadingHrQuote(true);
+      try {
+        for (const uri of hrQuoteUris) {
+          const res = await uploadFile({
+            uri,
+            name: `quote_${Date.now()}.jpg`,
+            mimeType: 'image/jpeg',
+            purpose: 'EMPLOYEE_DOCUMENT',
+          });
+          if (res?.fileUrl || (res as any)?.url) {
+            uploadedUrls.push(res.fileUrl || (res as any).url);
+          }
+        }
+      } catch (err: any) {
+        setIsUploadingHrQuote(false);
+        showAlert('Lỗi tải ảnh', 'Tải ảnh bảng báo giá thất bại. Vui lòng thử lại!');
+        return;
+      }
+      setIsUploadingHrQuote(false);
+    }
+
+    const finalQuotes = [...existingQuotes, ...uploadedUrls];
+    if (finalQuotes.length === 0) {
+      showAlert('Thiếu ảnh báo giá', 'Bắt buộc phải tải lên ít nhất 1 hình ảnh bảng báo giá.');
+      return;
+    }
+
     approveMutation.mutate({
       id,
       payload: {
         bankAccount: hrBankAcc.trim(),
         bankName: hrBankName.trim(),
         accountHolder: hrAccHolder.trim() || undefined,
-        adjustedAmount: hrAdjustedAmount ? Number(hrAdjustedAmount) : undefined,
-        note: hrApprovalNote.trim() || undefined,
+        adjustedAmount: finalAmount,
+        amount: finalAmount,
+        note: hrApprovalNote.trim(),
+        images: finalQuotes,
+        quoteUrls: finalQuotes,
       }
     }, {
       onSuccess: () => {
         setIsHrApprovalModalOpen(false);
-        showAlert('Thành công', 'Đã duyệt đề xuất mua sắm và cung cấp STK chuyển Kế toán!');
+        showAlert('Thành công', 'Đã đối chứng báo giá và chuyển Kế toán / Ban Giám Đốc thành công!');
         router.back();
       },
       onError: (err: any) => {
@@ -607,10 +690,22 @@ export function LeaderApprovalScreen() {
   } else if (request.status !== 'PENDING') {
     canActOnCurrentStage = false;
   } else if (!isFinancial) {
-    if (isAdmin || isHr || isDeptLeader) {
-      canActOnCurrentStage = true;
+    const isOvertime = request.type === 'OVERTIME';
+    const otPercent = Number(meta.proposedPercent || meta.percent || meta.rate || 100);
+    const isOt150Plus = isOvertime && otPercent >= 150;
+
+    if (isOt150Plus) {
+      if (isAdmin || isHr) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = 'Đơn làm thêm giờ (OT) từ 150% trở lên thuộc thẩm quyền phê duyệt của Nhân sự (HR) hoặc Ban Giám Đốc/Admin miền.';
+      }
     } else {
-      waitingStageDescription = 'Đang chờ Trưởng bộ phận hoặc Quản trị viên phê duyệt.';
+      if (isAdmin || isHr || isDeptLeader) {
+        canActOnCurrentStage = true;
+      } else {
+        waitingStageDescription = 'Đang chờ Trưởng bộ phận, Nhân sự (HR) hoặc Quản trị viên phê duyệt.';
+      }
     }
   } else {
     // Financial workflow
@@ -682,8 +777,8 @@ export function LeaderApprovalScreen() {
         approveButtonLabel = 'Duyệt & Cấp STK chuyển Kế toán';
         approveSubtext = 'HR đối chứng hồ sơ & cung cấp STK nhận tiền chuyển Kế toán';
       } else {
-        approveButtonLabel = 'Duyệt hồ sơ';
-        approveSubtext = 'HR đối chứng hồ sơ hợp lệ';
+        approveButtonLabel = 'HR xác nhận đối chứng (Firm)';
+        approveSubtext = 'HR đối chứng hồ sơ & chuyển tiếp Kế toán / Ban Giám Đốc';
       }
     } else if (stage === 'PENDING_ADMIN') {
       if (isPurchase) {
@@ -716,6 +811,8 @@ export function LeaderApprovalScreen() {
   }
 
   // Formatting helpers matching mockup media_1791363426977.jpg
+
+
   const getUserInitials = (name: string) => {
     if (!name) return 'ML';
     const parts = name.trim().split(/\s+/);
@@ -920,7 +1017,11 @@ export function LeaderApprovalScreen() {
             </View>
           </View>
 
-          <View style={styles.cardDivider} />
+          <View style={[styles.cardDivider, { marginVertical: 10 }]} />
+
+          {/* Clean 1-Line Approval Progress Pipeline (Component) */}
+          <ApprovalProgressLine request={request} containerStyle={{ marginVertical: 4 }} />
+          {isFinancial && <View style={[styles.cardDivider, { marginTop: 6, marginBottom: 8 }]} />}
 
           <View style={styles.submissionTimeRow}>
             <Text style={styles.submissionTimeText}>{formatSubmissionTime(request.createdAt)}</Text>
@@ -2420,10 +2521,12 @@ export function LeaderApprovalScreen() {
               </View>
 
               <View style={{ marginTop: 12 }}>
-                <Text style={styles.modalInputLabel}>Ghi chú cho Kế toán (Tùy chọn)</Text>
+                <Text style={styles.modalInputLabel}>
+                  Ghi chú báo giá / nơi mua <Text style={{ color: '#DC2626' }}>*</Text>
+                </Text>
                 <TextInput
                   style={[styles.modalTextInput, { minHeight: 60 }]}
-                  placeholder="Nhập ghi chú hoặc lý do điều chỉnh giá..."
+                  placeholder="Nhập thông tin nơi mua, điều kiện bảo hành, báo giá..."
                   placeholderTextColor="#94A3B8"
                   multiline
                   value={hrApprovalNote}
@@ -2432,21 +2535,85 @@ export function LeaderApprovalScreen() {
                 />
               </View>
 
+              {/* Ảnh bảng báo giá (Bắt buộc) */}
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>
+                  Ảnh bảng báo giá / hóa đơn chào giá <Text style={{ color: '#DC2626' }}>*</Text>
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 10,
+                      backgroundColor: '#EFF6FF',
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: '#BFDBFE',
+                      borderStyle: 'dashed'
+                    }}
+                    onPress={handlePickHrQuoteImage}
+                  >
+                    <MaterialCommunityIcons name="image-plus" size={18} color="#2563EB" style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#2563EB' }}>Chọn từ thư viện</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 10,
+                      backgroundColor: '#F8FAFC',
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: '#CBD5E1',
+                    }}
+                    onPress={handleTakePhotoHrQuote}
+                  >
+                    <MaterialCommunityIcons name="camera-outline" size={18} color="#475569" style={{ marginRight: 6 }} />
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#475569' }}>Chụp ảnh</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Danh sách ảnh đã chọn */}
+                {hrQuoteUris.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {hrQuoteUris.map((uri, idx) => (
+                        <View key={uri + idx} style={{ position: 'relative', width: 70, height: 70, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#CBD5E1' }}>
+                          <Image source={{ uri }} style={{ width: '100%', height: '100%' }} />
+                          <TouchableOpacity
+                            onPress={() => handleRemoveHrQuoteUri(idx)}
+                            style={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <MaterialCommunityIcons name="close" size={12} color="#FFF" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  </ScrollView>
+                )}
+              </View>
+
               <View style={styles.modalActionsRow}>
                 <TouchableOpacity 
                   style={styles.modalCancelBtn}
                   onPress={() => setIsHrApprovalModalOpen(false)}
-                  disabled={approveMutation.isPending}
+                  disabled={approveMutation.isPending || isUploadingHrQuote}
                 >
                   <Text style={styles.modalCancelBtnText}>Hủy</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
-                  style={[styles.modalConfirmDisburseBtn, { backgroundColor: '#2563EB' }, approveMutation.isPending && { opacity: 0.7 }]}
+                  style={[styles.modalConfirmDisburseBtn, { backgroundColor: '#2563EB' }, (approveMutation.isPending || isUploadingHrQuote) && { opacity: 0.7 }]}
                   onPress={handleConfirmHrPurchaseApproval}
-                  disabled={approveMutation.isPending}
+                  disabled={approveMutation.isPending || isUploadingHrQuote}
                 >
-                  {approveMutation.isPending ? (
+                  {approveMutation.isPending || isUploadingHrQuote ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -3390,5 +3557,139 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  timelineCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  timelineCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  timelineStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  timelineStatusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  timelinePipelineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginBottom: 8,
+  },
+  timelineNodeCol: {
+    alignItems: 'center',
+    flex: 1,
+    maxWidth: 80,
+  },
+  timelineNodeCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  timelineNodeCircleDone: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#16A34A',
+    borderWidth: 2,
+  },
+  timelineNodeCircleCurrent: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderWidth: 2.5,
+  },
+  timelineNodeCircleRejected: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#DC2626',
+    borderWidth: 2,
+  },
+  timelineNodeNumberText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  timelineNodeLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 14,
+    marginBottom: 2,
+  },
+  timelineNodeLabelDone: {
+    color: '#16A34A',
+    fontWeight: '700',
+  },
+  timelineNodeLabelCurrent: {
+    color: '#D97706',
+    fontWeight: '800',
+  },
+  timelineNodeLabelRejected: {
+    color: '#DC2626',
+    fontWeight: '700',
+  },
+  timelineNodeSubtext: {
+    fontSize: 10,
+    color: '#94A3B8',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  timelineNodeSubtextDone: {
+    color: '#15803D',
+    fontWeight: '600',
+  },
+  timelineNodeSubtextCurrent: {
+    color: '#B45309',
+    fontWeight: '700',
+  },
+  timelineNodeSubtextRejected: {
+    color: '#B91C1C',
+    fontWeight: '600',
+  },
+  timelineConnectorLine: {
+    flex: 1,
+    height: 2.5,
+    backgroundColor: '#E2E8F0',
+    marginTop: 15,
+    marginHorizontal: -2,
+  },
+  timelineConnectorLineDone: {
+    backgroundColor: '#16A34A',
+  },
+  timelineCalloutBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+  },
+  timelineCalloutTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B45309',
+    marginBottom: 2,
+  },
+  timelineCalloutSubtext: {
+    fontSize: 11.5,
+    color: '#92400E',
+    lineHeight: 16,
   },
 });

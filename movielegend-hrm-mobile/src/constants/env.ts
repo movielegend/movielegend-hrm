@@ -1,13 +1,7 @@
 import { Platform } from 'react-native';
 
-const rawApiUrl = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api/v1')
-  .replace('192.168.28.183', '192.168.28.198')
-  .replace('192.168.28.246', '192.168.28.198')
-  .replace('192.168.1.15', 'localhost');
-const rawSocketUrl = (process.env.EXPO_PUBLIC_SOCKET_URL || 'http://localhost:3001')
-  .replace('192.168.28.183', '192.168.28.198')
-  .replace('192.168.28.246', '192.168.28.198')
-  .replace('192.168.1.15', 'localhost');
+const rawApiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.28.247:3001/api/v1';
+const rawSocketUrl = process.env.EXPO_PUBLIC_SOCKET_URL || 'http://192.168.28.247:3001';
 
 // Tự động chuyển localhost sang 10.0.2.2 nếu đang chạy trên máy ảo Android Emulator
 export const apiUrl = (Platform.OS === 'android' && rawApiUrl.includes('localhost'))

@@ -36,6 +36,18 @@ export function CheckInScreen() {
   const { data: schedule, isLoading: scheduleLoading } = useMySchedule();
   const { data: currentAttendance } = useCurrentAttendance();
 
+  // Kiểm tra ca quên check-out từ hôm trước (Backend c568877b sẽ tự động đóng thành MISSING khi check-in hôm nay)
+  const isPreviousDayForgottenShift = useMemo(() => {
+    if (currentAttendance?.state !== 'CHECKED_IN' || !currentAttendance?.attendance) return false;
+    const todayStr = new Date().toISOString().substring(0, 10);
+    const workDateStr = currentAttendance.attendance.workDate
+      ? new Date(currentAttendance.attendance.workDate).toISOString().substring(0, 10)
+      : null;
+    return Boolean(workDateStr && workDateStr < todayStr);
+  }, [currentAttendance]);
+
+  const isCheckedInToday = currentAttendance?.state === 'CHECKED_IN' && !isPreviousDayForgottenShift;
+
   const checkOutRoute = useMemo(() => {
     if (user?.roles?.includes('HR')) return '/hr/attendance/check-out';
     if (user?.roles?.includes('LEADER') || (user as any)?.isDepartmentLeader) return '/leader/attendance/check-out';
@@ -61,8 +73,13 @@ export function CheckInScreen() {
         return;
       }
 
+      const lastLoc = await Location.getLastKnownPositionAsync();
+      if (lastLoc) {
+        setLocation(lastLoc);
+      }
+
       const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Balanced,
       });
       setLocation(loc);
     } catch (err: any) {
@@ -99,44 +116,12 @@ export function CheckInScreen() {
   };
 
   const proceedToVerification = async () => {
-    try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-
-      if (hasHardware && isEnrolled) {
-        const auth = await LocalAuthentication.authenticateAsync({
-          promptMessage: 'Xác thực sinh trắc học để vào ca',
-          fallbackLabel: 'Dùng mã PIN/Mật khẩu',
-          cancelLabel: 'Hủy',
-        });
-
-        if (!auth.success) {
-          CustomAlert.alert('Xác thực thất bại', 'Cần xác thực sinh trắc học để tiếp tục.');
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('Lỗi xác thực sinh trắc học:', err);
-    }
-
     setCameraVisible(true);
   };
 
   const handleConfirm = async () => {
-    if (currentAttendance?.state === 'CHECKED_IN') {
-      CustomAlert.alert(
-        'Đang trong ca làm việc',
-        'Bạn đang có một ca/lượt làm việc chưa check-out. Vui lòng check-out ca trước khi vào ca mới!',
-        [
-          { text: 'Đóng', style: 'cancel' },
-          {
-            text: 'Chuyển sang Ra ca',
-            onPress: () => {
-              router.replace(checkOutRoute as any);
-            },
-          },
-        ]
-      );
+    if (isCheckedInToday) {
+      router.replace(checkOutRoute as any);
       return;
     }
 
@@ -145,14 +130,8 @@ export function CheckInScreen() {
       return;
     }
 
-    // Ping / Network latency test like Arena of Valor (Liên Quân)
-    const netCheck = await testConnectionBeforeAction();
-    if (netCheck.isWeak) {
-      setWeakNetworkModalVisible(true);
-      return;
-    }
-
-    await proceedToVerification();
+    // Mở camera ngay lập tức, không bắt quét vân tay lần 2 hay chặn đo ping
+    setCameraVisible(true);
   };
 
   const handleCaptureAndSubmit = async (photoUri: string) => {
@@ -162,15 +141,15 @@ export function CheckInScreen() {
     try {
       if (!photoUri) throw new Error('Không thể chụp ảnh xác thực');
 
-      // Tối ưu ảnh rõ nét, giữ độ phân giải cao và dung lượng hợp lý (~90-130KB)
+      // Tối ưu ảnh siêu nhẹ (~20KB), xử lý tức thì trong 50ms từ Native C++
       const compressedImage = await ImageManipulator.manipulateAsync(
         photoUri,
-        [{ resize: { width: 960 } }],
-        { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: 480 } }],
+        { compress: 0.55, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
 
-      // Read file as base64
-      const base64Data = await FileSystem.readAsStringAsync(compressedImage.uri, { encoding: 'base64' });
+      const base64Data = compressedImage.base64;
+      if (!base64Data) throw new Error('Không thể mã hóa ảnh xác thực');
 
       // Check in with photoBase64
       const payload = {
@@ -181,9 +160,10 @@ export function CheckInScreen() {
       };
 
       await checkIn(payload);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.attendanceCurrent() });
-      await queryClient.invalidateQueries({ queryKey: ['attendance'] });
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // Cập nhật cache ngầm trong background, không chặn người dùng
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendanceCurrent() });
+      void queryClient.invalidateQueries({ queryKey: ['attendance'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     } catch (e: any) {
       const isAlreadyCheckedIn =
         e?.code === 'ALREADY_CHECKED_IN' ||
@@ -246,7 +226,7 @@ export function CheckInScreen() {
         contentContainerStyle={{ paddingBottom: 100 + Math.max(insets.bottom, 20) }}
       >
         {/* Checked In Warning Banner */}
-        {currentAttendance?.state === 'CHECKED_IN' ? (
+        {isCheckedInToday ? (
           <Pressable
             style={{
               backgroundColor: '#EFF6FF',
@@ -270,6 +250,25 @@ export function CheckInScreen() {
             </View>
             <MaterialCommunityIcons name="chevron-right" size={20} color="#2563EB" />
           </Pressable>
+        ) : isPreviousDayForgottenShift ? (
+          <View
+            style={{
+              backgroundColor: '#FFFBEB',
+              borderColor: '#FDE68A',
+              borderWidth: 1,
+              borderRadius: 12,
+              padding: 12,
+              marginHorizontal: 16,
+              marginBottom: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+          >
+            <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#D97706" style={{ marginRight: 8 }} />
+            <Text style={{ fontSize: 13, color: '#92400E', flex: 1 }}>
+              Bạn có ca hôm trước chưa check-out. Hệ thống sẽ tự động đóng ca cũ và mở ca mới cho bạn hôm nay.
+            </Text>
+          </View>
         ) : null}
 
         {/* Map View */}
@@ -367,7 +366,7 @@ export function CheckInScreen() {
       </ScrollView>
 
       {/* Camera Modal */}
-      <Modal visible={isCameraVisible} animationType="fade" transparent={false} statusBarTranslucent>
+      <Modal visible={isCameraVisible} animationType="fade" transparent={false} statusBarTranslucent navigationBarTranslucent>
         <AttendanceCamera
           photoUri={null}
           onCapture={handleCaptureAndSubmit}
@@ -385,11 +384,11 @@ export function CheckInScreen() {
       {!isCameraVisible ? (
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           <Pressable
-            style={[styles.confirmBtn, currentAttendance?.state === 'CHECKED_IN' && { backgroundColor: '#E11D48' }]}
+            style={[styles.confirmBtn, isCheckedInToday && { backgroundColor: '#E11D48' }]}
             onPress={() => void handleConfirm()}
           >
             <Text style={styles.confirmBtnText}>
-              {currentAttendance?.state === 'CHECKED_IN' ? 'Chuyển sang Ra ca' : 'Xác nhận'}
+              {isCheckedInToday ? 'Chuyển sang Ra ca' : 'Xác nhận vào ca'}
             </Text>
           </Pressable>
         </View>

@@ -34,6 +34,11 @@ export class CreateEmployeeRequestDto {
   @IsOptional()
   @IsUUID()
   referenceId?: string;
+
+  @ApiPropertyOptional({ description: 'Danh sách ảnh đính kèm' })
+  @IsOptional()
+  @IsArray()
+  images?: string[];
 }
 
 export class EmployeeRequestQueryDto {
@@ -113,6 +118,16 @@ export class ApproveEmployeeRequestDto {
   @IsOptional()
   @IsNumber()
   adjustedAmount?: number;
+
+  @ApiPropertyOptional({ description: 'S? ti?n b�o gi�' })
+  @IsOptional()
+  @IsNumber()
+  amount?: number;
+
+  @ApiPropertyOptional({ description: '�on c� h�a don VAT' })
+  @IsOptional()
+  @IsBoolean()
+  hasVat?: boolean;
 
   @ApiPropertyOptional({ description: 'Danh sách URL ảnh báo giá đối chứng do HR tải lên' })
   @IsOptional()

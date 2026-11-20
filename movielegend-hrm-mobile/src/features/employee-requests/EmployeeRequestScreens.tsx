@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import { ApprovalProgressLine } from './components/ApprovalProgressLine';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -405,6 +406,9 @@ export function EmployeeRequestDetailScreen() {
 
   const canHrFulfillPurchase = request.type === 'PURCHASE' && meta.stage === 'PENDING_HR_PURCHASE' && isHrUser;
 
+  const stage = meta.stage || 'PENDING';
+
+
   const safeTopInset = Math.max((insets.top > 0 ? insets.top : (StatusBar.currentHeight || 20)) - 6, 8);
 
   return (
@@ -453,6 +457,9 @@ export function EmployeeRequestDetailScreen() {
 
             <Text style={styles.mainRequestTitle}>{request.title}</Text>
             <Text style={styles.mainRequestDate}>Gửi lúc: {dateStr}</Text>
+
+            {/* Clean 1-Line Approval Progress Pipeline (No box) */}
+            <ApprovalProgressLine request={request} containerStyle={{ marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#F1F5F9" }} />
           </View>
 
         {/* NỘI DUNG YÊU CẦU */}
@@ -1877,5 +1884,139 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E4E4E7',
+  },
+  timelineCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  timelineCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  timelineStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  timelineStatusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  timelinePipelineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginBottom: 8,
+  },
+  timelineNodeCol: {
+    alignItems: 'center',
+    flex: 1,
+    maxWidth: 80,
+  },
+  timelineNodeCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  timelineNodeCircleDone: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#16A34A',
+    borderWidth: 2,
+  },
+  timelineNodeCircleCurrent: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderWidth: 2.5,
+  },
+  timelineNodeCircleRejected: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#DC2626',
+    borderWidth: 2,
+  },
+  timelineNodeNumberText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  timelineNodeLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 14,
+    marginBottom: 2,
+  },
+  timelineNodeLabelDone: {
+    color: '#16A34A',
+    fontWeight: '700',
+  },
+  timelineNodeLabelCurrent: {
+    color: '#D97706',
+    fontWeight: '800',
+  },
+  timelineNodeLabelRejected: {
+    color: '#DC2626',
+    fontWeight: '700',
+  },
+  timelineNodeSubtext: {
+    fontSize: 10,
+    color: '#94A3B8',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  timelineNodeSubtextDone: {
+    color: '#15803D',
+    fontWeight: '600',
+  },
+  timelineNodeSubtextCurrent: {
+    color: '#B45309',
+    fontWeight: '700',
+  },
+  timelineNodeSubtextRejected: {
+    color: '#B91C1C',
+    fontWeight: '600',
+  },
+  timelineConnectorLine: {
+    flex: 1,
+    height: 2.5,
+    backgroundColor: '#E2E8F0',
+    marginTop: 15,
+    marginHorizontal: -2,
+  },
+  timelineConnectorLineDone: {
+    backgroundColor: '#16A34A',
+  },
+  timelineCalloutBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+  },
+  timelineCalloutTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B45309',
+    marginBottom: 2,
+  },
+  timelineCalloutSubtext: {
+    fontSize: 11.5,
+    color: '#92400E',
+    lineHeight: 16,
   },
 });

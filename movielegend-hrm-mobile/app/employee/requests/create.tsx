@@ -31,9 +31,8 @@ const REQUEST_TYPES: { type: EmployeeRequestType, label: string, icon: keyof typ
   { type: 'LATE_ARRIVAL', label: 'Đi muộn', icon: 'clock-outline', color: '#1B382B' },
   { type: 'EARLY_LEAVE', label: 'Về sớm', icon: 'exit-to-app', color: '#1B382B' },
   { type: 'OVERTIME', label: 'Làm thêm\ngiờ', icon: 'clock-plus-outline', color: '#1B382B' },
-  { type: 'PURCHASE', label: 'Mua sắm', icon: 'cart-outline', color: '#1B382B' },
+  { type: 'DISBURSEMENT' as any, label: 'Giải ngân', icon: 'cash-multiple', color: '#1B382B' },
   { type: 'ADVANCE', label: 'Tạm ứng', icon: 'database-outline', color: '#1B382B' },
-  { type: 'EXPENSE', label: 'Thanh toán', icon: 'credit-card-outline', color: '#1B382B' },
   { type: 'OTHER', label: 'Khác', icon: 'dots-horizontal', color: '#1B382B' },
 ];
 
@@ -1613,7 +1612,7 @@ export default function CreateRequestScreen() {
       }
 
       const attachmentMetadata = {
-        ...(uploadedUrl ? { image: uploadedUrl } : {}),
+        ...(uploadedUrl ? { image: uploadedUrl, images: [uploadedUrl] } : {}),
         ...(isAdvance ? {
           month: (fromDate || new Date()).getMonth() + 1,
           year: (fromDate || new Date()).getFullYear(),
@@ -1622,11 +1621,16 @@ export default function CreateRequestScreen() {
           accountHolder: advanceAccountHolder.trim(),
           requestTypeCategory: 'SALARY_ADVANCE_50_PERCENT',
         } : {}),
-        ...(selectedType === 'EXPENSE' ? { hasVat: Boolean(hasVat), vatInvoiceUrl: uploadedUrl || undefined } : {}),
+        ...(selectedType === 'EXPENSE' ? {
+          hasVat: Boolean(hasVat),
+          vatInvoiceUrl: uploadedUrl || undefined,
+          images: uploadedUrl ? [uploadedUrl] : undefined,
+        } : {}),
         ...(isPurchase ? {
           itemName: purchaseItemName.trim(),
           quantity: purchaseQuantity.trim(),
           neededDate: fromDate ? fromDate.toISOString() : undefined,
+          images: uploadedUrl ? [uploadedUrl] : undefined,
         } : {}),
         ...(isBusinessTrip ? {
           location: tripLocation.trim(),
@@ -1735,6 +1739,7 @@ export default function CreateRequestScreen() {
           : content.trim(),
         referenceId: selectedLeaveRequest?.id,
         ...(isFinancial && amount ? { amount: Number(amount) } : {}),
+        ...(uploadedUrl ? { images: [uploadedUrl] } : (tripImages.length > 0 ? { images: tripImages } : {})),
         ...(Object.keys(attachmentMetadata).length > 0 ? { attachmentMetadata } : {})
       });
       
@@ -1798,12 +1803,22 @@ export default function CreateRequestScreen() {
         <View style={styles.gridCard}>
           <View style={styles.gridRowWrap}>
             {REQUEST_TYPES.map((t) => {
-              const isSelected = selectedType === t.type;
+              const isSelected = (t.type as string) === 'DISBURSEMENT'
+                ? (selectedType === 'PURCHASE' || selectedType === 'EXPENSE')
+                : selectedType === t.type;
               return (
                 <Pressable
                   key={t.type}
                   style={styles.gridCol}
-                  onPress={() => setSelectedType(t.type)}
+                  onPress={() => {
+                    if ((t.type as string) === 'DISBURSEMENT') {
+                      if (selectedType !== 'PURCHASE' && selectedType !== 'EXPENSE') {
+                        setSelectedType('PURCHASE');
+                      }
+                    } else {
+                      setSelectedType(t.type);
+                    }
+                  }}
                 >
                   <View style={[styles.gridIconBox, isSelected && styles.gridIconBoxActive]}>
                     <MaterialCommunityIcons
@@ -3160,6 +3175,45 @@ export default function CreateRequestScreen() {
             </>
           ) : isPurchase ? (
             <>
+              {/* Bộ chuyển đổi Giải ngân: Mua sắm vs Thanh toán */}
+              <View style={{ flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 16 }}>
+                <Pressable
+                  onPress={() => setSelectedType('PURCHASE')}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    backgroundColor: '#FFFFFF',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 2,
+                    elevation: 1,
+                  }}
+                >
+                  <MaterialCommunityIcons name="cart-outline" size={16} color="#0284C7" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#0284C7' }}>1. Mua sắm</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setSelectedType('EXPENSE')}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    backgroundColor: 'transparent',
+                  }}
+                >
+                  <MaterialCommunityIcons name="credit-card-outline" size={16} color="#64748B" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748B' }}>2. Thanh toán</Text>
+                </Pressable>
+              </View>
+
               {/* Tên sản phẩm */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
@@ -3449,6 +3503,45 @@ export default function CreateRequestScreen() {
             </>
           ) : isExpense ? (
             <>
+              {/* Bộ chuyển đổi Giải ngân: Mua sắm vs Thanh toán */}
+              <View style={{ flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 16 }}>
+                <Pressable
+                  onPress={() => setSelectedType('PURCHASE')}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    backgroundColor: 'transparent',
+                  }}
+                >
+                  <MaterialCommunityIcons name="cart-outline" size={16} color="#64748B" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#64748B' }}>1. Mua sắm</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setSelectedType('EXPENSE')}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingVertical: 10,
+                    borderRadius: 10,
+                    backgroundColor: '#FFFFFF',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 2,
+                    elevation: 1,
+                  }}
+                >
+                  <MaterialCommunityIcons name="credit-card-outline" size={16} color="#4F46E5" style={{ marginRight: 6 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#4F46E5' }}>2. Thanh toán</Text>
+                </Pressable>
+              </View>
+
               {/* Số tiền thanh toán (VNĐ) */}
               <View style={styles.formItem}>
                 <Text style={styles.formLabel}>
@@ -3517,8 +3610,8 @@ export default function CreateRequestScreen() {
                 </Pressable>
                 <Text style={styles.expenseVatCardNote}>
                   {hasVat 
-                    ? 'Có VAT: Leader phòng ban duyệt ➔ Kế toán giải ngân.' 
-                    : 'Không VAT: ≤ 2 triệu: Kế toán; > 2 triệu: Ban Giám đốc ➔ Kế toán.'}
+                    ? 'Có VAT: Leader duyệt ➔ HR đối chứng ➔ Kế toán giải ngân.' 
+                    : 'Không VAT: ≤ 2 triệu: Kế toán giải ngân; > 2 triệu: Ban Giám Đốc phê duyệt.'}
                 </Text>
               </View>
 
@@ -3530,11 +3623,9 @@ export default function CreateRequestScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.expenseWorkflowTitle}>Quy trình đang hiển thị</Text>
                   <Text style={styles.expenseWorkflowSubtitle}>
-                    {hasVat
-                      ? 'Leader phòng ban duyệt ➔ Kế toán giải ngân'
-                      : Number(amount || 0) > 2000000
-                        ? 'Leader phòng ban duyệt ➔ Ban Giám đốc duyệt ➔ Kế toán giải ngân'
-                        : 'Leader phòng ban duyệt ➔ Kế toán giải ngân'}
+                    {hasVat || Number(amount || 0) <= 2000000
+                      ? 'Leader duyệt ➔ HR đối chứng ➔ Kế toán giải ngân'
+                      : 'Leader duyệt ➔ HR đối chứng ➔ Ban Giám Đốc phê duyệt'}
                   </Text>
                 </View>
               </View>

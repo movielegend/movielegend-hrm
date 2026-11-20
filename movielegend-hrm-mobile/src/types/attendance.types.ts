@@ -52,6 +52,7 @@ export interface CheckOutPayload {
   latitude: number;
   longitude: number;
   photoFileId?: string;
+  photoBase64?: string;
   faceImage?: string;
   accuracy?: number;
 }
