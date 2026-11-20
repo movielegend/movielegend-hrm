@@ -17,9 +17,25 @@ export const ApprovalProgressLine: React.FC<ApprovalProgressLineProps> = ({
   const isFinancial = ['EXPENSE', 'PURCHASE', 'ADVANCE'].includes(request.type);
   if (!isFinancial) return null;
 
-  const meta = (request as any).metadata || {};
-  const approvalSteps = Array.isArray(request.approvalSteps) ? request.approvalSteps : [];
-  const stage = meta.stage || (request as any).stage || 'PENDING';
+  // Hỗ trợ cả trường hợp attachmentMetadata là object hoặc JSON string
+  const meta: Record<string, any> = (() => {
+    const raw = request?.attachmentMetadata || (request as any)?.metadata;
+    if (!raw) return {};
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return {};
+      }
+    }
+    return typeof raw === 'object' ? raw : {};
+  })();
+
+  const approvalSteps = Array.isArray(meta?.approvalSteps)
+    ? meta.approvalSteps
+    : (Array.isArray(request?.approvalSteps) ? request.approvalSteps : []);
+
+  const stage = meta?.stage || (request as any)?.stage || 'PENDING';
 
   const isPurchase = request.type === 'PURCHASE';
   const isExpense = request.type === 'EXPENSE';
@@ -27,35 +43,51 @@ export const ApprovalProgressLine: React.FC<ApprovalProgressLineProps> = ({
   const isApproved = request.status === 'APPROVED';
   const isRejected = request.status === 'REJECTED';
 
+  // Khớp log phê duyệt theo stage, action hoặc thông tin người duyệt
   const leaderLog = approvalSteps.find((s: any) => 
     s.stage === 'PENDING_LEADER' || 
-    (s.action === 'APPROVED' && (!s.stage || s.stage === 'PENDING_LEADER'))
+    (s.action === 'APPROVED' && (!s.stage || s.stage === 'PENDING_LEADER')) ||
+    (s.actorName && (s.actorName.toLowerCase().includes('lead') || s.note?.toLowerCase().includes('leader')))
   );
+
   const hrLog = approvalSteps.find((s: any) => 
     s.stage === 'PENDING_HR' || 
     s.action === 'HR_FIRM_APPROVED' || 
     s.action === 'PURCHASE_FULFILLED' ||
     s.stage === 'PENDING_HR_PURCHASE' ||
-    (s.action === 'APPROVED' && s.stage === 'PENDING_HR')
+    (s.action === 'APPROVED' && s.stage === 'PENDING_HR') ||
+    (s.actorName && (s.actorName.toLowerCase().includes('hr') || s.note?.toLowerCase().includes('hr')))
   );
+
   const accountantLog = approvalSteps.find((s: any) => 
     s.stage === 'PENDING_ACCOUNTANT' || 
     s.stage === 'PENDING_DISBURSEMENT' ||
     s.action === 'DISBURSED' ||
     s.action === 'DISBURSED_TO_HR' ||
-    s.action === 'FORWARD_ADMIN'
+    s.action === 'FORWARD_ADMIN' ||
+    (s.actorName && (s.actorName.toLowerCase().includes('kế toán') || s.actorName.toLowerCase().includes('accountant')))
   );
+
   const adminLog = approvalSteps.find((s: any) => 
     s.stage === 'PENDING_ADMIN' || 
-    (s.actorName && (s.actorName.includes('Ban Giám Đốc') || s.actorName.includes('Admin')))
+    (s.actorName && (s.actorName.toLowerCase().includes('giám đốc') || s.actorName.toLowerCase().includes('admin')))
   );
 
-  const isLeaderDone = Boolean(leaderLog || ['PENDING_HR', 'PENDING_ACCOUNTANT', 'PENDING_ADMIN', 'PENDING_HR_PURCHASE', 'PURCHASE_FULFILLED', 'DISBURSED', 'PAID', 'COMPLETED'].includes(stage) || isApproved);
-  const isLeaderCurrent = !isLeaderDone && request.status === 'PENDING' && (stage === 'PENDING_LEADER' || !stage);
-  const isLeaderRejected = isRejected && (stage === 'PENDING_LEADER' || !stage);
+  // Xác định trạng thái của từng bước
+  const isLeaderDone = Boolean(
+    leaderLog || 
+    ['PENDING_HR', 'PENDING_ACCOUNTANT', 'PENDING_ADMIN', 'PENDING_HR_PURCHASE', 'PURCHASE_FULFILLED', 'DISBURSED', 'PAID', 'COMPLETED'].includes(stage) || 
+    isApproved
+  );
+  const isLeaderCurrent = !isLeaderDone && !isRejected && (stage === 'PENDING_LEADER' || stage === 'PENDING');
+  const isLeaderRejected = isRejected && (stage === 'PENDING_LEADER' || stage === 'PENDING');
 
-  const isHrDone = Boolean(hrLog || ['PENDING_ACCOUNTANT', 'PENDING_ADMIN', 'PENDING_HR_PURCHASE', 'PURCHASE_FULFILLED', 'DISBURSED', 'PAID', 'COMPLETED'].includes(stage) || (isApproved && isLeaderDone));
-  const isHrCurrent = !isHrDone && request.status === 'PENDING' && stage === 'PENDING_HR';
+  const isHrDone = Boolean(
+    hrLog || 
+    ['PENDING_ACCOUNTANT', 'PENDING_ADMIN', 'PENDING_HR_PURCHASE', 'PURCHASE_FULFILLED', 'DISBURSED', 'PAID', 'COMPLETED'].includes(stage) || 
+    (isApproved && isLeaderDone)
+  );
+  const isHrCurrent = isLeaderDone && !isHrDone && !isRejected && stage === 'PENDING_HR';
   const isHrRejected = isRejected && stage === 'PENDING_HR';
 
   const hasVat = Boolean(meta.hasVat || (request as any).hasVat);
@@ -66,12 +98,20 @@ export const ApprovalProgressLine: React.FC<ApprovalProgressLineProps> = ({
     (!hasVat && reqAmount > 2000000)
   );
 
-  const isAccDone = Boolean(accountantLog || ['DISBURSED', 'PAID', 'COMPLETED', 'PENDING_HR_PURCHASE', 'PURCHASE_FULFILLED'].includes(stage) || (isApproved && isHrDone));
-  const isAccCurrent = !isAccDone && request.status === 'PENDING' && ['PENDING_ACCOUNTANT', 'PENDING_DISBURSEMENT'].includes(stage);
+  const isAccDone = Boolean(
+    accountantLog || 
+    ['DISBURSED', 'PAID', 'COMPLETED', 'PENDING_HR_PURCHASE', 'PURCHASE_FULFILLED'].includes(stage) || 
+    (isApproved && (isExpense || isPurchase ? isHrDone : isLeaderDone))
+  );
+  const isAccCurrent = !isAccDone && !isRejected && ['PENDING_ACCOUNTANT', 'PENDING_DISBURSEMENT'].includes(stage);
   const isAccRejected = isRejected && ['PENDING_ACCOUNTANT', 'PENDING_DISBURSEMENT'].includes(stage);
 
-  const isAdminDone = Boolean(adminLog || ['DISBURSED', 'PAID', 'COMPLETED', 'PENDING_HR_PURCHASE', 'PURCHASE_FULFILLED'].includes(stage) || (isApproved && isHrDone));
-  const isAdminCurrent = !isAdminDone && request.status === 'PENDING' && stage === 'PENDING_ADMIN';
+  const isAdminDone = Boolean(
+    adminLog || 
+    ['DISBURSED', 'PAID', 'COMPLETED', 'PENDING_HR_PURCHASE', 'PURCHASE_FULFILLED'].includes(stage) || 
+    (isApproved && isHrDone)
+  );
+  const isAdminCurrent = !isAdminDone && !isRejected && stage === 'PENDING_ADMIN';
   const isAdminRejected = isRejected && stage === 'PENDING_ADMIN';
 
   let steps: Array<{
@@ -85,7 +125,7 @@ export const ApprovalProgressLine: React.FC<ApprovalProgressLineProps> = ({
 
   if (isPurchase) {
     const isPurchaseFulfilledDone = Boolean(stage === 'PURCHASE_FULFILLED' || (isApproved && (isAdminDone || isAccDone)));
-    const isPurchaseFulfilledCurrent = !isPurchaseFulfilledDone && request.status === 'PENDING' && stage === 'PENDING_HR_PURCHASE';
+    const isPurchaseFulfilledCurrent = !isPurchaseFulfilledDone && !isRejected && stage === 'PENDING_HR_PURCHASE';
 
     steps = [
       {
@@ -188,9 +228,9 @@ export const ApprovalProgressLine: React.FC<ApprovalProgressLineProps> = ({
                   ]}
                 >
                   {step.isDone ? (
-                    <MaterialCommunityIcons name="check" size={14} color="#16A34A" />
+                    <MaterialCommunityIcons name="check" size={15} color="#16A34A" />
                   ) : step.isCurrent ? (
-                    <MaterialCommunityIcons name="clock-outline" size={13} color="#D97706" />
+                    <MaterialCommunityIcons name="clock-outline" size={14} color="#D97706" />
                   ) : step.isRejected ? (
                     <MaterialCommunityIcons name="close" size={14} color="#DC2626" />
                   ) : (
@@ -249,7 +289,7 @@ const styles = StyleSheet.create({
   nodeCol: {
     alignItems: 'center',
     flex: 1,
-    maxWidth: 78,
+    maxWidth: 82,
   },
   nodeCircle: {
     width: 30,
@@ -322,7 +362,7 @@ const styles = StyleSheet.create({
   },
   connectorLine: {
     flex: 1,
-    height: 2,
+    height: 2.5,
     backgroundColor: '#E2E8F0',
     marginTop: 14,
     marginHorizontal: -2,
