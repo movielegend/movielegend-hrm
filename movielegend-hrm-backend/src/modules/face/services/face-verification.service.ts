@@ -262,6 +262,12 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
 
   clearUserCache(userId: string) {
     this.descriptorCache.delete(userId);
+    try {
+      const filePath = path.join(CACHE_DIR, `${userId}.json`);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch {}
   }
 
   async warmUserCache(userId: string, images: Array<{ pose: string; imageUrl: string }>): Promise<void> {
@@ -302,11 +308,19 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
           userCache = new Map();
           this.descriptorCache.set(userId, userCache);
         }
+        const diskData: Record<string, { url: string; descriptor: number[] }> = {};
         for (const item of res.descriptors) {
           const matchedImg = images.find((i) => i.pose === item.pose);
           if (matchedImg) {
             userCache.set(item.pose, { url: matchedImg.imageUrl, descriptor: item.descriptor });
+            diskData[item.pose] = {
+              url: matchedImg.imageUrl,
+              descriptor: Array.from(item.descriptor),
+            };
           }
+        }
+        if (Object.keys(diskData).length > 0) {
+          this.saveDiskDescriptors(userId, diskData);
         }
         this.logger.log(`Successfully pre-warmed ${res.descriptors.length} face descriptors for user ${userId}`);
       }
