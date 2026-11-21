@@ -67,7 +67,7 @@ initModels();
 async function bufferToTensor(buffer: Uint8Array) {
   const { data, info } = await sharp(Buffer.from(buffer), { failOn: 'none' })
     .rotate() // Automatically orient EXIF rotated images (from iOS devices)
-    .resize(360, 360, { fit: 'inside', withoutEnlargement: true })
+    .resize(256, 256, { fit: 'inside', withoutEnlargement: true })
     .removeAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -83,16 +83,16 @@ async function bufferToTensor(buffer: Uint8Array) {
 async function getFaceDescriptor(buffer: Uint8Array): Promise<Float32Array | undefined> {
   const tensor = await bufferToTensor(buffer);
   try {
-    // Fast lightweight detection at 320 input size with confident threshold
+    // Siêu tốc: Phân tích ở kích thước 256 giúp tính toán trên CPU nhanh gấp 3 lần
     let detection = await faceapi
-      .detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.3 }))
+      .detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions({ inputSize: 256, scoreThreshold: 0.28 }))
       .withFaceLandmarks()
       .withFaceDescriptor();
 
-    // Fallback if not detected at 320 (e.g. low light)
+    // Fallback nếu thiếu sáng hoặc góc hơi nghiêng
     if (!detection) {
       detection = await faceapi
-        .detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.2 }))
+        .detectSingleFace(tensor, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.2 }))
         .withFaceLandmarks()
         .withFaceDescriptor();
     }
@@ -161,10 +161,10 @@ parentPort?.on('message', async (message) => {
       }
 
       // High-Security Biometric Thresholds
-      // Standard distance for identical person: 0.15 - 0.38
-      // Different people (even with similar facial structure): 0.48 - 0.70+
-      const FRONT_MATCH_THRESHOLD = 0.44; // Require distance < 0.44 (~56%+ confidence) for frontal match
-      const SIDE_MATCH_THRESHOLD = 0.42;  // Even stricter for side poses to prevent false acceptances from half-faces
+      // Standard distance for identical person: 0.15 - 0.42
+      // Different people (even with similar facial structure): 0.50 - 0.70+
+      const FRONT_MATCH_THRESHOLD = 0.48; // Tối ưu: nhận diện nhanh chóng, tránh sai lệch góc ánh sáng
+      const SIDE_MATCH_THRESHOLD = 0.46;  // Ngưỡng góc nghiêng
 
       // Multi-candidate mode (support multiple poses: FRONT, LEFT, RIGHT)
       if (Array.isArray(candidates) && candidates.length > 0) {

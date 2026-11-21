@@ -18,7 +18,7 @@ import { FaceVerificationService } from '../face/services/face-verification.serv
 import { DepartmentScopeService } from '../phase2-policy/department-scope.service';
 import { BusinessTimeService } from '../time/business-time.service';
 import { StorageService } from '../storage/storage.service';
-import { UploadsService } from '../uploads/uploads.service';
+import { UploadsService, recentAttendanceBufferCache } from '../uploads/uploads.service';
 import { ImageProcessingService } from '../uploads/image-processing.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
@@ -274,7 +274,9 @@ export class AttendanceService {
     // await this.assertWifiAllowed(targetDepartmentId, dto.wifiSsid, dto.wifiBssid);
 
     let photoBuffer: Buffer | undefined;
-    if (dto.photoBase64 && !photo) {
+    if (dto.photoFileId && recentAttendanceBufferCache.has(dto.photoFileId)) {
+      photoBuffer = recentAttendanceBufferCache.get(dto.photoFileId)!.buffer;
+    } else if (dto.photoBase64 && !photo) {
       photoBuffer = Buffer.from(dto.photoBase64, 'base64');
     }
 
@@ -474,7 +476,9 @@ export class AttendanceService {
     // await this.assertWifiAllowed(record.departmentId, dto.wifiSsid, dto.wifiBssid);
 
     let photoBuffer: Buffer | undefined;
-    if (rawBase64 && !photo) {
+    if (dto.photoFileId && recentAttendanceBufferCache.has(dto.photoFileId)) {
+      photoBuffer = recentAttendanceBufferCache.get(dto.photoFileId)!.buffer;
+    } else if (rawBase64 && !photo) {
       const cleanBase64 = rawBase64.includes('base64,') ? rawBase64.split('base64,')[1] : rawBase64;
       photoBuffer = Buffer.from(cleanBase64, 'base64');
     }
