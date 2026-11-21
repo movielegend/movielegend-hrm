@@ -685,7 +685,7 @@ export class EmployeeRequestsService {
         }
       } catch {}
 
-      const nonFinancialTypes: EmployeeRequestType[] = [
+      const hrAccessibleTypes: EmployeeRequestType[] = [
         EmployeeRequestType.LEAVE,
         EmployeeRequestType.ATTENDANCE_ADJUSTMENT,
         EmployeeRequestType.BUSINESS_TRIP,
@@ -693,6 +693,8 @@ export class EmployeeRequestsService {
         EmployeeRequestType.EQUIPMENT,
         EmployeeRequestType.OTHER,
         EmployeeRequestType.PURCHASE,
+        EmployeeRequestType.EXPENSE,
+        EmployeeRequestType.ADVANCE,
         EmployeeRequestType.LATE_ARRIVAL,
         EmployeeRequestType.EARLY_LEAVE,
         EmployeeRequestType.SHIFT_REGISTRATION,
@@ -705,12 +707,12 @@ export class EmployeeRequestsService {
         } else {
           where = {
             departmentId,
-            type: { in: nonFinancialTypes },
+            type: { in: hrAccessibleTypes },
           };
         }
       } else {
         const orConditions: Prisma.EmployeeRequestWhereInput[] = [
-          { type: { in: nonFinancialTypes } },
+          { type: { in: hrAccessibleTypes } },
         ];
         if (ownDeptIds.length > 0) {
           orConditions.push({ departmentId: { in: ownDeptIds } });
