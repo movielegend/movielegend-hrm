@@ -21,6 +21,8 @@ interface ParsedMultipart {
   file?: ParsedFile;
 }
 
+export const recentAttendanceBufferCache = new Map<string, { buffer: Buffer; createdAt: number }>();
+
 @Injectable()
 export class UploadsService {
   constructor(
@@ -75,6 +77,17 @@ export class UploadsService {
           checksum,
         },
       });
+
+      if (purpose === UploadPurpose.ATTENDANCE) {
+        recentAttendanceBufferCache.set(record.id, { buffer: parsed.file.buffer, createdAt: Date.now() });
+        if (recentAttendanceBufferCache.size > 200) {
+          const now = Date.now();
+          for (const [k, v] of recentAttendanceBufferCache.entries()) {
+            if (now - v.createdAt > 15 * 60 * 1000) recentAttendanceBufferCache.delete(k);
+          }
+        }
+      }
+
       return toDto(record);
     } catch (error) {
       await storageEngine.delete(stored.storageKey);

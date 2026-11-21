@@ -3,6 +3,9 @@ import { PrismaService } from '../../../database/prisma.service';
 import { StorageService } from '../../storage/storage.service';
 import { Worker } from 'worker_threads';
 import * as path from 'path';
+import * as fs from 'fs';
+
+const CACHE_DIR = path.join(process.cwd(), '.cache', 'face-descriptors');
 
 export interface AttendanceFaceVerificationInput {
   userId: string;
@@ -29,6 +32,26 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
   // Cache descriptors per user and per pose (FRONT, LEFT, RIGHT)
   private descriptorCache = new Map<string, Map<string, { url: string, descriptor: Float32Array }>>();
 
+  private loadDiskDescriptors(userId: string): Record<string, { url: string; descriptor: number[] }> | null {
+    try {
+      const filePath = path.join(CACHE_DIR, `${userId}.json`);
+      if (fs.existsSync(filePath)) {
+        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      }
+    } catch {}
+    return null;
+  }
+
+  private saveDiskDescriptors(userId: string, data: Record<string, { url: string; descriptor: number[] }>) {
+    try {
+      if (!fs.existsSync(CACHE_DIR)) {
+        fs.mkdirSync(CACHE_DIR, { recursive: true });
+      }
+      const filePath = path.join(CACHE_DIR, `${userId}.json`);
+      fs.writeFileSync(filePath, JSON.stringify(data), 'utf8');
+    } catch {}
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -43,7 +66,7 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
     this.worker.on('message', (message) => {
       if (message.type === 'INIT_DONE') {
         this.workerReady = true;
-        this.logger.log('Face API Worker is ready and models loaded.');
+        this.logger.log(`Face API Worker is ready and models loaded. (Backend: ${message.backend || 'default'})`);
       } else if (message.type === 'INIT_ERROR') {
         this.logger.error('Worker failed to init models: ' + message.error);
       } else if (message.jobId) {
@@ -126,6 +149,14 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
       let userPoseCache = this.descriptorCache.get(input.userId);
       if (!userPoseCache) {
         userPoseCache = new Map();
+        const diskData = this.loadDiskDescriptors(input.userId);
+        if (diskData) {
+          for (const [pose, item] of Object.entries(diskData)) {
+            if (item && item.url && item.descriptor) {
+              userPoseCache.set(pose, { url: item.url, descriptor: new Float32Array(item.descriptor) });
+            }
+          }
+        }
         this.descriptorCache.set(input.userId, userPoseCache);
       }
 
@@ -192,14 +223,20 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
       // 3. Offload multi-pose verification to Worker Thread
       const result = await this.runWorkerVerification(targetBuffer, candidates);
 
-      // Cache newly computed descriptors per pose
-      if (Array.isArray(result.newDescriptors)) {
+      // Cache newly computed descriptors per pose (cả RAM và Disk)
+      if (Array.isArray(result.newDescriptors) && result.newDescriptors.length > 0) {
+        const diskData = this.loadDiskDescriptors(input.userId) || {};
         for (const item of result.newDescriptors) {
           const imgRecord = profile.images.find((i) => i.id === item.id || i.pose === item.pose);
           if (imgRecord) {
             userPoseCache.set(item.pose, { url: imgRecord.imageUrl, descriptor: item.descriptor });
+            diskData[item.pose] = {
+              url: imgRecord.imageUrl,
+              descriptor: Array.from(item.descriptor),
+            };
           }
         }
+        this.saveDiskDescriptors(input.userId, diskData);
       }
 
       if (result.matched) {
