@@ -39,6 +39,11 @@ export class CreateEmployeeRequestDto {
   @IsOptional()
   @IsArray()
   images?: string[];
+
+  @ApiPropertyOptional({ description: 'Đơn có hóa đơn VAT hay không' })
+  @IsOptional()
+  @IsBoolean()
+  hasVat?: boolean;
 }
 
 export class EmployeeRequestQueryDto {

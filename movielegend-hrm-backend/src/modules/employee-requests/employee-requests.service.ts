@@ -550,6 +550,7 @@ export class EmployeeRequestsService {
     const attachmentMetadata = {
       ...(typeof dto.attachmentMetadata === 'object' && dto.attachmentMetadata !== null ? dto.attachmentMetadata : {}),
       ...(Array.isArray(dto.images) && dto.images.length > 0 ? { images: dto.images } : {}),
+      ...(typeof dto.hasVat === 'boolean' ? { hasVat: dto.hasVat } : {}),
       ...(isCompensatoryWork ? { requestType: 'COMPENSATORY_WORK' } : {}),
       ...(isFinancial ? { stage: initialStage, approvalSteps: [] } : {}),
     };

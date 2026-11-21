@@ -61,6 +61,7 @@ export function LeaderApprovalScreen() {
   const [hrBankName, setHrBankName] = useState('');
   const [hrAccHolder, setHrAccHolder] = useState('');
   const [hrAdjustedAmount, setHrAdjustedAmount] = useState('');
+  const [hrHasVat, setHrHasVat] = useState(false);
   const [hrApprovalNote, setHrApprovalNote] = useState('');
   const [hrQuoteUris, setHrQuoteUris] = useState<string[]>([]);
   const [isUploadingHrQuote, setIsUploadingHrQuote] = useState(false);
@@ -267,6 +268,7 @@ export function LeaderApprovalScreen() {
   const openHrApprovalModal = () => {
     setHrAdjustedAmount(request?.amount ? String(request.amount) : '');
     const m = (typeof request?.attachmentMetadata === 'object' && request?.attachmentMetadata !== null) ? (request.attachmentMetadata as any) : {};
+    setHrHasVat(Boolean(m.hasVat));
     setHrBankAcc(m.hrBank?.bankAccount || (currentUser as any)?.bankAccount || '');
     setHrBankName(m.hrBank?.bankName || (currentUser as any)?.bankName || '');
     setHrAccHolder(m.hrBank?.accountHolder || (currentUser as any)?.profile?.fullName || (currentUser as any)?.name || '');
@@ -397,6 +399,7 @@ export function LeaderApprovalScreen() {
         accountHolder: hrAccHolder.trim() || undefined,
         adjustedAmount: finalAmount,
         amount: finalAmount,
+        hasVat: hrHasVat,
         note: hrApprovalNote.trim(),
         images: finalQuotes,
         quoteUrls: finalQuotes,
@@ -2518,6 +2521,67 @@ export function LeaderApprovalScreen() {
                   value={hrAccHolder}
                   onChangeText={setHrAccHolder}
                 />
+              </View>
+
+              {/* VAT Selection */}
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.modalInputLabel}>Hóa đơn đỏ (VAT)</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 10,
+                      backgroundColor: hrHasVat ? '#ECFDF5' : '#F8FAFC',
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: hrHasVat ? '#059669' : '#E2E8F0',
+                    }}
+                    onPress={() => setHrHasVat(true)}
+                  >
+                    <MaterialCommunityIcons 
+                      name={hrHasVat ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'} 
+                      size={18} 
+                      color={hrHasVat ? '#059669' : '#64748B'} 
+                      style={{ marginRight: 6 }} 
+                    />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: hrHasVat ? '#059669' : '#475569' }}>
+                      Có VAT
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      flex: 1,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 10,
+                      backgroundColor: !hrHasVat ? '#FFFBEB' : '#F8FAFC',
+                      borderRadius: 10,
+                      borderWidth: 1.5,
+                      borderColor: !hrHasVat ? '#D97706' : '#E2E8F0',
+                    }}
+                    onPress={() => setHrHasVat(false)}
+                  >
+                    <MaterialCommunityIcons 
+                      name={!hrHasVat ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'} 
+                      size={18} 
+                      color={!hrHasVat ? '#D97706' : '#64748B'} 
+                      style={{ marginRight: 6 }} 
+                    />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: !hrHasVat ? '#D97706' : '#475569' }}>
+                      Không VAT
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={{ fontSize: 11, color: '#64748B', marginTop: 4, lineHeight: 16 }}>
+                  {hrHasVat 
+                    ? '• Báo giá có VAT: Kế toán trưởng giải ngân trực tiếp.' 
+                    : '• Báo giá không VAT: ≤ 2.000.000đ Kế toán chi; > 2.000.000đ Ban Giám Đốc duyệt.'}
+                </Text>
               </View>
 
               <View style={{ marginTop: 12 }}>

@@ -39,6 +39,8 @@ export interface CreateEmployeeRequestPayload {
   title: string;
   content: string;
   amount?: number;
+  hasVat?: boolean;
+  images?: string[];
   attachmentMetadata?: Record<string, unknown>;
   referenceId?: string;
 }

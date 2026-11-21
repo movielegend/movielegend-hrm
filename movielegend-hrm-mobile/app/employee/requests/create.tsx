@@ -1630,6 +1630,7 @@ export default function CreateRequestScreen() {
           itemName: purchaseItemName.trim(),
           quantity: purchaseQuantity.trim(),
           neededDate: fromDate ? fromDate.toISOString() : undefined,
+          hasVat: Boolean(hasVat),
           images: uploadedUrl ? [uploadedUrl] : undefined,
         } : {}),
         ...(isBusinessTrip ? {
@@ -1738,6 +1739,7 @@ export default function CreateRequestScreen() {
           ? `Làm bù cho ngày nghỉ ${targetLeaveDate ? formatDate(targetLeaveDate) : ''}`
           : content.trim(),
         referenceId: selectedLeaveRequest?.id,
+        hasVat: (isPurchase || selectedType === 'EXPENSE') ? Boolean(hasVat) : undefined,
         ...(isFinancial && amount ? { amount: Number(amount) } : {}),
         ...(uploadedUrl ? { images: [uploadedUrl] } : (tripImages.length > 0 ? { images: tripImages } : {})),
         ...(Object.keys(attachmentMetadata).length > 0 ? { attachmentMetadata } : {})
@@ -3284,6 +3286,25 @@ export default function CreateRequestScreen() {
                 </View>
               </View>
 
+              {/* Hóa đơn VAT Card cho Mua sắm */}
+              <View style={styles.expenseVatCard}>
+                <Text style={styles.expenseVatCardTitle}>Hóa đơn đỏ (VAT)</Text>
+                <Pressable 
+                  style={styles.expenseVatDropdown}
+                  onPress={() => setShowVatModal(true)}
+                >
+                  <Text style={styles.expenseVatDropdownText}>
+                    {hasVat ? 'Có VAT' : 'Không VAT'}
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                </Pressable>
+                <Text style={styles.expenseVatCardNote}>
+                  {hasVat 
+                    ? 'Có hóa đơn VAT: Leader duyệt ➔ HR báo giá ➔ Kế toán giải ngân.' 
+                    : 'Không VAT: ≤ 2 triệu Kế toán giải ngân; > 2 triệu Ban Giám Đốc duyệt.'}
+                </Text>
+              </View>
+
               {/* Quy trình duyệt Mua sắm */}
               <View style={styles.approvalWorkflowBanner}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
@@ -3293,7 +3314,9 @@ export default function CreateRequestScreen() {
                   </Text>
                 </View>
                 <Text style={styles.approvalWorkflowSubtitle}>
-                  1. Leader PB duyệt ➔ 2. Kế toán duyệt ➔ 3. HR nhận đơn mua hàng
+                  {hasVat 
+                    ? '1. Leader PB duyệt ➔ 2. HR đối chứng báo giá ➔ 3. Kế toán giải ngân'
+                    : '1. Leader PB duyệt ➔ 2. HR đối chứng báo giá ➔ 3. Kế toán / BGĐ duyệt'}
                 </Text>
               </View>
             </>
