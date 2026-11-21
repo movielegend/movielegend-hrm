@@ -66,7 +66,7 @@ export class FaceVerificationService implements OnModuleInit, OnModuleDestroy {
     this.worker.on('message', (message) => {
       if (message.type === 'INIT_DONE') {
         this.workerReady = true;
-        this.logger.log('Face API Worker is ready and models loaded.');
+        this.logger.log(`Face API Worker is ready and models loaded. (Backend: ${message.backend || 'default'})`);
       } else if (message.type === 'INIT_ERROR') {
         this.logger.error('Worker failed to init models: ' + message.error);
       } else if (message.jobId) {

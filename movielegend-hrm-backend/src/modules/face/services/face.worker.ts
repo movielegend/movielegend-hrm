@@ -8,6 +8,8 @@ const originalRequire = (Module as any).prototype.require;
   return originalRequire.apply(this, arguments);
 };
 
+import * as tf from '@tensorflow/tfjs';
+import * as wasm from '@tensorflow/tfjs-backend-wasm';
 import * as faceapi from '@vladmandic/face-api';
 import * as path from 'path';
 import sharp from 'sharp';
@@ -50,13 +52,22 @@ const descriptorCache = new Map<string, { url: string, descriptor: Float32Array 
 
 async function initModels() {
   try {
+    try {
+      const wasmDir = path.dirname(require.resolve('@tensorflow/tfjs-backend-wasm')) + path.sep;
+      wasm.setWasmPaths(wasmDir);
+      await tf.setBackend('wasm');
+      await tf.ready();
+    } catch (wasmErr) {
+      console.warn('Could not set wasm backend, falling back to cpu:', wasmErr);
+    }
+
     await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri('http://localhost/models'),
       faceapi.nets.faceLandmark68Net.loadFromUri('http://localhost/models'),
       faceapi.nets.faceRecognitionNet.loadFromUri('http://localhost/models')
     ]);
     modelsLoaded = true;
-    parentPort?.postMessage({ type: 'INIT_DONE' });
+    parentPort?.postMessage({ type: 'INIT_DONE', backend: tf.getBackend() });
   } catch (error) {
     parentPort?.postMessage({ type: 'INIT_ERROR', error: (error as Error).message });
   }
